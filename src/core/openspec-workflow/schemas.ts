@@ -2,15 +2,43 @@ import { z } from 'zod';
 
 import type {
   BusinessModule,
+  BusinessModuleId,
+  ChangeId,
   ChangeIndexEntry,
   ChangeMetadata,
+  ChangeMode,
+  ChangeStatus,
+  ModuleOutcome,
   RequirementDelta,
   RequirementRef,
+  RequirementId,
   WorkspaceConfig,
 } from './types.js';
 
 const nonEmptyString = z.string().min(1);
 const isoDateTime = z.string().datetime({ offset: true });
+const relativePathString = z.string().min(1).refine(
+  (value) =>
+    !value.includes('\0') &&
+    !value.startsWith('/') &&
+    !value.split(/[\\/]+/).some((segment) => segment === '..'),
+  {
+    message: 'must be a relative path under the change workspace',
+  }
+);
+
+const businessModuleIdSchema = z.string().regex(/^MOD-\d{3}$/, {
+  message: 'must match MOD-###',
+});
+const requirementIdSchema = z.string().regex(/^MOD-\d{3}-REQ-\d{3}$/, {
+  message: 'must match MOD-###-REQ-###',
+});
+const changeIdSchema = z.string().regex(/^CHG-\d{8}-\d{3}$/, {
+  message: 'must match CHG-YYYYMMDD-NNN',
+});
+const scenarioIdSchema = z.string().regex(/^SCN-\d{3}$/, {
+  message: 'must match SCN-###',
+});
 const changeModeSchema = z.enum(['feature', 'bugfix', 'refactor']);
 const changeStatusSchema = z.enum([
   'ANALYZE',
@@ -23,16 +51,18 @@ const changeStatusSchema = z.enum([
   'ABANDONED',
 ]);
 const taskStatusSchema = z.enum(['TODO', 'IN_PROGRESS', 'DONE', 'BLOCKED']);
+const moduleOutcomeSchema = z.enum(['OWNED', 'DEPENDENCY', 'IRRELEVANT']);
 
 const requirementRefSchema = z
   .object({
-    id: nonEmptyString,
-    module: nonEmptyString,
+    id: requirementIdSchema,
+    module: businessModuleIdSchema,
   })
   .strict();
 
 const scenarioSchema = z
   .object({
+    id: scenarioIdSchema,
     given: z.array(nonEmptyString),
     when: z.array(nonEmptyString),
     then: z.array(nonEmptyString),
@@ -84,11 +114,43 @@ const workspaceConfigSchema = z
 
 const businessModuleSchema = z
   .object({
-    id: nonEmptyString,
+    id: businessModuleIdSchema,
     name: nonEmptyString,
     description: nonEmptyString.optional(),
     responsibilities: z.array(nonEmptyString).min(1),
     keywords: z.array(nonEmptyString).min(1),
+  })
+  .strict();
+
+const moduleBaselineSchema = z
+  .object({
+    outcome: moduleOutcomeSchema,
+    latest_change: changeIdSchema.nullable(),
+    requirement_ids: z.array(requirementIdSchema),
+  })
+  .strict();
+
+const changeRelationListSchema = z.array(changeIdSchema);
+const gateSchema = z
+  .object({
+    required: z.boolean(),
+    satisfied: z.boolean(),
+  })
+  .strict();
+
+const moduleSelectionSchema = z
+  .object({
+    module: businessModuleIdSchema,
+    outcome: moduleOutcomeSchema,
+    reason: nonEmptyString,
+  })
+  .strict();
+
+const dependencyModuleSelectionSchema = z
+  .object({
+    module: businessModuleIdSchema,
+    outcome: z.literal('DEPENDENCY'),
+    reason: nonEmptyString,
   })
   .strict();
 
@@ -97,7 +159,7 @@ const changeMetadataSchema = z
     schema_version: z.literal(1),
     change: z
       .object({
-        id: nonEmptyString,
+        id: changeIdSchema,
         revision: z.number().int().min(1),
         title: nonEmptyString,
         mode: changeModeSchema,
@@ -106,26 +168,43 @@ const changeMetadataSchema = z
         updated_at: isoDateTime,
       })
       .strict(),
+    impact: z
+      .object({
+        summary: nonEmptyString,
+        mode: changeModeSchema,
+        scope: z.enum(['single-module', 'cross-module']),
+      })
+      .strict(),
     baseline: z
       .object({
         created_at: isoDateTime.nullable(),
         stale: z.boolean(),
-        modules: z.record(z.string(), z.unknown()),
+        modules: z.record(businessModuleIdSchema, moduleBaselineSchema),
       })
       .strict(),
     relations: z
       .object({
-        depends_on: z.array(nonEmptyString),
-        related_to: z.array(nonEmptyString),
-        conflicts_with: z.array(nonEmptyString),
-        supersedes: z.array(nonEmptyString),
+        depends_on: changeRelationListSchema,
+        related_to: changeRelationListSchema,
+        conflicts_with: changeRelationListSchema,
+        supersedes: changeRelationListSchema,
+      })
+      .strict(),
+    gates: z
+      .object({
+        analyze: gateSchema,
+        design: gateSchema,
+        plan: gateSchema,
+        implement: gateSchema,
+        verify: gateSchema,
+        archive: gateSchema,
       })
       .strict(),
     modules: z
       .object({
-        candidates: z.array(nonEmptyString),
-        confirmed: z.array(nonEmptyString),
-        dependencies: z.array(nonEmptyString),
+        candidates: z.array(moduleSelectionSchema),
+        confirmed: z.array(moduleSelectionSchema),
+        dependencies: z.array(dependencyModuleSelectionSchema),
       })
       .strict(),
     requirements: z
@@ -133,6 +212,16 @@ const changeMetadataSchema = z
         added: z.array(requirementRefSchema),
         modified: z.array(requirementRefSchema),
         removed: z.array(requirementRefSchema),
+      })
+      .strict(),
+    artifacts: z
+      .object({
+        metadata: relativePathString,
+        proposal: relativePathString,
+        design: relativePathString,
+        spec: relativePathString,
+        tasks: relativePathString,
+        verification: relativePathString,
       })
       .strict(),
     tasks: z
@@ -171,7 +260,7 @@ const changeMetadataSchema = z
 
 const changeIndexEntrySchema = z
   .object({
-    id: nonEmptyString,
+    id: changeIdSchema,
     title: nonEmptyString,
     mode: changeModeSchema,
     status: changeStatusSchema,
@@ -181,8 +270,8 @@ const changeIndexEntrySchema = z
 
 const requirementDeltaSchema = z
   .object({
-    id: nonEmptyString,
-    module: nonEmptyString,
+    id: requirementIdSchema,
+    module: businessModuleIdSchema,
     action: z.enum(['ADDED', 'MODIFIED', 'REMOVED']),
     previous: nonEmptyString.optional(),
     next: nonEmptyString.optional(),
@@ -271,4 +360,16 @@ export function parseRequirementDelta(value: unknown): RequirementDelta {
   return parseWithSchema('requirement delta', requirementDeltaSchema, value);
 }
 
-export type { WorkspaceConfig, BusinessModule, ChangeMetadata, ChangeIndexEntry, RequirementRef };
+export type {
+  WorkspaceConfig,
+  BusinessModule,
+  BusinessModuleId,
+  ChangeId,
+  ChangeIndexEntry,
+  ChangeMetadata,
+  ChangeMode,
+  ChangeStatus,
+  ModuleOutcome,
+  RequirementId,
+  RequirementRef,
+};

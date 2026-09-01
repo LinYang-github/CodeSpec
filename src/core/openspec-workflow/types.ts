@@ -1,3 +1,19 @@
+export type BusinessModuleId = `MOD-${string}`;
+export type RequirementId = `MOD-${string}-REQ-${string}`;
+export type ChangeId = `CHG-${string}-${string}`;
+export type ScenarioId = `SCN-${string}`;
+export type ModuleOutcome = 'OWNED' | 'DEPENDENCY' | 'IRRELEVANT';
+export type ChangeMode = 'feature' | 'bugfix' | 'refactor';
+export type ChangeStatus =
+  | 'ANALYZE'
+  | 'DESIGN'
+  | 'PLAN'
+  | 'IMPLEMENT'
+  | 'VERIFY'
+  | 'ARCHIVE'
+  | 'ARCHIVED'
+  | 'ABANDONED';
+
 export interface WorkspaceConfig {
   version: 1;
   project: {
@@ -28,7 +44,7 @@ export interface WorkspaceConfig {
 }
 
 export interface BusinessModule {
-  id: string;
+  id: BusinessModuleId;
   name: string;
   description?: string;
   responsibilities: string[];
@@ -36,11 +52,12 @@ export interface BusinessModule {
 }
 
 export interface RequirementRef {
-  id: string;
-  module: string;
+  id: RequirementId;
+  module: BusinessModuleId;
 }
 
 export interface Scenario {
+  id: ScenarioId;
   given: string[];
   when: string[];
   then: string[];
@@ -57,42 +74,92 @@ export interface RequirementDelta extends RequirementRef {
 export interface ChangeMetadata {
   schema_version: 1;
   change: {
-    id: string;
+    id: ChangeId;
     revision: number;
     title: string;
-    mode: 'feature' | 'bugfix' | 'refactor';
-    status:
-      | 'ANALYZE'
-      | 'DESIGN'
-      | 'PLAN'
-      | 'IMPLEMENT'
-      | 'VERIFY'
-      | 'ARCHIVE'
-      | 'ARCHIVED'
-      | 'ABANDONED';
+    mode: ChangeMode;
+    status: ChangeStatus;
     created_at: string;
     updated_at: string;
+  };
+  impact: {
+    summary: string;
+    mode: ChangeMode;
+    scope: 'single-module' | 'cross-module';
   };
   baseline: {
     created_at: string | null;
     stale: boolean;
-    modules: Record<string, unknown>;
+    modules: Record<
+      BusinessModuleId,
+      {
+        outcome: ModuleOutcome;
+        latest_change: ChangeId | null;
+        requirement_ids: RequirementId[];
+      }
+    >;
   };
   relations: {
-    depends_on: string[];
-    related_to: string[];
-    conflicts_with: string[];
-    supersedes: string[];
+    depends_on: ChangeId[];
+    related_to: ChangeId[];
+    conflicts_with: ChangeId[];
+    supersedes: ChangeId[];
+  };
+  gates: {
+    analyze: {
+      required: boolean;
+      satisfied: boolean;
+    };
+    design: {
+      required: boolean;
+      satisfied: boolean;
+    };
+    plan: {
+      required: boolean;
+      satisfied: boolean;
+    };
+    implement: {
+      required: boolean;
+      satisfied: boolean;
+    };
+    verify: {
+      required: boolean;
+      satisfied: boolean;
+    };
+    archive: {
+      required: boolean;
+      satisfied: boolean;
+    };
   };
   modules: {
-    candidates: string[];
-    confirmed: string[];
-    dependencies: string[];
+    candidates: Array<{
+      module: BusinessModuleId;
+      outcome: ModuleOutcome;
+      reason: string;
+    }>;
+    confirmed: Array<{
+      module: BusinessModuleId;
+      outcome: ModuleOutcome;
+      reason: string;
+    }>;
+    dependencies: Array<{
+      module: BusinessModuleId;
+      outcome: Extract<ModuleOutcome, 'DEPENDENCY'>;
+      reason: string;
+    }>;
   };
   requirements: {
     added: RequirementRef[];
     modified: RequirementRef[];
     removed: RequirementRef[];
+  };
+  artifacts: {
+    metadata: string;
+    proposal: string;
+    design: string;
+    spec: string;
+    tasks: string;
+    verification: string;
   };
   tasks: {
     total: number;
@@ -120,7 +187,7 @@ export interface ChangeMetadata {
 }
 
 export interface ChangeIndexEntry {
-  id: string;
+  id: ChangeId;
   title: string;
   mode: ChangeMetadata['change']['mode'];
   status: ChangeMetadata['change']['status'];
