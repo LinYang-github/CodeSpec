@@ -35,7 +35,8 @@ describe('canonical OpenSpec workflow journeys', () => {
         await createCanonicalChange(fixture.workspace, { title, summary: title, mode: 'feature' });
       }
       await expect(resolveChange(fixture.workspace, { text: '订单' })).rejects.toThrow(/Multiple active Changes/i);
-      await expect(resolveChange(fixture.workspace, { id: 'CHG-20260901-001' })).resolves.toMatchObject({ reason: 'explicit_id' });
+      const firstChange = await resolveChange(fixture.workspace, { text: '订单支付' });
+      await expect(resolveChange(fixture.workspace, { id: firstChange.changeId })).resolves.toMatchObject({ reason: 'explicit_id' });
     } finally {
       fixture.cleanup();
     }

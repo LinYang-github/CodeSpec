@@ -1,6 +1,6 @@
 import path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 import { loadWorkspace } from '../../../src/core/openspec-workflow/loaders.js';
@@ -51,6 +51,8 @@ describe('openspec workflow change management', () => {
   });
 
   it('creates a canonical Change with metadata, artifacts, and navigation index entry', async () => {
+    vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'));
+    afterEach(() => vi.useRealTimers());
     const { fixture, workspace } = await loadCanonicalWorkspace();
 
     const created = await createCanonicalChange(workspace, {
@@ -59,7 +61,7 @@ describe('openspec workflow change management', () => {
       mode: 'feature',
     });
 
-    expect(created.changeId).toBe('CHG-20260901-001');
+    expect(created.changeId).toMatch(/^CHG-\d{8}-001$/);
     await expect(fs.stat(path.join(fixture.paths.changes, created.changeId))).resolves.toMatchObject({
       isDirectory: expect.any(Function),
     });
@@ -74,7 +76,7 @@ describe('openspec workflow change management', () => {
       changes: Array<{ id: string; title: string; status: string }>;
     };
     expect(index.changes).toContainEqual({
-      id: 'CHG-20260901-001',
+      id: created.changeId,
       title: 'Continue orders',
       mode: 'feature',
       status: 'ANALYZE',
@@ -238,9 +240,12 @@ describe('openspec workflow change management', () => {
   });
 
   it('preserves an existing destination Change when publish collides after allocation', async () => {
+    vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'));
+    afterEach(() => vi.useRealTimers());
     const { fixture, workspace } = await loadCanonicalWorkspace();
-    const collidingChangeDir = path.join(fixture.paths.changes, 'CHG-20260901-001');
-    const stagingDir = path.join(fixture.paths.changes, '.CHG-20260901-001.tmp');
+    const allocatedId = await allocateChangeId(fixture.paths, new Date().toISOString().slice(0, 10).replace(/-/g, ''));
+    const collidingChangeDir = path.join(fixture.paths.changes, allocatedId);
+    const stagingDir = path.join(fixture.paths.changes, `.${allocatedId}.tmp`);
 
     __setChangeManagerTestHooksForTests({
       beforePublishRename: async () => {

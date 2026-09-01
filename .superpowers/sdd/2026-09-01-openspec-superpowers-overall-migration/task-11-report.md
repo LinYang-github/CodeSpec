@@ -28,3 +28,13 @@ Escalated focused run: `version-check.test.ts` passed all 48 tests; `declared-st
 - Targeted parity: 39/39 tests passed.
 - Escalated verification: lint passed; build passed; 4,308/4,311 repository tests passed. The 48 version-check tests passed with loopback access, so no EPERM listener failures remained. Three date-sensitive workflow tests failed because the environment date is 2026-09-02 while fixtures expect 2026-09-01; no legacy fallback was restored and no tests were skipped.
 - `git diff --check`: passed.
+
+## Remediation round 4 results
+
+- Root cause: three tests hard-coded `CHG-20260901-001` while production allocation correctly follows the local current date:
+  - `canonical OpenSpec workflow journeys > supports multiple active Changes but rejects ambiguous semantic selection` (`test/cli-e2e/openspec-workflow-journeys.test.ts`)
+  - `openspec workflow change management > creates a canonical Change with metadata, artifacts, and navigation index entry` (`test/core/openspec-workflow/change-manager.test.ts`)
+  - `openspec workflow change management > preserves an existing destination Change when publish collides after allocation` (`test/core/openspec-workflow/change-manager.test.ts`)
+- Made the tests deterministic without changing migration behavior: the journey derives the explicit ID from the created Change; the two date-sensitive manager tests inject a fixed `2026-09-01` clock, and collision paths derive the allocated ID.
+- Focused regression run: 11/11 tests passed.
+- Final escalated verification command `pnpm lint && pnpm build && pnpm generate:skills && pnpm test && git diff --check`: lint passed, build passed, 13 skills generated, 159 test files and 4,311/4,311 tests passed, including `version-check.test.ts` 48/48 with loopback access, and diff-check passed.
