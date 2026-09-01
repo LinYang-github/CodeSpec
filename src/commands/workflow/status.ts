@@ -101,7 +101,9 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       if (!/^CHG-\d{8}-\d{3}$/.test(changeName)) return null;
       const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
       const metadataPath = path.join(openspecDir, 'changes', changeName, 'metadata.yaml');
-      if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) return null;
+      if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
+        throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
+      }
       {
         const workspace = await loadWorkspace(openspecDir);
         const artifacts = await loadChangeArtifacts(workspace.paths, changeName);

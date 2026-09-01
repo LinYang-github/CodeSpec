@@ -19,7 +19,8 @@ export function validateExitGate(_workspace: WorkspaceContext, artifacts: Change
     if (!m.gates.design.satisfied) errors.push('design gate is not satisfied');
     const confirmed = new Set(m.modules.confirmed.map((x) => x.module));
     for (const ref of [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed]) if (!confirmed.has(ref.module)) errors.push(`Requirement ${ref.id} has no confirmed module`);
-    if (m.requirements.added.length + m.requirements.modified.length + m.requirements.removed.length > 0 && !new RegExp(m.requirements.added.concat(m.requirements.modified, m.requirements.removed).map((x) => x.id).join('|')).test(artifacts.design)) errors.push('design Requirement consistency is not satisfied');
+    const requirementIds = m.requirements.added.concat(m.requirements.modified, m.requirements.removed).map((x) => x.id);
+    if (requirementIds.length > 0 && requirementIds.some((id) => !artifacts.design.includes(id))) errors.push('design Requirement consistency is not satisfied');
   }
   if (target === 'PLAN') {
     if (m.tasks.total === 0 || Object.keys(m.tasks.items).length === 0) errors.push('a concrete task graph is required');

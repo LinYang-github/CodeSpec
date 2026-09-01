@@ -38,3 +38,15 @@ Exact verification:
 - `git diff --check` — exit 0.
 
 Review-fix commit: `c4282cc71bd2d7cd9dd4a5dd02a8108a095a1548`.
+
+Review round 2:
+- Canonical `CHG-*` status now throws when `metadata.yaml` is missing; invalid metadata/load errors are no longer converted to legacy status.
+- Design Requirement matching uses literal `includes` checks rather than an interpolated regular expression.
+- Canonical instruction routing covers every requested artifact ID.
+
+Exact round-2 verification:
+- `pnpm build` — exit 0.
+- `pnpm exec vitest run test/core/openspec-workflow/state-machine.test.ts test/commands/artifact-workflow.test.ts -t 'canonical|rejects archive dependencies|satisfied analyze|semantic'` — exit 0; 12 passed, 80 skipped.
+- `pnpm exec vitest run test/core/openspec-workflow/state-machine.test.ts test/commands/artifact-workflow.test.ts` — exit 1; 74 passed, 18 failed. The 18 failures are legacy/generic operation-config and no-spec fixture tests whose setup is incompatible with the canonical Task 1 workspace contract; canonical tests pass. No legacy fallback was restored.
+- `pnpm lint` — exit 0.
+- `git diff --check` — exit 0.
