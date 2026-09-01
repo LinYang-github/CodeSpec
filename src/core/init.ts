@@ -91,6 +91,28 @@ const { version: OPENSPEC_VERSION } = require('../../package.json');
 // -----------------------------------------------------------------------------
 
 const DEFAULT_SCHEMA = 'spec-driven';
+const DEFAULT_WORKSPACE_CONFIG = [
+  'version: 1',
+  'project:',
+  '  name: demo',
+  'paths:',
+  '  business: business.md',
+  '  changes: changes',
+  '  change_index: changes/index.yaml',
+  '  archive: archive',
+  '  specs: archive/specs',
+  '  archived_changes: archive/changes',
+  'workflow:',
+  '  multiple_active_changes: true',
+  'requirements:',
+  '  id_format: {module}-REQ-{sequence:03d}',
+  'changes:',
+  '  id_format: CHG-{date}-{sequence:03d}',
+  'archive:',
+  '  update_index: true',
+  '  require_verification: true',
+  '  conflict_strategy: optimistic',
+].join('\n');
 
 function formatLanguageContext(language: string): string {
   return [
@@ -856,35 +878,14 @@ export class InitCommand {
   // ═══════════════════════════════════════════════════════════
 
   private async createDirectoryStructure(openspecPath: string, extendMode: boolean): Promise<void> {
+    const projectRoot = path.dirname(openspecPath);
     if (extendMode) {
-      // In extend mode, just ensure directories exist without spinner
-      const directories = [
-        openspecPath,
-        path.join(openspecPath, 'specs'),
-        path.join(openspecPath, 'changes'),
-        path.join(openspecPath, 'changes', 'archive'),
-      ];
-
-      for (const dir of directories) {
-        FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), dir);
-        await FileSystemUtils.createDirectory(dir);
-      }
+      await initializeCodeSpecWorkspace(projectRoot);
       return;
     }
 
     const spinner = this.startSpinner('Creating OpenSpec structure...');
-
-    const directories = [
-      openspecPath,
-      path.join(openspecPath, 'specs'),
-      path.join(openspecPath, 'changes'),
-      path.join(openspecPath, 'changes', 'archive'),
-    ];
-
-    for (const dir of directories) {
-      FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), dir);
-      await FileSystemUtils.createDirectory(dir);
-    }
+    await initializeCodeSpecWorkspace(projectRoot);
 
     spinner.stopAndPersist({
       symbol: PALETTE.white('▌'),
@@ -1116,10 +1117,12 @@ export class InitCommand {
 
 
     try {
-      const yamlContent = serializeConfig({
-        schema: DEFAULT_SCHEMA,
-        context: this.languageContext(),
-      });
+      const yamlContent = this.languageContext()
+        ? serializeConfig({
+            schema: DEFAULT_SCHEMA,
+            context: this.languageContext(),
+          })
+        : `${DEFAULT_WORKSPACE_CONFIG}\n`;
       FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
       await FileSystemUtils.writeFile(configPath, yamlContent);
       return 'created';
@@ -1488,5 +1491,39 @@ export class InitCommand {
     }
 
     return removed;
+  }
+}
+
+export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<void> {
+  const openspecPath = path.join(projectRoot, OPENSPEC_DIR_NAME);
+  const directories = [
+    openspecPath,
+    path.join(openspecPath, 'changes'),
+    path.join(openspecPath, 'archive'),
+    path.join(openspecPath, 'archive', 'specs'),
+    path.join(openspecPath, 'archive', 'changes'),
+  ];
+
+  for (const dir of directories) {
+    FileSystemUtils.assertProjectArtifactPath(projectRoot, dir);
+    await FileSystemUtils.createDirectory(dir);
+  }
+
+  const defaultFiles = [
+    {
+      path: path.join(openspecPath, 'business.md'),
+      content: ['# Business', '', '| Module ID | Module Name | Description | Responsibilities | Keywords |', '| --- | --- | --- | --- | --- |', ''].join('\n'),
+    },
+    {
+      path: path.join(openspecPath, 'changes', 'index.yaml'),
+      content: 'version: 1\nchanges: []\n',
+    },
+  ];
+
+  for (const file of defaultFiles) {
+    FileSystemUtils.assertProjectArtifactPath(projectRoot, file.path);
+    if (!fs.existsSync(file.path)) {
+      await FileSystemUtils.writeFile(file.path, file.content);
+    }
   }
 }

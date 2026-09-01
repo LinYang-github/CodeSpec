@@ -560,13 +560,17 @@ export function readStorePointer(projectRoot: string): StorePointerRead {
 }
 
 /** Shared .yaml/.yml probe used by readProjectConfig and readStorePointer. */
-export function resolveConfigFilePath(projectRoot: string): string | null {
-  const yamlPath = path.join(projectRoot, 'openspec', 'config.yaml');
+export function resolveOpenSpecConfigFilePath(openspecDir: string): string | null {
+  const yamlPath = path.join(openspecDir, 'config.yaml');
   if (existsSync(yamlPath)) {
     return yamlPath;
   }
-  const ymlPath = path.join(projectRoot, 'openspec', 'config.yml');
+  const ymlPath = path.join(openspecDir, 'config.yml');
   return existsSync(ymlPath) ? ymlPath : null;
+}
+
+export function resolveConfigFilePath(projectRoot: string): string | null {
+  return resolveOpenSpecConfigFilePath(path.join(projectRoot, 'openspec'));
 }
 
 /** Human rendering of a malformed pointer reason, shared by every surface. */

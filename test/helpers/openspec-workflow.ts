@@ -1,10 +1,11 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { stringify as stringifyYaml } from 'yaml';
 
 import { getWorkspacePaths } from '../../src/core/openspec-workflow/paths.js';
 import { parseWorkspaceConfig } from '../../src/core/openspec-workflow/schemas.js';
-import type { WorkspaceConfig } from '../../src/core/openspec-workflow/types.js';
+import type { ChangeMetadata, WorkspaceConfig } from '../../src/core/openspec-workflow/types.js';
 import { cleanupTempPath } from './temp-cleanup.js';
 
 export interface WorkflowFixture {
@@ -17,7 +18,7 @@ export interface WorkflowFixture {
   };
   changeId: string;
   latestSpecs: string[];
-  metadataAt: string;
+  metadataAt: (status: ChangeMetadata['change']['status']) => ChangeMetadata;
   cleanup: () => void;
 }
 
@@ -42,20 +43,171 @@ const DEFAULT_CONFIG: WorkspaceConfig = parseWorkspaceConfig({
   },
 });
 
-export async function createWorkflowFixture(): Promise<WorkflowFixture> {
+function mergeWorkspaceConfig(
+  base: WorkspaceConfig,
+  overrides: Partial<WorkspaceConfig> | undefined
+): WorkspaceConfig {
+  if (!overrides) {
+    return base;
+  }
+
+  return parseWorkspaceConfig({
+    ...base,
+    ...overrides,
+    project: {
+      ...base.project,
+      ...overrides.project,
+    },
+    paths: {
+      ...base.paths,
+      ...overrides.paths,
+    },
+    workflow: {
+      ...base.workflow,
+      ...overrides.workflow,
+    },
+    requirements: {
+      ...base.requirements,
+      ...overrides.requirements,
+    },
+    changes: {
+      ...base.changes,
+      ...overrides.changes,
+    },
+    archive: {
+      ...base.archive,
+      ...overrides.archive,
+    },
+  });
+}
+
+function buildMetadata(
+  fixture: Pick<WorkflowFixture, 'changeId' | 'paths'>,
+  status: ChangeMetadata['change']['status'],
+  overrides?: Partial<ChangeMetadata>
+): ChangeMetadata {
+  const timestamp = new Date('2026-09-01T00:00:00.000Z').toISOString();
+  return {
+    schema_version: 1,
+    change: {
+      id: fixture.changeId,
+      revision: 1,
+      title: 'Demo change',
+      mode: 'feature',
+      status,
+      created_at: timestamp,
+      updated_at: timestamp,
+      ...overrides?.change,
+    },
+    impact: {
+      summary: 'Introduce a canonical workflow fixture',
+      mode: 'feature',
+      scope: 'single-module',
+      ...overrides?.impact,
+    },
+    baseline: {
+      created_at: timestamp,
+      stale: false,
+      modules: {},
+      ...overrides?.baseline,
+    },
+    relations: {
+      depends_on: [],
+      related_to: [],
+      conflicts_with: [],
+      supersedes: [],
+      ...overrides?.relations,
+    },
+    gates: {
+      analyze: { required: true, satisfied: false },
+      design: { required: true, satisfied: false },
+      plan: { required: true, satisfied: false },
+      implement: { required: true, satisfied: false },
+      verify: { required: true, satisfied: false },
+      archive: { required: true, satisfied: false },
+      ...overrides?.gates,
+    },
+    modules: {
+      candidates: [],
+      confirmed: [],
+      dependencies: [],
+      ...overrides?.modules,
+    },
+    requirements: {
+      added: [],
+      modified: [],
+      removed: [],
+      ...overrides?.requirements,
+    },
+    artifacts: {
+      metadata: path.relative(
+        fixture.paths.openspecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml')
+      ),
+      proposal: path.relative(
+        fixture.paths.openspecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'proposal.md')
+      ),
+      design: path.relative(
+        fixture.paths.openspecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'design.md')
+      ),
+      spec: path.relative(
+        fixture.paths.openspecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'spec.md')
+      ),
+      tasks: path.relative(
+        fixture.paths.openspecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'tasks.md')
+      ),
+      verification: path.relative(
+        fixture.paths.openspecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'verification.md')
+      ),
+      ...overrides?.artifacts,
+    },
+    tasks: {
+      total: 0,
+      completed: 0,
+      items: {},
+      ...overrides?.tasks,
+    },
+    verification: {
+      requirements_verified: false,
+      tests_passed: false,
+      build_passed: false,
+      lint_passed: false,
+      verified_at: null,
+      ...overrides?.verification,
+    },
+    archive: {
+      ready: false,
+      conflict: false,
+      archived_at: null,
+      ...overrides?.archive,
+    },
+  };
+}
+
+export async function createWorkflowFixture(options?: {
+  configOverrides?: Partial<WorkspaceConfig>;
+}): Promise<WorkflowFixture> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-workflow-'));
   const openspecDir = path.join(tempDir, 'openspec');
-  const paths = getWorkspacePaths(openspecDir, DEFAULT_CONFIG);
+  const config = mergeWorkspaceConfig(DEFAULT_CONFIG, options?.configOverrides);
+  const paths = getWorkspacePaths(openspecDir, config);
 
   await fs.mkdir(paths.changes, { recursive: true });
   await fs.mkdir(paths.archive, { recursive: true });
   await fs.mkdir(paths.currentSpecs, { recursive: true });
   await fs.mkdir(paths.archivedChanges, { recursive: true });
+  await fs.mkdir(path.dirname(paths.business), { recursive: true });
+  await fs.mkdir(path.dirname(paths.changeIndex), { recursive: true });
   await fs.writeFile(paths.business, '# Business\n');
   await fs.writeFile(paths.changeIndex, 'version: 1\nchanges: []\n');
+  await fs.writeFile(path.join(openspecDir, 'config.yaml'), stringifyYaml(config));
 
   const changeId = 'CHG-20260901-001';
-  const metadataAt = new Date('2026-09-01T00:00:00.000Z').toISOString();
 
   return {
     tempDir,
@@ -63,11 +215,11 @@ export async function createWorkflowFixture(): Promise<WorkflowFixture> {
     paths,
     workspace: {
       openspecDir,
-      config: DEFAULT_CONFIG,
+      config,
     },
     changeId,
     latestSpecs: [],
-    metadataAt,
+    metadataAt: (status) => buildMetadata({ changeId, paths }, status),
     cleanup: () => cleanupTempPath(tempDir),
   };
 }
@@ -111,4 +263,35 @@ export async function readCurrentRequirement(
 ): Promise<string> {
   const [moduleId] = requirementId.split('-REQ-');
   return fs.readFile(path.join(fixture.paths.currentSpecs, moduleId, 'spec.md'), 'utf8');
+}
+
+export async function writeChangeArtifacts(
+  fixture: WorkflowFixture,
+  options?: {
+    metadata?: Partial<ChangeMetadata>;
+    proposal?: string;
+    design?: string;
+    spec?: string;
+    tasks?: string;
+    verification?: string;
+  }
+): Promise<void> {
+  const changeDir = path.join(fixture.paths.changes, fixture.changeId);
+  await fs.mkdir(changeDir, { recursive: true });
+
+  const metadata = buildMetadata(
+    fixture,
+    options?.metadata?.change?.status ?? 'ANALYZE',
+    options?.metadata
+  );
+
+  await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata));
+  await fs.writeFile(path.join(changeDir, 'proposal.md'), options?.proposal ?? '# Proposal\n');
+  await fs.writeFile(path.join(changeDir, 'design.md'), options?.design ?? '# Design\n');
+  await fs.writeFile(path.join(changeDir, 'spec.md'), options?.spec ?? '# Spec\n');
+  await fs.writeFile(path.join(changeDir, 'tasks.md'), options?.tasks ?? '# Tasks\n');
+  await fs.writeFile(
+    path.join(changeDir, 'verification.md'),
+    options?.verification ?? '# Verification\n'
+  );
 }

@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { WorkspaceConfig } from './types.js';
 
 export interface WorkspacePaths {
+  openspecDir: string;
   business: string;
   changes: string;
   changeIndex: string;
@@ -35,6 +36,7 @@ function resolveConfiguredPath(openspecDir: string, configuredPath: string, labe
 
 export function getWorkspacePaths(openspecDir: string, config: WorkspaceConfig): WorkspacePaths {
   return {
+    openspecDir,
     business: resolveConfiguredPath(openspecDir, config.paths.business, 'business'),
     changes: resolveConfiguredPath(openspecDir, config.paths.changes, 'changes'),
     changeIndex: resolveConfiguredPath(openspecDir, config.paths.change_index, 'change_index'),

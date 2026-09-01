@@ -56,6 +56,24 @@ describe('InitCommand', () => {
   });
 
   describe('execute with --tools flag', () => {
+    it('should create canonical openspec workspace files without deleting legacy files', async () => {
+      const legacyFile = path.join(testDir, 'openspec', '.openspec.yaml');
+      await fs.mkdir(path.dirname(legacyFile), { recursive: true });
+      await fs.writeFile(legacyFile, 'schema: code-spec\n');
+
+      const initCommand = new InitCommand({ tools: 'none', force: true });
+
+      await initCommand.execute(testDir);
+
+      expect(await fileExists(path.join(testDir, 'openspec', 'business.md'))).toBe(true);
+      expect(await fileExists(path.join(testDir, 'openspec', 'changes', 'index.yaml'))).toBe(true);
+      expect(await directoryExists(path.join(testDir, 'openspec', 'archive', 'specs'))).toBe(true);
+      expect(await directoryExists(path.join(testDir, 'openspec', 'archive', 'changes'))).toBe(
+        true
+      );
+      expect(await fs.readFile(legacyFile, 'utf-8')).toBe('schema: code-spec\n');
+    });
+
     it('should create OpenSpec directory structure', async () => {
       const initCommand = new InitCommand({ tools: 'claude', force: true });
 
@@ -63,9 +81,9 @@ describe('InitCommand', () => {
 
       const openspecPath = path.join(testDir, 'openspec');
       expect(await directoryExists(openspecPath)).toBe(true);
-      expect(await directoryExists(path.join(openspecPath, 'specs'))).toBe(true);
       expect(await directoryExists(path.join(openspecPath, 'changes'))).toBe(true);
-      expect(await directoryExists(path.join(openspecPath, 'changes', 'archive'))).toBe(true);
+      expect(await directoryExists(path.join(openspecPath, 'archive', 'specs'))).toBe(true);
+      expect(await directoryExists(path.join(openspecPath, 'archive', 'changes'))).toBe(true);
     });
 
     it('should create config.yaml with default schema', async () => {
