@@ -83,8 +83,27 @@ export async function tryLoadCanonicalWorkspace(projectRoot: string): Promise<Wo
     throw error;
   }
 
-  const config = parseYaml(await fs.promises.readFile(configPath, 'utf8')) as Record<string, unknown>;
-  if (config?.schema !== 'code-spec') return null;
+  const raw = await fs.promises.readFile(configPath, 'utf8');
+  let config: unknown;
+  try {
+    config = parseYaml(raw);
+  } catch (error) {
+    if (/schema\s*:\s*["']?code-spec\b|paths\s*:/m.test(raw)) {
+      throw new Error(`Invalid canonical code-spec workspace config at ${configPath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return null;
+  }
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw new Error(`Invalid canonical code-spec workspace config at ${configPath}: expected a YAML object.`);
+  }
+  const record = config as Record<string, unknown>;
+  if (record.schema === 'spec-driven') return null;
+  if (record.schema !== 'code-spec') {
+    if ('paths' in record || record.version === 1) {
+      throw new Error(`Invalid canonical code-spec workspace config at ${configPath}: schema must be 'code-spec'.`);
+    }
+    return null;
+  }
   return loadWorkspace(openspecDir);
 }
 

@@ -52,13 +52,14 @@ import { parseTaskLines, type ParsedTask } from '../../utils/task-progress.js';
 import { loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
 import { renderCanonicalChangeContext, getStageAdapterGuidance, type WorkflowStage } from '../../core/templates/workflows/openspec-workflow.js';
 
-const CANONICAL_STAGES: readonly WorkflowStage[] = [
-  'analyze', 'design', 'plan', 'implement', 'new', 'continue', 'propose',
-  'apply', 'verify', 'archive', 'ff',
-];
-
 function isWorkflowStage(value: string): value is WorkflowStage {
-  return CANONICAL_STAGES.includes(value as WorkflowStage);
+  switch (value) {
+    case 'analyze': case 'design': case 'plan': case 'implement': case 'new':
+    case 'continue': case 'propose': case 'apply': case 'verify': case 'archive': case 'ff':
+      return true;
+    default:
+      return false;
+  }
 }
 
 // -----------------------------------------------------------------------------

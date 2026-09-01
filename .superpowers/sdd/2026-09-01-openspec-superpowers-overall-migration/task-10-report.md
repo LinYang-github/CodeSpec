@@ -8,6 +8,7 @@ Status: reviewed, fixed, and committed. Task 11 was not modified.
 - Review-fix commit: `c57c895`.
 - Fixture/regression-test commit: `da6c7ab`.
 - Fix round 2 commit: pending until this report update is committed.
+- Fix round 3 commit: pending until this report update is committed.
 
 ## Files
 
@@ -75,6 +76,32 @@ exit 0
 ```
 
 Concerns: full repository verification remains Task 11 scope. The required Task 10 focused and broader migration suites are green.
+
+## Fix round 3
+
+- `tryLoadCanonicalWorkspace` now structurally parses YAML, returns `null` only for absent/non-canonical generic `spec-driven` configs, and throws explicit errors for malformed or semantically invalid canonical-shaped configs.
+- Added reordered, genuinely nested/indented canonical YAML coverage and invalid-config rejection coverage.
+- Expanded stage validation without casts; generic behavior remains green.
+
+Exact verification:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/legacy-rejection.test.ts
+Test Files 1 passed (1)
+Tests 5 passed (5)
+
+pnpm build
+✅ Build completed successfully!
+
+pnpm lint
+> eslint src/
+exit 0
+
+pnpm exec vitest run test/core/openspec-workflow test/cli-e2e/openspec-workflow-journeys.test.ts test/commands/artifact-workflow.test.ts && git diff --check
+Test Files 14 passed (14)
+Tests 152 passed (152)
+exit 0
+```
 
 ## Fix round 2
 
