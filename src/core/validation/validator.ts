@@ -35,12 +35,29 @@ import { resolveTaskFilesForChange } from '../../utils/task-progress.js';
 import { findTaskNumberingIssues } from './task-numbering.js';
 import { findPurposePlaceholderIssue } from './purpose-placeholder.js';
 import { getPackageSchemasDir, getSchemaDir } from '../artifact-graph/index.js';
+import { parseDeltaSpec as parseCanonicalDeltaSpec } from '../openspec-workflow/delta-parser.js';
 
 export class Validator {
   private strictMode: boolean;
 
   constructor(strictMode: boolean = false) {
     this.strictMode = strictMode;
+  }
+
+  /** Validate the breaking-migration canonical Markdown delta DSL. */
+  validateCanonicalDelta(content: string): ValidationReport {
+    try {
+      const parsed = parseCanonicalDeltaSpec(content);
+      const issues: ValidationIssue[] = [];
+      for (const entry of parsed.entries) {
+        if ((entry.action === 'ADDED' || entry.action === 'MODIFIED') && entry.scenarios.length === 0) {
+          issues.push({ level: 'ERROR', path: entry.id, message: `${entry.action} ${entry.id} requires at least one scenario` });
+        }
+      }
+      return this.createReport(issues);
+    } catch (error) {
+      return this.createReport([{ level: 'ERROR', path: 'spec.md', message: error instanceof Error ? error.message : String(error) }]);
+    }
   }
 
   async validateSpec(filePath: string): Promise<ValidationReport> {
