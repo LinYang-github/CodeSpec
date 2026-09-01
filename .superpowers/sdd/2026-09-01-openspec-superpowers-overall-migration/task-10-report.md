@@ -5,7 +5,8 @@ Status: reviewed, fixed, and committed. Task 11 was not modified.
 ## Commit
 
 - Prior Task 10 commit: `80fff09`.
-- Review-fix commit: pending until this report update is committed.
+- Review-fix commit: `c57c895`.
+- Fixture/regression-test commit: `da6c7ab`.
 
 ## Files
 
