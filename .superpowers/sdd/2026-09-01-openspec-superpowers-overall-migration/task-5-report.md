@@ -58,3 +58,49 @@ Result: exit 0.
 - Module ownership intentionally uses the Task 5 boundary’s deterministic text matching and dependency markers; richer ranking can be added by the later orchestration layer without changing this contract.
 - Traceability accepts the structured artifact projection supplied by callers and enforces equality, task coverage, and presence of every Module → Change → Requirement → Scenario → Task → Test → Evidence → Current Spec → Archive link.
 - The validator bridge is additive and only applies to the canonical breaking-migration DSL; legacy generic validation behavior was not redesigned.
+
+## Review fix round
+
+Status: implemented and verified.
+
+RED command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/module-resolver.test.ts test/core/openspec-workflow/delta-parser.test.ts test/core/openspec-workflow/traceability.test.ts
+```
+
+Result: 3 files ran, 4 passed and 4 failed tests. Failures identified module score ties being guessed, disconnected traceability being accepted, scenario IDs/names being lost, and incomplete ADDED blocks not using the canonical `New` error.
+
+GREEN and focused regression command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/module-resolver.test.ts test/core/openspec-workflow/delta-parser.test.ts test/core/openspec-workflow/traceability.test.ts
+```
+
+Result: 3 passed files, 9 passed tests, 0 failed.
+
+```text
+pnpm exec tsc --noEmit
+```
+
+Result: exit 0.
+
+```text
+pnpm lint
+```
+
+Result: exit 0.
+
+```text
+pnpm build
+```
+
+Result: `✅ Build completed successfully!`, exit 0.
+
+```text
+git diff --check
+```
+
+Result: exit 0.
+
+Fixes: traceability now validates every adjacent edge and node reference; scenarios require unique explicit stable IDs and preserve names; delta blocks enforce canonical fields and complete scenarios; module resolution uses specs and rejects ties; allocation scans current specs and active reservations only and starts after the highest reserved/current sequence.

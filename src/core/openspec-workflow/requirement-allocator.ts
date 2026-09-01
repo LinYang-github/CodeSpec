@@ -15,8 +15,15 @@ export async function allocateRequirementIds(workspace: RequirementWorkspace, mo
     }
   }
   await scan(workspace.paths.currentSpecs);
-  await scan(workspace.paths.changes);
+  const entries = await fs.readdir(workspace.paths.changes, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (entry.name === 'reservations.txt') { collect(await fs.readFile(path.join(workspace.paths.changes, entry.name), 'utf8')); continue; }
+    if (!entry.isDirectory()) continue;
+    const metadata = path.join(workspace.paths.changes, entry.name, 'metadata.yaml');
+    const content = await fs.readFile(metadata, 'utf8').catch(() => '');
+    if (content && !/status:\s*(?:ARCHIVED|ABANDONED)\b/u.test(content)) collect(content);
+  }
   const result: string[] = [];
-  for (let n = 1; result.length < count; n++) if (!used.has(n)) { result.push(`${moduleId}-REQ-${String(n).padStart(3, '0')}`); used.add(n); }
+  for (let n = Math.max(0, ...used) + 1; result.length < count; n++) if (!used.has(n)) { result.push(`${moduleId}-REQ-${String(n).padStart(3, '0')}`); used.add(n); }
   return result;
 }

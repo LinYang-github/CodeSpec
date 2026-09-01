@@ -68,6 +68,7 @@ const requirementRefSchema = z
 const scenarioSchema = z
   .object({
     id: scenarioIdSchema,
+    name: nonEmptyString.optional(),
     given: z.array(nonEmptyString),
     when: z.array(nonEmptyString),
     then: z.array(nonEmptyString),

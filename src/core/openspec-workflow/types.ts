@@ -59,6 +59,7 @@ export interface RequirementRef {
 
 export interface Scenario {
   id: ScenarioId;
+  name?: string;
   given: string[];
   when: string[];
   then: string[];

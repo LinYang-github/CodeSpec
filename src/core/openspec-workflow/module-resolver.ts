@@ -10,7 +10,7 @@ export interface ModuleResolution { resolutions: ModuleResolutionItem[]; irrelev
 
 export function resolveModuleOwnership(
   registry: { modules: BusinessModule[] },
-  candidates: Array<string | { module?: string; text?: string }>,
+  candidates: Array<string | { module?: string; text?: string; outcome?: ModuleOutcome }>,
   specs: Array<RequirementDelta | { id?: string; module?: string; next?: string }>
 ): ModuleResolution {
   const resolutions: ModuleResolutionItem[] = [];
@@ -25,6 +25,9 @@ export function resolveModuleOwnership(
     }).sort((a, b) => b.score - a.score);
     const best = scores[0];
     if (!best || best.score === 0) { irrelevant.push(text); continue; }
+    if (scores[1]?.score === best.score) throw new Error(`Ambiguous module ownership for "${text}": score tie between ${best.module.id} and ${scores[1].module.id}`);
+    const specMatch = specs.some((spec) => spec.module === best.module.id && (spec.next ?? '').includes(text));
+    if (!specMatch && specs.length > 0 && !text.includes(best.module.name)) { irrelevant.push(text); continue; }
     const isDependency = /依赖|调用|使用|外部|downstream|dependency/i.test(text) && !(typeof raw !== 'string' && raw.module);
     resolutions.push({ module: best.module.id, outcome: isDependency ? 'DEPENDENCY' : 'OWNED', reason: isDependency ? `Candidate depends on ${best.module.name}` : `Matched ${best.module.name}`, candidate: text });
   }
