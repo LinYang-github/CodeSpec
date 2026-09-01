@@ -12,7 +12,6 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
   const artifacts = await loadChangeArtifacts(workspace.paths, changeId); const change = artifacts.metadata;
   if (!change.baseline.stale) throw new Error(`Change ${changeId} is not stale`);
   change.change.revision += 1; change.change.status = 'DESIGN'; change.change.updated_at = new Date().toISOString();
-  const baseline = await captureBaseline(workspace, change); change.baseline = baseline;
   const original = artifacts.spec;
   const sections = (value: string) => value.split(/(?=^###\s)/m).filter(Boolean);
   const originalSections = new Map(sections(original).map((section) => [section.match(/^###\s+([^\n]+)/m)?.[1] ?? section, section]));
@@ -30,5 +29,7 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
   const metadataPath = path.join(workspace.openspecDir, change.artifacts.metadata); await fs.writeFile(metadataPath, stringifyYaml(change));
   await fs.writeFile(path.join(workspace.openspecDir, change.artifacts.spec), merged || original);
   await fs.writeFile(path.join(workspace.openspecDir, change.artifacts.design), `# Design\n\n## Rebase decision\n\n${stringifyYaml(decision)}`);
+  const baseline = await captureBaseline(workspace, change); change.baseline = baseline;
+  await fs.writeFile(metadataPath, stringifyYaml(change));
   return { change: change.change, baseline, decision };
 }

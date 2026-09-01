@@ -73,3 +73,19 @@ pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/
 Output: focused tests `2 passed (2)`, `5 passed (5)`; build `✅ Build completed successfully!`; lint exited 0 with no diagnostics; `git diff --check` exited 0.
 
 Fix-round commit: `70823e33e0d80d7d68bdc982215f5dbf046ed068`
+
+## Scoped fix round 2
+
+Changes: prior verification YAML is now required, structurally validated, and rejected when malformed, missing required fields, non-PASS, future-dated, or from another revision. Rebase now authors the merged canonical `spec.md` before capturing and persisting the baseline, so resulting hashes describe the authored artifact. Change ID, revision increment, and DESIGN routing remain preserved. Added a regression test with stale revision/status evidence.
+
+Focused verification/build/lint command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/openspec-workflow/stale-rebase.test.ts && pnpm run build && pnpm run lint && git diff --check
+```
+
+Exact output: focused tests `2 passed (2)`, `6 passed (6)`; build `✅ Build completed successfully!`; lint exited 0 with no diagnostics; `git diff --check` exited 0.
+
+TDD RED evidence: the added prior-evidence regression was introduced against the pre-fix implementation, whose parser catch block swallowed malformed evidence and allowed replacement; the focused suite was then rerun after implementation and produced the GREEN result above.
+
+Fix-round-2 commit: pending (created after this report is staged)

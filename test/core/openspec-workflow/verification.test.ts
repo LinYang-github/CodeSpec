@@ -15,7 +15,8 @@ describe('fresh verification', () => {
     const metadata = fixture.metadataAt('VERIFY');
     const dir = path.join(fixture.paths.changes, fixture.changeId);
     await fs.mkdir(dir, { recursive: true });
-    await Promise.all(['metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md', 'verification.md'].map((name) => fs.writeFile(path.join(dir, name), name === 'metadata.yaml' ? stringifyYaml(metadata) : '# artifact\n')));
+    await Promise.all(['metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md'].map((name) => fs.writeFile(path.join(dir, name), name === 'metadata.yaml' ? stringifyYaml(metadata) : '# artifact\n')));
+    await fs.writeFile(path.join(dir, 'verification.md'), stringifyYaml({ verified_at: new Date().toISOString(), revision: 1, status: 'PASS', requirement_ids: [], scenario_ids: [], commands: [] }));
     const evidence = await recordFreshVerification(fixture.workspace, fixture.changeId, [
       { command: 'printf ok', requirementIds: ['MOD-002-REQ-006'], scenarioIds: ['SCN-001'] },
     ]);
@@ -28,5 +29,14 @@ describe('fresh verification', () => {
   it('rejects empty evidence and evidence that does not cover the current revision', async () => {
     const fixture = await createWorkflowFixture(); cleanups.push(fixture.cleanup);
     await expect(recordFreshVerification(fixture.workspace, fixture.changeId, [])).rejects.toThrow(/required/i);
+  });
+
+  it('rejects malformed or stale prior verification evidence', async () => {
+    const fixture = await createWorkflowFixture(); cleanups.push(fixture.cleanup);
+    const metadata = fixture.metadataAt('VERIFY'); const dir = path.join(fixture.paths.changes, fixture.changeId);
+    await fs.mkdir(dir, { recursive: true });
+    await Promise.all(['metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md'].map((name) => fs.writeFile(path.join(dir, name), name === 'metadata.yaml' ? stringifyYaml(metadata) : '# artifact\n')));
+    await fs.writeFile(path.join(dir, 'verification.md'), 'revision: 0\nstatus: FAIL\n');
+    await expect(recordFreshVerification(fixture.workspace, fixture.changeId, [{ command: 'printf ok', requirementIds: ['MOD-002-REQ-006'] }])).rejects.toThrow(/stale|status|invalid/i);
   });
 });

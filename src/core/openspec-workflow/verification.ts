@@ -16,13 +16,10 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
   if (!commands.length) throw new Error('At least one verification command is required');
   const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
   if (!['VERIFY', 'ARCHIVE'].includes(artifacts.metadata.change.status)) throw new Error('Verification evidence requires VERIFY or ARCHIVE state');
-  try {
-    const previous = parseYaml(artifacts.verification) as Partial<VerificationEvidence>;
-    if (previous.revision !== undefined && previous.revision !== artifacts.metadata.change.revision) throw new Error('Verification evidence is stale for the current Change revision');
-    if (previous.status !== undefined && previous.status !== 'PASS') throw new Error('Verification evidence status must be PASS');
-  } catch (error) {
-    if (error instanceof Error && /stale|status/.test(error.message)) throw error;
-  }
+  const previous = parseYaml(artifacts.verification) as Partial<VerificationEvidence>;
+  if (!previous || typeof previous !== 'object' || typeof previous.revision !== 'number' || typeof previous.verified_at !== 'string' || previous.status !== 'PASS' || !Array.isArray(previous.commands) || !Array.isArray(previous.requirement_ids) || !Array.isArray(previous.scenario_ids)) throw new Error('Prior verification evidence is missing or invalid');
+  if (previous.revision !== artifacts.metadata.change.revision) throw new Error('Verification evidence is stale for the current Change revision');
+  if (Number.isNaN(Date.parse(previous.verified_at)) || Date.parse(previous.verified_at) > Date.now()) throw new Error('Prior verification evidence timestamp is invalid');
   const evidence: VerificationEvidence = { verified_at: new Date().toISOString(), revision: artifacts.metadata.change.revision, status: 'PASS', requirement_ids: [], scenario_ids: [], commands: [] };
   for (const item of commands) {
     const started_at = new Date().toISOString();
