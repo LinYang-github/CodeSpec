@@ -6,6 +6,7 @@
 
 import ora from 'ora';
 import chalk from 'chalk';
+import path from 'node:path';
 import { getChangeDir } from '../../core/planning-home.js';
 import {
   resolveRootForCommand,
@@ -20,6 +21,8 @@ import {
   type ChangeStatus,
 } from '../../core/artifact-graph/index.js';
 import { asStatus } from '../shared-output.js';
+import { loadWorkspace, loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
+import { validateExitGate } from '../../core/openspec-workflow/gates.js';
 import type { StoreDiagnostic } from '../../core/store/errors.js';
 import {
   validateChangeExists,
@@ -92,6 +95,21 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         }),
         isStoreSelectedRoot(root) ? { storeId: root.storeId } : {}
       );
+
+    const canonicalStatus = async (changeName: string): Promise<Record<string, unknown> | null> => {
+      if (!/^CHG-\d{8}-\d{3}$/.test(changeName)) return null;
+      try {
+        const workspace = await loadWorkspace(path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec'));
+        const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
+        const gate = validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
+        return {
+          changeId: changeName, status: artifacts.metadata.change.status,
+          revision: artifacts.metadata.change.revision, title: artifacts.metadata.change.title,
+          baseline: artifacts.metadata.baseline, requirements: artifacts.metadata.requirements,
+          verification: artifacts.metadata.verification, gateErrors: gate.errors,
+        };
+      } catch { return null; }
+    };
 
     // Handle no-changes case gracefully — status is informational,
     // so "no changes" is a valid state, not an error.
@@ -183,6 +201,19 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     // Validate schema if explicitly provided
     if (options.schema) {
       validateSchemaExists(options.schema, projectRoot);
+    }
+
+    const canonical = await canonicalStatus(changeName);
+    if (canonical) {
+      spinner?.stop();
+      if (options.json) { console.log(JSON.stringify({ ...canonical, root: rootOutput }, null, 2)); return; }
+      console.log(`Change: ${canonical.changeId}`);
+      console.log(`Status: ${canonical.status}`);
+      console.log(`Revision: ${canonical.revision}`);
+      if (Array.isArray(canonical.gateErrors) && canonical.gateErrors.length > 0) {
+        console.log(`Gate blockers: ${canonical.gateErrors.join('; ')}`);
+      }
+      return;
     }
 
     // loadChangeContext will auto-detect schema from metadata if not provided

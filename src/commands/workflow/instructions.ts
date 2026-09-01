@@ -48,6 +48,7 @@ import {
   type ArchiveInstructions,
 } from './shared.js';
 import { parseTaskLines, type ParsedTask } from '../../utils/task-progress.js';
+import { loadWorkspace, loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -127,6 +128,19 @@ export async function instructionsCommand(
       root.changesDir,
       { newChangeHint: withStoreFlag(root, 'openspec new change <name>') }
     );
+
+    if (/^CHG-\d{8}-\d{3}$/.test(changeName)) {
+      const workspace = await loadWorkspace(path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec'));
+      const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
+      const status = artifacts.metadata.change.status;
+      if (artifactId === 'analyze') {
+        spinner?.stop();
+        const text = `## Analyze: ${changeName}\n\nCurrent status: ${status}\n\nCreate or update ${artifacts.metadata.artifacts.proposal} with summary, goals, scope, and module mapping.\n`;
+        if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
+        else console.log(text);
+        return;
+      }
+    }
 
     // Validate schema if explicitly provided
     if (options.schema) {
