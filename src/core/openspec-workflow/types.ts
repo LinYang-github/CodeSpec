@@ -195,7 +195,7 @@ export interface ChangeIndexEntry {
 }
 
 export interface ArchivePlan {
-  changeId: string;
+  changeId: ChangeId;
   ready: boolean;
   conflict: boolean;
   reasons: string[];

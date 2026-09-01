@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type {
+  ArchivePlan,
   BusinessModule,
   BusinessModuleId,
   ChangeId,
@@ -268,6 +269,15 @@ const changeIndexEntrySchema = z
   })
   .strict();
 
+const archivePlanSchema = z
+  .object({
+    changeId: changeIdSchema,
+    ready: z.boolean(),
+    conflict: z.boolean(),
+    reasons: z.array(nonEmptyString),
+  })
+  .strict();
+
 const requirementDeltaSchema = z
   .object({
     id: requirementIdSchema,
@@ -360,7 +370,12 @@ export function parseRequirementDelta(value: unknown): RequirementDelta {
   return parseWithSchema('requirement delta', requirementDeltaSchema, value);
 }
 
+export function parseArchivePlan(value: unknown): ArchivePlan {
+  return parseWithSchema('archive plan', archivePlanSchema, value);
+}
+
 export type {
+  ArchivePlan,
   WorkspaceConfig,
   BusinessModule,
   BusinessModuleId,

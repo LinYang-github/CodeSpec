@@ -1,9 +1,11 @@
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
+import type { ArchivePlan, ChangeId } from '../../../src/core/openspec-workflow/types.js';
 
 import { getWorkspacePaths } from '../../../src/core/openspec-workflow/paths.js';
 import {
   parseBusinessModule,
+  parseArchivePlan,
   parseChangeIndexEntry,
   parseChangeMetadata,
   parseRequirementDelta,
@@ -349,5 +351,27 @@ describe('openspec workflow contracts', () => {
         },
       })
     ).toThrow(/artifact|path|relative/i);
+  });
+
+  it('types and parses archive plans with canonical change ids', () => {
+    expectTypeOf<ArchivePlan['changeId']>().toEqualTypeOf<ChangeId>();
+
+    const validPlan: ArchivePlan = parseArchivePlan({
+      changeId: 'CHG-20260901-001',
+      ready: true,
+      conflict: false,
+      reasons: [],
+    });
+
+    expect(validPlan.changeId).toBe('CHG-20260901-001');
+
+    expect(() =>
+      parseArchivePlan({
+        changeId: 'change-1',
+        ready: false,
+        conflict: true,
+        reasons: ['invalid id'],
+      })
+    ).toThrow(/CHG-\d{8}-\d{3}|changeId|change id/i);
   });
 });
