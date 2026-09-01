@@ -88,4 +88,4 @@ Exact output: focused tests `2 passed (2)`, `6 passed (6)`; build `✅ Build com
 
 TDD RED evidence: the added prior-evidence regression was introduced against the pre-fix implementation, whose parser catch block swallowed malformed evidence and allowed replacement; the focused suite was then rerun after implementation and produced the GREEN result above.
 
-Fix-round-2 commit: pending (created after this report is staged)
+Fix-round-2 commit: `54ef945a0cd6ac94d201b38f05cbcd8e11035f90`
