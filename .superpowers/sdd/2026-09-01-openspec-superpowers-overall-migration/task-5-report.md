@@ -104,3 +104,49 @@ git diff --check
 Result: exit 0.
 
 Fixes: traceability now validates every adjacent edge and node reference; scenarios require unique explicit stable IDs and preserve names; delta blocks enforce canonical fields and complete scenarios; module resolution uses specs and rejects ties; allocation scans current specs and active reservations only and starts after the highest reserved/current sequence.
+
+## Review fix round 2
+
+Status: implemented and verified.
+
+Fixes: MODIFIED delta entries now require a non-empty Reason at the parser boundary; ID-only scenario headers are rejected by the existing non-empty scenario-name schema validation, with focused regression coverage.
+
+TDD RED command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/delta-parser.test.ts
+```
+
+Result: 2 focused regression assertions failed as expected before the parser fix (the existing schema rejected both cases with generic validation errors, while the new MODIFIED assertion expected the canonical parser error).
+
+GREEN and focused Task 5 command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/module-resolver.test.ts test/core/openspec-workflow/delta-parser.test.ts test/core/openspec-workflow/traceability.test.ts
+```
+
+Result: 3 passed files, 11 passed tests, 0 failed.
+
+```text
+pnpm exec tsc --noEmit
+```
+
+Result: exit 0.
+
+```text
+pnpm lint
+```
+
+Result: exit 0.
+
+```text
+pnpm build
+```
+
+Result: `✅ Build completed successfully!`, exit 0.
+
+```text
+git diff --check
+```
+
+Result: exit 0.

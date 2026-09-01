@@ -25,6 +25,7 @@ export function parseDeltaSpec(content: string): ParsedDeltaSpec {
     if ((action === 'ADDED' || action === 'MODIFIED') && !next) throw new Error(`${action} ${id} requires New`);
     if (action === 'REMOVED' && !reason) throw new Error(`REMOVED ${id} requires Reason`);
     if (!scenarios.length) throw new Error(`${action} ${id} requires at least one scenario`);
+    if (action === 'MODIFIED' && !reason) throw new Error(`MODIFIED ${id} requires Reason`);
     const parsed = parseRequirementDelta({ id, module, action, previous, next, reason, scenarios }); entries.push(parsed);
   };
   for (let i = 0; i <= lines.length; i++) { const found = lines[i]?.match(/^##\s+(ADDED|MODIFIED|REMOVED)\s*$/u); if (found) { flush(i); action = found[1] as RequirementDelta['action']; start = i + 1; } } flush(lines.length);

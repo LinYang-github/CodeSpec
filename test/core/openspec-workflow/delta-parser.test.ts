@@ -14,10 +14,35 @@ describe('canonical delta parser', () => {
     expect(() => parseDeltaSpec('## MODIFIED\n### MOD-002-REQ-006 订单取消\n**New**\n新规则')).toThrow(/Previous/i);
   });
 
+  it('requires a non-empty Reason for MODIFIED entries', () => {
+    expect(() => parseDeltaSpec(`## MODIFIED
+### MOD-002-REQ-006 订单取消
+**Previous**
+旧规则
+**New**
+新规则
+**Reason**
+#### Scenario: SCN-002 变更
+- **GIVEN** 旧状态
+- **WHEN** 操作
+- **THEN** 新状态`)).toThrow('MODIFIED MOD-002-REQ-006 requires Reason');
+  });
+
   it('preserves explicit scenario identity and rejects incomplete scenarios', () => {
     const parsed = parseDeltaSpec('## ADDED\n### MOD-002-REQ-017 支付\n**New**\n规则\n#### Scenario: SCN-042 支付成功\n- **GIVEN** 已下单\n- **WHEN** 支付\n- **THEN** 完成');
     expect(parsed.entries[0].scenarios[0]).toMatchObject({ id: 'SCN-042', name: '支付成功' });
     expect(() => parseDeltaSpec('## ADDED\n### MOD-002-REQ-018 支付\n**New**\n规则\n#### Scenario: SCN-043 不完整\n- **GIVEN** 已下单\n- **WHEN** 支付')).toThrow(/THEN/i);
+  });
+
+  it('rejects an ID-only scenario header because the scenario name is stable identity', () => {
+    expect(() => parseDeltaSpec(`## ADDED
+### MOD-002-REQ-017 支付
+**New**
+规则
+#### Scenario: SCN-042
+- **GIVEN** 已下单
+- **WHEN** 支付
+- **THEN** 完成`)).toThrow(/scenarios\.0\.name.*Too small/i);
   });
 
   it('requires New for ADDED and rejects empty sections', () => {
