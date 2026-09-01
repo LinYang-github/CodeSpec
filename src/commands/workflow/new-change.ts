@@ -9,6 +9,7 @@
 
 import ora from 'ora';
 import path from 'path';
+import { promises as fs } from 'fs';
 import { createChange, validateChangeName } from '../../utils/change-utils.js';
 import {
   createCanonicalChange,
@@ -53,11 +54,19 @@ interface NewChangeOutput {
 }
 
 async function tryLoadCanonicalWorkspace(projectRoot: string) {
+  const openspecDir = path.join(projectRoot, 'openspec');
+  const configPath = path.join(openspecDir, 'config.yaml');
+
   try {
-    return await loadWorkspace(path.join(projectRoot, 'openspec'));
-  } catch {
-    return null;
+    await fs.access(configPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
   }
+
+  return loadWorkspace(openspecDir);
 }
 
 // -----------------------------------------------------------------------------

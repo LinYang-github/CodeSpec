@@ -33,6 +33,14 @@ export interface ResumeResult {
 }
 
 const CHANGE_ID_PATTERN = /^CHG-(\d{8})-(\d{3})$/;
+const ACTIVE_CHANGE_STATUSES: ReadonlySet<ChangeStatus> = new Set([
+  'ANALYZE',
+  'DESIGN',
+  'PLAN',
+  'IMPLEMENT',
+  'VERIFY',
+  'ARCHIVE',
+]);
 
 async function listChangeIds(directory: string): Promise<ChangeId[]> {
   const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error) => {
@@ -135,7 +143,7 @@ function buildMetadata(
 async function writeChangeIndex(
   workspace: WorkspaceContext,
   metadata: ChangeMetadata
-): Promise<void> {
+): Promise<string> {
   const entries = workspace.index.entries.filter((entry) => entry.id !== metadata.change.id);
   entries.push({
     id: metadata.change.id,
@@ -146,13 +154,21 @@ async function writeChangeIndex(
   });
   entries.sort((left, right) => left.id.localeCompare(right.id));
 
+  const tempIndexPath = path.join(
+    path.dirname(workspace.paths.changeIndex),
+    `.index-${metadata.change.id}.tmp`
+  );
+
   await fs.writeFile(
-    workspace.paths.changeIndex,
+    tempIndexPath,
     stringifyYaml({
       version: 1,
       changes: entries,
     })
   );
+
+  await fs.rename(tempIndexPath, workspace.paths.changeIndex);
+  return tempIndexPath;
 }
 
 export async function allocateChangeId(
@@ -182,19 +198,33 @@ export async function createCanonicalChange(
 ): Promise<CreatedCanonicalChange> {
   const changeId = await allocateChangeId(workspace.paths, formatLocalDate().replace(/-/g, ''));
   const changeDir = path.join(workspace.paths.changes, changeId);
+  const stagingDir = path.join(workspace.paths.changes, `.${changeId}.tmp`);
   const timestamp = new Date().toISOString();
   const metadata = buildMetadata(workspace, changeId, input, timestamp);
+  const tempIndexPath = path.join(
+    path.dirname(workspace.paths.changeIndex),
+    `.index-${changeId}.tmp`
+  );
 
-  await fs.mkdir(changeDir, { recursive: false });
-  await Promise.all([
-    fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata)),
-    fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal\n'),
-    fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n'),
-    fs.writeFile(path.join(changeDir, 'spec.md'), '# Spec\n'),
-    fs.writeFile(path.join(changeDir, 'tasks.md'), '# Tasks\n'),
-    fs.writeFile(path.join(changeDir, 'verification.md'), '# Verification\n'),
-  ]);
-  await writeChangeIndex(workspace, metadata);
+  try {
+    await fs.mkdir(stagingDir, { recursive: false });
+    await Promise.all([
+      fs.writeFile(path.join(stagingDir, 'metadata.yaml'), stringifyYaml(metadata)),
+      fs.writeFile(path.join(stagingDir, 'proposal.md'), '# Proposal\n'),
+      fs.writeFile(path.join(stagingDir, 'design.md'), '# Design\n'),
+      fs.writeFile(path.join(stagingDir, 'spec.md'), '# Spec\n'),
+      fs.writeFile(path.join(stagingDir, 'tasks.md'), '# Tasks\n'),
+      fs.writeFile(path.join(stagingDir, 'verification.md'), '# Verification\n'),
+    ]);
+
+    await fs.rename(stagingDir, changeDir);
+    await writeChangeIndex(workspace, metadata);
+  } catch (error) {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(changeDir, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(tempIndexPath, { force: true }).catch(() => {});
+    throw error;
+  }
 
   return {
     changeId,
@@ -212,6 +242,11 @@ export async function resumeChange(
 ): Promise<ResumeResult> {
   const resolved = await resolveChange(workspace, selector);
   const artifacts = await loadChangeArtifacts(workspace.paths, resolved.changeId);
+  const currentStatus = artifacts.metadata.change.status;
+
+  if (!ACTIVE_CHANGE_STATUSES.has(currentStatus)) {
+    throw new Error(`Cannot resume Change ${resolved.changeId} from terminal status ${currentStatus}.`);
+  }
 
   const diagnostic =
     (action === 'IMPLEMENT' || action === 'ARCHIVE') && artifacts.metadata.baseline.stale

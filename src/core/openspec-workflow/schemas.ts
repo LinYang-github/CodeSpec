@@ -28,18 +28,22 @@ const relativePathString = z.string().min(1).refine(
   }
 );
 
-const businessModuleIdSchema = z.string().regex(/^MOD-\d{3}$/, {
-  message: 'must match MOD-###',
-});
-const requirementIdSchema = z.string().regex(/^MOD-\d{3}-REQ-\d{3}$/, {
-  message: 'must match MOD-###-REQ-###',
-});
-const changeIdSchema = z.string().regex(/^CHG-\d{8}-\d{3}$/, {
-  message: 'must match CHG-YYYYMMDD-NNN',
-});
-const scenarioIdSchema = z.string().regex(/^SCN-\d{3}$/, {
-  message: 'must match SCN-###',
-});
+const businessModuleIdSchema = z.custom<BusinessModuleId>(
+  (value) => typeof value === 'string' && /^MOD-\d{3}$/.test(value),
+  { message: 'must match MOD-###' }
+);
+const requirementIdSchema = z.custom<RequirementId>(
+  (value) => typeof value === 'string' && /^MOD-\d{3}-REQ-\d{3}$/.test(value),
+  { message: 'must match MOD-###-REQ-###' }
+);
+const changeIdSchema = z.custom<ChangeId>(
+  (value) => typeof value === 'string' && /^CHG-\d{8}-\d{3}$/.test(value),
+  { message: 'must match CHG-YYYYMMDD-NNN' }
+);
+const scenarioIdSchema = z.custom<`SCN-${string}`>(
+  (value) => typeof value === 'string' && /^SCN-\d{3}$/.test(value),
+  { message: 'must match SCN-###' }
+);
 const changeModeSchema = z.enum(['feature', 'bugfix', 'refactor']);
 const changeStatusSchema = z.enum([
   'ANALYZE',
@@ -348,31 +352,31 @@ function parseWithSchema<T>(label: string, schema: z.ZodType<T>, value: unknown)
   if (!result.success) {
     throw new Error(`Invalid ${label}: ${formatIssues(result.error)}`);
   }
-  return result.data as T;
+  return result.data;
 }
 
 export function parseWorkspaceConfig(value: unknown): WorkspaceConfig {
-  return parseWithSchema('workspace config', workspaceConfigSchema, value) as WorkspaceConfig;
+  return parseWithSchema('workspace config', workspaceConfigSchema, value);
 }
 
 export function parseBusinessModule(value: unknown): BusinessModule {
-  return parseWithSchema('business module', businessModuleSchema, value) as BusinessModule;
+  return parseWithSchema('business module', businessModuleSchema, value);
 }
 
 export function parseChangeMetadata(value: unknown): ChangeMetadata {
-  return parseWithSchema('change metadata', changeMetadataSchema, value) as ChangeMetadata;
+  return parseWithSchema('change metadata', changeMetadataSchema, value);
 }
 
 export function parseChangeIndexEntry(value: unknown): ChangeIndexEntry {
-  return parseWithSchema('change index entry', changeIndexEntrySchema, value) as ChangeIndexEntry;
+  return parseWithSchema('change index entry', changeIndexEntrySchema, value);
 }
 
 export function parseRequirementDelta(value: unknown): RequirementDelta {
-  return parseWithSchema('requirement delta', requirementDeltaSchema, value) as RequirementDelta;
+  return parseWithSchema('requirement delta', requirementDeltaSchema, value);
 }
 
 export function parseArchivePlan(value: unknown): ArchivePlan {
-  return parseWithSchema('archive plan', archivePlanSchema, value) as ArchivePlan;
+  return parseWithSchema('archive plan', archivePlanSchema, value);
 }
 
 export type {

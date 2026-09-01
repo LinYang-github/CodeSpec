@@ -118,7 +118,49 @@ describe('artifact-workflow CLI commands', () => {
     await fs.writeFile(path.join(changesDir, 'index.yaml'), 'version: 1\nchanges: []\n');
   }
 
+  async function createBrokenCanonicalWorkspace(): Promise<void> {
+    await fs.mkdir(path.join(tempDir, 'openspec', 'archive', 'specs'), { recursive: true });
+    await fs.mkdir(path.join(tempDir, 'openspec', 'archive', 'changes'), { recursive: true });
+    await fs.writeFile(
+      path.join(tempDir, 'openspec', 'config.yaml'),
+      [
+        'version: 1',
+        'schema: spec-driven',
+        'project:',
+        '  name: demo',
+        'paths:',
+        '  business: business.md',
+        '  changes: changes',
+        '  change_index: changes/index.yaml',
+        '  archive: archive',
+        '  specs: archive/specs',
+        '  archived_changes: archive/changes',
+        'workflow:',
+        '  multiple_active_changes: true',
+        'requirements:',
+        "  id_format: '{module}-REQ-{sequence:03d}'",
+        'changes:',
+        "  id_format: 'CHG-{date}-{sequence:03d}'",
+        'archive:',
+        '  update_index: true',
+        '  require_verification: true',
+        "  conflict_strategy: optimistic",
+        '',
+      ].join('\n')
+    );
+    await fs.writeFile(path.join(changesDir, 'index.yaml'), 'version: 1\nchanges: []\n');
+  }
+
   describe('status command', () => {
+    it('fails explicitly instead of resolving legacy slug Changes when canonical loading is broken', async () => {
+      await createBrokenCanonicalWorkspace();
+      await createTestChange('legacy-slug');
+
+      const result = await runCLI(['status', '--change', 'legacy-slug'], { cwd: tempDir });
+      expect(result.exitCode).toBe(1);
+      expect(getOutput(result)).toContain('business.md');
+    });
+
     it('shows status for scaffolded change without proposal.md', async () => {
       // Create empty change directory (no proposal.md)
       const changeDir = path.join(changesDir, 'scaffolded-change');
@@ -528,6 +570,17 @@ describe('artifact-workflow CLI commands', () => {
       expect(result.exitCode).toBe(1);
       const output = getOutput(result);
       expect(output).toContain('canonical Change IDs are allocated automatically');
+    });
+
+    it('fails explicitly instead of falling back when canonical workspace loading is broken', async () => {
+      await createBrokenCanonicalWorkspace();
+
+      const result = await runCLI(['new', 'change', 'fallback-slug'], { cwd: tempDir });
+      expect(result.exitCode).toBe(1);
+      expect(getOutput(result)).toContain('business.md');
+      await expect(fs.stat(path.join(changesDir, 'fallback-slug'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
     });
 
     it('marks changes as skip_specs when their schema cannot generate specs', async () => {

@@ -153,6 +153,10 @@ describe('openspec workflow change management', () => {
     });
 
     await fs.rm(secondChangeDir, { recursive: true, force: true });
+    await expect(resolveChange(workspace, { text: 'no semantic match here' })).resolves.toMatchObject({
+      changeId: 'CHG-20260901-001',
+      reason: 'sole_active',
+    });
     await expect(resolveChange(workspace, {})).resolves.toMatchObject({
       changeId: 'CHG-20260901-001',
     });
@@ -177,6 +181,58 @@ describe('openspec workflow change management', () => {
       diagnostic: {
         code: 'STALE',
       },
+    });
+  });
+
+  it('rejects resuming archived or abandoned Changes', async () => {
+    const { fixture, workspace } = await loadCanonicalWorkspace();
+
+    await writeChangeArtifacts(fixture, {
+      metadata: {
+        change: {
+          status: 'ARCHIVED',
+        },
+      },
+    });
+
+    await expect(resumeChange(workspace, { id: fixture.changeId }, 'IMPLEMENT')).rejects.toThrow(
+      /cannot resume|ARCHIVED/i
+    );
+
+    await writeChangeArtifacts(fixture, {
+      metadata: {
+        change: {
+          status: 'ABANDONED',
+        },
+      },
+    });
+
+    await expect(resumeChange(workspace, { id: fixture.changeId }, 'ANALYZE')).rejects.toThrow(
+      /cannot resume|ABANDONED/i
+    );
+  });
+
+  it('cleans up a staged Change when index publication fails', async () => {
+    const { fixture, workspace } = await loadCanonicalWorkspace();
+
+    await fs.rm(fixture.paths.changeIndex, { force: true });
+    await fs.mkdir(fixture.paths.changeIndex, { recursive: true });
+
+    await expect(
+      createCanonicalChange(workspace, {
+        title: 'Broken publication',
+        summary: 'Fail index publication on purpose',
+        mode: 'feature',
+      })
+    ).rejects.toThrow();
+
+    await expect(
+      fs.stat(path.join(fixture.paths.changes, 'CHG-20260901-001'))
+    ).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    await expect(fs.stat(fixture.paths.changeIndex)).resolves.toMatchObject({
+      isDirectory: expect.any(Function),
     });
   });
 });

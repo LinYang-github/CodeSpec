@@ -69,11 +69,19 @@ export interface ArchiveInstructions {
 export const DEFAULT_SCHEMA = 'spec-driven';
 
 async function tryLoadCanonicalWorkspace(projectRoot: string) {
+  const openspecDir = path.join(projectRoot, 'openspec');
+  const configPath = path.join(openspecDir, 'config.yaml');
+
   try {
-    return await loadWorkspace(path.join(projectRoot, 'openspec'));
-  } catch {
-    return null;
+    await fs.promises.access(configPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
   }
+
+  return loadWorkspace(openspecDir);
 }
 
 // -----------------------------------------------------------------------------

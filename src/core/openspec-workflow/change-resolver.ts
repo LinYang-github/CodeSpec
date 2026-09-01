@@ -112,7 +112,7 @@ function resolveBySemanticMatch(
   });
 
   if (matches.length === 0) {
-    throw new Error(`No active Change matches "${text}".`);
+    return null;
   }
 
   if (matches.length > 1) {
@@ -172,6 +172,10 @@ export async function resolveChange(
 
   if (activeChanges.length === 0) {
     throw new Error('No active Changes found.');
+  }
+
+  if (selector.text) {
+    throw new Error(`No active Change matches "${selector.text}".`);
   }
 
   const available = activeChanges.map((candidate) => `${candidate.changeId} (${candidate.metadata.change.title})`);
