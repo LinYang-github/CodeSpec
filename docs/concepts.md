@@ -627,3 +627,6 @@ openspec/
 - [Workflows](workflows.md) - Common patterns and when to use each
 - [Commands](commands.md) - Full command reference
 - [Customization](customization.md) - Create custom schemas and configure your project
+# Canonical concepts
+
+`business.md` 是稳定模块注册表，`changes/index.yaml` 仅用于导航，`metadata.yaml` 是 Change 状态权威。`spec.md` 使用 `ADDED`、`MODIFIED`、`REMOVED`、`Previous`、`New`、`Reason` 和 `GIVEN/WHEN/THEN`。任务使用 `SP-##`，验证证据集中在 `verification.md`。

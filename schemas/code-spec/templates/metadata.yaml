@@ -1,0 +1,15 @@
+schema_version: 1
+# GIVEN 输入 WHEN 管理 Change THEN 使用稳定 ID（ADDED MODIFIED REMOVED）。
+change:
+  id: CHG-YYYYMMDD-NNN
+  revision: 1
+  title: 中文标题
+  mode: feature
+  status: ANALYZE
+baseline: { created_at: null, stale: false, modules: {} }
+relations: { depends_on: [], related_to: [], conflicts_with: [], supersedes: [] }
+modules: { candidates: [], confirmed: [], dependencies: [] }
+requirements: { added: [], modified: [], removed: [] }
+tasks: { total: 0, completed: 0, items: {} }
+verification: { requirements_verified: false, tests_passed: false, build_passed: false, lint_passed: false, verified_at: null }
+archive: { ready: false, conflict: false, archived_at: null }

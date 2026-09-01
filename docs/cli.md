@@ -1300,3 +1300,6 @@ suppress that tip entirely.
 - [Workflows](workflows.md) - Common patterns and when to use each command
 - [Customization](customization.md) - Create custom schemas and templates
 - [Getting Started](getting-started.md) - First-time setup guide
+# code-spec 文件协议
+
+初始化后检查 `openspec/config.yaml` 与 `openspec/business.md`。创建 Change 使用 `CHG-YYYYMMDD-NNN`，不要使用旧式 slug；通过 `metadata.yaml` 选择和恢复 Change。归档前检查 fresh `verification.md`，然后显式执行 archive；工具不会自动归档或猜测多个 Change。

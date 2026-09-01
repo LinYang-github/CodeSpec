@@ -1,0 +1,39 @@
+name: code-spec
+version: 1
+description: OpenSpec canonical code change workflow
+# Protocol tokens: ADDED MODIFIED REMOVED Previous New Reason GIVEN WHEN THEN
+artifacts:
+  - id: metadata
+    generates: metadata.yaml
+    description: 变更控制数据与状态权威
+    template: metadata.yaml
+    requires: []
+  - id: proposal
+    generates: proposal.md
+    description: 变更动机与模块映射
+    template: proposal.md
+    requires: [metadata]
+  - id: design
+    generates: design.md
+    description: 技术设计
+    template: design.md
+    requires: [proposal]
+  - id: spec
+    generates: spec.md
+    description: 需求增量
+    template: spec.md
+    requires: [proposal]
+  - id: tasks
+    generates: tasks.md
+    description: SP-## 任务投影
+    template: tasks.md
+    requires: [design, spec]
+  - id: verification
+    generates: verification.md
+    description: 新鲜验证证据
+    template: verification.md
+    requires: [tasks]
+apply:
+  requires: [metadata, proposal, design, spec, tasks, verification]
+  tracks: tasks.md
+  instruction: 使用 metadata.yaml 作为状态权威；每个 SP-## 都记录 RED、GREEN 与回归证据。

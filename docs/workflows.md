@@ -550,3 +550,6 @@ For full command details and options, see [Commands](commands.md).
 - [Commands](commands.md) - Full command reference with options
 - [Concepts](concepts.md) - Deep dive into specs, artifacts, and schemas
 - [Customization](customization.md) - Create custom workflows
+# Canonical code-spec workflow
+
+先读取 `openspec/config.yaml`、`business.md` 与 `changes/index.yaml`，再选择 Change。每个 Change 包含 `metadata.yaml`、`proposal.md`、`design.md`、`spec.md`、`tasks.md` 和 `verification.md`。多个 Change 可并行；新增需求先预留 Requirement ID。VERIFY 必须重新执行测试、构建和 lint，归档必须由用户明确执行。
