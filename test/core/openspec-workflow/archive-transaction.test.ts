@@ -25,6 +25,22 @@ async function setup(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>,
 }
 
 describe('transactional OpenSpec archive', () => {
+  it('preserves existing archive README and history while appending the new record', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const metadata = ready(fixture); metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
+      await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
+      await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '# Current\n');
+      await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\n### MOD-002-REQ-001 title\ntext\n**Reason**\nx\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n');
+      await fs.writeFile(path.join(fixture.paths.archive, 'README.md'), '# Existing archive\nKeep this chapter.\n');
+      await fs.writeFile(path.join(fixture.paths.archive, 'history.yaml'), stringify([{ change: 'CHG-20260831-001', status: 'ARCHIVED' }]));
+      await archiveChange(fixture.workspace, fixture.changeId);
+      await expect(fs.readFile(path.join(fixture.paths.archive, 'README.md'), 'utf8')).resolves.toContain('Keep this chapter.');
+      const history = await fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8');
+      expect(history).toContain('CHG-20260831-001'); expect(history).toContain(fixture.changeId);
+    } finally { fixture.cleanup(); }
+  });
+
   it('rejects a MODIFIED delta when Current differs from Previous without changing files', async () => {
     const fixture = await createWorkflowFixture();
     try {

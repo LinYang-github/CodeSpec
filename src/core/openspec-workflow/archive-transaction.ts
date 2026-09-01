@@ -122,8 +122,21 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     const index = await loadChangeIndex(plan.workspace.paths);
     const nextIndex = { version: 1, changes: index.entries.filter((entry) => entry.id !== plan.changeId) };
     await fs.writeFile(path.join(stage, 'index.yaml'), stringifyYaml(nextIndex));
-    await fs.writeFile(path.join(stage, 'README.md'), `# Archive\n\nLast archived Change: ${plan.changeId}\n`);
-    await fs.writeFile(path.join(stage, 'history.yaml'), stringifyYaml({ change: plan.changeId, status: 'ARCHIVED', archived_at: archivedMetadata.archive.archived_at }));
+    const readExisting = async (file: string) => fs.readFile(file, 'utf8').catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+      throw error;
+    });
+    const existingReadme = await readExisting(path.join(plan.workspace.paths.archive, 'README.md'));
+    const existingHistory = await readExisting(path.join(plan.workspace.paths.archive, 'history.yaml'));
+    const archiveRecord = { change: plan.changeId, status: 'ARCHIVED', archived_at: archivedMetadata.archive.archived_at };
+    const parsedHistory = existingHistory.trim() ? parseYaml(existingHistory) : undefined;
+    const mergedHistory = Array.isArray(parsedHistory)
+      ? [...parsedHistory, archiveRecord]
+      : parsedHistory && typeof parsedHistory === 'object'
+        ? { ...parsedHistory as Record<string, unknown>, records: [...(Array.isArray((parsedHistory as Record<string, unknown>).records) ? (parsedHistory as Record<string, unknown>).records as unknown[] : []), archiveRecord] }
+        : [archiveRecord];
+    await fs.writeFile(path.join(stage, 'README.md'), `${existingReadme}${existingReadme && !existingReadme.endsWith('\n') ? '\n' : ''}\n## Archived ${plan.changeId}\n\nStatus: ARCHIVED\n`);
+    await fs.writeFile(path.join(stage, 'history.yaml'), stringifyYaml(mergedHistory));
     await fs.mkdir(backup, { recursive: true });
     for (const [i, dest] of destinations.entries()) if (await exists(dest)) { await fs.rename(dest, path.join(backup, String(i))); moved.push(dest); }
     await fs.mkdir(path.dirname(archivedPath), { recursive: true });

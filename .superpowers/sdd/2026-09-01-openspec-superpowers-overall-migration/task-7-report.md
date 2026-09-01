@@ -61,3 +61,36 @@ exit code 0; no output
 ```
 
 Fixes include structural canonical Requirement heading matching, complete normalized Previous comparison, dependency graph validation, revision/Requirement/baseline-aware verification checks, atomic snapshots for Current Specs, active Change, archived Change destination, index, archive README/history, rollback after swaps, and canonical `CHG-*` CLI/business archive routing. The focused regression suite covers conflict/no-partial-write behavior; the existing archive suite remains green.
+
+## Fix round 2
+
+Preserved existing archive README and history contents during staged archive publication, appending the new archive section/record before the atomic swap. Added regression coverage for successful preservation of prior README text and history records.
+
+Exact verification:
+
+`pnpm exec vitest run test/core/openspec-workflow/archive-transaction.test.ts test/core/archive.test.ts`
+
+```text
+Test Files  2 passed (2)
+Tests       218 passed (218)
+```
+
+`pnpm lint`
+
+```text
+eslint src/
+exit code 0
+```
+
+`pnpm build`
+
+```text
+✅ Build completed successfully!
+exit code 0
+```
+
+`git diff --check`
+
+```text
+exit code 0; no output
+```
