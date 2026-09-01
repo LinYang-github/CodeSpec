@@ -8,7 +8,7 @@ Status: reviewed, fixed, and committed. Task 11 was not modified.
 - Review-fix commit: `c57c895`.
 - Fixture/regression-test commit: `da6c7ab`.
 - Fix round 2 commit: pending until this report update is committed.
-- Fix round 3 commit: pending until this report update is committed.
+- Fix round 3 commit: `29b37cd`.
 
 ## Files
 
