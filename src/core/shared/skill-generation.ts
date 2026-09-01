@@ -144,12 +144,9 @@ export function generateSkillContent(
   generatedByVersion: string,
   transformInstructions?: (instructions: string) => string
 ): string {
-  const routed = template.name === 'openspec-workflow' || template.instructions.includes('## Canonical OpenSpec workflow')
-    ? template.instructions
-    : withOpenSpecWorkflowGuidance(template.instructions);
   const instructions = transformInstructions
-    ? transformInstructions(routed)
-    : routed;
+    ? transformInstructions(template.instructions)
+    : template.instructions;
 
   return `---
 name: ${template.name}

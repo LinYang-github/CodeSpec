@@ -488,6 +488,13 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     flags: [],
     subcommands: [
       {
+        name: 'new',
+        description: 'Create a new change (deprecated alias)',
+        acceptsPositional: true,
+        positionals: [{ name: 'name' }],
+        flags: [COMMON_FLAGS.json, COMMON_FLAGS.store],
+      },
+      {
         name: 'show',
         description: 'Show a change proposal',
         acceptsPositional: true,

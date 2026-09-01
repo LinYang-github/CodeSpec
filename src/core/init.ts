@@ -333,7 +333,16 @@ export class InitCommand {
     }
 
     // Create config.yaml if needed
-    const configStatus = await this.createConfig(openspecPath, extendMode);
+    let configStatus: 'created' | 'exists' | 'skipped';
+    try {
+      configStatus = await this.createConfig(openspecPath, extendMode);
+    } catch (error) {
+      if (this.language) {
+        const reason = error instanceof Error ? `: ${error.message}` : `: ${String(error)}`;
+        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+      }
+      configStatus = 'skipped';
+    }
 
     // Persist an explicit Copilot cloud decision so `openspec update` (which
     // never prompts) honors it. Best-effort: a config-write failure must not
