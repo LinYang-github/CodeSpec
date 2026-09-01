@@ -14,9 +14,9 @@ Everything in OpenSpec is built from five concepts. Learn these and the rest is 
 
 **1. Specs are the truth.** A code-spec spec describes how your system behaves *right now*. It lives in `openspec/archive/specs/`, organized by stable module IDs. Specs are made of Requirement IDs and scenarios (concrete GIVEN/WHEN/THEN examples). Think of specs as the single agreed-upon answer to "what does this software do?"
 
-**2. A change is one unit of work.** When you want to add, modify, or remove behavior, you create a change: a folder in `openspec/changes/` holding everything about that work in one place. A proposal, a design, a task list, and the spec edits. One change, one folder, one feature.
+**2. A change is one unit of work.** In canonical code-spec, create `openspec/changes/CHG-YYYYMMDD-NNN/` with `metadata.yaml`, proposal, design, delta spec, tasks, and verification. Generic `spec-driven` workspaces may retain the older slug-based `openspec/changes/<slug>/` layout.
 
-**3. Delta specs describe what's changing, not the whole world.** Inside a change, you don't rewrite the entire spec. You write a small delta: `ADDED` this requirement, `MODIFIED` that one, `REMOVED` this other one. This is the trick that makes OpenSpec good at editing existing systems, not just green-field ones. You describe the diff, not the destination.
+**3. Delta specs describe what's changing, not the whole world.** Canonical code-spec deltas live in `spec.md` and merge into `openspec/archive/specs/`; generic `spec-driven` workspaces may use their historical `openspec/changes/<slug>/specs/` layout.
 
 **4. Artifacts build on each other.** A change contains a few documents, created in a natural order, each feeding the next:
 

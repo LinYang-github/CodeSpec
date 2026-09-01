@@ -24,6 +24,22 @@ describe('openspec workflow loaders', () => {
     }).schema).toBe('spec-driven');
   });
 
+  it('loads a generic spec-driven workspace using its configured paths', async () => {
+    const fixture = await createWorkflowFixture({ configOverrides: {
+      schema: 'spec-driven',
+      paths: { business: 'generic/business.md', changes: 'generic/changes', change_index: 'generic/index.yaml', archive: 'generic/archive', specs: 'generic/specs', archived_changes: 'generic/archive/changes' },
+    }});
+    afterEach(fixture.cleanup);
+    await fs.mkdir(path.dirname(fixture.paths.business), { recursive: true });
+    await fs.mkdir(path.dirname(fixture.paths.changeIndex), { recursive: true });
+    await writeBusinessFile(fixture, '| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Generic | Generic behavior | Generic work | generic |');
+    await fs.writeFile(fixture.paths.changeIndex, 'version: 1\nchanges: []\n');
+    const workspace = await loadWorkspace(fixture.openspecDir);
+    expect(workspace.config.schema).toBe('spec-driven');
+    expect(workspace.paths.currentSpecs).toBe(path.join(fixture.openspecDir, 'generic', 'specs'));
+    expect(workspace.registry.modules[0]?.id).toBe('MOD-001');
+  });
+
   it('selects the canonical code-spec schema from workspace config', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);

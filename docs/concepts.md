@@ -177,7 +177,7 @@ In many teams, humans explore and agents draft artifacts. The intended loop is:
 3. Agent keeps implementation detail in `design.md` and `tasks.md`, not `spec.md`.
 4. Validation confirms structure and clarity before implementation.
 
-This keeps specs readable for humans and consistent for agents.
+This keeps specs readable for humans and consistent for agents. The canonical code-spec source of truth is `openspec/archive/specs/`; the legacy `openspec/specs/` source-of-truth wording below applies only to generic `spec-driven` workspaces.
 
 ## Changes
 
