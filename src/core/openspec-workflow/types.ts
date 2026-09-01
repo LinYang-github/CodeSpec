@@ -98,6 +98,8 @@ export interface ChangeMetadata {
         outcome: ModuleOutcome;
         latest_change: ChangeId | null;
         requirement_ids: RequirementId[];
+        spec_hash?: string;
+        requirements?: Record<RequirementId, string>;
       }
     >;
   };

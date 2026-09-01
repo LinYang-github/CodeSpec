@@ -2,18 +2,28 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml } from 'yaml';
 import type { WorkspaceContext } from './loaders.js';
 import { loadChangeArtifacts } from './loaders.js';
 
 export interface VerificationCommand { command: string; requirementIds?: string[]; scenarioIds?: string[] }
 export interface VerificationEvidence {
-  verified_at: string; requirement_ids: string[]; scenario_ids: string[];
+  verified_at: string; revision: number; status: 'PASS'; requirement_ids: string[]; scenario_ids: string[];
   commands: Array<{ command: string; exit_status: number; output_summary: string; started_at: string; finished_at: string }>;
 }
 
 export async function recordFreshVerification(workspace: WorkspaceContext, changeId: string, commands: VerificationCommand[]): Promise<VerificationEvidence> {
   if (!commands.length) throw new Error('At least one verification command is required');
-  const evidence: VerificationEvidence = { verified_at: new Date().toISOString(), requirement_ids: [], scenario_ids: [], commands: [] };
+  const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  if (!['VERIFY', 'ARCHIVE'].includes(artifacts.metadata.change.status)) throw new Error('Verification evidence requires VERIFY or ARCHIVE state');
+  try {
+    const previous = parseYaml(artifacts.verification) as Partial<VerificationEvidence>;
+    if (previous.revision !== undefined && previous.revision !== artifacts.metadata.change.revision) throw new Error('Verification evidence is stale for the current Change revision');
+    if (previous.status !== undefined && previous.status !== 'PASS') throw new Error('Verification evidence status must be PASS');
+  } catch (error) {
+    if (error instanceof Error && /stale|status/.test(error.message)) throw error;
+  }
+  const evidence: VerificationEvidence = { verified_at: new Date().toISOString(), revision: artifacts.metadata.change.revision, status: 'PASS', requirement_ids: [], scenario_ids: [], commands: [] };
   for (const item of commands) {
     const started_at = new Date().toISOString();
     const result = await new Promise<{ status: number; output: string }>((resolve) => {
@@ -27,7 +37,7 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
     if (result.status !== 0) throw new Error(`Verification command failed: ${item.command}`);
   }
   evidence.requirement_ids = [...new Set(evidence.requirement_ids)]; evidence.scenario_ids = [...new Set(evidence.scenario_ids)];
-  const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  if (!evidence.requirement_ids.length) throw new Error('Verification evidence must cover at least one Requirement');
   const verificationPath = path.join(workspace.openspecDir, artifacts.metadata.artifacts.verification);
   await fs.writeFile(verificationPath, stringifyYaml(evidence));
   return evidence;

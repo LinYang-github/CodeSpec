@@ -134,6 +134,8 @@ const moduleBaselineSchema = z
     outcome: moduleOutcomeSchema,
     latest_change: changeIdSchema.nullable(),
     requirement_ids: z.array(requirementIdSchema),
+    spec_hash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    requirements: z.record(requirementIdSchema, z.string().regex(/^[a-f0-9]{64}$/)).optional(),
   })
   .strict();
 

@@ -24,4 +24,9 @@ describe('fresh verification', () => {
     expect(evidence.scenario_ids).toEqual(['SCN-001']);
     expect(evidence.verified_at).toBeTruthy();
   });
+
+  it('rejects empty evidence and evidence that does not cover the current revision', async () => {
+    const fixture = await createWorkflowFixture(); cleanups.push(fixture.cleanup);
+    await expect(recordFreshVerification(fixture.workspace, fixture.changeId, [])).rejects.toThrow(/required/i);
+  });
 });
