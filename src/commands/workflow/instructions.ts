@@ -139,7 +139,7 @@ export async function instructionsCommand(
       if (artifactId) {
         spinner?.stop();
         const label = artifactId.charAt(0).toUpperCase() + artifactId.slice(1);
-        const text = `## ${label}: ${changeName}\n\nCurrent status: ${status}\n\nUse the canonical Change artifacts (${artifacts.metadata.artifacts.proposal}, ${artifacts.metadata.artifacts.design}, ${artifacts.metadata.artifacts.spec}, ${artifacts.metadata.artifacts.tasks}, ${artifacts.metadata.artifacts.verification}) and satisfy the lifecycle gates before transition.\n`;
+        const text = `## ${label}: ${changeName}\n\nCurrent status: ${status}\n\nUse the canonical Change artifacts (${artifacts.metadata.artifacts.proposal}, ${artifacts.metadata.artifacts.design}, ${artifacts.metadata.artifacts.spec}, ${artifacts.metadata.artifacts.tasks}, ${artifacts.metadata.artifacts.verification}) and satisfy the lifecycle gates before transition.\n\nSuperpowers context: use TDD RED → GREEN, fresh verification evidence, and semantic Rebase when the baseline is STALE.\n`;
         if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
         else console.log(text);
         return;

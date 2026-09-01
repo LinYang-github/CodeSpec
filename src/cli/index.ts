@@ -49,6 +49,8 @@ import {
   type SchemasOptions,
   type NewChangeOptions,
 } from '../commands/workflow/index.js';
+import { rebaseChange } from '../core/openspec-workflow/rebase.js';
+import { loadWorkspace } from '../core/openspec-workflow/loaders.js';
 import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
 import { maybeShowCompletionTip } from '../core/completion-tip.js';
 import { COMMON_FLAGS } from '../core/completions/shared-flags.js';
@@ -657,6 +659,23 @@ program
 // ═══════════════════════════════════════════════════════════
 // Workflow Commands (formerly experimental)
 // ═══════════════════════════════════════════════════════════
+
+program
+  .command('rebase')
+  .description('Semantically rebase a stale canonical Change')
+  .requiredOption('--change <id>', 'Canonical Change ID')
+  .option('--current-spec <path>', 'Current specification path', (value, previous: string[] = []) => [...previous, value], [])
+  .action(async (options: { change: string; currentSpec: string[] }) => {
+    try {
+      const openspecDir = path.join(process.cwd(), 'openspec');
+      const workspace = await loadWorkspace(openspecDir);
+      const result = await rebaseChange(workspace, options.change, options.currentSpec);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      failWithError(error, { enabled: true, fallbackCode: 'rebase_error' });
+      process.exit(1);
+    }
+  });
 
 // Status command
 program

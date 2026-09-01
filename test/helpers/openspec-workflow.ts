@@ -15,6 +15,7 @@ export interface WorkflowFixture {
   workspace: {
     openspecDir: string;
     config: WorkspaceConfig;
+    paths: ReturnType<typeof getWorkspacePaths>;
   };
   changeId: string;
   latestSpecs: string[];
@@ -217,6 +218,7 @@ export async function createWorkflowFixture(options?: {
     workspace: {
       openspecDir,
       config,
+      paths,
     },
     changeId,
     latestSpecs: [],
