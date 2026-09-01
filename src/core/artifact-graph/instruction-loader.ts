@@ -8,7 +8,7 @@ import {
   resolveArtifactOutputPath,
   resolveArtifactOutputs,
 } from './outputs.js';
-import { readChangeMetadata, resolveSchemaForChange } from '../../utils/change-metadata.js';
+import { isCanonicalChangeDirectory, readChangeMetadata, resolveSchemaForChange } from '../../utils/change-metadata.js';
 import { FileSystemUtils } from '../../utils/file-system.js';
 import {
   buildActionContext,
@@ -287,7 +287,7 @@ export function loadChangeContext(
   // would block their dependents (e.g. tasks) on files that must not exist.
   // Tracked separately so status renders them as skipped, not done.
   const skippedArtifacts = new Set<string>();
-  if (metadata?.skip_specs) {
+  if (metadata?.skip_specs && !isCanonicalChangeDirectory(changeDir)) {
     for (const artifact of graph.getAllArtifacts()) {
       if (isSpecsArtifactPath(artifact.generates) && !completed.has(artifact.id)) {
         completed.add(artifact.id);

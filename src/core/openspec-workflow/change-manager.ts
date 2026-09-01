@@ -4,6 +4,7 @@ import { stringify as stringifyYaml } from 'yaml';
 
 import { formatLocalDate } from '../../utils/date.js';
 import { loadChangeArtifacts, type WorkspaceContext } from './loaders.js';
+import { loadChangeIndex } from './change-index.js';
 import { resolveChange, type ChangeSelector } from './change-resolver.js';
 import type { ChangeId, ChangeMetadata, ChangeMode, ChangeStatus } from './types.js';
 
@@ -153,7 +154,8 @@ async function writeChangeIndex(
   workspace: WorkspaceContext,
   metadata: ChangeMetadata
 ): Promise<string> {
-  const entries = workspace.index.entries.filter((entry) => entry.id !== metadata.change.id);
+  const index = await loadChangeIndex(workspace.paths);
+  const entries = index.entries.filter((entry) => entry.id !== metadata.change.id);
   entries.push({
     id: metadata.change.id,
     title: metadata.change.title,

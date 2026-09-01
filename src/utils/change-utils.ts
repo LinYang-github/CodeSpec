@@ -133,6 +133,9 @@ export async function createChange(
   name: string,
   options: CreateChangeOptions = {}
 ): Promise<CreateChangeResult> {
+  if (/^CHG-\d{8}-\d{3}$/.test(name)) {
+    throw new Error("Canonical Change IDs are allocated automatically. Use 'openspec new change <title>'.");
+  }
   // Validate the name first
   const validation = validateChangeName(name);
   if (!validation.valid) {

@@ -6,6 +6,29 @@ import { listSchemas, resolveSchema } from '../core/artifact-graph/resolver.js';
 import { readProjectConfig, type ProjectConfig } from '../core/project-config.js';
 
 export const METADATA_FILENAME = '.openspec.yaml';
+export const CANONICAL_METADATA_FILENAME = 'metadata.yaml';
+
+function isCanonicalCodeSpecChange(changeDir: string, projectRoot?: string): boolean {
+  if (path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/)) return true;
+  if (!projectRoot) return false;
+  try {
+    const config = yaml.parse(fs.readFileSync(path.join(projectRoot, 'openspec', 'config.yaml'), 'utf8')) as { schema?: unknown };
+    return config?.schema === 'code-spec';
+  } catch {
+    return false;
+  }
+}
+
+function rejectLegacyCodeSpecChange(changeDir: string, projectRoot?: string): void {
+  if (!isCanonicalCodeSpecChange(changeDir, projectRoot)) return;
+  const legacyPath = path.join(changeDir, METADATA_FILENAME);
+  if (fs.existsSync(legacyPath) && !fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME))) {
+    throw new ChangeMetadataError(
+      `Legacy Change metadata is unsupported. Create a canonical Change with 'openspec new change <title>' (CHG-YYYYMMDD-NNN).`,
+      legacyPath
+    );
+  }
+}
 
 /**
  * Error thrown when change metadata validation fails.
@@ -95,6 +118,7 @@ export function readChangeMetadata(
   changeDir: string,
   projectRoot?: string
 ): ChangeMetadata | null {
+  rejectLegacyCodeSpecChange(changeDir, projectRoot);
   const metaPath = path.join(changeDir, METADATA_FILENAME);
 
   if (!fs.existsSync(metaPath)) {
@@ -146,6 +170,10 @@ export function readChangeMetadata(
   return parseResult.data;
 }
 
+export function isCanonicalChangeDirectory(changeDir: string): boolean {
+  return /^CHG-\d{8}-\d{3}$/.test(path.basename(changeDir));
+}
+
 export interface ResolveSchemaForChangeOptions {
   metadata?: ChangeMetadata | null;
   /** Pre-read project config; suppresses the fallback config read when provided. */
@@ -171,6 +199,7 @@ export function resolveSchemaForChange(
   projectRootOverride?: string,
   options: ResolveSchemaForChangeOptions = {}
 ): string {
+  rejectLegacyCodeSpecChange(changeDir, projectRootOverride);
   // Derive project root from changeDir (changeDir is typically projectRoot/openspec/changes/change-name)
   const projectRoot = projectRootOverride ?? path.resolve(changeDir, '../../..');
 
