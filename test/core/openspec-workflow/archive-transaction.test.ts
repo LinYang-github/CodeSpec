@@ -19,7 +19,8 @@ async function setup(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>,
   const dir = path.join(fixture.paths.changes, fixture.changeId); await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, 'metadata.yaml'), stringify(metadata));
   await fs.writeFile(path.join(dir, 'proposal.md'), 'proposal'); await fs.writeFile(path.join(dir, 'design.md'), 'design');
-  await fs.writeFile(path.join(dir, 'tasks.md'), 'tasks'); await fs.writeFile(path.join(dir, 'verification.md'), 'verification');
+  await fs.writeFile(path.join(dir, 'tasks.md'), 'tasks');
+  await fs.writeFile(path.join(dir, 'verification.md'), stringify({ status: 'PASS', revision: metadata.change.revision, requirement_ids: [...metadata.requirements.added, ...metadata.requirements.modified, ...metadata.requirements.removed].map((r) => r.id), baseline_hash: 'fixture' }));
   await fs.writeFile(path.join(dir, 'spec.md'), spec);
 }
 

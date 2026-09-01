@@ -19,6 +19,7 @@ import {
 } from '../core/version-check.js';
 import { ListCommand } from '../core/list.js';
 import { ArchiveCommand, type ArchiveOptions } from '../core/archive.js';
+import { archiveBusinessChange } from '../core/business-archive.js';
 import { ViewCommand } from '../core/view.js';
 import { resolveRootForCommand, toRootOutput } from '../core/root-selection.js';
 import { registerSpecCommand } from '../commands/spec.js';
@@ -509,6 +510,11 @@ program
   .addOption(hiddenStorePathOption())
   .action(async (changeName?: string, options?: ArchiveOptions) => {
     try {
+      if (changeName?.startsWith('CHG-')) {
+        const result = await archiveBusinessChange(process.cwd(), changeName);
+        if (options?.json) console.log(JSON.stringify(result));
+        return;
+      }
       const archiveCommand = new ArchiveCommand();
       await archiveCommand.execute(changeName, options);
     } catch (error) {
