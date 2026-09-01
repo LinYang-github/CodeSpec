@@ -37,4 +37,4 @@ Exact verification:
 - `pnpm lint` — exit 0.
 - `git diff --check` — exit 0.
 
-Review-fix commit: recorded after commit.
+Review-fix commit: `c4282cc71bd2d7cd9dd4a5dd02a8108a095a1548`.
