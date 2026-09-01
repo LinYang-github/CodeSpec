@@ -7,6 +7,7 @@ import {
   loadChangeArtifacts,
   loadWorkspace,
 } from '../../../src/core/openspec-workflow/loaders.js';
+import { parseWorkspaceConfig } from '../../../src/core/openspec-workflow/schemas.js';
 import {
   createWorkflowFixture,
   writeBusinessFile,
@@ -14,6 +15,15 @@ import {
 } from '../../helpers/openspec-workflow.js';
 
 describe('openspec workflow loaders', () => {
+  it('retains generic spec-driven workspace configuration parsing', () => {
+    expect(parseWorkspaceConfig({
+      version: 1, schema: 'spec-driven', project: { name: 'generic' },
+      paths: { business: 'business.md', changes: 'changes', change_index: 'changes/index.yaml', archive: 'archive', specs: 'specs', archived_changes: 'changes/archive' },
+      workflow: { multiple_active_changes: false }, requirements: { id_format: '{module}-REQ-{sequence:03d}' },
+      changes: { id_format: 'CHG-{date}-{sequence:03d}' }, archive: { update_index: true, require_verification: false, conflict_strategy: 'optimistic' },
+    }).schema).toBe('spec-driven');
+  });
+
   it('selects the canonical code-spec schema from workspace config', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);

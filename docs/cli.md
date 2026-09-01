@@ -267,8 +267,8 @@ openspec store setup team-context --path ~/openspec/team-context --no-init-git -
 
 Register an existing local store folder. During the stores beta, a root may be
 registered before any changes exist, specs have been applied, or changes have
-been archived; in that case `openspec/changes/`, `openspec/specs/`, and
-`openspec/changes/archive/` may be absent until normal commands create them.
+been archived; canonical workspaces use `openspec/changes/`, `openspec/archive/specs/`, and
+`openspec/archive/changes/`. Generic `spec-driven` stores may retain historical paths.
 A config-only repo that declares `store: <id>` remains a pointer to another
 store and is not registered as a store root unless that pointer is removed.
 

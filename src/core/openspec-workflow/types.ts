@@ -16,7 +16,7 @@ export type ChangeStatus =
 
 export interface WorkspaceConfig {
   version: 1;
-  schema: 'code-spec';
+  schema: 'code-spec' | 'spec-driven';
   project: {
     name: string;
   };

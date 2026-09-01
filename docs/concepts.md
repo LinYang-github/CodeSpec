@@ -186,14 +186,13 @@ A change is a proposed modification to your system, packaged as a folder with ev
 ### Change Structure
 
 ```
-openspec/changes/add-dark-mode/
+openspec/changes/CHG-YYYYMMDD-NNN/
 ├── proposal.md           # Why and what
 ├── design.md             # How (technical approach)
 ├── tasks.md              # Implementation checklist
-├── .openspec.yaml        # Change metadata (optional): schema, created, skip_specs, retire_capabilities
-└── specs/                # Delta specs
-    └── ui/
-        └── spec.md       # What's changing in ui/spec.md
+├── metadata.yaml         # Change status authority
+├── spec.md               # Requirement deltas
+└── verification.md       # Fresh evidence
 ```
 
 Each change is self-contained. It has:
@@ -209,7 +208,7 @@ Packaging a change as a folder has several benefits:
 
 2. **Parallel work.** Multiple changes can exist simultaneously without conflicting. Work on `add-dark-mode` while `fix-auth-bug` is also in progress.
 
-3. **Clean history.** When archived, changes move to `changes/archive/` with their full context preserved. You can look back and understand not just what changed, but why.
+3. **Clean history.** Canonical Changes move to `openspec/archive/changes/` with full context preserved. Generic `spec-driven` documentation may use its historical archive path.
 
 4. **Review-friendly.** A change folder is easy to review — open it, read the proposal, check the design, see the spec deltas.
 

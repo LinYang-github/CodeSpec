@@ -27,7 +27,7 @@ proposal ──► specs ──► design ──► tasks ──► implement
 
 You can revisit any of them at any time. They're enablers, not gates. (More on that below.)
 
-**5. Archiving folds the change back into the truth.** When the work is done, you archive the change. Its delta specs merge into your main specs, and the change folder moves to `changes/archive/` with a date stamp. Now your specs describe the new reality, and you're ready for the next change. The cycle closes.
+**5. Archiving folds the change back into the truth.** For canonical code-spec, deltas merge into `openspec/archive/specs/` and immutable history goes to `openspec/archive/changes/`. Generic `spec-driven` workflows retain their historical paths and behavior.
 
 ## The picture
 

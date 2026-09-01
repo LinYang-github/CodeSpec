@@ -78,7 +78,7 @@ const scenarioSchema = z
 const workspaceConfigSchema = z
   .object({
     version: z.literal(1),
-    schema: z.literal('code-spec'),
+    schema: z.enum(['code-spec', 'spec-driven']),
     project: z
       .object({
         name: nonEmptyString,
