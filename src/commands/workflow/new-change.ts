@@ -10,6 +10,10 @@
 import ora from 'ora';
 import path from 'path';
 import { createChange, validateChangeName } from '../../utils/change-utils.js';
+import {
+  createCanonicalChange,
+} from '../../core/openspec-workflow/change-manager.js';
+import { loadWorkspace } from '../../core/openspec-workflow/loaders.js';
 import { formatChangeLocation } from '../../core/planning-home.js';
 import {
   resolveRootForCommand,
@@ -46,6 +50,14 @@ interface NewChangeOutput {
     schema: string;
   };
   root: RootOutput;
+}
+
+async function tryLoadCanonicalWorkspace(projectRoot: string) {
+  try {
+    return await loadWorkspace(path.join(projectRoot, 'openspec'));
+  } catch {
+    return null;
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -93,11 +105,6 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
       throw new Error('Missing required argument <name>');
     }
 
-    const validation = validateChangeName(name);
-    if (!validation.valid) {
-      throw new Error(validation.error);
-    }
-
     assertRemovedOptionsAbsent(options);
 
     const root = await resolveRootForCommand(options, {
@@ -109,6 +116,21 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
     }
 
     const projectRoot = root.path;
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
+
+    if (canonicalWorkspace) {
+      if (/^CHG-\d{8}-\d{3}$/.test(name)) {
+        throw new Error('canonical Change IDs are allocated automatically. Provide a descriptive change title instead.');
+      }
+      if (options.schema) {
+        throw new Error('--schema is not supported for canonical code-spec changes.');
+      }
+    } else {
+      const validation = validateChangeName(name);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+    }
 
     // Validate schema if provided
     if (options.schema) {
@@ -120,28 +142,43 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
       spinner.start(`Creating change '${name}' with schema '${resolvedSchema}'...`);
     }
 
-    const result = await createChange(projectRoot, name, {
-      schema: options.schema,
-      defaultSchema: root.defaultSchema,
-      changesDir: root.changesDir,
-      metadata: {
-        ...(options.goal ? { goal: options.goal } : {}),
-      },
-    });
+    const result = canonicalWorkspace
+      ? {
+          kind: 'canonical' as const,
+          value: await createCanonicalChange(canonicalWorkspace, {
+            title: name,
+            summary: options.goal ?? options.description ?? name,
+            mode: 'feature',
+          }),
+        }
+      : {
+          kind: 'legacy' as const,
+          value: await createChange(projectRoot, name, {
+            schema: options.schema,
+            defaultSchema: root.defaultSchema,
+            changesDir: root.changesDir,
+            metadata: {
+              ...(options.goal ? { goal: options.goal } : {}),
+            },
+          }),
+        };
 
     // If description provided, create README.md with description
     if (options.description) {
       const { promises: fs } = await import('fs');
-      const readmePath = path.join(result.changeDir, 'README.md');
+      const readmePath = path.join(result.value.changeDir, 'README.md');
       await fs.writeFile(readmePath, `# ${name}\n\n${options.description}\n`, 'utf-8');
     }
 
     const payload: NewChangeOutput = {
       change: {
-        id: name,
-        path: result.changeDir,
-        metadataPath: path.join(result.changeDir, '.openspec.yaml'),
-        schema: result.schema,
+        id: result.kind === 'canonical' ? result.value.changeId : name,
+        path: result.value.changeDir,
+        metadataPath:
+          result.kind === 'canonical'
+            ? result.value.metadataPath
+            : path.join(result.value.changeDir, '.openspec.yaml'),
+        schema: result.kind === 'canonical' ? 'spec-driven' : result.value.schema,
       },
       root: toRootOutput(root),
     };

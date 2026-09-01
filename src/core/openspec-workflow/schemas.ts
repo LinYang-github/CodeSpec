@@ -348,31 +348,31 @@ function parseWithSchema<T>(label: string, schema: z.ZodType<T>, value: unknown)
   if (!result.success) {
     throw new Error(`Invalid ${label}: ${formatIssues(result.error)}`);
   }
-  return result.data;
+  return result.data as T;
 }
 
 export function parseWorkspaceConfig(value: unknown): WorkspaceConfig {
-  return parseWithSchema('workspace config', workspaceConfigSchema, value);
+  return parseWithSchema('workspace config', workspaceConfigSchema, value) as WorkspaceConfig;
 }
 
 export function parseBusinessModule(value: unknown): BusinessModule {
-  return parseWithSchema('business module', businessModuleSchema, value);
+  return parseWithSchema('business module', businessModuleSchema, value) as BusinessModule;
 }
 
 export function parseChangeMetadata(value: unknown): ChangeMetadata {
-  return parseWithSchema('change metadata', changeMetadataSchema, value);
+  return parseWithSchema('change metadata', changeMetadataSchema, value) as ChangeMetadata;
 }
 
 export function parseChangeIndexEntry(value: unknown): ChangeIndexEntry {
-  return parseWithSchema('change index entry', changeIndexEntrySchema, value);
+  return parseWithSchema('change index entry', changeIndexEntrySchema, value) as ChangeIndexEntry;
 }
 
 export function parseRequirementDelta(value: unknown): RequirementDelta {
-  return parseWithSchema('requirement delta', requirementDeltaSchema, value);
+  return parseWithSchema('requirement delta', requirementDeltaSchema, value) as RequirementDelta;
 }
 
 export function parseArchivePlan(value: unknown): ArchivePlan {
-  return parseWithSchema('archive plan', archivePlanSchema, value);
+  return parseWithSchema('archive plan', archivePlanSchema, value) as ArchivePlan;
 }
 
 export type {

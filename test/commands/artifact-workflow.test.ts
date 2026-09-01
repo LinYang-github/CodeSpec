@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import { parse as parseYaml } from 'yaml';
 import { runCLI } from '../helpers/run-cli.js';
 import { FileSystemUtils } from '../../src/utils/file-system.js';
 
@@ -72,6 +73,49 @@ describe('artifact-workflow CLI commands', () => {
     }
 
     return changeDir;
+  }
+
+  async function createCanonicalCodeSpecWorkspace(): Promise<void> {
+    await fs.mkdir(path.join(tempDir, 'openspec', 'archive', 'specs'), { recursive: true });
+    await fs.mkdir(path.join(tempDir, 'openspec', 'archive', 'changes'), { recursive: true });
+    await fs.writeFile(
+      path.join(tempDir, 'openspec', 'config.yaml'),
+      [
+        'version: 1',
+        'schema: spec-driven',
+        'project:',
+        '  name: demo',
+        'paths:',
+        '  business: business.md',
+        '  changes: changes',
+        '  change_index: changes/index.yaml',
+        '  archive: archive',
+        '  specs: archive/specs',
+        '  archived_changes: archive/changes',
+        'workflow:',
+        '  multiple_active_changes: true',
+        'requirements:',
+        "  id_format: '{module}-REQ-{sequence:03d}'",
+        'changes:',
+        "  id_format: 'CHG-{date}-{sequence:03d}'",
+        'archive:',
+        '  update_index: true',
+        '  require_verification: true',
+        "  conflict_strategy: optimistic",
+        '',
+      ].join('\n')
+    );
+    await fs.writeFile(
+      path.join(tempDir, 'openspec', 'business.md'),
+      [
+        '# Business',
+        '',
+        '| Module ID | Module Name | Description | Responsibilities | Keywords |',
+        '| --- | --- | --- | --- | --- |',
+        '| MOD-001 | Order Management | Owns orders | Continue orders | orders, checkout |',
+      ].join('\n')
+    );
+    await fs.writeFile(path.join(changesDir, 'index.yaml'), 'version: 1\nchanges: []\n');
   }
 
   describe('status command', () => {
@@ -435,18 +479,55 @@ describe('artifact-workflow CLI commands', () => {
   });
 
   describe('new change command', () => {
-    it('creates a new change directory', async () => {
+    it('creates a canonical Change directory for code-spec workspaces', async () => {
+      await createCanonicalCodeSpecWorkspace();
+
       const result = await runCLI(['new', 'change', 'my-new-feature'], { cwd: tempDir });
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      expect(output).toContain("Created change 'my-new-feature'");
+      expect(output).toContain("Created change 'CHG-");
+      expect(output).toContain('openspec status --change CHG-');
 
-      const changeDir = path.join(changesDir, 'my-new-feature');
+      const createdId = output.match(/Created change '(CHG-\d{8}-\d{3})'/)?.[1];
+      expect(createdId).toMatch(/^CHG-\d{8}-\d{3}$/);
+
+      const changeDir = path.join(changesDir, createdId!);
       const stat = await fs.stat(changeDir);
       expect(stat.isDirectory()).toBe(true);
 
-      const metadata = await fs.readFile(path.join(changeDir, '.openspec.yaml'), 'utf-8');
-      expect(metadata).not.toContain('skip_specs');
+      const metadata = parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf-8')) as {
+        change: { id: string; title: string; status: string };
+      };
+      expect(metadata.change.id).toBe(createdId);
+      expect(metadata.change.title).toBe('my-new-feature');
+      expect(metadata.change.status).toBe('ANALYZE');
+
+      const index = parseYaml(await fs.readFile(path.join(changesDir, 'index.yaml'), 'utf-8')) as {
+        changes: Array<{ id: string; title: string }>;
+      };
+      expect(index.changes[0]).toMatchObject({ id: createdId, title: 'my-new-feature' });
+      await expect(fs.stat(path.join(changeDir, '.openspec.yaml'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    });
+
+    it('supports deprecated change new as an alias for canonical Change creation', async () => {
+      await createCanonicalCodeSpecWorkspace();
+
+      const result = await runCLI(['change', 'new', 'billing-resume'], { cwd: tempDir });
+      expect(result.exitCode).toBe(0);
+      const output = getOutput(result);
+      expect(output).toContain('deprecated');
+      expect(output).toContain("Created change 'CHG-");
+    });
+
+    it('rejects a user-supplied canonical Change id as the new change name', async () => {
+      await createCanonicalCodeSpecWorkspace();
+
+      const result = await runCLI(['new', 'change', 'CHG-20260901-001'], { cwd: tempDir });
+      expect(result.exitCode).toBe(1);
+      const output = getOutput(result);
+      expect(output).toContain('canonical Change IDs are allocated automatically');
     });
 
     it('marks changes as skip_specs when their schema cannot generate specs', async () => {

@@ -422,6 +422,26 @@ changeCmd.hook('preAction', () => {
 });
 
 changeCmd
+  .command('new <name>')
+  .description('Create a new change (deprecated alias for "openspec new change")')
+  .option('--description <text>', 'Description to add to README.md')
+  .option('--goal <text>', 'Optional goal metadata to store with the change')
+  .option('--schema <name>', `Workflow schema to use (default: ${DEFAULT_SCHEMA})`)
+  .option('--json', 'Output as JSON')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .addOption(new Option('--initiative <id>', 'No longer supported').hideHelp())
+  .addOption(new Option('--areas <names>', 'No longer supported').hideHelp())
+  .action(async (name: string, options: NewChangeOptions) => {
+    try {
+      await newChangeCommand(name, options);
+    } catch (error) {
+      failWithError(error, { enabled: options.json, fallbackCode: 'change_error' });
+      process.exit(1);
+    }
+  });
+
+changeCmd
   .command('show [change-name]')
   .description('Show a change proposal in JSON or markdown format')
   .option('--json', 'Output as JSON')

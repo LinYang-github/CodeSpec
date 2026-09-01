@@ -9,6 +9,8 @@ import chalk from 'chalk';
 import path from 'path';
 import * as fs from 'fs';
 import { getSchemaDir, listSchemas } from '../../core/artifact-graph/index.js';
+import { loadWorkspace } from '../../core/openspec-workflow/loaders.js';
+import { listActiveChanges, resolveChange } from '../../core/openspec-workflow/change-resolver.js';
 import type { ReferenceIndexEntry } from '../../core/references.js';
 import { isRootSelectionError } from '../../core/root-selection.js';
 
@@ -65,6 +67,14 @@ export interface ArchiveInstructions {
 // -----------------------------------------------------------------------------
 
 export const DEFAULT_SCHEMA = 'spec-driven';
+
+async function tryLoadCanonicalWorkspace(projectRoot: string) {
+  try {
+    return await loadWorkspace(path.join(projectRoot, 'openspec'));
+  } catch {
+    return null;
+  }
+}
 
 // -----------------------------------------------------------------------------
 // Utility Functions
@@ -137,6 +147,12 @@ export async function getAvailableChanges(
   projectRoot: string,
   changesDir = path.join(projectRoot, 'openspec', 'changes')
 ): Promise<string[]> {
+  const workspace = await tryLoadCanonicalWorkspace(projectRoot);
+  if (workspace && workspace.paths.changes === changesDir) {
+    const activeChanges = await listActiveChanges(workspace);
+    return activeChanges.map((candidate) => candidate.changeId);
+  }
+
   const changesPath = changesDir;
   try {
     const entries = await fs.promises.readdir(changesPath, { withFileTypes: true });
@@ -190,6 +206,20 @@ export async function validateChangeExists(
   // Hints must stay pasteable: callers with a selected store pass a
   // store-carrying hint so following it lands in the same root.
   const newChangeHint = hints.newChangeHint ?? 'openspec new change <name>';
+
+  const workspace = await tryLoadCanonicalWorkspace(projectRoot);
+  if (workspace && workspace.paths.changes === changesDir) {
+    if (!changeName) {
+      return (await resolveChange(workspace, { cwd: process.cwd() })).changeId;
+    }
+
+    return (
+      await resolveChange(workspace, {
+        cwd: process.cwd(),
+        text: changeName,
+      })
+    ).changeId;
+  }
 
   if (!changeName) {
     const available = await getAvailableChanges(projectRoot, changesDir);
