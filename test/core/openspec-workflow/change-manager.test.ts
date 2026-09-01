@@ -5,6 +5,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { loadWorkspace } from '../../../src/core/openspec-workflow/loaders.js';
 import {
+  __setChangeManagerTestHooksForTests,
   allocateChangeId,
   createCanonicalChange,
   resumeChange,
@@ -234,5 +235,37 @@ describe('openspec workflow change management', () => {
     await expect(fs.stat(fixture.paths.changeIndex)).resolves.toMatchObject({
       isDirectory: expect.any(Function),
     });
+  });
+
+  it('preserves an existing destination Change when publish collides after allocation', async () => {
+    const { fixture, workspace } = await loadCanonicalWorkspace();
+    const collidingChangeDir = path.join(fixture.paths.changes, 'CHG-20260901-001');
+    const stagingDir = path.join(fixture.paths.changes, '.CHG-20260901-001.tmp');
+
+    __setChangeManagerTestHooksForTests({
+      beforePublishRename: async () => {
+        await fs.mkdir(collidingChangeDir, { recursive: true });
+        await fs.writeFile(path.join(collidingChangeDir, 'marker.txt'), 'preexisting\n');
+      },
+    });
+
+    try {
+      await expect(
+        createCanonicalChange(workspace, {
+          title: 'Concurrent collision',
+          summary: 'Simulate a destination collision during publish',
+          mode: 'feature',
+        })
+      ).rejects.toSatisfy(
+        (error: NodeJS.ErrnoException) => error.code === 'EEXIST' || error.code === 'ENOTEMPTY'
+      );
+
+      expect(await fs.readFile(path.join(collidingChangeDir, 'marker.txt'), 'utf8')).toBe('preexisting\n');
+      await expect(fs.stat(stagingDir)).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    } finally {
+      __setChangeManagerTestHooksForTests(null);
+    }
   });
 });

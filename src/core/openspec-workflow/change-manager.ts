@@ -32,6 +32,10 @@ export interface ResumeResult {
   diagnostic: ResumeDiagnostic | null;
 }
 
+interface ChangeManagerTestHooks {
+  beforePublishRename?: (stagingDir: string, changeDir: string) => Promise<void> | void;
+}
+
 const CHANGE_ID_PATTERN = /^CHG-(\d{8})-(\d{3})$/;
 const ACTIVE_CHANGE_STATUSES: ReadonlySet<ChangeStatus> = new Set([
   'ANALYZE',
@@ -41,6 +45,11 @@ const ACTIVE_CHANGE_STATUSES: ReadonlySet<ChangeStatus> = new Set([
   'VERIFY',
   'ARCHIVE',
 ]);
+let changeManagerTestHooks: ChangeManagerTestHooks | null = null;
+
+export function __setChangeManagerTestHooksForTests(hooks: ChangeManagerTestHooks | null): void {
+  changeManagerTestHooks = hooks;
+}
 
 async function listChangeIds(directory: string): Promise<ChangeId[]> {
   const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error) => {
@@ -205,6 +214,7 @@ export async function createCanonicalChange(
     path.dirname(workspace.paths.changeIndex),
     `.index-${changeId}.tmp`
   );
+  let ownsDestination = false;
 
   try {
     await fs.mkdir(stagingDir, { recursive: false });
@@ -217,11 +227,15 @@ export async function createCanonicalChange(
       fs.writeFile(path.join(stagingDir, 'verification.md'), '# Verification\n'),
     ]);
 
+    await changeManagerTestHooks?.beforePublishRename?.(stagingDir, changeDir);
     await fs.rename(stagingDir, changeDir);
+    ownsDestination = true;
     await writeChangeIndex(workspace, metadata);
   } catch (error) {
     await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {});
-    await fs.rm(changeDir, { recursive: true, force: true }).catch(() => {});
+    if (ownsDestination) {
+      await fs.rm(changeDir, { recursive: true, force: true }).catch(() => {});
+    }
     await fs.rm(tempIndexPath, { force: true }).catch(() => {});
     throw error;
   }
