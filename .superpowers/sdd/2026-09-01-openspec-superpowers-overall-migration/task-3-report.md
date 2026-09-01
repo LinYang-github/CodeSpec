@@ -145,3 +145,125 @@ Commit output:
 
 - I made one minimal compile-boundary change in `src/core/openspec-workflow/schemas.ts` so the freshly rebuilt CLI could type-check against the stricter canonical interfaces; that file was not listed in the Task 3 sample `git add`, but without the cast the exact GREEN workflow could not be rebuilt honestly.
 - The focused Task 3 verification intentionally covered the new canonical domain layer and CLI creation/alias behavior only. I did not broaden verification into later lifecycle-gate or archive-task surfaces.
+
+## Review Fix Round
+
+### Status
+
+- Status: complete
+- Review fix commit: `81f3499c077030c7576acedc76f8d1e61f40014f`
+- Review fix parent: `0f260164de7883713201b820b71e9ca03f9d4f8b`
+
+### Review Fix Scope
+
+- Removed silent fallback from `new-change.ts` and `shared.ts` when a canonical `openspec/config.yaml` is present but canonical workspace loading fails.
+- Updated `resolveChange()` so a semantic selector with no match falls through to sole-active resolution when exactly one active Change exists.
+- Updated `resumeChange()` to reject terminal statuses and only resume active Change states.
+- Replaced the broad parser return assertions in `schemas.ts` with typed canonical ID schemas so the Task 3 type mismatch is fixed at the schema boundary instead of the parser call sites.
+- Made `createCanonicalChange()` publish via staging and temp index files, with cleanup on failure so a broken publish does not leave a partial canonical Change behind.
+
+### RED
+
+Focused review-fix command:
+
+```bash
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts test/commands/artifact-workflow.test.ts -t "canonical|semantic|resume|staged|legacy|falling back|loading is broken"
+```
+
+Output before the fix:
+
+```text
+ RUN  v3.2.6 /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+
+ ❯ test/core/openspec-workflow/change-manager.test.ts (7 tests | 2 failed | 2 skipped) 245ms
+   × openspec workflow change management > resolves Change selectors by explicit ID, bound context, semantic match, then sole active Change
+     → promise rejected "Error: No active Change matches "no seman…" instead of resolving
+   × openspec workflow change management > cleans up a staged Change when index publication fails 8ms
+     → promise resolved "Stats{ ... }" instead of rejecting
+
+ ❯ test/commands/artifact-workflow.test.ts (82 tests | 2 failed | 77 skipped) 1647ms
+   × artifact-workflow CLI commands > status command > fails explicitly instead of resolving legacy slug Changes when canonical loading is broken 555ms
+     → expected +0 to be 1 // Object.is equality
+   × artifact-workflow CLI commands > new change command > fails explicitly instead of falling back when canonical workspace loading is broken 255ms
+     → expected +0 to be 1 // Object.is equality
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 6 passed | 79 skipped (89)
+```
+
+Observed RED reason:
+
+- canonical workspace load errors were still swallowed and routed into legacy slug behavior
+- semantic no-match raised immediately instead of allowing the sole-active fallback
+- failed canonical publish left the partially created Change directory behind
+
+### GREEN
+
+Fresh build:
+
+```bash
+pnpm run build
+```
+
+```text
+> @fission-ai/openspec@1.11.0 build /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+> node build.js
+
+🔨 Building OpenSpec...
+
+Cleaning dist directory...
+Compiling TypeScript...
+Version 6.0.3
+
+✅ Build completed successfully!
+```
+
+Focused verification after the fix:
+
+```bash
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts test/commands/artifact-workflow.test.ts -t "canonical|semantic|resume|staged|legacy|falling back|loading is broken"
+```
+
+```text
+ RUN  v3.2.6 /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+
+ ✓ test/core/openspec-workflow/change-manager.test.ts (7 tests | 2 skipped) 83ms
+ ✓ test/commands/artifact-workflow.test.ts (82 tests | 77 skipped) 1359ms
+   ✓ artifact-workflow CLI commands > status command > fails explicitly instead of resolving legacy slug Changes when canonical loading is broken  341ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed | 79 skipped (89)
+```
+
+Diff hygiene:
+
+```bash
+git diff --check
+```
+
+```text
+[no output]
+```
+
+### Exact Commands Run
+
+```bash
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts test/commands/artifact-workflow.test.ts -t "canonical|semantic|resume|staged|legacy|falling back|loading is broken"
+pnpm run build
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts test/commands/artifact-workflow.test.ts -t "canonical|semantic|resume|staged|legacy|falling back|loading is broken"
+git diff --check
+git add src/commands/workflow/new-change.ts src/commands/workflow/shared.ts src/core/openspec-workflow/change-manager.ts src/core/openspec-workflow/change-resolver.ts src/core/openspec-workflow/schemas.ts test/commands/artifact-workflow.test.ts test/core/openspec-workflow/change-manager.test.ts
+git commit -m "fix: tighten canonical task 3 change workflow"
+```
+
+Commit output:
+
+```text
+[codex/openspec-superpowers-migration 81f3499] fix: tighten canonical task 3 change workflow
+ 7 files changed, 207 insertions(+), 38 deletions(-)
+```
+
+### Updated Concerns
+
+- This review fix deliberately removed the broad parser-return casts and replaced them with typed canonical ID schemas only in `src/core/openspec-workflow/schemas.ts`; I did not broaden the change into later workflow modules.
+- The explicit no-fallback behavior is limited to the Task 3 canonical detection path: when `openspec/config.yaml` is present, canonical loading errors now surface directly instead of dropping into legacy slug compatibility.
