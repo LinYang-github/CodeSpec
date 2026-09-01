@@ -2,6 +2,14 @@ import { COMMON_FLAGS } from './shared-flags.js';
 import type { CommandDefinition } from './types.js';
 export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
+    name: 'rebase',
+    description: 'Semantically rebase a stale canonical Change',
+    flags: [
+      { name: 'change', description: 'Canonical Change ID', takesValue: true },
+      { name: 'current-spec', description: 'Current specification path', takesValue: true },
+    ],
+  },
+  {
     name: 'init',
     description: 'Initialize OpenSpec in your project',
     acceptsPositional: true,
@@ -492,7 +500,13 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         description: 'Create a new change (deprecated alias)',
         acceptsPositional: true,
         positionals: [{ name: 'name' }],
-        flags: [COMMON_FLAGS.json, COMMON_FLAGS.store],
+        flags: [
+          { name: 'description', description: 'Description to add to README.md', takesValue: true },
+          { name: 'goal', description: 'Optional goal metadata to store with the change', takesValue: true },
+          { name: 'schema', description: 'Workflow schema to use', takesValue: true },
+          COMMON_FLAGS.json,
+          COMMON_FLAGS.store,
+        ],
       },
       {
         name: 'show',
@@ -547,6 +561,19 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     description: 'Manage OpenSpec specifications',
     flags: [],
     subcommands: [
+      {
+        name: 'new',
+        description: 'Create a new change (deprecated alias)',
+        acceptsPositional: true,
+        positionals: [{ name: 'name' }],
+        flags: [
+          { name: 'description', description: 'Description to add to README.md', takesValue: true },
+          { name: 'goal', description: 'Optional goal metadata to store with the change', takesValue: true },
+          { name: 'schema', description: 'Workflow schema to use', takesValue: true },
+          COMMON_FLAGS.json,
+          COMMON_FLAGS.store,
+        ],
+      },
       {
         name: 'show',
         description: 'Show a specification',

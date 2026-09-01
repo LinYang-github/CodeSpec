@@ -166,6 +166,7 @@ describe('command completion registry', () => {
     walk(program, '');
     expect(seen.sort()).toEqual([
       'archive',
+      'change new',
       'context',
       'doctor',
       'instructions',

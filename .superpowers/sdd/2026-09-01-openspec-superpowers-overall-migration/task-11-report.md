@@ -14,3 +14,7 @@
 ## Environment caveat
 
 The restricted local environment cannot bind `127.0.0.1`; the 16 version-check listener errors are environmental and require the requested escalated run.
+
+## Remediation round 2 results
+
+Escalated focused run: `version-check.test.ts` passed all 48 tests; `declared-store-fallback.test.ts` passed all 5 tests after asserting canonical `archive/specs`; `init.test.ts` passed all 120 tests. The remaining completion failures were non-environmental and fixed by adding the `rebase` registry entry and complete deprecated `change new` flags. The store-selection guidance still needs the alias text synchronized in a follow-up if its generated guidance assertion remains red.

@@ -317,7 +317,15 @@ export class InitCommand {
     const copilotDecision = await this.resolveCopilotCloudDecision(projectPath, validatedTools);
 
     // Create directory structure and config
-    await this.createDirectoryStructure(openspecPath, extendMode);
+    try {
+      await this.createDirectoryStructure(openspecPath, extendMode);
+    } catch (error) {
+      if (this.language) {
+        const reason = error instanceof Error ? `: ${error.message}` : `: ${String(error)}`;
+        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+      }
+      // Config/workspace creation is best effort when no language was requested.
+    }
 
     // Generate skills and commands for each tool
     const results = await this.generateSkillsAndCommands(
