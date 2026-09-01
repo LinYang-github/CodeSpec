@@ -110,4 +110,4 @@ pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/
 
 Exact output: focused tests `2 passed (2)`, `7 passed (7)`; build `✅ Build completed successfully!`; lint exited 0 with no diagnostics; `git diff --check` exited 0.
 
-Fix-round-3 commit: pending (created after this report is staged)
+Fix-round-3 commit: `bd80b6e2960af7792ce15a1d685abeff0a492814`
