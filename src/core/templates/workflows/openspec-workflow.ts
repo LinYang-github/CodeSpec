@@ -1,7 +1,7 @@
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 import type { ChangeMetadata } from '../../openspec-workflow/types.js';
 
-export type WorkflowStage = 'new' | 'continue' | 'propose' | 'apply' | 'verify' | 'archive' | 'ff';
+export type WorkflowStage = 'analyze' | 'design' | 'plan' | 'implement' | 'new' | 'continue' | 'propose' | 'apply' | 'verify' | 'archive' | 'ff';
 
 export function renderCanonicalChangeContext(metadata: ChangeMetadata, spec = ''): string {
   const requirements = Object.values(metadata.baseline.modules).flatMap(module => module.requirement_ids);

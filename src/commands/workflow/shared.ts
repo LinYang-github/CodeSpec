@@ -8,11 +8,13 @@
 import chalk from 'chalk';
 import path from 'path';
 import * as fs from 'fs';
+import { parse as parseYaml } from 'yaml';
 import { getSchemaDir, listSchemas } from '../../core/artifact-graph/index.js';
 import { loadWorkspace } from '../../core/openspec-workflow/loaders.js';
 import { listActiveChanges, resolveChange } from '../../core/openspec-workflow/change-resolver.js';
 import type { ReferenceIndexEntry } from '../../core/references.js';
 import { isRootSelectionError } from '../../core/root-selection.js';
+import type { WorkspaceContext } from '../../core/openspec-workflow/loaders.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -68,7 +70,7 @@ export interface ArchiveInstructions {
 
 export const DEFAULT_SCHEMA = 'spec-driven';
 
-async function tryLoadCanonicalWorkspace(projectRoot: string) {
+export async function tryLoadCanonicalWorkspace(projectRoot: string): Promise<WorkspaceContext | null> {
   const openspecDir = path.join(projectRoot, 'openspec');
   const configPath = path.join(openspecDir, 'config.yaml');
 
@@ -81,8 +83,8 @@ async function tryLoadCanonicalWorkspace(projectRoot: string) {
     throw error;
   }
 
-  const config = await fs.promises.readFile(configPath, 'utf8');
-  if (!/^version:\s*1\b/m.test(config) || !/^schema:\s*code-spec\s*$/m.test(config) || !/^paths:\s*$/m.test(config)) return null;
+  const config = parseYaml(await fs.promises.readFile(configPath, 'utf8')) as Record<string, unknown>;
+  if (config?.schema !== 'code-spec') return null;
   return loadWorkspace(openspecDir);
 }
 

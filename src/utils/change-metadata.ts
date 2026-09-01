@@ -66,7 +66,7 @@ export function validateSchemaName(
 }
 
 /**
- * Writes change metadata to .openspec.yaml in the change directory.
+ * Writes metadata for the legacy generic artifact workflow.
  *
  * @param changeDir - The path to the change directory
  * @param metadata - The metadata to write
@@ -113,7 +113,7 @@ export function writeChangeMetadata(
 }
 
 /**
- * Reads change metadata from .openspec.yaml in the change directory.
+ * Reads metadata for the legacy generic artifact workflow.
  *
  * @param changeDir - The path to the change directory
  * @param projectRoot - Optional project root for project-local schema resolution
@@ -191,7 +191,7 @@ export interface ResolveSchemaForChangeOptions {
  *
  * Resolution order:
  * 1. Explicit schema (if provided)
- * 2. Schema from .openspec.yaml metadata (if exists)
+ * 2. Schema from legacy metadata (if present for a generic workspace)
  * 3. Schema from openspec/config.yaml (if exists)
  * 4. Default 'spec-driven'
  *

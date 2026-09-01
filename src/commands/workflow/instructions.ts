@@ -46,10 +46,20 @@ import {
   type TaskItem,
   type ApplyInstructions,
   type ArchiveInstructions,
+  tryLoadCanonicalWorkspace,
 } from './shared.js';
 import { parseTaskLines, type ParsedTask } from '../../utils/task-progress.js';
-import { loadWorkspace, loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
+import { loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
 import { renderCanonicalChangeContext, getStageAdapterGuidance, type WorkflowStage } from '../../core/templates/workflows/openspec-workflow.js';
+
+const CANONICAL_STAGES: readonly WorkflowStage[] = [
+  'analyze', 'design', 'plan', 'implement', 'new', 'continue', 'propose',
+  'apply', 'verify', 'archive', 'ff',
+];
+
+function isWorkflowStage(value: string): value is WorkflowStage {
+  return CANONICAL_STAGES.includes(value as WorkflowStage);
+}
 
 // -----------------------------------------------------------------------------
 // Types
@@ -134,15 +144,15 @@ export async function instructionsCommand(
       const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
       const metadataPath = path.join(openspecDir, 'changes', changeName, 'metadata.yaml');
       if (!(await fs.promises.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
-      const workspace = await loadWorkspace(openspecDir);
+      const workspace = await tryLoadCanonicalWorkspace(projectRoot);
+      if (!workspace) throw new Error('Canonical code-spec workspace config is missing or invalid.');
       const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
       const status = artifacts.metadata.change.status;
       if (artifactId) {
         spinner?.stop();
         const label = artifactId.charAt(0).toUpperCase() + artifactId.slice(1);
-        const supported = ['analyze', 'design', 'plan', 'implement', 'new', 'continue', 'propose', 'apply', 'verify', 'archive', 'ff'].includes(artifactId ?? '');
-        if (!supported) throw new Error(`Unsupported canonical artifact/stage '${artifactId}'. Use an explicit lifecycle stage.`);
-        const stage = artifactId as WorkflowStage;
+        if (!isWorkflowStage(artifactId)) throw new Error(`Unsupported canonical artifact/stage '${artifactId}'. Use an explicit lifecycle stage.`);
+        const stage = artifactId;
         const text = `## ${label}: ${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}\n\n${getStageAdapterGuidance(stage)}\n\nUse the canonical Change artifacts and satisfy lifecycle gates before transition. Superpowers methodology remains unchanged: use TDD RED → GREEN, fresh verification evidence, and semantic Rebase when the baseline is STALE.\n`;
         if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
         else console.log(text);
@@ -150,9 +160,8 @@ export async function instructionsCommand(
       }
     }
 
-    const canonicalConfigPath = path.join(projectRoot, 'openspec', 'config.yaml');
-    const canonicalConfig = await fs.promises.readFile(canonicalConfigPath, 'utf8').catch(() => '');
-    if (/^schema:\s*code-spec\s*$/m.test(canonicalConfig) && !/^CHG-\d{8}-\d{3}$/.test(changeName)) {
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
+    if (canonicalWorkspace && !/^CHG-\d{8}-\d{3}$/.test(changeName)) {
       throw new Error(`Canonical code-spec instructions require a Change ID matching CHG-YYYYMMDD-NNN; legacy or ambiguous identifier '${changeName}' is unsupported.`);
     }
 

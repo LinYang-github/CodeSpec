@@ -82,7 +82,7 @@ describe('artifact-workflow CLI commands', () => {
       path.join(tempDir, 'openspec', 'config.yaml'),
       [
         'version: 1',
-        'schema: code-spec',
+        'schema: "code-spec"',
         'project:',
         '  name: demo',
         'paths:',

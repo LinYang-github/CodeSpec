@@ -7,6 +7,7 @@ Status: reviewed, fixed, and committed. Task 11 was not modified.
 - Prior Task 10 commit: `80fff09`.
 - Review-fix commit: `c57c895`.
 - Fixture/regression-test commit: `da6c7ab`.
+- Fix round 2 commit: pending until this report update is committed.
 
 ## Files
 
@@ -74,3 +75,29 @@ exit 0
 ```
 
 Concerns: full repository verification remains Task 11 scope. The required Task 10 focused and broader migration suites are green.
+
+## Fix round 2
+
+- Replaced raw-text canonical detection in `shared.ts`, `new-change.ts`, and `instructions.ts` with structural YAML parsing and canonical workspace loading. Quoted schema formatting is covered by the CLI fixture; generic `spec-driven` configs continue through the generic path.
+- Expanded `WorkflowStage` to include `analyze`, `design`, `plan`, and `implement`; stage selection now uses a type guard with no unsafe cast.
+- Updated legacy metadata comments to describe `.openspec.yaml` only as generic-workflow metadata.
+
+Exact verification:
+
+```text
+pnpm build
+✅ Build completed successfully!
+
+pnpm lint
+> eslint src/
+exit 0
+
+pnpm exec vitest run test/core/openspec-workflow test/cli-e2e/openspec-workflow-journeys.test.ts test/commands/artifact-workflow.test.ts
+Test Files 14 passed (14)
+Tests 150 passed (150)
+
+pnpm exec vitest run test/commands/artifact-workflow.test.ts && git diff --check
+Test Files 1 passed (1)
+Tests 85 passed (85)
+exit 0
+```

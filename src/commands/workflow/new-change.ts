@@ -14,7 +14,6 @@ import { createChange, validateChangeName } from '../../utils/change-utils.js';
 import {
   createCanonicalChange,
 } from '../../core/openspec-workflow/change-manager.js';
-import { loadWorkspace } from '../../core/openspec-workflow/loaders.js';
 import { formatChangeLocation } from '../../core/planning-home.js';
 import {
   resolveRootForCommand,
@@ -26,7 +25,7 @@ import {
   type RootOutput,
   isStoreSelectedRoot,
 } from '../../core/root-selection.js';
-import { printJson, statusFromError, validateSchemaExists } from './shared.js';
+import { printJson, statusFromError, validateSchemaExists, tryLoadCanonicalWorkspace } from './shared.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -51,24 +50,6 @@ interface NewChangeOutput {
     schema: string;
   };
   root: RootOutput;
-}
-
-async function tryLoadCanonicalWorkspace(projectRoot: string) {
-  const openspecDir = path.join(projectRoot, 'openspec');
-  const configPath = path.join(openspecDir, 'config.yaml');
-
-  try {
-    await fs.access(configPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-    throw error;
-  }
-
-  const config = await fs.readFile(configPath, 'utf8');
-  if (!/^version:\s*1\b/m.test(config) || !/^schema:\s*code-spec\s*$/m.test(config) || !/^paths:\s*$/m.test(config)) return null;
-  return loadWorkspace(openspecDir);
 }
 
 // -----------------------------------------------------------------------------
