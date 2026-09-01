@@ -22,14 +22,15 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
     if (!key) continue;
     const previous = originalSections.get(key);
     if (previous && previous !== section) conflicts.push(key);
-    else if (!previous) originalSections.set(key, section);
+    originalSections.set(key, section);
   }
   const merged = [...originalSections.values()].sort((a, b) => a.localeCompare(b)).join('\n');
   const decision: RebaseDecision = { strategy: 'semantic-rebase', route: 'DESIGN', reason: conflicts.length ? `Unresolved Requirement conflicts: ${conflicts.join(', ')}` : 'Current specifications were deterministically merged by Requirement heading.', current_specs: currentSpecs };
   const metadataPath = path.join(workspace.openspecDir, change.artifacts.metadata); await fs.writeFile(metadataPath, stringifyYaml(change));
   await fs.writeFile(path.join(workspace.openspecDir, change.artifacts.spec), merged || original);
   await fs.writeFile(path.join(workspace.openspecDir, change.artifacts.design), `# Design\n\n## Rebase decision\n\n${stringifyYaml(decision)}`);
-  const baseline = await captureBaseline(workspace, change); change.baseline = baseline;
+  const moduleId = change.requirements.modified[0]?.module ?? change.requirements.added[0]?.module;
+  const baseline = await captureBaseline(workspace, change, moduleId ? { [moduleId]: merged || original } : {}); change.baseline = baseline;
   await fs.writeFile(metadataPath, stringifyYaml(change));
   return { change: change.change, baseline, decision };
 }

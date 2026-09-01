@@ -6,6 +6,7 @@ import { detectStaleChanges } from '../../../src/core/openspec-workflow/stale.js
 import { rebaseChange } from '../../../src/core/openspec-workflow/rebase.js';
 import { stringify as stringifyYaml } from 'yaml';
 import { captureBaseline } from '../../../src/core/openspec-workflow/baseline.js';
+import { createHash } from 'node:crypto';
 
 describe('stale changes and rebase', () => {
   const cleanups: Array<() => void> = [];
@@ -49,5 +50,22 @@ describe('stale changes and rebase', () => {
     const other = fixture.metadataAt('VERIFY'); other.change.id = 'CHG-20260901-002'; other.requirements.modified = [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }];
     await fs.mkdir(path.join(fixture.paths.changes, other.change.id), { recursive: true }); await fs.writeFile(path.join(fixture.paths.changes, other.change.id, 'metadata.yaml'), stringifyYaml(other));
     expect(await detectStaleChanges(fixture.workspace, ['MOD-002-REQ-006'])).toEqual([fixture.changeId]);
+  });
+
+  it('writes merged content and hashes that authored content', async () => {
+    const fixture = await createWorkflowFixture(); cleanups.push(fixture.cleanup);
+    const metadata = fixture.metadataAt('VERIFY'); metadata.baseline.stale = true;
+    metadata.modules.confirmed = [{ module: 'MOD-002', outcome: 'OWNED', reason: 'x' }];
+    metadata.requirements.modified = [{ id: 'MOD-002-REQ-006', module: 'MOD-002' }];
+    const dir = path.join(fixture.paths.changes, fixture.changeId); await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'metadata.yaml'), stringifyYaml(metadata));
+    await Promise.all(['proposal.md', 'design.md', 'tasks.md', 'verification.md'].map((name) => fs.writeFile(path.join(dir, name), '# artifact\n')));
+    await fs.writeFile(path.join(dir, 'spec.md'), '### MOD-002-REQ-006\nOld\n');
+    await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
+    await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '### MOD-002-REQ-006\nCurrent\n');
+    const result = await rebaseChange(fixture.workspace, fixture.changeId, ['### MOD-002-REQ-006\nMerged\n']);
+    const merged = await fs.readFile(path.join(dir, 'spec.md'), 'utf8');
+    expect(merged).toContain('Merged');
+    expect(result.baseline.modules['MOD-002'].spec_hash).toBe(createHash('sha256').update(merged).digest('hex'));
   });
 });

@@ -6,7 +6,7 @@ import type { ChangeMetadata } from './types.js';
 import type { WorkspaceContext } from './loaders.js';
 
 export interface Baseline { created_at: string; stale: boolean; modules: ChangeMetadata['baseline']['modules'] }
-export async function captureBaseline(workspace: WorkspaceContext, metadata: ChangeMetadata): Promise<Baseline> {
+export async function captureBaseline(workspace: WorkspaceContext, metadata: ChangeMetadata, authoredSpecs: Record<string, string> = {}): Promise<Baseline> {
   const modules: Baseline['modules'] = {};
   for (const selected of metadata.modules.confirmed) {
     const requirement_ids = Object.values(metadata.requirements).flat().filter((r) => r.module === selected.module).map((r) => r.id);
@@ -16,7 +16,7 @@ export async function captureBaseline(workspace: WorkspaceContext, metadata: Cha
       try { const candidate = parseYaml(await fs.readFile(path.join(workspace.paths.changes, entry.name, 'metadata.yaml'), 'utf8')) as ChangeMetadata; if (candidate.change.id !== metadata.change.id && candidate.modules.confirmed.some((m) => m.module === selected.module)) latest_change = candidate.change.id; } catch { /* ignore non-canonical entries */ }
     }
     const specPath = path.join(workspace.paths.currentSpecs, selected.module, 'spec.md');
-    const content = await fs.readFile(specPath, 'utf8').catch(() => '');
+    const content = authoredSpecs[selected.module] ?? await fs.readFile(specPath, 'utf8').catch(() => '');
     const requirements: Record<string, string> = {};
     for (const id of requirement_ids) {
       const start = content.indexOf(id); const end = start < 0 ? -1 : content.indexOf('\n### ', start + id.length);

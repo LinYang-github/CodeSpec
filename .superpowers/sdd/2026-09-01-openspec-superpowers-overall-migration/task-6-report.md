@@ -89,3 +89,25 @@ Exact output: focused tests `2 passed (2)`, `6 passed (6)`; build `✅ Build com
 TDD RED evidence: the added prior-evidence regression was introduced against the pre-fix implementation, whose parser catch block swallowed malformed evidence and allowed replacement; the focused suite was then rerun after implementation and produced the GREEN result above.
 
 Fix-round-2 commit: `54ef945a0cd6ac94d201b38f05cbcd8e11035f90`
+
+## Scoped fix round 3
+
+Changes: Rebase now passes authored merged content directly into baseline capture, ensuring module and Requirement hashes describe the merged canonical artifact. Added regression assertions for written merged content and exact SHA-256 equality. Prior verification command entries now require valid command names, zero exit status, and ordered parseable timestamps.
+
+RED command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/openspec-workflow/stale-rebase.test.ts
+```
+
+Exact output: `1 failed` in `writes merged content and hashes that authored content`; expected merged content but read old `### MOD-002-REQ-006\\nOld\\n`, proving the pre-fix data flow did not author/use the merged content.
+
+GREEN/build/lint command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/openspec-workflow/stale-rebase.test.ts && pnpm run build && pnpm run lint && git diff --check
+```
+
+Exact output: focused tests `2 passed (2)`, `7 passed (7)`; build `✅ Build completed successfully!`; lint exited 0 with no diagnostics; `git diff --check` exited 0.
+
+Fix-round-3 commit: pending (created after this report is staged)
