@@ -31,9 +31,13 @@ function normalizeSearchText(value: string): string {
 }
 
 async function readCanonicalMetadata(changeDir: string): Promise<ChangeMetadata> {
-  return parseChangeMetadata(
-    parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf8'))
-  );
+  const metadataPath = path.join(changeDir, 'metadata.yaml');
+  try {
+    return parseChangeMetadata(parseYaml(await fs.readFile(metadataPath, 'utf8')));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw error;
+    throw new Error(`Invalid canonical Change metadata ${metadataPath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function listActiveChanges(
@@ -51,8 +55,14 @@ export async function listActiveChanges(
       .filter((entry) => entry.isDirectory() && CHANGE_ID_PATTERN.test(entry.name))
       .map(async (entry) => {
         const changeDir = path.join(workspace.paths.changes, entry.name);
-        try {
+      try {
           const metadata = await readCanonicalMetadata(changeDir);
+          if (metadata.change.id !== entry.name) {
+            throw new Error(`Change directory ${entry.name} does not match metadata change.id ${metadata.change.id}`);
+          }
+          if (!['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'].includes(metadata.change.status)) {
+            return null;
+          }
           return {
             changeId: metadata.change.id,
             changeDir,

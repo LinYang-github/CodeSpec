@@ -170,7 +170,7 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
           result.kind === 'canonical'
             ? result.value.metadataPath
             : path.join(result.value.changeDir, '.openspec.yaml'),
-        schema: result.kind === 'canonical' ? 'spec-driven' : result.value.schema,
+        schema: result.kind === 'canonical' ? 'code-spec' : result.value.schema,
       },
       root: toRootOutput(root),
     };

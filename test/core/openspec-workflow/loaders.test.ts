@@ -8,6 +8,7 @@ import {
   loadWorkspace,
 } from '../../../src/core/openspec-workflow/loaders.js';
 import { parseWorkspaceConfig } from '../../../src/core/openspec-workflow/schemas.js';
+import { listActiveChanges } from '../../../src/core/openspec-workflow/change-resolver.js';
 import {
   createWorkflowFixture,
   writeBusinessFile,
@@ -182,5 +183,64 @@ describe('openspec workflow loaders', () => {
     );
 
     await expect(loadWorkspace(fixture.openspecDir)).rejects.toThrow(/config\.yaml/i);
+  });
+
+  it('requires metadata artifact paths to equal the selected Change canonical paths', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, {
+      metadata: {
+        artifacts: {
+          proposal: 'changes/CHG-20260901-002/proposal.md',
+        },
+      },
+    });
+    const otherDir = path.join(fixture.paths.changes, 'CHG-20260901-002');
+    await fs.mkdir(otherDir, { recursive: true });
+    await fs.writeFile(path.join(otherDir, 'proposal.md'), 'must not be loaded\n');
+
+    await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toThrow(
+      /artifact.*proposal.*canonical|exact.*path|selected Change/i
+    );
+  });
+
+  it('rejects metadata IDs that do not match their canonical directory name', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, {
+      metadata: { change: { id: 'CHG-20260901-002' } },
+    });
+
+    const workspace = await loadWorkspace(fixture.openspecDir);
+    await expect(listActiveChanges(workspace)).rejects.toThrow(/directory.*metadata.*id|mismatch/i);
+  });
+
+  it('rejects symlinked canonical artifacts before reading them', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture);
+    const proposalPath = path.join(fixture.paths.changes, fixture.changeId, 'proposal.md');
+    const outsidePath = path.join(fixture.tempDir, 'outside-proposal.md');
+    await fs.writeFile(outsidePath, 'outside\n');
+    await fs.unlink(proposalPath);
+    await fs.symlink(outsidePath, proposalPath);
+
+    await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toThrow(
+      /symlink|realpath|contain/i
+    );
+  });
+
+  it('returns only canonical active states and fails closed on malformed active metadata', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, { metadata: { change: { status: 'ARCHIVED' } } });
+    const workspace = await loadWorkspace(fixture.openspecDir);
+
+    await expect(listActiveChanges(workspace)).resolves.toEqual([]);
+
+    const malformedDir = path.join(fixture.paths.changes, 'CHG-20260901-002');
+    await fs.mkdir(malformedDir, { recursive: true });
+    await fs.writeFile(path.join(malformedDir, 'metadata.yaml'), 'change: [malformed\n');
+    await expect(listActiveChanges(workspace)).rejects.toThrow(/metadata|yaml|parse/i);
   });
 });

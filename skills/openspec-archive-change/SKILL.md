@@ -28,7 +28,7 @@ Reuse Superpowers methodology unchanged: brainstorming, writing-plans, TDD RED â
 
 ### archive stage adapter
 
-This is the archive stage. Resolve canonical context before acting: run `openspec context --json`, resolve one explicit `CHG-YYYYMMDD-NNN` (fail explicitly on missing or ambiguous context), then run `openspec status --change "<CHG-ID>" --json` and load the declared `metadata.yaml` and artifact paths. Substitute the resolved Change ID, status, baseline, Requirement IDs, Scenario IDs, Task IDs, test/evidence references, and canonical paths into the archive prompt. Refresh status after the action and record traceability in the canonical artifact.
+This is the archive stage. Resolve canonical context before acting: run `openspec context --json`, resolve one explicit `CHG-YYYYMMDD-NNN` (fail explicitly on missing or ambiguous context), then run `openspec status --change "<CHG-ID>" --json` and load the declared `metadata.yaml` and artifact paths. Substitute the resolved Change ID, status, mode, baseline hashes, Requirement IDs, exact Scenario IDs, Task IDs, test/evidence references, required verification commands, and canonical paths into the archive prompt. Methodology routing: preserve the Change mode routing above and use the existing Superpowers methodology. Refresh status after the action and record traceability in the canonical artifact.
 
 Archive a completed change in the experimental workflow.
 

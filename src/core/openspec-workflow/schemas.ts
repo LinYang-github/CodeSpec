@@ -255,6 +255,8 @@ const changeMetadataSchema = z
         build_passed: z.boolean(),
         lint_passed: z.boolean(),
         verified_at: isoDateTime.nullable(),
+        evidence_receipt: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+        baseline_identity: z.string().regex(/^[a-f0-9]{64}$/).optional(),
       })
       .strict(),
     archive: z
@@ -291,6 +293,7 @@ const requirementDeltaSchema = z
     id: requirementIdSchema,
     module: businessModuleIdSchema,
     action: z.enum(['ADDED', 'MODIFIED', 'REMOVED']),
+    title: nonEmptyString.optional(),
     previous: nonEmptyString.optional(),
     next: nonEmptyString.optional(),
     reason: nonEmptyString.optional(),

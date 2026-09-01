@@ -2,17 +2,62 @@ import { describe, expect, it } from 'vitest';
 import { validateTraceability } from '../../../src/core/openspec-workflow/traceability.js';
 import { allocateRequirementIds } from '../../../src/core/openspec-workflow/requirement-allocator.js';
 import * as fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
+import { parse as parseYaml } from 'yaml';
+import {
+  createWorkflowFixture,
+  writeChangeArtifacts,
+} from '../../helpers/openspec-workflow.js';
 
 describe('traceability', () => {
-  it('allocates against current specs and active reservations only', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'task5-allocator-')); const currentSpecs = path.join(root, 'specs'); const changes = path.join(root, 'changes');
-    await fs.mkdir(currentSpecs, { recursive: true }); await fs.mkdir(changes, { recursive: true });
-    await fs.writeFile(path.join(currentSpecs, 'current.md'), 'MOD-002-REQ-016'); await fs.writeFile(path.join(changes, 'reservations.txt'), 'MOD-002-REQ-017');
-    await fs.writeFile(path.join(root, 'archive.md'), 'MOD-002-REQ-018'); await fs.writeFile(path.join(changes, 'notes.md'), 'MOD-002-REQ-019');
-    await expect(allocateRequirementIds({ paths: { currentSpecs, changes } }, 'MOD-002', 1)).resolves.toEqual(['MOD-002-REQ-018']);
-    await fs.rm(root, { recursive: true, force: true });
+  it('atomically reserves concurrent allocations in canonical Change metadata', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
+      await fs.writeFile(
+        path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'),
+        '### MOD-002-REQ-016 已有需求\n系统 SHALL 保留。\n'
+      );
+      await writeChangeArtifacts(fixture);
+      const second = { ...fixture, changeId: 'CHG-20260901-002' };
+      await writeChangeArtifacts(second);
+
+      const [firstIds, secondIds] = await Promise.all([
+        allocateRequirementIds(fixture.workspace, fixture.changeId, 'MOD-002', 1),
+        allocateRequirementIds(fixture.workspace, second.changeId, 'MOD-002', 1),
+      ]);
+
+      expect(new Set([...firstIds, ...secondIds])).toEqual(
+        new Set(['MOD-002-REQ-017', 'MOD-002-REQ-018'])
+      );
+      for (const changeId of [fixture.changeId, second.changeId]) {
+        const metadata = parseYaml(
+          await fs.readFile(path.join(fixture.paths.changes, changeId, 'metadata.yaml'), 'utf8')
+        ) as { requirements: { added: Array<{ id: string }> } };
+        expect(metadata.requirements.added).toHaveLength(1);
+      }
+      await expect(fs.access(path.join(fixture.paths.changes, 'reservations.txt'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('fails closed when an active canonical reservation cannot be parsed', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      await writeChangeArtifacts(fixture);
+      const malformed = path.join(fixture.paths.changes, 'CHG-20260901-002');
+      await fs.mkdir(malformed, { recursive: true });
+      await fs.writeFile(path.join(malformed, 'metadata.yaml'), 'not: canonical\n');
+
+      await expect(
+        allocateRequirementIds(fixture.workspace, fixture.changeId, 'MOD-002', 1)
+      ).rejects.toThrow(/metadata|reservation|canonical/i);
+    } finally {
+      fixture.cleanup();
+    }
   });
   it('requires equal requirement sets and task coverage', () => {
     expect(validateTraceability({

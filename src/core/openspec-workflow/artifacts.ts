@@ -35,6 +35,32 @@ function resolveWorkspaceRelativePath(
   return resolvedPath;
 }
 
+async function assertCanonicalArtifactPath(
+  changeDir: string,
+  openspecDir: string,
+  declared: string,
+  label: string,
+  filename: string
+): Promise<string> {
+  const expected = path.relative(openspecDir, path.join(changeDir, filename));
+  if (path.normalize(declared) !== path.normalize(expected)) {
+    throw new Error(`${label} must equal the canonical path for the selected Change`);
+  }
+  const resolved = resolveWorkspaceRelativePath(openspecDir, declared, label);
+  const changeReal = await fs.realpath(changeDir);
+  const fileReal = await fs.realpath(resolved).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return resolved;
+    throw error;
+  });
+  const relative = path.relative(changeReal, fileReal);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`${label} must remain inside the selected Change (possible symlink or containment violation)`);
+  }
+  const stat = await fs.lstat(resolved);
+  if (stat.isSymbolicLink()) throw new Error(`${label} must not be a symlink`);
+  return resolved;
+}
+
 async function readChangeMetadata(changeDir: string): Promise<ChangeMetadata> {
   const metadataPath = path.join(changeDir, 'metadata.yaml');
 
@@ -66,33 +92,19 @@ export async function loadChangeArtifacts(
     throw new Error('Change ID must match CHG-YYYYMMDD-NNN');
   }
   const changeDir = path.join(paths.changes, changeId);
+  const changeStat = await fs.lstat(changeDir);
+  if (changeStat.isSymbolicLink()) throw new Error(`Change directory must not be a symlink: ${changeId}`);
   const metadata = await readChangeMetadata(changeDir);
+  if (metadata.change.id !== changeId) {
+    throw new Error(`Change directory ${changeId} does not match metadata change.id ${metadata.change.id}`);
+  }
 
-  const proposalPath = resolveWorkspaceRelativePath(
-    paths.openspecDir,
-    metadata.artifacts.proposal,
-    'proposal artifact path'
-  );
-  const designPath = resolveWorkspaceRelativePath(
-    paths.openspecDir,
-    metadata.artifacts.design,
-    'design artifact path'
-  );
-  const specPath = resolveWorkspaceRelativePath(
-    paths.openspecDir,
-    metadata.artifacts.spec,
-    'spec artifact path'
-  );
-  const tasksPath = resolveWorkspaceRelativePath(
-    paths.openspecDir,
-    metadata.artifacts.tasks,
-    'tasks artifact path'
-  );
-  const verificationPath = resolveWorkspaceRelativePath(
-    paths.openspecDir,
-    metadata.artifacts.verification,
-    'verification artifact path'
-  );
+  await assertCanonicalArtifactPath(changeDir, paths.openspecDir, metadata.artifacts.metadata, 'metadata artifact path', 'metadata.yaml');
+  const proposalPath = await assertCanonicalArtifactPath(changeDir, paths.openspecDir, metadata.artifacts.proposal, 'proposal artifact path', 'proposal.md');
+  const designPath = await assertCanonicalArtifactPath(changeDir, paths.openspecDir, metadata.artifacts.design, 'design artifact path', 'design.md');
+  const specPath = await assertCanonicalArtifactPath(changeDir, paths.openspecDir, metadata.artifacts.spec, 'spec artifact path', 'spec.md');
+  const tasksPath = await assertCanonicalArtifactPath(changeDir, paths.openspecDir, metadata.artifacts.tasks, 'tasks artifact path', 'tasks.md');
+  const verificationPath = await assertCanonicalArtifactPath(changeDir, paths.openspecDir, metadata.artifacts.verification, 'verification artifact path', 'verification.md');
 
   const [proposal, design, spec, tasks, verification] = await Promise.all([
     fs.readFile(proposalPath, 'utf8'),

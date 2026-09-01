@@ -205,7 +205,7 @@ export async function createWorkflowFixture(options?: {
   await fs.mkdir(paths.archivedChanges, { recursive: true });
   await fs.mkdir(path.dirname(paths.business), { recursive: true });
   await fs.mkdir(path.dirname(paths.changeIndex), { recursive: true });
-  await fs.writeFile(paths.business, '# Business\n');
+  await fs.writeFile(paths.business, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Workflow | Workflow management | Manage changes | workflow |\n| MOD-002 | Payment | Payment management | Process payments | payment |\n');
   await fs.writeFile(paths.changeIndex, 'version: 1\nchanges: []\n');
   await fs.writeFile(path.join(openspecDir, 'config.yaml'), stringifyYaml(config));
 

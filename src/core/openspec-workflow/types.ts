@@ -67,6 +67,7 @@ export interface Scenario {
 
 export interface RequirementDelta extends RequirementRef {
   action: 'ADDED' | 'MODIFIED' | 'REMOVED';
+  title?: string;
   previous?: string;
   next?: string;
   reason?: string;
@@ -182,6 +183,8 @@ export interface ChangeMetadata {
     build_passed: boolean;
     lint_passed: boolean;
     verified_at: string | null;
+    evidence_receipt?: string;
+    baseline_identity?: string;
   };
   archive: {
     ready: boolean;

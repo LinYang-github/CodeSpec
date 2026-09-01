@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { ChangeArtifacts } from './artifacts.js';
 import { loadChangeArtifacts, type WorkspaceContext } from './loaders.js';
@@ -7,6 +8,7 @@ import { loadChangeIndex } from './change-index.js';
 import { parseDeltaSpec } from './delta-parser.js';
 import { detectStaleChanges } from './stale.js';
 import { validateRelations } from './relations.js';
+import { validateChangeTraceability } from './traceability.js';
 import type { ArchivePlan as ContractArchivePlan, ChangeMetadata, RequirementDelta } from './types.js';
 
 export interface ArchivePlan extends ContractArchivePlan {
@@ -28,9 +30,13 @@ export interface ArchiveResult {
   staleChanges: string[];
   requirementIds: string[];
 }
+interface ArchiveTestHooks { beforeCommitStep?: (step: string) => void | Promise<void> }
+let archiveTestHooks: ArchiveTestHooks | null = null;
+export function __setArchiveTestHooksForTests(hooks: ArchiveTestHooks | null): void { archiveTestHooks = hooks; }
 
 const exists = async (file: string) => fs.access(file).then(() => true).catch(() => false);
 const normalize = (value: string) => value.replace(/\r\n/g, '\n').trim();
+const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function requirementBlock(spec: string, id: string): string | undefined {
   const headings = [...spec.matchAll(/^###\s+(MOD-\d{3}-REQ-\d{3})(?:\s+.*)?$/gmu)];
@@ -57,14 +63,20 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   const m = artifacts.metadata;
   if (m.change.status !== 'ARCHIVE') throw new Error(`Archive requires ARCHIVE state, got ${m.change.status}`);
   if (!m.archive.ready || !m.gates.archive.satisfied) throw new Error('Archive gate is not satisfied');
+  if (m.archive.conflict) throw new Error('Archive conflict must be resolved before archiving');
   if (m.baseline.stale) throw new Error('Archive is blocked: baseline is stale');
   if (m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((t) => t.status !== 'DONE')) throw new Error('Archive requires all Tasks DONE');
   if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) throw new Error('Archive requires fresh Verification evidence');
-  const evidence = parseYaml(artifacts.verification) as { status?: string; revision?: number; requirement_ids?: string[]; baseline_hash?: string };
+  let evidence: any;
+  try { evidence = parseYaml(artifacts.verification); } catch (error) { throw new Error(`Invalid Verification evidence: ${error instanceof Error ? error.message : String(error)}`); }
   const expectedIds = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed].map((r) => r.id).sort();
-  if (evidence?.status !== 'PASS' || evidence.revision !== m.change.revision || !expectedIds.every((id) => evidence.requirement_ids?.includes(id))) throw new Error('Archive requires fresh Verification evidence for the current revision and Requirements');
+  const expectedScenarios = (() => { try { return parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)); } catch { return []; } })();
+  const validCommands = Array.isArray(evidence?.commands) && evidence.commands.length > 0 && evidence.commands.every((command: any) => command && typeof command.command === 'string' && command.command.trim() && command.exit_code === 0 && typeof command.started_at === 'string' && typeof command.finished_at === 'string' && !Number.isNaN(Date.parse(command.started_at)) && !Number.isNaN(Date.parse(command.finished_at)) && Date.parse(command.finished_at) >= Date.parse(command.started_at));
+  if (evidence?.schema_version !== 1 || evidence.change_id !== m.change.id || evidence.status !== 'PASS' || evidence.revision !== m.change.revision || evidence.baseline_identity !== digest(m.baseline) || typeof evidence.receipt !== 'string' || !validCommands || !expectedIds.every((id) => evidence.requirement_ids?.includes(id)) || !expectedScenarios.every((id) => evidence.scenario_ids?.includes(id))) throw new Error('Archive requires validated fresh Verification evidence for the current revision, baseline, Requirements, and Scenarios');
   if (m.baseline.created_at && Date.parse(m.baseline.created_at) > Date.parse(m.verification.verified_at)) throw new Error('Verification evidence predates the current baseline');
-  if (!m.archive.conflict && m.relations.conflicts_with.length) throw new Error('Archive has unresolved Change conflicts');
+  if (m.relations.conflicts_with.length) throw new Error('Archive has unresolved Change conflicts');
+  const trace = validateChangeTraceability(artifacts);
+  if (!trace.valid) throw new Error(`Archive traceability gate failed: ${trace.issues.join('; ')}`);
 }
 
 export async function preflightArchive(workspace: WorkspaceContext, changeId: string): Promise<ArchivePlan> {
@@ -75,7 +87,14 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
   const current = new Map<string, string>();
   for (const module of artifacts.metadata.modules.confirmed) {
     const file = path.join(workspace.paths.currentSpecs, module.module, 'spec.md');
-    current.set(module.module, await fs.readFile(file, 'utf8').catch(() => ''));
+    const moduleDir = path.join(workspace.paths.currentSpecs, module.module);
+    try { if ((await fs.lstat(moduleDir)).isSymbolicLink()) throw new Error(`Current specification module path must not be a symlink: ${module.module}`); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    try { current.set(module.module, await fs.readFile(file, 'utf8')); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') current.set(module.module, '');
+      else throw error;
+    }
   }
   for (const delta of deltas) {
     if (!current.has(delta.module)) current.set(delta.module, '');
@@ -106,13 +125,22 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
   const stage = path.join(plan.workspace.paths.archive, token);
   const archivedPath = path.join(plan.workspace.paths.archivedChanges, plan.changeId);
   const backup = path.join(plan.workspace.paths.archive, `${token}-backup`);
+  const lock = path.join(plan.workspace.paths.archive, '.archive.lock');
+  const indexLock = `${plan.workspace.paths.changeIndex}.lock`;
   const destinations = [
     ...[...specs.keys()].map((module) => path.join(plan.workspace.paths.currentSpecs, module)),
     archivedPath, plan.workspace.paths.changeIndex, plan.artifacts.changeDir,
     path.join(plan.workspace.paths.archive, 'README.md'), path.join(plan.workspace.paths.archive, 'history.yaml'),
   ];
   const moved: string[] = [];
+  const installed: string[] = [];
+  let committed = false;
+  let rollbackComplete = false;
+  let ownsLock = false;
+  let ownsIndexLock = false;
   try {
+    try { await fs.mkdir(lock); ownsLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Another archive transaction is already in progress'); throw error; }
+    try { await fs.mkdir(indexLock); ownsIndexLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change index is busy'); throw error; }
     await fs.mkdir(stage, { recursive: true });
     for (const [module, content] of specs) {
       const dir = path.join(stage, 'specs', module); await fs.mkdir(dir, { recursive: true }); await fs.writeFile(path.join(dir, 'spec.md'), content);
@@ -129,31 +157,47 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     const existingReadme = await readExisting(path.join(plan.workspace.paths.archive, 'README.md'));
     const existingHistory = await readExisting(path.join(plan.workspace.paths.archive, 'history.yaml'));
     const archiveRecord = { change: plan.changeId, status: 'ARCHIVED', archived_at: archivedMetadata.archive.archived_at };
-    const parsedHistory = existingHistory.trim() ? parseYaml(existingHistory) : undefined;
-    const mergedHistory = Array.isArray(parsedHistory)
-      ? [...parsedHistory, archiveRecord]
-      : parsedHistory && typeof parsedHistory === 'object'
-        ? { ...parsedHistory as Record<string, unknown>, records: [...(Array.isArray((parsedHistory as Record<string, unknown>).records) ? (parsedHistory as Record<string, unknown>).records as unknown[] : []), archiveRecord] }
-        : [archiveRecord];
+    const parsedHistory = existingHistory.trim() ? parseYaml(existingHistory) : { version: 1, records: [] };
+    if (!parsedHistory || typeof parsedHistory !== 'object' || Array.isArray(parsedHistory) || (parsedHistory as any).version !== 1 || !Array.isArray((parsedHistory as any).records) || (parsedHistory as any).records.some((record: any) => !record || !/^CHG-\d{8}-\d{3}$/u.test(record.change) || record.status !== 'ARCHIVED' || typeof record.archived_at !== 'string' || Number.isNaN(Date.parse(record.archived_at)))) {
+      throw new Error('Archive history must use the canonical version 1 records schema');
+    }
+    const mergedHistory = { version: 1, records: [...(parsedHistory as any).records, archiveRecord] };
     await fs.writeFile(path.join(stage, 'README.md'), `${existingReadme}${existingReadme && !existingReadme.endsWith('\n') ? '\n' : ''}\n## Archived ${plan.changeId}\n\nStatus: ARCHIVED\n`);
     await fs.writeFile(path.join(stage, 'history.yaml'), stringifyYaml(mergedHistory));
     await fs.mkdir(backup, { recursive: true });
     for (const [i, dest] of destinations.entries()) if (await exists(dest)) { await fs.rename(dest, path.join(backup, String(i))); moved.push(dest); }
     await fs.mkdir(path.dirname(archivedPath), { recursive: true });
-    for (const [module] of specs) await fs.rename(path.join(stage, 'specs', module), path.join(plan.workspace.paths.currentSpecs, module));
-    await fs.rename(path.join(stage, 'change'), archivedPath);
-    await fs.rename(path.join(stage, 'index.yaml'), plan.workspace.paths.changeIndex);
-    await fs.rename(path.join(stage, 'README.md'), path.join(plan.workspace.paths.archive, 'README.md'));
-    await fs.rename(path.join(stage, 'history.yaml'), path.join(plan.workspace.paths.archive, 'history.yaml'));
+    const install = async (step: string, source: string, destination: string) => { await archiveTestHooks?.beforeCommitStep?.(step); await fs.rename(source, destination); installed.push(destination); };
+    for (const [module] of specs) await install(`current-spec:${module}`, path.join(stage, 'specs', module), path.join(plan.workspace.paths.currentSpecs, module));
+    await install('archived-change', path.join(stage, 'change'), archivedPath);
+    await install('change-index', path.join(stage, 'index.yaml'), plan.workspace.paths.changeIndex);
+    await install('archive-readme', path.join(stage, 'README.md'), path.join(plan.workspace.paths.archive, 'README.md'));
+    await install('archive-history', path.join(stage, 'history.yaml'), path.join(plan.workspace.paths.archive, 'history.yaml'));
     await fs.rm(plan.artifacts.changeDir, { recursive: true, force: true });
+    committed = true;
     const staleChanges = await detectStaleChanges(plan.workspace, plan.deltas.map((d) => d.id));
     return { changeId: plan.changeId, archivedPath, staleChanges, requirementIds: plan.deltas.map((d) => d.id) };
   } catch (error) {
-    // Remove every destination touched after the swap point, then restore every snapshot.
-    for (const dest of [ ...destinations, ...moved ]) await fs.rm(dest, { recursive: true, force: true }).catch(() => undefined);
-    for (const [i, dest] of destinations.entries()) { const old = path.join(backup, String(i)); if (await exists(old)) { await fs.mkdir(path.dirname(dest), { recursive: true }); await fs.rename(old, dest); } }
-    throw new Error(`${error instanceof Error ? error.message : String(error)} (rollback attempted; recovery stage: ${stage})`);
-  } finally { await fs.rm(stage, { recursive: true, force: true }).catch(() => undefined); await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined); }
+    if (committed) throw new Error(`${error instanceof Error ? error.message : String(error)} (archive committed; stale scan requires manual retry)`);
+    const rollbackErrors: string[] = [];
+    for (const dest of installed) await fs.rm(dest, { recursive: true, force: true }).catch((rollbackError) => rollbackErrors.push(`remove ${dest}: ${String(rollbackError)}`));
+    for (let i = destinations.length - 1; i >= 0; i -= 1) {
+      const dest = destinations[i]; const old = path.join(backup, String(i));
+      if (await exists(old)) {
+        try { if (await exists(dest)) throw new Error('destination unexpectedly exists'); await fs.mkdir(path.dirname(dest), { recursive: true }); await fs.rename(old, dest); }
+        catch (rollbackError) { rollbackErrors.push(`restore ${dest}: ${String(rollbackError)}`); }
+      }
+    }
+    if (!rollbackErrors.length) rollbackComplete = true;
+    const suffix = rollbackErrors.length
+      ? ` (rollback incomplete; recovery stage preserved: ${stage}; backup preserved: ${backup}; ${rollbackErrors.join('; ')})`
+      : ' (transaction rolled back)';
+    throw new Error(`${error instanceof Error ? error.message : String(error)}${suffix}`);
+  } finally {
+    if (rollbackComplete || committed) { await fs.rm(stage, { recursive: true, force: true }).catch(() => undefined); await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined); }
+    if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined);
+    if (ownsIndexLock) await fs.rm(indexLock, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 export async function archiveChange(workspace: WorkspaceContext, changeId: string): Promise<ArchiveResult> {

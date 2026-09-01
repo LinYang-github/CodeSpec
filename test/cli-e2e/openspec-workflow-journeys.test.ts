@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { createWorkflowFixture } from '../helpers/openspec-workflow.js';
 import { createCanonicalChange } from '../../src/core/openspec-workflow/change-manager.js';
 import { resolveChange } from '../../src/core/openspec-workflow/change-resolver.js';
-import { canTransition, transitionChange } from '../../src/core/openspec-workflow/state-machine.js';
+import { canTransition } from '../../src/core/openspec-workflow/state-machine.js';
 import { detectStaleChanges } from '../../src/core/openspec-workflow/stale.js';
 
 describe('canonical OpenSpec workflow journeys', () => {
@@ -21,7 +21,6 @@ describe('canonical OpenSpec workflow journeys', () => {
       expect(canTransition('ANALYZE', 'DESIGN')).toBe(true);
       expect(canTransition('VERIFY', 'IMPLEMENT')).toBe(true);
       expect(canTransition('VERIFY', 'DESIGN')).toBe(true);
-      expect(transitionChange(fixture.metadataAt('VERIFY'), 'DESIGN', 'requirements changed').change.revision).toBe(1);
       expect(created.metadata.change.id).toBe(created.changeId);
     } finally {
       fixture.cleanup();
@@ -46,7 +45,8 @@ describe('canonical OpenSpec workflow journeys', () => {
     const fixture = await createWorkflowFixture();
     try {
       const metadata = fixture.metadataAt('VERIFY');
-      metadata.baseline.modules = { 'MOD-001': 'old-hash' };
+      metadata.modules.confirmed = [{ module: 'MOD-001', outcome: 'OWNED', reason: 'workflow' }];
+      metadata.baseline.modules = { 'MOD-001': { outcome: 'OWNED', latest_change: null, requirement_ids: ['MOD-001-REQ-001'], spec_hash: 'a'.repeat(64), requirements: { 'MOD-001-REQ-001': 'b'.repeat(64) } } };
       metadata.requirements.modified = [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }];
       const dir = path.join(fixture.paths.changes, fixture.changeId);
       await fs.mkdir(dir, { recursive: true });

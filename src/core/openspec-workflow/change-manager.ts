@@ -4,7 +4,7 @@ import { stringify as stringifyYaml } from 'yaml';
 
 import { formatLocalDate } from '../../utils/date.js';
 import { loadChangeArtifacts, type WorkspaceContext } from './loaders.js';
-import { loadChangeIndex } from './change-index.js';
+import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
 import { resolveChange, type ChangeSelector } from './change-resolver.js';
 import type { ChangeId, ChangeMetadata, ChangeMode, ChangeStatus } from './types.js';
 
@@ -154,6 +154,7 @@ async function writeChangeIndex(
   workspace: WorkspaceContext,
   metadata: ChangeMetadata
 ): Promise<string> {
+  return withChangeIndexLock(workspace.paths, async () => {
   const index = await loadChangeIndex(workspace.paths);
   const entries = index.entries.filter((entry) => entry.id !== metadata.change.id);
   entries.push({
@@ -180,6 +181,7 @@ async function writeChangeIndex(
 
   await fs.rename(tempIndexPath, workspace.paths.changeIndex);
   return tempIndexPath;
+  });
 }
 
 export async function allocateChangeId(
@@ -256,7 +258,9 @@ export async function resumeChange(
   selector: ChangeSelector,
   action: ChangeStatus
 ): Promise<ResumeResult> {
-  const resolved = await resolveChange(workspace, selector);
+  const resolved = selector.id && /^CHG-\d{8}-\d{3}$/.test(selector.id)
+    ? { changeId: selector.id as ChangeId, metadata: (await loadChangeArtifacts(workspace.paths, selector.id)).metadata }
+    : await resolveChange(workspace, selector);
   const artifacts = await loadChangeArtifacts(workspace.paths, resolved.changeId);
   const currentStatus = artifacts.metadata.change.status;
 

@@ -28,7 +28,7 @@ Reuse Superpowers methodology unchanged: brainstorming, writing-plans, TDD RED �
 
 ### new stage adapter
 
-This is the planning stage. Resolve canonical context before acting: run `openspec context --json`, resolve one explicit `CHG-YYYYMMDD-NNN` (fail explicitly on missing or ambiguous context), then run `openspec status --change "<CHG-ID>" --json` and load the declared `metadata.yaml` and artifact paths. Substitute the resolved Change ID, status, baseline, Requirement IDs, Scenario IDs, Task IDs, test/evidence references, and canonical paths into the planning prompt. Refresh status after the action and record traceability in the canonical artifact.
+This is the planning stage. Resolve canonical context before acting: run `openspec context --json`, resolve one explicit `CHG-YYYYMMDD-NNN` (fail explicitly on missing or ambiguous context), then run `openspec status --change "<CHG-ID>" --json` and load the declared `metadata.yaml` and artifact paths. Substitute the resolved Change ID, status, mode, baseline hashes, Requirement IDs, exact Scenario IDs, Task IDs, test/evidence references, required verification commands, and canonical paths into the planning prompt. Methodology routing: feature → brainstorming → planning → TDD; bugfix → systematic-debugging → spec-impact decision → TDD; refactor → design-impact → planning → TDD. Refresh status after the action and record traceability in the canonical artifact.
 
 Start a new change using the experimental artifact-driven approach.
 

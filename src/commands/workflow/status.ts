@@ -31,6 +31,7 @@ import {
   getAvailableChanges,
   getStatusIndicator,
   getStatusColor,
+  tryLoadCanonicalWorkspace,
 } from './shared.js';
 
 // -----------------------------------------------------------------------------
@@ -99,13 +100,15 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
     const canonicalStatus = async (changeName: string): Promise<Record<string, unknown> | null> => {
       if (!/^CHG-\d{8}-\d{3}$/.test(changeName)) return null;
-      const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
-      const metadataPath = path.join(openspecDir, 'changes', changeName, 'metadata.yaml');
+      const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
+      if (!canonicalWorkspace) return null;
+      const openspecDir = canonicalWorkspace.openspecDir;
+      const metadataPath = path.join(canonicalWorkspace.paths.changes, changeName, 'metadata.yaml');
       if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
         throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
       }
       {
-        const workspace = await loadWorkspace(openspecDir);
+        const workspace = canonicalWorkspace;
         const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
         const gate = validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
         return {
@@ -198,18 +201,16 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     }
 
     if (options.change && /^CHG-\d{8}-\d{3}$/.test(options.change)) {
-      const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
-      const metadataPath = path.join(openspecDir, 'changes', options.change, 'metadata.yaml');
-      if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
-        throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
+      const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
+      if (canonicalWorkspace) {
+        const metadataPath = path.join(canonicalWorkspace.paths.changes, options.change, 'metadata.yaml');
+        if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
       }
     }
-    const changeName = await validateChangeExists(
-      options.change,
-      projectRoot,
-      root.changesDir,
-      { newChangeHint }
-    );
+    const canonicalWorkspaceForLookup = await tryLoadCanonicalWorkspace(projectRoot);
+    const changeName = canonicalWorkspaceForLookup && options.change && /^CHG-\d{8}-\d{3}$/.test(options.change)
+      ? options.change
+      : await validateChangeExists(options.change, projectRoot, root.changesDir, { newChangeHint });
 
     // Validate schema if explicitly provided
     if (options.schema) {
