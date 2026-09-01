@@ -98,6 +98,27 @@ describe('InitCommand', () => {
       expect(content).toContain('schema: spec-driven');
     });
 
+    it('should create canonical config when language context is requested', async () => {
+      const initCommand = new InitCommand({
+        tools: 'none',
+        force: true,
+        language: 'Portuguese (pt-BR)',
+      });
+
+      await initCommand.execute(testDir);
+
+      const configPath = path.join(testDir, 'openspec', 'config.yaml');
+      const content = await fs.readFile(configPath, 'utf-8');
+      expect(content).toContain('version: 1');
+      expect(content).toContain('paths:');
+      expect(content).toContain('  business: business.md');
+      expect(content).toContain('  change_index: changes/index.yaml');
+      expect(content).toContain('workflow:');
+      expect(content).toContain('  multiple_active_changes: true');
+      expect(content).toContain('context: |');
+      expect(content).toContain('  Language: Portuguese (pt-BR)');
+    });
+
     it('should add the requested artifact language to a new config', async () => {
       const initCommand = new InitCommand({
         tools: 'none',

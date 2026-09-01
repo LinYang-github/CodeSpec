@@ -91,28 +91,43 @@ const { version: OPENSPEC_VERSION } = require('../../package.json');
 // -----------------------------------------------------------------------------
 
 const DEFAULT_SCHEMA = 'spec-driven';
-const DEFAULT_WORKSPACE_CONFIG = [
-  'version: 1',
-  'project:',
-  '  name: demo',
-  'paths:',
-  '  business: business.md',
-  '  changes: changes',
-  '  change_index: changes/index.yaml',
-  '  archive: archive',
-  '  specs: archive/specs',
-  '  archived_changes: archive/changes',
-  'workflow:',
-  '  multiple_active_changes: true',
-  'requirements:',
-  '  id_format: {module}-REQ-{sequence:03d}',
-  'changes:',
-  '  id_format: CHG-{date}-{sequence:03d}',
-  'archive:',
-  '  update_index: true',
-  '  require_verification: true',
-  '  conflict_strategy: optimistic',
-].join('\n');
+
+function renderCanonicalWorkspaceConfig(context?: string): string {
+  const lines = [
+    'version: 1',
+    'project:',
+    '  name: demo',
+  ];
+
+  if (context) {
+    lines.push('context: |');
+    for (const line of context.split('\n')) {
+      lines.push(`  ${line}`);
+    }
+  }
+
+  lines.push(
+    'paths:',
+    '  business: business.md',
+    '  changes: changes',
+    '  change_index: changes/index.yaml',
+    '  archive: archive',
+    '  specs: archive/specs',
+    '  archived_changes: archive/changes',
+    'workflow:',
+    '  multiple_active_changes: true',
+    'requirements:',
+    "  id_format: '{module}-REQ-{sequence:03d}'",
+    'changes:',
+    "  id_format: 'CHG-{date}-{sequence:03d}'",
+    'archive:',
+    '  update_index: true',
+    '  require_verification: true',
+    '  conflict_strategy: optimistic'
+  );
+
+  return `${lines.join('\n')}\n`;
+}
 
 function formatLanguageContext(language: string): string {
   return [
@@ -1117,12 +1132,7 @@ export class InitCommand {
 
 
     try {
-      const yamlContent = this.languageContext()
-        ? serializeConfig({
-            schema: DEFAULT_SCHEMA,
-            context: this.languageContext(),
-          })
-        : `${DEFAULT_WORKSPACE_CONFIG}\n`;
+      const yamlContent = renderCanonicalWorkspaceConfig(this.languageContext());
       FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
       await FileSystemUtils.writeFile(configPath, yamlContent);
       return 'created';
