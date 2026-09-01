@@ -29,6 +29,18 @@ import { confirmPrompt, isNonInteractivePromptError } from '../utils/interactive
 import { FileSystemUtils } from '../utils/file-system.js';
 import { folderStyleNameProblem } from './id.js';
 
+// Canonical code-spec workspaces use the transactional OpenSpec archive pipeline.
+// The legacy ArchiveCommand below remains available to generic schemas only.
+export {
+  archiveChange,
+  commitArchive,
+  prepareArchive,
+  preflightArchive,
+  type ArchivePlan as TransactionArchivePlan,
+  type ArchiveResult as TransactionArchiveResult,
+  type PreparedArchive,
+} from './openspec-workflow/archive-transaction.js';
+
 function isMissingPathError(error: unknown): boolean {
   return (
     typeof error === 'object' &&
