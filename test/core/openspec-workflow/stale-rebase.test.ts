@@ -67,5 +67,7 @@ describe('stale changes and rebase', () => {
     const merged = await fs.readFile(path.join(dir, 'spec.md'), 'utf8');
     expect(merged).toContain('Merged');
     expect(result.baseline.modules['MOD-002'].spec_hash).toBe(createHash('sha256').update(merged).digest('hex'));
+    const requirementBlock = merged.slice(merged.indexOf('MOD-002-REQ-006'));
+    expect(result.baseline.modules['MOD-002'].requirements['MOD-002-REQ-006']).toBe(createHash('sha256').update(requirementBlock).digest('hex'));
   });
 });

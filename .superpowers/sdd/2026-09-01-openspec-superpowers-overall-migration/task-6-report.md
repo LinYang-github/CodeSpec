@@ -111,3 +111,25 @@ pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/
 Exact output: focused tests `2 passed (2)`, `7 passed (7)`; build `✅ Build completed successfully!`; lint exited 0 with no diagnostics; `git diff --check` exited 0.
 
 Fix-round-3 commit: `bd80b6e2960af7792ce15a1d685abeff0a492814`
+
+## Scoped fix round 4
+
+Changes: prior verification command validation now rejects blank/whitespace-only command strings. Rebase regression coverage now verifies the affected Requirement hash equals the SHA-256 hash of the authored Requirement block in the merged canonical artifact.
+
+Focused command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/openspec-workflow/stale-rebase.test.ts
+```
+
+Exact output: `2 passed (2)`, `7 passed (7)`.
+
+Full verification command:
+
+```text
+pnpm exec vitest run test/core/openspec-workflow/verification.test.ts test/core/openspec-workflow/stale-rebase.test.ts && pnpm run build && pnpm run lint && git diff --check
+```
+
+Exact output: focused tests `2 passed (2)`, `7 passed (7)`; build `✅ Build completed successfully!`; lint exited 0 with no diagnostics; `git diff --check` exited 0.
+
+Fix-round-4 commit: pending (created after this report is staged)

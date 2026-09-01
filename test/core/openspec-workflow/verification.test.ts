@@ -36,7 +36,7 @@ describe('fresh verification', () => {
     const metadata = fixture.metadataAt('VERIFY'); const dir = path.join(fixture.paths.changes, fixture.changeId);
     await fs.mkdir(dir, { recursive: true });
     await Promise.all(['metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md'].map((name) => fs.writeFile(path.join(dir, name), name === 'metadata.yaml' ? stringifyYaml(metadata) : '# artifact\n')));
-    await fs.writeFile(path.join(dir, 'verification.md'), 'revision: 0\nstatus: FAIL\n');
+    await fs.writeFile(path.join(dir, 'verification.md'), 'revision: 1\nstatus: PASS\nverified_at: 2026-09-01T00:00:00.000Z\nrequirement_ids: []\nscenario_ids: []\ncommands:\n  - command: "   "\n    exit_status: 0\n    started_at: 2026-09-01T00:00:00.000Z\n    finished_at: 2026-09-01T00:00:01.000Z\n');
     await expect(recordFreshVerification(fixture.workspace, fixture.changeId, [{ command: 'printf ok', requirementIds: ['MOD-002-REQ-006'] }])).rejects.toThrow(/stale|status|invalid/i);
   });
 });

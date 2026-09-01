@@ -21,7 +21,7 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
   if (previous.commands.some((entry) => {
     if (!entry || typeof entry !== 'object') return true;
     const command = entry as any;
-    return typeof command.command !== 'string' || command.exit_status !== 0 ||
+    return typeof command.command !== 'string' || command.command.trim().length === 0 || command.exit_status !== 0 ||
       typeof command.started_at !== 'string' || typeof command.finished_at !== 'string' ||
       Number.isNaN(Date.parse(command.started_at)) || Number.isNaN(Date.parse(command.finished_at)) ||
       Date.parse(command.finished_at) < Date.parse(command.started_at);
