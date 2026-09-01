@@ -2,7 +2,6 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
-import { resolveOpenSpecConfigFilePath } from '../project-config.js';
 import { loadChangeArtifacts, type ChangeArtifacts } from './artifacts.js';
 import { loadBusinessRegistry, type BusinessRegistry } from './business-registry.js';
 import { loadChangeIndex, type ChangeIndex } from './change-index.js';
@@ -19,7 +18,7 @@ export interface WorkspaceContext {
 }
 
 async function readWorkspaceConfig(openspecDir: string): Promise<WorkspaceConfig> {
-  const configPath = resolveOpenSpecConfigFilePath(openspecDir) ?? path.join(openspecDir, 'config.yaml');
+  const configPath = path.join(openspecDir, 'config.yaml');
   const raw = parseYaml(await fs.readFile(configPath, 'utf8'));
   return parseWorkspaceConfig(raw);
 }

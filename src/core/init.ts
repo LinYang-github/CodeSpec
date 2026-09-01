@@ -95,6 +95,7 @@ const DEFAULT_SCHEMA = 'spec-driven';
 function renderCanonicalWorkspaceConfig(context?: string): string {
   const lines = [
     'version: 1',
+    `schema: ${DEFAULT_SCHEMA}`,
     'project:',
     '  name: demo',
   ];

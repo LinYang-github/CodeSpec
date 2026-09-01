@@ -121,4 +121,25 @@ describe('openspec workflow loaders', () => {
       /legacy|unsupported|\.openspec\.yaml/i
     );
   });
+
+  it('rejects a Change ID that could escape the active changes directory', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+
+    await expect(loadChangeArtifacts(fixture.paths, '../outside')).rejects.toThrow(
+      /change id|CHG-YYYYMMDD-NNN|safe/i
+    );
+  });
+
+  it('requires config.yaml for canonical workspace loading', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+
+    await fs.rename(
+      path.join(fixture.openspecDir, 'config.yaml'),
+      path.join(fixture.openspecDir, 'config.yml')
+    );
+
+    await expect(loadWorkspace(fixture.openspecDir)).rejects.toThrow(/config\.yaml/i);
+  });
 });

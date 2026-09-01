@@ -73,6 +73,7 @@ const scenarioSchema = z
 const workspaceConfigSchema = z
   .object({
     version: z.literal(1),
+    schema: z.literal('spec-driven'),
     project: z
       .object({
         name: nonEmptyString,

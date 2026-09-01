@@ -62,6 +62,9 @@ export async function loadChangeArtifacts(
   paths: WorkspacePaths,
   changeId: string
 ): Promise<ChangeArtifacts> {
+  if (!/^CHG-\d{8}-\d{3}$/.test(changeId)) {
+    throw new Error('Change ID must match CHG-YYYYMMDD-NNN');
+  }
   const changeDir = path.join(paths.changes, changeId);
   const metadata = await readChangeMetadata(changeDir);
 

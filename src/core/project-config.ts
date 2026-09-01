@@ -562,11 +562,7 @@ export function readStorePointer(projectRoot: string): StorePointerRead {
 /** Shared .yaml/.yml probe used by readProjectConfig and readStorePointer. */
 export function resolveOpenSpecConfigFilePath(openspecDir: string): string | null {
   const yamlPath = path.join(openspecDir, 'config.yaml');
-  if (existsSync(yamlPath)) {
-    return yamlPath;
-  }
-  const ymlPath = path.join(openspecDir, 'config.yml');
-  return existsSync(ymlPath) ? ymlPath : null;
+  return existsSync(yamlPath) ? yamlPath : null;
 }
 
 export function resolveConfigFilePath(projectRoot: string): string | null {
