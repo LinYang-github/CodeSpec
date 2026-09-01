@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { readChangeMetadata, resolveSchemaForChange } from '../../../src/utils/change-metadata.js';
+import { readChangeMetadata, resolveSchemaForChange, writeChangeMetadata } from '../../../src/utils/change-metadata.js';
 
 describe('canonical code-spec legacy rejection', () => {
   it('rejects a slug Change with legacy metadata and names the canonical command', () => {
@@ -22,5 +22,13 @@ describe('canonical code-spec legacy rejection', () => {
     fs.writeFileSync(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\n');
 
     expect(() => resolveSchemaForChange(changeDir, undefined, root)).toThrow(/metadata\.yaml|canonical|CHG-/i);
+  });
+
+  it('never writes legacy metadata for a canonical code-spec workspace', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-write-'));
+    const changeDir = path.join(root, 'openspec', 'changes', 'CHG-20260901-001');
+    fs.mkdirSync(changeDir, { recursive: true });
+    expect(() => writeChangeMetadata(changeDir, {} as never, root)).toThrow(/metadata\.yaml|unsupported/i);
+    expect(fs.existsSync(path.join(changeDir, '.openspec.yaml'))).toBe(false);
   });
 });

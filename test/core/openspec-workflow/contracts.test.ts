@@ -124,6 +124,7 @@ describe('openspec workflow contracts', () => {
 
     const config = parseWorkspaceConfig({
       version: 1,
+      schema: 'code-spec',
       project: { name: 'demo' },
       paths: {
         business: 'business.md',
@@ -162,6 +163,7 @@ describe('openspec workflow contracts', () => {
 
     const config = parseWorkspaceConfig({
       version: 1,
+      schema: 'code-spec',
       project: { name: 'demo' },
       paths: {
         business: '../business.md',
