@@ -1,4 +1,5 @@
 # 技术设计
+<!-- Requirement ID 与 stable scenario ID 必须可追踪。 -->
 
 ## 上下文
 <!-- 用中文描述约束并引用 proposal.md。 -->

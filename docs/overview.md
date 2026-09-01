@@ -12,7 +12,7 @@ Here's the entire idea in five words: **agree first, then build confidently.**
 
 Everything in OpenSpec is built from five concepts. Learn these and the rest is detail.
 
-**1. Specs are the truth.** A spec describes how your system behaves *right now*. It lives in `openspec/specs/`, organized by domain (`auth/`, `payments/`, `ui/`). Specs are made of requirements ("the system SHALL expire sessions after 30 minutes") and scenarios (concrete given/when/then examples). Think of specs as the single agreed-upon answer to "what does this software do?"
+**1. Specs are the truth.** A code-spec spec describes how your system behaves *right now*. It lives in `openspec/archive/specs/`, organized by stable module IDs. Specs are made of Requirement IDs and scenarios (concrete GIVEN/WHEN/THEN examples). Think of specs as the single agreed-upon answer to "what does this software do?"
 
 **2. A change is one unit of work.** When you want to add, modify, or remove behavior, you create a change: a folder in `openspec/changes/` holding everything about that work in one place. A proposal, a design, a task list, and the spec edits. One change, one folder, one feature.
 

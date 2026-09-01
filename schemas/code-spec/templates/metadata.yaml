@@ -1,5 +1,6 @@
 schema_version: 1
 # GIVEN 输入 WHEN 管理 Change THEN 使用稳定 ID（ADDED MODIFIED REMOVED）。
+# Requirement ID 与 stable scenario ID 由 metadata.yaml 保持追踪。
 change:
   id: CHG-YYYYMMDD-NNN
   revision: 1

@@ -1,4 +1,5 @@
 # 实施任务
+<!-- Requirement ID 与 stable scenario ID 的覆盖必须可验证。 -->
 <!-- GIVEN 前置条件 WHEN 执行任务 THEN 记录结果。 -->
 <!-- 这是 concise projection；详细计划位于 docs/superpowers/plans。 -->
 ## 1. 实施

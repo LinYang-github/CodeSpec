@@ -14,6 +14,18 @@ import {
 } from '../../helpers/openspec-workflow.js';
 
 describe('openspec workflow loaders', () => {
+  it('selects the canonical code-spec schema from workspace config', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeBusinessFile(fixture, [
+      '| Module ID | Module Name | Description | Responsibilities | Keywords |',
+      '| --- | --- | --- | --- | --- |',
+      '| MOD-001 | 工作流 | 管理变更 | 需求管理 | 变更 |',
+    ].join('\n'));
+    const workspace = await loadWorkspace(fixture.openspecDir);
+    expect(workspace.config.schema).toBe('code-spec');
+  });
+
   it('loads canonical configured paths before reading business and change data', async () => {
     const fixture = await createWorkflowFixture({
       configOverrides: {

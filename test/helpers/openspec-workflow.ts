@@ -25,7 +25,7 @@ export interface WorkflowFixture {
 
 const DEFAULT_CONFIG: WorkspaceConfig = parseWorkspaceConfig({
   version: 1,
-  schema: 'spec-driven',
+  schema: 'code-spec',
   project: { name: 'demo' },
   paths: {
     business: 'business.md',

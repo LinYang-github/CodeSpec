@@ -2,6 +2,7 @@ name: code-spec
 version: 1
 description: OpenSpec canonical code change workflow
 # Protocol tokens: ADDED MODIFIED REMOVED Previous New Reason GIVEN WHEN THEN
+# Canonical paths: archive/specs and archive/changes
 artifacts:
   - id: metadata
     generates: metadata.yaml

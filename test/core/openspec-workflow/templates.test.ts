@@ -12,6 +12,8 @@ describe('canonical code-spec schema and templates', () => {
     expect(schema).toContain('MODIFIED');
     expect(schema).not.toContain('skip_specs');
     expect(schema).not.toContain('.openspec.yaml');
+    expect(schema).toContain('archive/specs');
+    expect(schema).toContain('archive/changes');
   });
 
   it('uses Chinese guidance with English protocol tokens in every template', () => {
@@ -21,7 +23,17 @@ describe('canonical code-spec schema and templates', () => {
       expect(content).toContain('GIVEN');
       expect(content).toContain('WHEN');
       expect(content).toContain('THEN');
+      expect(content).toContain('Requirement ID');
+      expect(content).not.toContain('openspec/specs/');
+      expect(content).not.toContain('changes/archive');
+      expect(content).not.toContain('skip_specs');
+      expect(content).not.toContain('.openspec.yaml');
     }
+    const spec = read(`${root}/schemas/code-spec/templates/spec.md`);
+    expect(spec).toContain('Previous');
+    expect(spec).toContain('New');
+    expect(spec).toContain('Reason');
+    expect(spec).toContain('SCN-');
   });
 
   it('documents the canonical workspace and multiple active Changes', () => {

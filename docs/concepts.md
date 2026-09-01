@@ -56,7 +56,7 @@ Specs describe your system's behavior using structured requirements and scenario
 ### Structure
 
 ```
-openspec/specs/
+openspec/archive/specs/
 ├── auth/
 │   └── spec.md           # Authentication behavior
 ├── payments/
@@ -619,7 +619,7 @@ openspec/
 | **Scenario** | A concrete example of a requirement, typically in Given/When/Then format |
 | **Schema** | A definition of artifact types and their dependencies |
 | **Spec** | A specification describing system behavior, containing requirements and scenarios |
-| **Source of truth** | The `openspec/specs/` directory, containing the current agreed-upon behavior |
+| **Source of truth** | The `openspec/archive/specs/` directory, containing current agreed-upon behavior |
 
 ## Next Steps
 

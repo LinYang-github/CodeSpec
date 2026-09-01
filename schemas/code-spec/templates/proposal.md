@@ -1,4 +1,5 @@
 # 变更提案
+<!-- Requirement ID 与 stable scenario ID 必须在后续文档保持一致。 -->
 
 ## 为什么
 <!-- 用中文说明问题、机会与原因。 -->
