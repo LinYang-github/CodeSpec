@@ -267,3 +267,122 @@ Commit output:
 
 - This review fix deliberately removed the broad parser-return casts and replaced them with typed canonical ID schemas only in `src/core/openspec-workflow/schemas.ts`; I did not broaden the change into later workflow modules.
 - The explicit no-fallback behavior is limited to the Task 3 canonical detection path: when `openspec/config.yaml` is present, canonical loading errors now surface directly instead of dropping into legacy slug compatibility.
+
+## Collision Fix Round
+
+### Status
+
+- Status: complete
+- Collision fix commit: `f78700b3c3db322bf6ebb544ec2deca972eb6871`
+- Collision fix parent: `b3878fabac4d015592e2e2872bd1b0d3ef8f519f`
+
+### Collision Fix Scope
+
+- `createCanonicalChange()` now tracks whether this invocation successfully published `stagingDir` into `changeDir` before cleanup.
+- Failure cleanup removes `changeDir` only when this invocation owns the destination; a preexisting colliding destination is preserved.
+- Added a focused regression test that forces a destination collision immediately before publish and verifies the existing Change stays intact while the temporary staging directory is removed.
+
+### RED
+
+Focused collision regression:
+
+```bash
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts -t "collides|staged Change"
+```
+
+Output before the ownership fix:
+
+```text
+ RUN  v3.2.6 /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+
+ ❯ test/core/openspec-workflow/change-manager.test.ts (8 tests | 1 failed | 6 skipped) 26ms
+   ✓ openspec workflow change management > cleans up a staged Change when index publication fails 20ms
+   × openspec workflow change management > preserves an existing destination Change when publish collides after allocation 6ms
+     → Cannot spy on export "rename". Module namespace is not configurable in ESM.
+```
+
+After converting the regression to a real collision hook, the failure reproduced against the actual Task 3 bug:
+
+```text
+ RUN  v3.2.6 /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+
+ ❯ test/core/openspec-workflow/change-manager.test.ts (8 tests | 1 failed | 6 skipped) 1340ms
+   ✓ openspec workflow change management > cleans up a staged Change when index publication fails 19ms
+   × openspec workflow change management > preserves an existing destination Change when publish collides after allocation 1320ms
+     → promise resolved "{ changeId: 'CHG-20260901-001', … }" instead of rejecting
+```
+
+Observed RED reason:
+
+- cleanup always treated `changeDir` as owned by the current invocation
+- the regression needed a deterministic pre-rename collision to reproduce the destination-ownership bug in this harness
+
+### GREEN
+
+Build verification:
+
+```bash
+pnpm run build
+```
+
+```text
+> @fission-ai/openspec@1.11.0 build /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+> node build.js
+
+🔨 Building OpenSpec...
+
+Cleaning dist directory...
+Compiling TypeScript...
+Version 6.0.3
+
+✅ Build completed successfully!
+```
+
+Focused collision verification:
+
+```bash
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts -t "collides|staged Change"
+```
+
+```text
+ RUN  v3.2.6 /Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/.worktrees/openspec-superpowers-migration
+
+ ✓ test/core/openspec-workflow/change-manager.test.ts (8 tests | 6 skipped) 27ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 6 skipped (8)
+```
+
+Diff hygiene:
+
+```bash
+git diff --check
+```
+
+```text
+[no output]
+```
+
+### Exact Commands Run
+
+```bash
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts -t "collides|staged Change"
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts -t "collides|staged Change"
+pnpm run build
+pnpm exec vitest run test/core/openspec-workflow/change-manager.test.ts -t "collides|staged Change"
+git diff --check
+git add src/core/openspec-workflow/change-manager.ts test/core/openspec-workflow/change-manager.test.ts
+git commit -m "fix: preserve colliding canonical change destinations"
+```
+
+Commit output:
+
+```text
+[codex/openspec-superpowers-migration f78700b] fix: preserve colliding canonical change destinations
+ 2 files changed, 48 insertions(+), 1 deletion(-)
+```
+
+### Updated Concerns
+
+- The deterministic collision regression uses a tiny test-only hook in `change-manager.ts` so the test can force the exact pre-rename race without broadening runtime behavior.
+- Collision errors surfaced as `EEXIST` or `ENOTEMPTY` depending on filesystem behavior, so the regression asserts destination preservation rather than pinning to one platform-specific error code.
