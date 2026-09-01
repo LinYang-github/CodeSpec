@@ -562,19 +562,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     flags: [],
     subcommands: [
       {
-        name: 'new',
-        description: 'Create a new change (deprecated alias)',
-        acceptsPositional: true,
-        positionals: [{ name: 'name' }],
-        flags: [
-          { name: 'description', description: 'Description to add to README.md', takesValue: true },
-          { name: 'goal', description: 'Optional goal metadata to store with the change', takesValue: true },
-          { name: 'schema', description: 'Workflow schema to use', takesValue: true },
-          COMMON_FLAGS.json,
-          COMMON_FLAGS.store,
-        ],
-      },
-      {
         name: 'show',
         description: 'Show a specification',
         acceptsPositional: true,

@@ -2,6 +2,10 @@
 
 ## 1.11.0
 
+### Breaking migration boundary
+
+Code-spec Changes now use the canonical `openspec/business.md`, `openspec/changes/CHG-YYYYMMDD-NNN/`, `openspec/archive/specs/`, and `openspec/archive/changes/` layout. Create them with `openspec new change` (the deprecated `openspec change new` alias remains available) and archive explicitly with `openspec archive CHG-...`. Slug-based code-spec Changes and `.openspec.yaml` metadata are unsupported; generic schema workflows remain documented only for explicitly configured non-code-spec use.
+
 ### Minor Changes
 
 - [#1301](https://github.com/Fission-AI/OpenSpec/pull/1301) [`a7353ae`](https://github.com/Fission-AI/OpenSpec/commit/a7353aea9a0b23762602badf5055a157a76f62b1) Thanks [@m-tanner](https://github.com/m-tanner)! - Add `openspec status --all`, which reports every active change in one process instead of one CLI spawn per change. `--all --json` emits a single `{ "changes": [ <status>, ... ], "root" }` envelope sorted by change name; a change that fails to load contributes `{ "changeName", "status": [diagnostic] }` in place rather than aborting the sweep. A partial failure exits 1 in both text and JSON modes while preserving the complete JSON envelope. Mutually exclusive with `--change`.

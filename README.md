@@ -38,6 +38,9 @@ Our philosophy:
 >
 > Run `/opsx:propose "your idea"` to get started. → [Learn more here](docs/opsx.md)
 
+> [!WARNING]
+> **Breaking boundary for code-spec work:** the canonical layout is `openspec/business.md`, `openspec/changes/CHG-YYYYMMDD-NNN/`, `openspec/archive/specs/`, and `openspec/archive/changes/`. Create Changes with `openspec new change` (or the deprecated `openspec change new` alias), archive them explicitly with `openspec archive CHG-...`, and do not rely on slug directories or `.openspec.yaml`; those legacy code-spec forms are unsupported. Generic schema workflows and their documentation remain available where explicitly configured.
+
 <p align="center">
   Follow <a href="https://x.com/0xTab">@0xTab on X</a> for updates · Join the <a href="https://discord.gg/YctCnvvshC">OpenSpec Discord</a> for help and questions.
 </p>
@@ -56,7 +59,7 @@ AI:  Let me look at your styling setup...
 You: Yes, let's do it.
 
 You: /opsx:propose add-dark-mode
-AI:  Created openspec/changes/add-dark-mode/
+AI:  Created openspec/changes/CHG-YYYYMMDD-NNN/
      ✓ proposal.md — why we're doing this, what's changing
      ✓ specs/       — requirements and scenarios
      ✓ design.md    — technical approach
@@ -72,7 +75,7 @@ AI:  Implementing tasks...
      All tasks complete!
 
 You: /opsx:archive
-AI:  Archived to openspec/changes/archive/2025-01-23-add-dark-mode/
+AI:  Archived explicitly to openspec/archive/changes/CHG-YYYYMMDD-NNN/
      Specs updated. Ready for the next feature.
 ```
 
