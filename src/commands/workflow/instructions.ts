@@ -140,7 +140,7 @@ export async function instructionsCommand(
       if (artifactId) {
         spinner?.stop();
         const label = artifactId.charAt(0).toUpperCase() + artifactId.slice(1);
-        const supported = ['new', 'continue', 'propose', 'apply', 'verify', 'archive', 'ff'].includes(artifactId ?? '');
+        const supported = ['analyze', 'design', 'plan', 'implement', 'new', 'continue', 'propose', 'apply', 'verify', 'archive', 'ff'].includes(artifactId ?? '');
         if (!supported) throw new Error(`Unsupported canonical artifact/stage '${artifactId}'. Use an explicit lifecycle stage.`);
         const stage = artifactId as WorkflowStage;
         const text = `## ${label}: ${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}\n\n${getStageAdapterGuidance(stage)}\n\nUse the canonical Change artifacts and satisfy lifecycle gates before transition. Superpowers methodology remains unchanged: use TDD RED → GREEN, fresh verification evidence, and semantic Rebase when the baseline is STALE.\n`;
@@ -151,7 +151,8 @@ export async function instructionsCommand(
     }
 
     const canonicalConfigPath = path.join(projectRoot, 'openspec', 'config.yaml');
-    if (await fs.promises.access(canonicalConfigPath).then(() => true).catch(() => false) && !/^CHG-\d{8}-\d{3}$/.test(changeName)) {
+    const canonicalConfig = await fs.promises.readFile(canonicalConfigPath, 'utf8').catch(() => '');
+    if (/^schema:\s*code-spec\s*$/m.test(canonicalConfig) && !/^CHG-\d{8}-\d{3}$/.test(changeName)) {
       throw new Error(`Canonical code-spec instructions require a Change ID matching CHG-YYYYMMDD-NNN; legacy or ambiguous identifier '${changeName}' is unsupported.`);
     }
 

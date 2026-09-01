@@ -1,10 +1,11 @@
 # Task 10 Report
 
-Status: implemented and committed. Task 11 was not modified.
+Status: reviewed, fixed, and committed. Task 11 was not modified.
 
 ## Commit
 
-- Commit: `5b3376f` (amended below only to record this hash in the report).
+- Prior Task 10 commit: `80fff09`.
+- Review-fix commit: pending until this report update is committed.
 
 ## Files
 
@@ -13,7 +14,10 @@ Status: implemented and committed. Task 11 was not modified.
 - `src/core/artifact-graph/instruction-loader.ts`: do not honor `skip_specs` on canonical Changes.
 - `src/core/openspec-workflow/change-manager.ts`: reload the canonical Change index before publishing a new Change.
 - `test/cli-e2e/openspec-workflow-journeys.test.ts`: canonical creation, lifecycle routing, multiple active Changes/ambiguity, and stale detection coverage.
-- `test/core/openspec-workflow/legacy-rejection.test.ts`: legacy slug and metadata rejection coverage.
+- `test/core/openspec-workflow/legacy-rejection.test.ts`: legacy slug and metadata rejection coverage, including write protection.
+- `test/commands/artifact-workflow.test.ts`: migrated canonical fixtures to `schema: code-spec` and updated the skill-count expectation.
+- `src/commands/workflow/shared.ts`, `src/commands/workflow/new-change.ts`, `src/commands/workflow/instructions.ts`: scope canonical routing to `schema: code-spec`, support lifecycle stage instruction names, and preserve generic spec-driven behavior.
+- `src/core/templates/workflows/openspec-workflow.ts`: include explicit current lifecycle status in canonical context.
 
 ## TDD evidence
 
@@ -35,6 +39,16 @@ Test Files 2 passed (2)
 Tests 5 passed (5)
 ```
 
+## Review-fix TDD evidence
+
+The broader suite initially reproduced 6 failures (2 canonical contract fixtures, 1 skill-count expectation, and 3 CLI fixture/routing failures). After scoping canonical detection to `schema: code-spec`, migrating the broken canonical fixtures, and rebuilding the CLI, the focused failing cases passed:
+
+```text
+pnpm exec vitest run test/commands/artifact-workflow.test.ts -t 'fails explicitly instead|canonical analyze|fails explicitly instead of falling back'
+Test Files 1 passed (1)
+Tests 3 passed (3)
+```
+
 ## Verification
 
 ```text
@@ -49,9 +63,13 @@ exit 0
 Focused Task 10 suites passed. The requested broader command also ran:
 
 ```text
-pnpm exec vitest run test/core/openspec-workflow test/cli-e2e/openspec-workflow-journeys.test.ts test/commands/artifact-workflow.test.ts
-Test Files 2 failed, 12 passed (14)
-Tests 6 failed, 143 passed (149)
+pnpm build
+✅ Build completed successfully!
+
+pnpm lint && pnpm exec vitest run test/core/openspec-workflow test/cli-e2e/openspec-workflow-journeys.test.ts test/commands/artifact-workflow.test.ts && git diff --check
+Test Files 14 passed (14)
+Tests 150 passed (150)
+exit 0
 ```
 
-Concerns: the six broader failures are pre-existing Task 1–9 migration-surface issues: two contract fixtures still pass `schema: spec-driven` to the canonical parser, one tool-detection expectation still expects 12 skills while the implementation exposes 13, and four legacy artifact-workflow instruction/config tests still expect old behavior. They are outside Task 10’s narrow changes and should be handled before Task 11 final verification.
+Concerns: full repository verification remains Task 11 scope. The required Task 10 focused and broader migration suites are green.

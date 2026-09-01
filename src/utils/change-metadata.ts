@@ -78,6 +78,12 @@ export function writeChangeMetadata(
   metadata: ChangeMetadata,
   projectRoot?: string
 ): void {
+  if (isCanonicalCodeSpecChange(changeDir, projectRoot)) {
+    throw new ChangeMetadataError(
+      "Canonical code-spec Changes use metadata.yaml; .openspec.yaml is unsupported. Use 'openspec new change <title>'.",
+      path.join(changeDir, METADATA_FILENAME)
+    );
+  }
   const metaPath = path.join(changeDir, METADATA_FILENAME);
 
   // Validate schema exists
@@ -200,6 +206,10 @@ export function resolveSchemaForChange(
   options: ResolveSchemaForChangeOptions = {}
 ): string {
   rejectLegacyCodeSpecChange(changeDir, projectRootOverride);
+  if (isCanonicalCodeSpecChange(changeDir, projectRootOverride) &&
+      fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME))) {
+    throw new Error("Canonical code-spec Changes use metadata.yaml; legacy schema resolution is unavailable.");
+  }
   // Derive project root from changeDir (changeDir is typically projectRoot/openspec/changes/change-name)
   const projectRoot = projectRootOverride ?? path.resolve(changeDir, '../../..');
 

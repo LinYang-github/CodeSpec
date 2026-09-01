@@ -67,7 +67,7 @@ async function tryLoadCanonicalWorkspace(projectRoot: string) {
   }
 
   const config = await fs.readFile(configPath, 'utf8');
-  if (!/^version:\s*1\b/m.test(config) || !/^paths:\s*$/m.test(config)) return null;
+  if (!/^version:\s*1\b/m.test(config) || !/^schema:\s*code-spec\s*$/m.test(config) || !/^paths:\s*$/m.test(config)) return null;
   return loadWorkspace(openspecDir);
 }
 
