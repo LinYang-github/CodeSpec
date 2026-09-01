@@ -32,11 +32,14 @@ describe('openspec workflow loaders', () => {
     afterEach(fixture.cleanup);
     await fs.mkdir(path.dirname(fixture.paths.business), { recursive: true });
     await fs.mkdir(path.dirname(fixture.paths.changeIndex), { recursive: true });
+    await fs.mkdir(fixture.paths.currentSpecs, { recursive: true });
+    await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-001.md'), '# Generic current spec\n');
     await writeBusinessFile(fixture, '| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Generic | Generic behavior | Generic work | generic |');
     await fs.writeFile(fixture.paths.changeIndex, 'version: 1\nchanges: []\n');
     const workspace = await loadWorkspace(fixture.openspecDir);
     expect(workspace.config.schema).toBe('spec-driven');
     expect(workspace.paths.currentSpecs).toBe(path.join(fixture.openspecDir, 'generic', 'specs'));
+    await expect(fs.readFile(path.join(workspace.paths.currentSpecs, 'MOD-001.md'), 'utf8')).resolves.toContain('Generic current spec');
     expect(workspace.registry.modules[0]?.id).toBe('MOD-001');
   });
 

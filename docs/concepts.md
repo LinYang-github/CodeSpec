@@ -32,18 +32,16 @@ OpenSpec organizes your work into two main areas:
 │                        openspec/                                   │
 │                                                                    │
 │   ┌─────────────────────┐      ┌───────────────────────────────┐   │
-│   │       specs/        │      │         changes/              │   │
-│   │                     │      │                               │   │
-│   │  Source of truth    │◄─────│  Proposed modifications       │   │
-│   │  How your system    │ merge│  Each change = one folder     │   │
-│   │  currently works    │      │  Contains artifacts + deltas  │   │
+│   │  archive/specs/     │      │         changes/              │   │
+│   │  Canonical current  │◄─────│  CHG-* proposed modifications  │   │
+│   │  code-spec truth     │ merge│  Each Change has metadata     │   │
 │   │                     │      │                               │   │
 │   └─────────────────────┘      └───────────────────────────────┘   │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-**Specs** are the source of truth — they describe how your system currently behaves.
+For canonical `code-spec` workspaces (`openspec/config.yaml` with `schema: code-spec`), `openspec/archive/specs/` is the source of truth and `openspec/changes/CHG-YYYYMMDD-NNN/` contains proposed modifications. The `openspec/specs/` source-of-truth model and generic archive paths below apply only to generic `spec-driven` workspaces.
 
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 
