@@ -35,6 +35,7 @@ describe('openspec workflow state machine', () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
     const metadata = fixture.metadataAt('DESIGN');
+    metadata.requirements.added.push({ id: 'MOD-001-REQ-001', module: 'MOD-001' });
     expect(incrementRevision(metadata, 'requirements changed').change.revision).toBe(2);
   });
 
@@ -95,6 +96,19 @@ describe('openspec workflow state machine', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toMatch(/requirements|tests|build|lint/i);
+  });
+
+  it('rejects a satisfied analyze flag when proposal sections and module consistency are absent', async () => {
+    const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
+    await writeBusinessFile(fixture, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Orders | Owns orders | Orders | orders |\n');
+    await writeChangeArtifacts(fixture, { metadata: { gates: { analyze: { required: true, satisfied: true } } } });
+    const workspace = await loadWorkspace(fixture.openspecDir);
+    const artifacts = await import('../../../src/core/openspec-workflow/artifacts.js').then((m) => m.loadChangeArtifacts(workspace.paths, fixture.changeId));
+    expect(validateExitGate(workspace, artifacts, 'ANALYZE').errors.join('\\n')).toMatch(/summary|goal|scope|module/i);
+  });
+
+  it('rejects a revision reason that merely contains the word semantic', () => {
+    expect(() => incrementRevision({} as never, 'semantic cleanup')).toThrow(/Requirement|Scope/i);
   });
 
   it('rejects archive dependencies that are not archived', async () => {

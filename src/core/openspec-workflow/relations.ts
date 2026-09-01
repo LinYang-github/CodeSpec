@@ -4,11 +4,14 @@ import type { ChangeMetadata } from './types.js';
 export async function validateRelations(workspace: WorkspaceContext, metadata: ChangeMetadata): Promise<void> {
   const refs = [...metadata.relations.depends_on, ...metadata.relations.related_to, ...metadata.relations.conflicts_with, ...metadata.relations.supersedes];
   const loaded = new Map<string, ChangeMetadata>([[metadata.change.id, metadata]]);
-  for (const id of refs) {
-    if (id === metadata.change.id) throw new Error(`Invalid relation ID: ${id}`);
+  for (const id of refs) if (id === metadata.change.id) throw new Error(`Invalid relation ID: ${id}`);
+  const load = async (id: string): Promise<void> => {
+    if (loaded.has(id)) return;
     try { loaded.set(id, (await loadChangeArtifacts(workspace.paths, id)).metadata); }
     catch { throw new Error(`Invalid relation ID: ${id}`); }
-  }
+    for (const dep of loaded.get(id)?.relations.depends_on ?? []) await load(dep);
+  };
+  for (const id of refs) await load(id);
   const visiting = new Set<string>(); const visited = new Set<string>();
   const visit = (id: string): void => {
     if (visiting.has(id)) throw new Error('Relation cycle detected');

@@ -130,12 +130,16 @@ export async function instructionsCommand(
     );
 
     if (/^CHG-\d{8}-\d{3}$/.test(changeName)) {
-      const workspace = await loadWorkspace(path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec'));
+      const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
+      const metadataPath = path.join(openspecDir, 'changes', changeName, 'metadata.yaml');
+      if (!(await fs.promises.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
+      const workspace = await loadWorkspace(openspecDir);
       const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
       const status = artifacts.metadata.change.status;
-      if (artifactId === 'analyze') {
+      if (artifactId) {
         spinner?.stop();
-        const text = `## Analyze: ${changeName}\n\nCurrent status: ${status}\n\nCreate or update ${artifacts.metadata.artifacts.proposal} with summary, goals, scope, and module mapping.\n`;
+        const label = artifactId.charAt(0).toUpperCase() + artifactId.slice(1);
+        const text = `## ${label}: ${changeName}\n\nCurrent status: ${status}\n\nUse the canonical Change artifacts (${artifacts.metadata.artifacts.proposal}, ${artifacts.metadata.artifacts.design}, ${artifacts.metadata.artifacts.spec}, ${artifacts.metadata.artifacts.tasks}, ${artifacts.metadata.artifacts.verification}) and satisfy the lifecycle gates before transition.\n`;
         if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
         else console.log(text);
         return;

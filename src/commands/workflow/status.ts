@@ -7,6 +7,7 @@
 import ora from 'ora';
 import chalk from 'chalk';
 import path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { getChangeDir } from '../../core/planning-home.js';
 import {
   resolveRootForCommand,
@@ -98,8 +99,11 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
     const canonicalStatus = async (changeName: string): Promise<Record<string, unknown> | null> => {
       if (!/^CHG-\d{8}-\d{3}$/.test(changeName)) return null;
-      try {
-        const workspace = await loadWorkspace(path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec'));
+      const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
+      const metadataPath = path.join(openspecDir, 'changes', changeName, 'metadata.yaml');
+      if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) return null;
+      {
+        const workspace = await loadWorkspace(openspecDir);
         const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
         const gate = validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
         return {
@@ -108,7 +112,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           baseline: artifacts.metadata.baseline, requirements: artifacts.metadata.requirements,
           verification: artifacts.metadata.verification, gateErrors: gate.errors,
         };
-      } catch { return null; }
+      }
     };
 
     // Handle no-changes case gracefully — status is informational,

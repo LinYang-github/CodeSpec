@@ -9,6 +9,7 @@ export function validateExitGate(_workspace: WorkspaceContext, artifacts: Change
   const m = artifacts.metadata;
   const errors: string[] = [];
   if (target === 'ANALYZE') {
+    if (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal)) errors.push('proposal summary, goals, and scope sections are required');
     if (!m.impact.summary.trim()) errors.push('proposal summary is required');
     if (m.modules.candidates.length === 0) errors.push('module candidates are required');
     if (!m.gates.analyze.satisfied) errors.push('analyze gate is not satisfied');
@@ -16,10 +17,14 @@ export function validateExitGate(_workspace: WorkspaceContext, artifacts: Change
   if (target === 'DESIGN') {
     if (m.modules.confirmed.length === 0) errors.push('confirmed modules are required');
     if (!m.gates.design.satisfied) errors.push('design gate is not satisfied');
+    const confirmed = new Set(m.modules.confirmed.map((x) => x.module));
+    for (const ref of [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed]) if (!confirmed.has(ref.module)) errors.push(`Requirement ${ref.id} has no confirmed module`);
+    if (m.requirements.added.length + m.requirements.modified.length + m.requirements.removed.length > 0 && !new RegExp(m.requirements.added.concat(m.requirements.modified, m.requirements.removed).map((x) => x.id).join('|')).test(artifacts.design)) errors.push('design Requirement consistency is not satisfied');
   }
   if (target === 'PLAN') {
     if (m.tasks.total === 0 || Object.keys(m.tasks.items).length === 0) errors.push('a concrete task graph is required');
     if (!m.gates.plan.satisfied) errors.push('plan gate is not satisfied');
+    if (Object.values(m.tasks.items).some((item) => !item.title?.trim() || item.status === 'BLOCKED')) errors.push('task graph contains invalid or blocked tasks');
   }
   if (target === 'IMPLEMENT') {
     if (m.tasks.total === 0 || m.tasks.completed !== m.tasks.total) errors.push('all tasks must be DONE');
@@ -27,6 +32,7 @@ export function validateExitGate(_workspace: WorkspaceContext, artifacts: Change
   }
   if (target === 'VERIFY') {
     if (!m.gates.verify.satisfied) errors.push('verify gate is not satisfied');
+    if (!m.verification.verified_at || !/test|build|lint|requirement/i.test(artifacts.verification)) errors.push('fresh verification evidence details are required');
   }
   return result(errors);
 }

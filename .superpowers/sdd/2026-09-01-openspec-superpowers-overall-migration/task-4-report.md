@@ -24,6 +24,17 @@ GREEN evidence:
 - `pnpm lint` — exit 0.
 - `git diff --check` — exit 0.
 
-Concerns:
-- The complete requested focused command also runs legacy artifact-workflow cases; 18 legacy cases fail because the migration worktree now routes their old fixture/config assumptions through canonical parsing. The Task 4 canonical lifecycle tests pass.
-- The report commit hash is recorded below after committing.
+Review fix round:
+- Gates now validate canonical proposal sections, confirmed module/Requirement consistency, task graph contents, and verification timestamp/details; metadata flags alone are insufficient.
+- Canonical CHG loader errors are explicit in status/instructions; all canonical artifact instruction IDs route through the canonical surface.
+- Revision increments require actual Requirement/Scope metadata changes or an exact VERIFY -> DESIGN transition.
+- Relation validation recursively loads transitive dependencies and checks deeper invalid IDs/cycles.
+
+Exact verification:
+- `pnpm build` — exit 0.
+- `pnpm exec vitest run test/core/openspec-workflow/state-machine.test.ts test/commands/artifact-workflow.test.ts -t 'canonical lifecycle|canonical analyze|rejects archive dependencies|increments revision|satisfied analyze'` — 5 passed, 0 failed.
+- `pnpm exec vitest run test/core/openspec-workflow/state-machine.test.ts test/commands/artifact-workflow.test.ts` — 71 passed, 21 failed. The remaining failures are pre-existing generic/legacy fixture expectations in `artifact-workflow.test.ts` (including old operation-config fixtures and skip-spec behavior), not canonical Task 4 cases; canonical status/instructions and lifecycle tests pass.
+- `pnpm lint` — exit 0.
+- `git diff --check` — exit 0.
+
+Review-fix commit: recorded after commit.

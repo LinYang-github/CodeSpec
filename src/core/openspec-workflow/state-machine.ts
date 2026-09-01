@@ -36,7 +36,10 @@ export function transitionChange(
 }
 
 export function incrementRevision(metadata: ChangeMetadata, reason: string): ChangeMetadata {
-  if (!/requirement|scope|verify.*design|design.*verify|semantic/i.test(reason)) {
+  const semanticChange = /requirements?\s+(added|modified|removed|changed)|scope\s+changed/i.test(reason) &&
+    (metadata.requirements.added.length + metadata.requirements.modified.length + metadata.requirements.removed.length > 0);
+  const verifyToDesign = /^VERIFY\s*(?:->|to)\s*DESIGN(?:\s|$)/i.test(reason) && metadata.change.status === 'VERIFY';
+  if (!semanticChange && !verifyToDesign) {
     throw new Error('Revision increment requires an approved semantic Requirement/Scope change or VERIFY -> DESIGN');
   }
   return { ...metadata, change: { ...metadata.change, revision: metadata.change.revision + 1, updated_at: new Date().toISOString() } };
