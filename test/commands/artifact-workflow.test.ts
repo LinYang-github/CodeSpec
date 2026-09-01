@@ -269,6 +269,18 @@ describe('artifact-workflow CLI commands', () => {
   }
 
   describe('status command', () => {
+    it('rejects a canonical CHG directory without metadata instead of using legacy status', async () => {
+      await createCanonicalCodeSpecWorkspace();
+      const changeDir = path.join(changesDir, 'CHG-20260901-099');
+      await fs.mkdir(changeDir, { recursive: true });
+      await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal\n');
+
+      const result = await runCLI(['status', '--change', 'CHG-20260901-099'], { cwd: tempDir });
+      expect(result.exitCode).toBe(1);
+      expect(getOutput(result)).toMatch(/Canonical Change metadata not found/i);
+      expect(getOutput(result)).not.toMatch(/schema:|artifacts complete/i);
+    });
+
     it('fails explicitly instead of resolving legacy slug Changes when canonical loading is broken', async () => {
       await createBrokenCanonicalWorkspace();
       await createTestChange('legacy-slug');

@@ -111,6 +111,17 @@ describe('openspec workflow state machine', () => {
     expect(() => incrementRevision({} as never, 'semantic cleanup')).toThrow(/Requirement|Scope/i);
   });
 
+  it('matches a Requirement ID literally when the ID contains regex-significant characters', () => {
+    const metadata = {
+      ...({} as never),
+      modules: { confirmed: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'orders' }] },
+      requirements: { added: [{ id: 'MOD-001-REQ-[001]+', module: 'MOD-001' }], modified: [], removed: [] },
+      gates: { design: { required: true, satisfied: true } },
+    } as never;
+    const artifacts = { metadata, design: 'Requirement MOD-001-REQ-[001]+ is consistent', proposal: '', spec: '', tasks: '', verification: '' } as never;
+    expect(validateExitGate({} as never, artifacts, 'DESIGN').errors).not.toContain('design Requirement consistency is not satisfied');
+  });
+
   it('rejects archive dependencies that are not archived', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);

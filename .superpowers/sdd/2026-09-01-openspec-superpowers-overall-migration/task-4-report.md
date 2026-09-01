@@ -24,6 +24,17 @@ GREEN evidence:
 - `pnpm lint` — exit 0.
 - `git diff --check` — exit 0.
 
+Review round 4:
+- Added regression coverage for a CHG-* directory missing `metadata.yaml`; status now emits the explicit canonical metadata error before change resolution can select a legacy path.
+- Added literal-matching regression coverage using regex-significant Requirement ID characters.
+
+Exact round-4 results:
+- `pnpm exec vitest run test/core/openspec-workflow/state-machine.test.ts test/commands/artifact-workflow.test.ts -t 'regex-significant|without metadata|canonical CHG'` — 2 passed, 92 skipped.
+- `pnpm exec vitest run test/core/openspec-workflow/state-machine.test.ts test/commands/artifact-workflow.test.ts` — 94 passed, 0 failed.
+- `pnpm build` — exit 0.
+- `pnpm lint` — exit 0.
+- `git diff --check` — exit 0.
+
 Review round 3:
 - Canonical workspace detection now requires the canonical `version: 1` + `paths:` config shape. Old generic operation-config fixtures remain on the generic artifact-graph path; canonical `CHG-*` status with missing metadata raises an explicit error.
 - Literal Requirement matching remains regex-free.

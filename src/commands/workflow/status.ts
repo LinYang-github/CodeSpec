@@ -197,6 +197,13 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       );
     }
 
+    if (options.change && /^CHG-\d{8}-\d{3}$/.test(options.change)) {
+      const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
+      const metadataPath = path.join(openspecDir, 'changes', options.change, 'metadata.yaml');
+      if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
+        throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
+      }
+    }
     const changeName = await validateChangeExists(
       options.change,
       projectRoot,
