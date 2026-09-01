@@ -6,12 +6,13 @@
  */
 import type { SkillTemplate, CommandTemplate } from '../types.js';
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import { withOpenSpecWorkflowGuidance } from './openspec-workflow.js';
 
 export function getOpsxProposeSkillTemplate(): SkillTemplate {
   return {
     name: 'openspec-propose',
     description: 'Propose a new change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, and tasks ready for implementation.',
-    instructions: `Propose a new change - create the change and generate all artifacts in one step.
+    instructions: withOpenSpecWorkflowGuidance(`Propose a new change - create the change and generate all artifacts in one step.
 
 **Planning boundary**: This workflow creates planning artifacts only. The user request that selected or triggered this workflow authorizes planning only, even if it asks to build or fix something. Do not edit project code. After the planning artifacts are complete, stop. Do not start implementation in the same response, even if the initial request asks for it. Wait for a new user request after the artifacts are presented; then start the apply workflow.
 
@@ -147,7 +148,7 @@ After completing all artifacts, summarize:
 - Always read dependency artifacts before creating a new one - re-read from disk, not from conversation memory (files may have changed since you last saw them)
 - Ask about ambiguities that would materially change scope, externally observable behavior, compatibility, or acceptance criteria; for minor details, make reasonable assumptions and record them
 - If a change with that name already exists, ask if user wants to continue it or create a new one
-- Verify each artifact file exists after writing before proceeding to next`,
+    - Verify each artifact file exists after writing before proceeding to next`),
     license: 'MIT',
     compatibility: 'Requires openspec CLI.',
     metadata: { author: 'openspec', version: '1.0' },

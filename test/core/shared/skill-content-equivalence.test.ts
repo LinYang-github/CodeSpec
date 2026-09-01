@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { isLegacyCodexSkillEquivalentToCurrent } from '../../../src/core/shared/skill-content-equivalence.js';
+import { generateSkillContent, getSkillTemplates } from '../../../src/core/shared/skill-generation.js';
+import { transformToSkillReferences } from '../../../src/utils/command-references.js';
 
 describe('legacy Codex skill equivalence', () => {
+  it('matches every committed skill to its canonical source-generated content', async () => {
+    const root = path.resolve(process.cwd());
+    for (const { dirName, template } of getSkillTemplates()) {
+      const committed = await readFile(path.join(root, 'skills', dirName, 'SKILL.md'), 'utf8');
+      const generated = generateSkillContent(template, 'PARITY-BASELINE', transformToSkillReferences);
+      expect(committed.replace(/\n  generatedBy: "[^"]+"/, ''), dirName).toBe(generated.replace(/\n  generatedBy: "[^"]+"/, ''));
+    }
+  });
+
   it('accepts generated version, BOM, CRLF, and known dual-reference differences', () => {
     const legacy =
       '\uFEFF---\r\nmetadata:\r\n  generatedBy: "0.1.0"\r\n---\r\nUse $openspec-apply-change.\r\n';

@@ -24,6 +24,7 @@ import {
   getOpsxSyncCommandTemplate,
   getOpsxProposeCommandTemplate,
   getOpsxProposeSkillTemplate,
+  getOpenSpecWorkflowSkillTemplate,
   getOpsxUpdateCommandTemplate,
   getOpsxVerifyCommandTemplate,
   getSyncSpecsSkillTemplate,
@@ -58,7 +59,7 @@ const EXPECTED_FUNCTION_HASHES: Record<string, string> = {
   getOpsxOnboardCommandTemplate: 'ee99aa99252c602720fbb8c63fb3ac438a5bd4e952fd961ddf1ae956cbfc2c8f',
   getOpsxBulkArchiveCommandTemplate: '9fa8cdebe2f5667ebfc37bdc023396762c59d5b038c771dac2d8fd2c19e2627b',
   getOpsxVerifyCommandTemplate: '1efcf7eff0671f48e9d9420f50865c563dd3079ee60f8c380bb7a90dd0102696',
-  getOpsxProposeSkillTemplate: '24623c066f97e34b957d448d1f9a9e8b8a13da3dfce45d45671f6226a2534848',
+  getOpsxProposeSkillTemplate: '9b6c4ce7fc465bb7bc12018a2cb478da9c482ea16fa85e264a1b032dc71389ba',
   getOpsxProposeCommandTemplate: 'e67ba591efb0fecacb2229d06dfa84af18b825fab8a7b01377279e4f09a06ce4',
   getFeedbackSkillTemplate: 'dabeb5e825b9349abc8156c3e7b8608f27987912a6d9bf47ef29addde6138133',
   getUpdateChangeSkillTemplate: '7dc8abc6f64c58bf34d7581ed4ab095a3b7a53cb372349bee2d840db58622819',
@@ -66,23 +67,25 @@ const EXPECTED_FUNCTION_HASHES: Record<string, string> = {
 };
 
 const EXPECTED_GENERATED_SKILL_CONTENT_HASHES: Record<string, string> = {
-  'openspec-explore': '886680e71f2900378bd12bb9ff25c888a41a8f851e0bb3ec056affcc18d07ca8',
-  'openspec-new-change': 'ec4529beef978e34634a6f7286fab55d68fad8fb374dceb45691d52caab33fbb',
-  'openspec-continue-change': 'bb6194a16c54891cdb253678e8f70ce53b2af86735243980f366ce551d37e42e',
-  'openspec-apply-change': '81ea96d9fa6ec8536cd23c1fe561ed28e1cc1cad0a8ceb700588e08974cc0e49',
-  'openspec-ff-change': '217c78da2b6e8358f609ac57dcd02266aaec3354ce26dc6ec2fc9c2174673ab4',
-  'openspec-sync-specs': 'd933d8856584d6c1253de91e652e7aee9e85c77ad4d3531f6476f79d84e6e5e8',
-  'openspec-archive-change': '7c65053d674ba4e1e20e2bf73ba7e5a7f94baef2eaa9b33cee48d4cadea51b7a',
-  'openspec-bulk-archive-change': '2039b9ecf6e64339dffe0e16272507a386d9fe326f419ff758315aa736fdd96c',
-  'openspec-verify-change': 'af9be013dcbe8c6d8f6d9ab10c893fbd03f4c62933c384d82f63894dd0ceb84f',
-  'openspec-onboard': 'f6f59476acaf5e4d65dbb180da4cef62432612f3cecf207d471a951295e2003a',
-  'openspec-propose': '25d08ed4f031770cea219604167d76bca9f3e89fe0c2f545263674482c6f13f0',
-  'openspec-update-change': '586547406aca94422dfeb3ffedce6c01049429b743f57ce829baa79ebc714d51',
+  'openspec-workflow': 'e29e4b0c9810d7bb235cffd78ca61caa2f718368b466a2e1fc286e4ebc630354',
+  'openspec-explore': 'c6e1e9277d3428d5bb7405877218c50acac89ef28b7103ec65dbc863bc7beadf',
+  'openspec-new-change': '8032321eecc5a7df15f554ff4c94aac3b2f05baaf7bf3d52463313d1a3238a13',
+  'openspec-continue-change': 'f9ef7ecd790f699f0a701630e07392f8e11e00b454ba48c2ac4bae6f1a83bcb9',
+  'openspec-apply-change': 'f22d930ec8f87137026cbba5969cac13a121f72fad68259491cd58840b55bae1',
+  'openspec-ff-change': '659f2ac6cd7d24da5887c94d48b2ceabd807299414d552ab935330ad620b026a',
+  'openspec-sync-specs': '8999de291aaafc85e428252b4358df638a766f1142de89e3aa174a6d0f1c7b4b',
+  'openspec-archive-change': 'c05e3e0740f6724e405aeb09e5e7a24e261413a5f4e1444734ecc9ecbb70116b',
+  'openspec-bulk-archive-change': '8a1bb2d24a3d38a2d277c8ca3d396f42a8efc5c01833c0c2a1cc594d7c1262df',
+  'openspec-verify-change': '9e095b3fa4d03c3a5324f5fa63055ec3c3799a10edba1480dcf31f9a70b7519e',
+  'openspec-onboard': '4c69ac5a0df7b0aad2ddf01266ca8b29fd1bd901864eecc6cc1edf8be76c7bc0',
+  'openspec-propose': '361cf6feb092a97110636c7a64682640f9f4a7097485684075bb77c5472e27ba',
+  'openspec-update-change': '4a337606398dc3feccb4533e3c95340fea2d2f7341b664159270c65ed466bc61',
 };
 
 // Intentionally excludes getFeedbackSkillTemplate: this list only models templates
 // deployed via generateSkillContent, while feedback is covered in function payload parity.
 const GENERATED_SKILL_FACTORIES: Array<[string, () => SkillTemplate]> = [
+  ['openspec-workflow', getOpenSpecWorkflowSkillTemplate],
   ['openspec-explore', getExploreSkillTemplate],
   ['openspec-new-change', getNewChangeSkillTemplate],
   ['openspec-continue-change', getContinueChangeSkillTemplate],
@@ -96,6 +99,13 @@ const GENERATED_SKILL_FACTORIES: Array<[string, () => SkillTemplate]> = [
   ['openspec-propose', getOpsxProposeSkillTemplate],
   ['openspec-update-change', getUpdateChangeSkillTemplate],
 ];
+
+// The registry is the source of truth for generated variants, including stage adapters.
+for (let index = 0; index < GENERATED_SKILL_FACTORIES.length; index++) {
+  const [dirName] = GENERATED_SKILL_FACTORIES[index];
+  GENERATED_SKILL_FACTORIES[index] = [dirName, () => getSkillTemplates().find(entry => entry.dirName === dirName)!.template];
+}
+
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {

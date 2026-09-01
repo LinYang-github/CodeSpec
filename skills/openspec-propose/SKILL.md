@@ -9,6 +9,23 @@ metadata:
   version: "1.0"
 ---
 
+
+## Canonical OpenSpec workflow
+
+Route code-spec work through the `openspec-workflow` adapter. Resolve or create a canonical Change ID matching `CHG-YYYYMMDD-NNN`; never use a slug Change or legacy `.openspec.yaml` metadata. The Change directory is `openspec/changes/<CHG-ID>/`, and `metadata.yaml` is the status authority.
+
+Carry the Change ID, lifecycle status, baseline, Requirement IDs (`MOD-###-REQ-###`), Scenarios, Task IDs (`SP-##`), and metadata artifact paths through every prompt and command. Keep `tasks.md` as a concise `SP-##` status projection; do not duplicate the detailed Superpowers plan there. Record required Requirement/test/build/lint commands and evidence in the verification artifact.
+
+### Resolve and inject context before acting
+
+Run `openspec context --json` to resolve the canonical workspace. Resolve the Change by explicit `CHG-YYYYMMDD-NNN` ID or bound context, then run `openspec status --change "<CHG-ID>" --json` and load `openspec/changes/<CHG-ID>/metadata.yaml` plus its declared artifact paths. Inject the actual Change ID, status, baseline, affected Requirement IDs and Scenario IDs, Task IDs, prior evidence, and canonical proposal/design/spec/tasks/verification paths into each Superpowers prompt. If context is missing, metadata is absent, or resolution is ambiguous, fail explicitly and stop; never guess or fall back to slug/legacy metadata.
+
+Before planning, implementation, verification, or archive, re-resolve status and artifacts and pass the resulting context to the relevant Superpowers skill. After each material action, refresh status and write traceability/evidence back to the canonical artifact. Required commands must be run from the resolved workspace and recorded verbatim with their results.
+
+Reuse Superpowers methodology unchanged: brainstorming, writing-plans, TDD RED → GREEN, systematic debugging, fresh verification, code review, and branch finishing. If the baseline is stale, route through semantic rebase before continuing.
+
+
+
 Propose a new change - create the change and generate all artifacts in one step.
 
 **Planning boundary**: This workflow creates planning artifacts only. The user request that selected or triggered this workflow authorizes planning only, even if it asks to build or fix something. Do not edit project code. After the planning artifacts are complete, stop. Do not start implementation in the same response, even if the initial request asks for it. Wait for a new user request after the artifacts are presented; then start the apply workflow.
@@ -145,4 +162,4 @@ After completing all artifacts, summarize:
 - Always read dependency artifacts before creating a new one - re-read from disk, not from conversation memory (files may have changed since you last saw them)
 - Ask about ambiguities that would materially change scope, externally observable behavior, compatibility, or acceptance criteria; for minor details, make reasonable assumptions and record them
 - If a change with that name already exists, ask if user wants to continue it or create a new one
-- Verify each artifact file exists after writing before proceeding to next
+    - Verify each artifact file exists after writing before proceeding to next

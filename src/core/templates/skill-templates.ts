@@ -19,3 +19,4 @@ export { getVerifyChangeSkillTemplate, getOpsxVerifyCommandTemplate } from './wo
 export { getOnboardSkillTemplate, getOpsxOnboardCommandTemplate } from './workflows/onboard.js';
 export { getOpsxProposeSkillTemplate, getOpsxProposeCommandTemplate } from './workflows/propose.js';
 export { getFeedbackSkillTemplate } from './workflows/feedback.js';
+export { OPENSPEC_WORKFLOW_GUIDANCE, getOpenSpecWorkflowSkillTemplate, getStageAdapterGuidance, getUnsupportedStageGuidance, renderCanonicalChangeContext, withOpenSpecWorkflowGuidance } from './workflows/openspec-workflow.js';

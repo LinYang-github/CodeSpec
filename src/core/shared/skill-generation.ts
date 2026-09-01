@@ -29,6 +29,10 @@ import {
   getOpsxVerifyCommandTemplate,
   getOpsxOnboardCommandTemplate,
   getOpsxProposeCommandTemplate,
+  getOpenSpecWorkflowSkillTemplate,
+  getStageAdapterGuidance,
+  getUnsupportedStageGuidance,
+  withOpenSpecWorkflowGuidance,
   type SkillTemplate,
 } from '../templates/skill-templates.js';
 import type { CommandContent } from '../command-generation/index.js';
@@ -58,6 +62,7 @@ export interface CommandTemplateEntry {
  */
 export function getSkillTemplates(workflowFilter?: readonly string[]): SkillTemplateEntry[] {
   const all: SkillTemplateEntry[] = [
+    { template: getOpenSpecWorkflowSkillTemplate(), dirName: 'openspec-workflow', workflowId: 'workflow' },
     { template: getExploreSkillTemplate(), dirName: 'openspec-explore', workflowId: 'explore' },
     { template: getNewChangeSkillTemplate(), dirName: 'openspec-new-change', workflowId: 'new' },
     { template: getContinueChangeSkillTemplate(), dirName: 'openspec-continue-change', workflowId: 'continue' },
@@ -72,10 +77,14 @@ export function getSkillTemplates(workflowFilter?: readonly string[]): SkillTemp
     { template: getOpsxProposeSkillTemplate(), dirName: 'openspec-propose', workflowId: 'propose' },
   ];
 
-  if (!workflowFilter) return all;
+  const stageByWorkflow: Record<string, import('../templates/workflows/openspec-workflow.js').WorkflowStage> = { new: 'new', continue: 'continue', propose: 'propose', apply: 'apply', verify: 'verify', archive: 'archive', ff: 'ff' };
+  const routed = all.map(entry => entry.dirName === 'openspec-workflow' || entry.template.instructions.includes('## Canonical OpenSpec workflow')
+    ? entry
+    : { ...entry, template: { ...entry.template, instructions: withOpenSpecWorkflowGuidance(`${stageByWorkflow[entry.workflowId] ? getStageAdapterGuidance(stageByWorkflow[entry.workflowId]) : getUnsupportedStageGuidance(entry.workflowId)}\n\n${entry.template.instructions}`) } });
+  if (!workflowFilter) return routed;
 
   const filterSet = new Set(workflowFilter);
-  return all.filter(entry => filterSet.has(entry.workflowId));
+  return routed.filter(entry => filterSet.has(entry.workflowId));
 }
 
 /**
@@ -118,9 +127,10 @@ export function getCommandContents(workflowFilter?: readonly string[]): CommandC
     description: template.description,
     category: template.category,
     tags: template.tags,
-    body: template.content,
+    body: withOpenSpecWorkflowGuidance(template.content),
   }));
 }
+
 
 /**
  * Generates skill file content with YAML frontmatter.
@@ -134,9 +144,12 @@ export function generateSkillContent(
   generatedByVersion: string,
   transformInstructions?: (instructions: string) => string
 ): string {
+  const routed = template.name === 'openspec-workflow' || template.instructions.includes('## Canonical OpenSpec workflow')
+    ? template.instructions
+    : withOpenSpecWorkflowGuidance(template.instructions);
   const instructions = transformInstructions
-    ? transformInstructions(template.instructions)
-    : template.instructions;
+    ? transformInstructions(routed)
+    : routed;
 
   return `---
 name: ${template.name}

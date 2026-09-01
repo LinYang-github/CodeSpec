@@ -49,6 +49,7 @@ import {
 } from './shared.js';
 import { parseTaskLines, type ParsedTask } from '../../utils/task-progress.js';
 import { loadWorkspace, loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
+import { renderCanonicalChangeContext, getStageAdapterGuidance, type WorkflowStage } from '../../core/templates/workflows/openspec-workflow.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -139,11 +140,19 @@ export async function instructionsCommand(
       if (artifactId) {
         spinner?.stop();
         const label = artifactId.charAt(0).toUpperCase() + artifactId.slice(1);
-        const text = `## ${label}: ${changeName}\n\nCurrent status: ${status}\n\nUse the canonical Change artifacts (${artifacts.metadata.artifacts.proposal}, ${artifacts.metadata.artifacts.design}, ${artifacts.metadata.artifacts.spec}, ${artifacts.metadata.artifacts.tasks}, ${artifacts.metadata.artifacts.verification}) and satisfy the lifecycle gates before transition.\n\nSuperpowers context: use TDD RED → GREEN, fresh verification evidence, and semantic Rebase when the baseline is STALE.\n`;
+        const supported = ['new', 'continue', 'propose', 'apply', 'verify', 'archive', 'ff'].includes(artifactId ?? '');
+        if (!supported) throw new Error(`Unsupported canonical artifact/stage '${artifactId}'. Use an explicit lifecycle stage.`);
+        const stage = artifactId as WorkflowStage;
+        const text = `## ${label}: ${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}\n\n${getStageAdapterGuidance(stage)}\n\nUse the canonical Change artifacts and satisfy lifecycle gates before transition. Superpowers methodology remains unchanged: use TDD RED → GREEN, fresh verification evidence, and semantic Rebase when the baseline is STALE.\n`;
         if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
         else console.log(text);
         return;
       }
+    }
+
+    const canonicalConfigPath = path.join(projectRoot, 'openspec', 'config.yaml');
+    if (await fs.promises.access(canonicalConfigPath).then(() => true).catch(() => false) && !/^CHG-\d{8}-\d{3}$/.test(changeName)) {
+      throw new Error(`Canonical code-spec instructions require a Change ID matching CHG-YYYYMMDD-NNN; legacy or ambiguous identifier '${changeName}' is unsupported.`);
     }
 
     // Validate schema if explicitly provided

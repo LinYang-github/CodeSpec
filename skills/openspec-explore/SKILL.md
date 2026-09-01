@@ -9,6 +9,27 @@ metadata:
   version: "1.0"
 ---
 
+
+## Canonical OpenSpec workflow
+
+Route code-spec work through the `openspec-workflow` adapter. Resolve or create a canonical Change ID matching `CHG-YYYYMMDD-NNN`; never use a slug Change or legacy `.openspec.yaml` metadata. The Change directory is `openspec/changes/<CHG-ID>/`, and `metadata.yaml` is the status authority.
+
+Carry the Change ID, lifecycle status, baseline, Requirement IDs (`MOD-###-REQ-###`), Scenarios, Task IDs (`SP-##`), and metadata artifact paths through every prompt and command. Keep `tasks.md` as a concise `SP-##` status projection; do not duplicate the detailed Superpowers plan there. Record required Requirement/test/build/lint commands and evidence in the verification artifact.
+
+### Resolve and inject context before acting
+
+Run `openspec context --json` to resolve the canonical workspace. Resolve the Change by explicit `CHG-YYYYMMDD-NNN` ID or bound context, then run `openspec status --change "<CHG-ID>" --json` and load `openspec/changes/<CHG-ID>/metadata.yaml` plus its declared artifact paths. Inject the actual Change ID, status, baseline, affected Requirement IDs and Scenario IDs, Task IDs, prior evidence, and canonical proposal/design/spec/tasks/verification paths into each Superpowers prompt. If context is missing, metadata is absent, or resolution is ambiguous, fail explicitly and stop; never guess or fall back to slug/legacy metadata.
+
+Before planning, implementation, verification, or archive, re-resolve status and artifacts and pass the resulting context to the relevant Superpowers skill. After each material action, refresh status and write traceability/evidence back to the canonical artifact. Required commands must be run from the resolved workspace and recorded verbatim with their results.
+
+Reuse Superpowers methodology unchanged: brainstorming, writing-plans, TDD RED → GREEN, systematic debugging, fresh verification, code review, and branch finishing. If the baseline is stale, route through semantic rebase before continuing.
+
+
+
+### Unsupported canonical stage: explore
+
+This workflow is not a canonical lifecycle stage adapter. Do not infer planning, resume, implementation, verification, or archive behavior from it. Preserve its existing behavior or stop and require an explicitly supported canonical stage.
+
 Enter explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
 **IMPORTANT: Explore mode is for thinking, not implementing.** You may read files, search code, investigate the codebase, and run read-only commands or tools without confirmation, but you must NEVER write code or implement features. If the user asks you to implement something, remind them to exit explore mode first and create a change proposal. You MAY create or update OpenSpec change artifacts (proposals, designs, specs) within a confirmed scope—that's capturing thinking, not implementing. Answering design or clarifying questions is never consent to write. Before the first write-capable action, name the artifacts or files you would change and what you would do, ask a direct yes/no question, and wait for the user's confirmation in a separate message. Confirmation covers only the scope you described; ask again before expanding it. For a new change, scaffold it first as described below.
