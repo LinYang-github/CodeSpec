@@ -149,7 +149,7 @@ describe('fresh verification', () => {
           scenarioIds: ['SCN-002'],
         },
       ])
-    ).rejects.toThrow(/failed.*exit.*7|Verification command failed/i);
+    ).rejects.toThrow('验证命令失败，退出码为 7');
 
     const evidence = parseYaml(
       await fs.readFile(
