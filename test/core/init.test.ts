@@ -86,7 +86,7 @@ describe('InitCommand', () => {
       expect(await directoryExists(path.join(openspecPath, 'archive', 'changes'))).toBe(true);
     });
 
-    it('should create config.yaml with default schema', async () => {
+    it('should create config.yaml with the canonical code-spec schema', async () => {
       const initCommand = new InitCommand({ tools: 'claude', force: true });
 
       await initCommand.execute(testDir);
@@ -95,7 +95,7 @@ describe('InitCommand', () => {
       expect(await fileExists(configPath)).toBe(true);
 
       const content = await fs.readFile(configPath, 'utf-8');
-      expect(content).toContain('schema: spec-driven');
+      expect(content).toContain('schema: code-spec');
     });
 
     it('should create canonical config when language context is requested', async () => {

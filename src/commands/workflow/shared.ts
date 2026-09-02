@@ -15,6 +15,7 @@ import { listActiveChanges, resolveChange } from '../../core/openspec-workflow/c
 import type { ReferenceIndexEntry } from '../../core/references.js';
 import { isRootSelectionError } from '../../core/root-selection.js';
 import type { WorkspaceContext } from '../../core/openspec-workflow/loaders.js';
+import { CANONICAL_SCHEMA } from '../../core/openspec-workflow/default-config.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -68,7 +69,7 @@ export interface ArchiveInstructions {
 // Constants
 // -----------------------------------------------------------------------------
 
-export const DEFAULT_SCHEMA = 'spec-driven';
+export const DEFAULT_SCHEMA = CANONICAL_SCHEMA;
 
 export async function tryLoadCanonicalWorkspace(projectRoot: string): Promise<WorkspaceContext | null> {
   const openspecDir = path.join(projectRoot, 'openspec');

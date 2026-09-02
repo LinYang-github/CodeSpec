@@ -27,7 +27,12 @@ import {
 } from './config.js';
 import { PALETTE } from './styles/palette.js';
 import { isInteractive } from '../utils/interactive.js';
-import { serializeConfig } from './config-prompts.js';
+import {
+  CANONICAL_SCHEMA,
+  renderBusinessTemplate,
+  renderCanonicalWorkspaceConfig,
+  renderEmptyChangeIndex,
+} from './openspec-workflow/default-config.js';
 import {
   generateCommands,
   CommandAdapterRegistry,
@@ -90,45 +95,7 @@ const { version: OPENSPEC_VERSION } = require('../../package.json');
 // Constants
 // -----------------------------------------------------------------------------
 
-const DEFAULT_SCHEMA = 'spec-driven';
-
-function renderCanonicalWorkspaceConfig(context?: string): string {
-  const lines = [
-    'version: 1',
-    `schema: ${DEFAULT_SCHEMA}`,
-    'project:',
-    '  name: demo',
-  ];
-
-  if (context) {
-    lines.push('context: |');
-    for (const line of context.split('\n')) {
-      lines.push(`  ${line}`);
-    }
-  }
-
-  lines.push(
-    'paths:',
-    '  business: business.md',
-    '  changes: changes',
-    '  change_index: changes/index.yaml',
-    '  archive: archive',
-    '  specs: archive/specs',
-    '  archived_changes: archive/changes',
-    'workflow:',
-    '  multiple_active_changes: true',
-    'requirements:',
-    "  id_format: '{module}-REQ-{sequence:03d}'",
-    'changes:',
-    "  id_format: 'CHG-{date}-{sequence:03d}'",
-    'archive:',
-    '  update_index: true',
-    '  require_verification: true',
-    '  conflict_strategy: optimistic'
-  );
-
-  return `${lines.join('\n')}\n`;
-}
+const DEFAULT_SCHEMA = CANONICAL_SCHEMA;
 
 function formatLanguageContext(language: string): string {
   return [
@@ -1150,7 +1117,10 @@ export class InitCommand {
 
 
     try {
-      const yamlContent = renderCanonicalWorkspaceConfig(this.languageContext());
+      const yamlContent = renderCanonicalWorkspaceConfig(
+        path.basename(path.dirname(openspecPath)),
+        this.languageContext()
+      );
       FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
       await FileSystemUtils.writeFile(configPath, yamlContent);
       return 'created';
@@ -1540,11 +1510,11 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
   const defaultFiles = [
     {
       path: path.join(openspecPath, 'business.md'),
-      content: ['# Business', '', '| Module ID | Module Name | Description | Responsibilities | Keywords |', '| --- | --- | --- | --- | --- |', ''].join('\n'),
+      content: renderBusinessTemplate(),
     },
     {
       path: path.join(openspecPath, 'changes', 'index.yaml'),
-      content: 'version: 1\nchanges: []\n',
+      content: renderEmptyChangeIndex(),
     },
   ];
 

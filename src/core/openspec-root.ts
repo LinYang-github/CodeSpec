@@ -2,7 +2,10 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { FileSystemUtils } from '../utils/file-system.js';
-import { serializeConfig } from './config-prompts.js';
+import {
+  CANONICAL_SCHEMA,
+  renderCanonicalWorkspaceConfig,
+} from './openspec-workflow/default-config.js';
 import {
   makeStoreDiagnostic,
   type StoreDiagnostic,
@@ -14,7 +17,7 @@ export const OPENSPEC_CONFIG_YML = 'openspec/config.yml';
 export const OPENSPEC_SPECS_DIR = 'openspec/specs';
 export const OPENSPEC_CHANGES_DIR = 'openspec/changes';
 export const OPENSPEC_ARCHIVE_DIR = 'openspec/changes/archive';
-export const DEFAULT_OPENSPEC_SCHEMA = 'spec-driven';
+export const DEFAULT_OPENSPEC_SCHEMA = CANONICAL_SCHEMA;
 export const DIRECTORY_ANCHOR_FILE_NAME = '.gitkeep';
 
 // Git cannot track empty directories, so setup anchors otherwise-empty
@@ -262,7 +265,7 @@ async function ensureDefaultConfig(
 
   await FileSystemUtils.writeFile(
     configYamlPath,
-    serializeConfig({ schema: DEFAULT_OPENSPEC_SCHEMA })
+    renderCanonicalWorkspaceConfig(path.basename(storeRoot))
   );
   ledger.push({
     relativePath: relativeArtifact(OPENSPEC_CONFIG_YAML, 'file'),
