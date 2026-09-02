@@ -130,8 +130,8 @@ describe('store root selection for normal commands', () => {
         env,
       });
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain(`Using OpenSpec root: team-context (${storeRoot})`);
-      expect(result.stdout).toContain("Created change 'add-billing'");
+      expect(result.stderr).toContain(`使用 OpenSpec 根目录：team-context（${storeRoot}）`);
+      expect(result.stdout).toContain('已创建 Change：add-billing');
       expect(result.stdout).toContain(
         path.join(storeRoot, 'openspec', 'changes', 'add-billing')
       );
@@ -386,7 +386,7 @@ operations:
       });
       expect(result.exitCode).toBe(0);
       expect(result.stdout.startsWith('## Why')).toBe(true);
-      expect(result.stderr).toContain(`Using OpenSpec root: team-context (${storeRoot})`);
+      expect(result.stderr).toContain(`使用 OpenSpec 根目录：team-context（${storeRoot}）`);
     });
 
     it('diffs a delta against the selected store\'s main specs', async () => {
@@ -427,7 +427,7 @@ operations:
       );
       expect(result.exitCode).toBe(0);
       expect(result.stdout.startsWith('<artifact id="design"')).toBe(true);
-      expect(result.stderr).toContain('Using OpenSpec root: team-context');
+      expect(result.stderr).toContain('使用 OpenSpec 根目录：team-context');
     });
 
     it('writes the status banner to stderr in human mode', async () => {
@@ -438,9 +438,9 @@ operations:
         { cwd: appRepo, env }
       );
       expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain(`Using OpenSpec root: team-context (${storeRoot})`);
-      expect(result.stdout).toContain('Change: store-change');
-      expect(result.stdout).not.toContain('Using OpenSpec root');
+      expect(result.stderr).toContain(`使用 OpenSpec 根目录：team-context（${storeRoot}）`);
+      expect(result.stdout).toContain('Change：store-change');
+      expect(result.stdout).not.toContain('使用 OpenSpec 根目录');
     });
   });
 
@@ -467,7 +467,7 @@ operations:
 
     it('reports unknown stores with the same message across commands', async () => {
       const expected =
-        "Unknown store 'team-contxt'. Registered stores: team-context.";
+        "未知 Store 'team-contxt'。已登记的 Store：team-context.";
 
       const status = await runCLI(['status', '--store', 'team-contxt'], { cwd: appRepo, env });
       const list = await runCLI(['list', '--store', 'team-contxt'], { cwd: appRepo, env });
@@ -641,11 +641,11 @@ operations:
         expect(result.exitCode).toBe(1);
         expect(result.stdout).toBe('');
         expect(result.stderr).toContain(
-          'Error: No OpenSpec root found from the current directory.'
+          '从当前目录开始未找到 OpenSpec 根目录。'
         );
-        expect(result.stderr).not.toContain('No items found to validate.');
-        expect(result.stderr).not.toContain('No active changes found.');
-        expect(result.stderr).not.toContain('No specs found.');
+        expect(result.stderr).not.toContain('没有可验证条目。');
+        expect(result.stderr).not.toContain('没有活动 Change。');
+        expect(result.stderr).not.toContain('没有 Spec。');
       }
     });
 
@@ -677,7 +677,7 @@ operations:
           expect.objectContaining({
             severity: 'error',
             code: 'no_openspec_root',
-            message: 'No OpenSpec root found from the current directory.',
+            message: '从当前目录开始未找到 OpenSpec 根目录。',
           })
         );
       }
@@ -717,7 +717,7 @@ operations:
         env: isolatedEnv,
       });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("Unknown item 'missing'.");
+      expect(result.stderr).toContain("未知条目 'missing'。");
       expect(result.stderr).not.toContain('No OpenSpec root found');
     });
   });
@@ -764,7 +764,7 @@ operations:
       expect(json.archive).toBeNull();
       expect(json.status[0]).toEqual(expect.objectContaining({
         code: 'archive_change_not_found',
-        message: "Change 'missing-change' not found. No active changes exist in this root.",
+        message: "未找到 Change 'missing-change'。此根目录没有活动 Change。",
       }));
     });
 
@@ -885,7 +885,7 @@ operations:
       );
       expect(result.exitCode).toBe(1);
       const output = result.stdout + result.stderr;
-      expect(output).toContain('--initiative is no longer supported');
+      expect(output).toContain('--initiative 已不再支持');
       expect(
         fs.existsSync(path.join(localRepo, 'openspec', 'changes', 'linked-change'))
       ).toBe(false);

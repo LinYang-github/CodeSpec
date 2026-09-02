@@ -32,11 +32,11 @@ export class MarkdownParser {
     const requirementsSection = this.findSection(sections, 'Requirements');
     
     if (!purpose) {
-      throw new Error('Spec must have a Purpose section');
+      throw new Error('Spec 必须包含 Purpose 部分');
     }
     
     if (!requirementsSection) {
-      throw new Error('Spec must have a Requirements section');
+      throw new Error('Spec 必须包含 Requirements 部分');
     }
 
     const requirements = this.parseRequirements(requirementsSection);
@@ -58,11 +58,11 @@ export class MarkdownParser {
     const whatChanges = this.findSection(sections, 'What Changes')?.content || '';
     
     if (!why) {
-      throw new Error('Change must have a Why section');
+      throw new Error('Change 必须包含 Why 部分');
     }
     
     if (!whatChanges) {
-      throw new Error('Change must have a What Changes section');
+      throw new Error('Change 必须包含 What Changes 部分');
     }
 
     const deltas = this.parseDeltas(whatChanges);

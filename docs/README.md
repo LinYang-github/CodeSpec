@@ -1,27 +1,29 @@
-# OpenSpec Documentation
+# OpenSpec 文档
 
-Welcome. This is the home for everything OpenSpec.
+这里是 OpenSpec 的文档首页。
 
-OpenSpec helps you and your AI coding assistant **agree on what to build before any code is written.** You describe the change, the AI drafts a short spec and a task list, you both look at the same plan, and then the work happens. No more discovering halfway through that the AI built the wrong thing.
+OpenSpec 让你和 AI 编码助手在写代码前就**对要构建的内容达成一致**。你描述 Change，AI 生成简短的 Spec 和任务清单，你们共同审阅计划，然后再开始实现。
 
-If you read nothing else, read these two pages:
+默认 Schema 是 `code-spec`。新的 canonical Change 使用 `CHG-YYYYMMDD-NNN` ID 和 `openspec/archive/` 目录。旧 Change 标识不会被读取，旧文件可以保留。
+
+如果只读两页，请阅读：
 
 1. [Getting Started](getting-started.md): install, initialize, and ship your first change.
 2. [How Commands Work](how-commands-work.md): where you actually type `/opsx:propose` (hint: in your AI chat, not the terminal). This trips up almost everyone once.
 
-That second one matters more than it looks. OpenSpec has two halves: a command line tool you run in your terminal, and slash commands you give to your AI assistant. Knowing which is which saves you the most common moment of confusion.
+OpenSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用的 skills。区分两个入口可以避免最常见的使用错误。
 
-> **The best habit to build first: when you're not sure what to build, start with `/opsx:explore`.** It's a no-stakes thinking partner that reads your code, weighs options, and sharpens a fuzzy idea into a concrete plan before any artifact or code exists. The [Explore First](explore.md) guide makes the case.
+> **还不确定要构建什么时，先运行 `/opsx:explore`。**它会读取代码、比较方案，并在生成产物或代码前整理具体计划。请阅读[先 Explore](explore.md)。
 
-## Pick your path
+## 选择入口
 
-**I'm brand new.** Start with [Getting Started](getting-started.md), then skim the [Core Concepts at a Glance](overview.md). When something feels mysterious, the [FAQ](faq.md) and [Glossary](glossary.md) are nearby.
+**第一次使用：**从[快速入门](getting-started.md)开始，再阅读[核心概念](overview.md)。遇到术语或疑问时，查看[FAQ](faq.md)和[术语表](glossary.md)。
 
-**I have a problem but not a plan.** This is the common case, and it has a dedicated answer: [Explore First](explore.md). Use `/opsx:explore` to think it through with the AI before committing to anything.
+**有问题但没有计划：**阅读[先 Explore](explore.md)，使用 `/opsx:explore` 和 AI 一起梳理，再决定是否创建 Change。
 
 **I have a big existing codebase.** You don't document all of it. [Using OpenSpec in an Existing Project](existing-projects.md) shows how to start on real, brownfield code without boiling the ocean.
 
-**I just want to get it working.** [Install](installation.md), run `openspec init`, then read [How Commands Work](how-commands-work.md) so your first slash command lands in the right place. Or hand the setup to your assistant with the [AI-assisted install prompt](installation.md#install-with-your-ai-assistant).
+**只想先运行起来：**阅读[安装](installation.md)，运行 `openspec init`，再读[命令如何工作](how-commands-work.md)。也可以使用[AI 辅助安装提示词](installation.md#install-with-your-ai-assistant)。
 
 **I learn by example.** The [Examples & Recipes](examples.md) page walks through real changes start to finish: a small feature, a bug fix, a refactor, an exploration.
 
@@ -29,15 +31,15 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 
 **I work on a team.** [OpenSpec on a Team](team-workflow.md) shows how a change maps onto a branch and a pull request, and how teammates review a plan before the code.
 
-**I'm coming from the old workflow.** The [Migration Guide](migration-guide.md) explains what changed and why, and promises your existing work is safe.
+**从旧工作流迁移：**阅读[迁移指南](migration-guide.md)，了解 `code-spec` 的目录、ID 和兼容边界。
 
 **I want to bend it to my team's process.** [Customization](customization.md) covers project config, custom schemas, and shared context.
 
 **Something's broken.** [Troubleshooting](troubleshooting.md) collects the failures people actually hit, with fixes.
 
-## The whole map
+## 文档地图
 
-### Start here
+### 从这里开始
 
 | Doc | What it gives you |
 |-----|-------------------|
@@ -47,7 +49,7 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 | [Core Concepts at a Glance](overview.md) | The whole mental model on one page: specs, changes, deltas, archive |
 | [Installation](installation.md) | npm, pnpm, yarn, bun, Nix, a prompt that hands setup to your AI assistant, and how to verify it worked |
 
-### Use it day to day
+### 日常使用
 
 | Doc | What it gives you |
 |-----|-------------------|
@@ -61,7 +63,7 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 | [Commands](commands.md) | Reference for every `/opsx:*` slash command |
 | [CLI](cli.md) | Reference for every `openspec` terminal command |
 
-### Understand it deeply
+### 深入理解
 
 | Doc | What it gives you |
 |-----|-------------------|
@@ -69,7 +71,7 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 | [OPSX Workflow](opsx.md) | Why the workflow is fluid instead of phase-locked, plus an architecture deep dive |
 | [Glossary](glossary.md) | Every term defined in one place |
 
-### Make it yours
+### 定制 OpenSpec
 
 | Doc | What it gives you |
 |-----|-------------------|
@@ -77,7 +79,7 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 | [Multi-Language](multi-language.md) | Generate artifacts in languages other than English |
 | [Supported Tools](supported-tools.md) | The 30+ AI tools OpenSpec integrates with, and where files land |
 
-### When you need help
+### 需要帮助时
 
 | Doc | What it gives you |
 |-----|-------------------|
@@ -85,14 +87,14 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 | [Troubleshooting](troubleshooting.md) | Concrete fixes for concrete failures |
 | [Migration Guide](migration-guide.md) | Moving from the legacy workflow to OPSX |
 
-### Coordinate across repos (beta)
+### 跨仓库协作（beta）
 
 | Doc | What it gives you |
 |-----|-------------------|
 | [Stores: User Guide](stores-beta/user-guide.md) | Plan in its own repo when your work spans repos or teams |
 | [Agent Contract](agent-contract.md) | The machine-readable CLI surfaces agents drive |
 
-## The thirty-second version
+## 三十秒版本
 
 ```text
 1. Install        npm install -g @fission-ai/openspec@latest
@@ -103,12 +105,12 @@ That second one matters more than it looks. OpenSpec has two halves: a command l
 6. Archive        (in your AI chat)  /opsx:archive
 ```
 
-Steps 1 and 2 happen in your terminal. The rest happen in your AI assistant's chat. That split is the one thing worth memorizing, and [How Commands Work](how-commands-work.md) explains exactly why. Step 3 is optional, but starting with `/opsx:explore` when you're unsure is the habit most worth forming.
+步骤 1 和 2 在终端中执行，其他步骤在 AI 对话中执行。[命令如何工作](how-commands-work.md)详细说明了这个区别。步骤 3 可选，但不确定目标时先运行 `/opsx:explore` 很有帮助。
 
-## Where else to get help
+## 获取帮助
 
 - **Discord:** [discord.gg/YctCnvvshC](https://discord.gg/YctCnvvshC) for questions, ideas, and help.
 - **GitHub Issues:** [github.com/Fission-AI/OpenSpec/issues](https://github.com/Fission-AI/OpenSpec/issues) for bugs and feature requests.
 - **`openspec feedback "your message"`** sends feedback straight from your terminal (it opens a GitHub issue).
 
-Found something in these docs that's wrong, stale, or confusing? That's a bug. Open an issue or a PR. Documentation improvements are some of the most valuable contributions you can make.
+如果发现文档错误、过期或难以理解，请提交 Issue 或 PR。

@@ -1,6 +1,6 @@
 name: code-spec
 version: 1
-description: OpenSpec canonical code change workflow
+description: OpenSpec canonical code-spec 变更工作流
 # Protocol tokens: ADDED MODIFIED REMOVED Previous New Reason GIVEN WHEN THEN
 # Canonical paths: archive/specs and archive/changes
 artifacts:

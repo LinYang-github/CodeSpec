@@ -112,7 +112,7 @@ describe('config command integration', () => {
 
     expect(config.workflows).toEqual(['new', 'ff', 'apply', 'archive']);
     expect(consoleLogSpy).toHaveBeenCalledWith(
-      'Set workflows = new,ff,apply,archive'
+      '已设置 workflows = new,ff,apply,archive'
     );
   });
 
@@ -121,7 +121,7 @@ describe('config command integration', () => {
 
     const { getGlobalConfig } = await import('../../src/core/global-config.js');
     expect(getGlobalConfig().defaultStore).toBe('team-plans');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Set defaultStore = "team-plans"');
+    expect(consoleLogSpy).toHaveBeenCalledWith('已设置 defaultStore = "team-plans"');
 
     await runConfigCommand(['get', 'defaultStore']);
     expect(consoleLogSpy).toHaveBeenCalledWith('team-plans');
@@ -145,7 +145,7 @@ describe('config command integration', () => {
     );
 
     await runConfigCommand(['set', 'telemetry.enabled', 'false']);
-    expect(consoleLogSpy).toHaveBeenCalledWith('Set telemetry.enabled = false');
+    expect(consoleLogSpy).toHaveBeenCalledWith('已设置 telemetry.enabled = false');
     expect(getGlobalConfig().telemetry).toEqual({
       anonymousId: 'keep-id',
       noticeSeen: true,
@@ -170,7 +170,7 @@ describe('config command integration', () => {
       await runConfigCommand(['set', 'telemetry.anonymousId', 'x']);
       expect(process.exitCode).toBe(1);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid configuration key "telemetry.anonymousId"')
+        expect.stringContaining('配置键 "telemetry.anonymousId" 无效')
       );
     } finally {
       process.exitCode = previousExitCode;
@@ -184,7 +184,7 @@ describe('config command shell completion registry', () => {
 
     const configCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'config');
     expect(configCmd).toBeDefined();
-    expect(configCmd?.description).toBe('View and modify global OpenSpec configuration');
+    expect(configCmd?.description).toBe('查看和修改全局 OpenSpec 配置');
   });
 
   it('should have all config subcommands in registry', async () => {

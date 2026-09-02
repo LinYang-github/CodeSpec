@@ -4,7 +4,7 @@ import os from 'os';
 
 const require = createRequire(import.meta.url);
 const MAX_TITLE_LENGTH = 72;
-const TITLE_PREFIX = 'Feedback: ';
+const TITLE_PREFIX = '反馈：';
 
 /**
  * Check if gh CLI is installed and available in PATH
@@ -67,10 +67,10 @@ function generateMetadata(): string {
   const timestamp = getTimestamp();
 
   return `---
-Submitted via OpenSpec CLI
-- Version: ${version}
-- Platform: ${platform}
-- Timestamp: ${timestamp}`;
+通过 OpenSpec CLI 提交
+- 版本：${version}
+- 平台：${platform}
+- 时间：${timestamp}`;
 }
 
 /**
@@ -110,10 +110,10 @@ function formatTitle(message: string): string {
  * Format the full feedback body
  */
 function formatBody(message: string, bodyText?: string): string {
-  const parts = ['## Summary', '', message];
+  const parts = ['## 摘要', '', message];
 
   if (bodyText) {
-    parts.push('', '## Details', '', bodyText);
+    parts.push('', '## 详情', '', bodyText);
   }
 
   parts.push('', generateMetadata());
@@ -137,12 +137,12 @@ function generateManualSubmissionUrl(title: string, body: string): string {
  * Display formatted feedback content for manual submission
  */
 function displayFormattedFeedback(title: string, body: string): void {
-  console.log('\n--- FORMATTED FEEDBACK ---');
-  console.log(`Title: ${title}`);
-  console.log(`Labels: feedback`);
-  console.log('\nBody:');
+  console.log('\n--- 格式化反馈 ---');
+  console.log(`标题：${title}`);
+  console.log('标签：feedback');
+  console.log('\n正文：');
   console.log(body);
-  console.log('--- END FEEDBACK ---\n');
+  console.log('--- 反馈结束 ---\n');
 }
 
 /**
@@ -175,7 +175,7 @@ function reportGhFailure(error: any, title: string, body: string): void {
   displayFormattedFeedback(title, body);
 
   const manualUrl = generateManualSubmissionUrl(title, body);
-  console.log('Please submit your feedback manually:');
+  console.log('请手动提交反馈：');
   console.log(manualUrl);
 
   // Exit with the same code as gh CLI
@@ -233,12 +233,12 @@ function submitViaGhCli(title: string, body: string): void {
     }
   }
 
-  console.log(`\n✓ Feedback submitted successfully!`);
-  console.log(`Issue URL: ${issueUrl}\n`);
+  console.log('\n✓ 反馈提交成功！');
+  console.log(`Issue URL：${issueUrl}\n`);
 
   if (!labelApplied) {
     console.log(
-      "Note: created without the 'feedback' label because the repository does not define it.\n"
+      "提示：仓库未定义 'feedback' 标签，本次创建未使用该标签。\n"
     );
   }
 }
@@ -248,19 +248,19 @@ function submitViaGhCli(title: string, body: string): void {
  */
 function handleFallback(title: string, body: string, reason: 'missing' | 'unauthenticated'): void {
   if (reason === 'missing') {
-    console.log('⚠️  GitHub CLI not found. Manual submission required.');
+    console.log('⚠️  未找到 GitHub CLI，需要手动提交。');
   } else {
-    console.log('⚠️  GitHub authentication required. Manual submission required.');
+    console.log('⚠️  需要完成 GitHub 身份验证，之后才能自动提交。');
   }
 
   displayFormattedFeedback(title, body);
 
   const manualUrl = generateManualSubmissionUrl(title, body);
-  console.log('Please submit your feedback manually:');
+  console.log('请手动提交反馈：');
   console.log(manualUrl);
 
   if (reason === 'unauthenticated') {
-    console.log('\nTo auto-submit in the future: gh auth login');
+    console.log('\n以后如需自动提交，请运行：gh auth login');
   }
 
   // Exit with success code (fallback is successful)

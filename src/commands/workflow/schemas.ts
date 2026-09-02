@@ -38,7 +38,7 @@ export async function schemasCommand(options: SchemasOptions): Promise<void> {
     return;
   }
 
-  console.log('Available schemas:');
+  console.log('可用 Schema：');
   console.log();
 
   for (const schema of schemas) {
@@ -50,7 +50,7 @@ export async function schemasCommand(options: SchemasOptions): Promise<void> {
     }
     console.log(`  ${chalk.bold(schema.name)}${sourceLabel}`);
     console.log(`    ${schema.description}`);
-    console.log(`    Artifacts: ${schema.artifacts.join(' → ')}`);
+    console.log(`    产物：${schema.artifacts.join(' → ')}`);
     console.log();
   }
 }

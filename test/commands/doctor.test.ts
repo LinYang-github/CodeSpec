@@ -100,7 +100,7 @@ describe('openspec doctor (3.6)', () => {
     // Banner on stderr in human mode; sections in the transcript voice.
     const human = await runCLI(['doctor', '--store', 'team-context'], { cwd: tempDir, env });
     expect(human.exitCode).toBe(0);
-    expect(human.stderr).toContain('Using OpenSpec root: team-context');
+    expect(human.stderr).toContain('使用 OpenSpec 根目录：team-context');
     expect(human.stdout).toContain('Root');
     expect(human.stdout).toContain('  Store: team-context (metadata ok)');
     expect(human.stdout).toContain(`  - upstream-context: ok (${upstream})`);

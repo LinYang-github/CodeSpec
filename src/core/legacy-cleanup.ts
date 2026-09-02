@@ -622,23 +622,23 @@ export function formatCleanupSummary(result: CleanupResult): string {
   const lines: string[] = [];
 
   if (result.deletedFiles.length > 0 || result.deletedDirs.length > 0 || result.modifiedFiles.length > 0) {
-    lines.push('Cleaned up legacy files:');
+    lines.push('旧文件清理完成：');
 
     for (const file of result.deletedFiles) {
       const replacementLabel = result.deletedFileReplacementLabels?.[file]
         ?? getManagedGlobalLegacyPromptMetadata(file)?.replacementLabel;
       const replacement = replacementLabel
-        ? ` (replaced by ${replacementLabel})`
+        ? `（已由 ${replacementLabel} 替代）`
         : '';
-      lines.push(`  ✓ Removed ${file}${replacement}`);
+      lines.push(`  ✓ 已移除 ${file}${replacement}`);
     }
 
     for (const dir of result.deletedDirs) {
-      lines.push(`  ✓ Removed ${dir}/ (replaced by OpenSpec skills and commands)`);
+      lines.push(`  ✓ 已移除 ${dir}/（已由 OpenSpec skills 和 commands 替代）`);
     }
 
     for (const file of result.modifiedFiles) {
-      lines.push(`  ✓ Removed OpenSpec markers from ${file}`);
+      lines.push(`  ✓ 已从 ${file} 移除 OpenSpec 标记`);
     }
   }
 
@@ -653,7 +653,7 @@ export function formatCleanupSummary(result: CleanupResult): string {
     if (lines.length > 0) {
       lines.push('');
     }
-    lines.push('Errors during cleanup:');
+    lines.push('清理期间发生错误：');
     for (const error of result.errors) {
       lines.push(`  ⚠ ${error}`);
     }
@@ -741,17 +741,16 @@ export function formatDetectionSummary(detection: LegacyDetectionResult): string
   }
 
   // Header - welcoming upgrade message
-  lines.push(chalk.bold('Upgrading to the new OpenSpec'));
+  lines.push(chalk.bold('正在升级到新版 OpenSpec'));
   lines.push('');
-  lines.push('OpenSpec now uses agent skills, the emerging standard across coding');
-  lines.push('agents. This simplifies your setup while keeping everything working');
-  lines.push('as before.');
+  lines.push('OpenSpec 现在使用各类编码 Agent 正在采用的标准：skills。');
+  lines.push('这会简化配置，同时保持原有工作流继续可用。');
   lines.push('');
 
   // Section 1: Files to remove (no user content to preserve)
   if (removals.length > 0) {
-    lines.push(chalk.bold('Files to remove'));
-    lines.push(chalk.dim('No user content to preserve:'));
+    lines.push(chalk.bold('待移除文件'));
+    lines.push(chalk.dim('以下文件不包含需要保留的用户内容：'));
     for (const { path } of removals) {
       lines.push(`  • ${path}`);
     }
@@ -760,8 +759,8 @@ export function formatDetectionSummary(detection: LegacyDetectionResult): string
   // Section 2: Files to update (markers removed, content preserved)
   if (updates.length > 0) {
     if (removals.length > 0) lines.push('');
-    lines.push(chalk.bold('Files to update'));
-    lines.push(chalk.dim('OpenSpec markers will be removed, your content preserved:'));
+    lines.push(chalk.bold('待更新文件'));
+    lines.push(chalk.dim('将移除 OpenSpec 标记，但保留你的内容：'));
     for (const { path } of updates) {
       lines.push(`  • ${path}`);
     }
@@ -787,8 +786,8 @@ export function formatDeferredGlobalPromptSummary(detection: LegacyDetectionResu
   }
 
   const lines: string[] = [];
-  lines.push(chalk.bold('Deferred global prompts cleanup'));
-  lines.push(chalk.dim('These global prompts will only be removed after matching replacement skills are installed.'));
+  lines.push(chalk.bold('延后清理的全局提示'));
+  lines.push(chalk.dim('只有安装了对应替代 skill 后，才会移除这些全局提示。'));
   for (const prompt of deferredPrompts) {
     const toolLabel = prompt.toolId ? `${prompt.toolId}: ` : '';
     lines.push(`  • ${toolLabel}${prompt.path}`);
@@ -969,15 +968,14 @@ export function pickGlobalLegacyPromptFiles(
  */
 export function formatProjectMdMigrationHint(): string {
   const lines: string[] = [];
-  lines.push(chalk.yellow.bold('Needs your attention'));
+  lines.push(chalk.yellow.bold('需要你处理'));
   lines.push('  • openspec/project.md');
-  lines.push(chalk.dim('    We won\'t delete this file. It may contain useful project context.'));
+  lines.push(chalk.dim('    我们不会删除此文件；其中可能包含有用的项目上下文。'));
   lines.push('');
-  lines.push(chalk.dim('    The new openspec/config.yaml has a "context:" section for planning'));
-  lines.push(chalk.dim('    context. This is included in every OpenSpec request and works more'));
-  lines.push(chalk.dim('    reliably than the old project.md approach.'));
+  lines.push(chalk.dim('    新的 openspec/config.yaml 提供了用于规划上下文的 "context:" 部分。'));
+  lines.push(chalk.dim('    该内容会包含在每次 OpenSpec 请求中，比旧的 project.md 方式更可靠。'));
   lines.push('');
-  lines.push(chalk.dim('    Review project.md, move any useful content to config.yaml\'s context'));
-  lines.push(chalk.dim('    section, then delete the file when ready.'));
+  lines.push(chalk.dim('    请检查 project.md，将有用内容移入 config.yaml 的 context 部分，'));
+  lines.push(chalk.dim('    准备好后再删除此文件。'));
   return lines.join('\n');
 }

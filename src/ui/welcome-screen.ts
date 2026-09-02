@@ -26,7 +26,7 @@ function getWelcomeText(workflows: readonly string[]): string[] {
 
   if (onboardingCommands.length > 0) {
     const commandWidth = Math.max(...onboardingCommands.map((c) => c.command.length));
-    quickStart.push(chalk.white('Quick start after setup:'));
+    quickStart.push(chalk.white('设置完成后的快速开始：'));
     for (const { command, description } of onboardingCommands) {
       quickStart.push(`  ${chalk.yellow(command.padEnd(commandWidth + 1))} ${chalk.dim(description)}`);
     }
@@ -35,23 +35,23 @@ function getWelcomeText(workflows: readonly string[]): string[] {
     // until tools are picked, one prompt later — so flag it rather than let the
     // canonical form read as the literal thing to type. "Getting started"
     // prints the real spelling once the selection is known.
-    quickStart.push(chalk.dim('  (spelling varies by tool)'));
+    quickStart.push(chalk.dim('  （不同工具的调用写法可能不同）'));
     quickStart.push('');
   }
 
   return [
-    chalk.white.bold('Welcome to OpenSpec'),
-    chalk.dim('A lightweight spec-driven framework'),
+    chalk.white.bold('欢迎使用 OpenSpec'),
+    chalk.dim('轻量的 code-spec 需求与变更管理框架'),
     '',
-    chalk.white('This setup will configure:'),
-    chalk.dim('  • Agent Skills for AI tools'),
+    chalk.white('本次设置将配置：'),
+    chalk.dim('  • AI 工具的 Agent Skills'),
     // Not "opsx slash commands": this screen runs before tool selection, and
     // skills-only tools (Codex, Kimi Code, ...) correctly get no command files
     // at all. The exact spelling per tool is printed in "Getting started".
-    chalk.dim('  • Workflow commands, if supported'),
+    chalk.dim('  • 工作流命令（如果工具支持）'),
     '',
     ...quickStart,
-    chalk.cyan('Press Enter to select tools...'),
+    chalk.cyan('按 Enter 选择工具……'),
   ];
 }
 

@@ -208,19 +208,19 @@ export async function getAvailableChanges(
  */
 function validateChangeLookupName(changeName: string): string | undefined {
   if (changeName === '.' || changeName === '..') {
-    return 'Change name cannot be a relative path segment';
+    return 'Change 名称不能是相对路径片段';
   }
   if (changeName.includes('/') || changeName.includes('\\')) {
-    return 'Change name cannot contain path separators';
+    return 'Change 名称不能包含路径分隔符';
   }
   if (changeName.includes('\0')) {
-    return 'Change name cannot contain null characters';
+    return 'Change 名称不能包含空字符';
   }
   if (changeName.startsWith('.')) {
-    return 'Change name cannot start with a dot';
+    return 'Change 名称不能以点号开头';
   }
   if (changeName === 'archive') {
-    return "'archive' is reserved for archived changes";
+    return "'archive' 保留用于已归档 Change";
   }
   return undefined;
 }
@@ -256,17 +256,17 @@ export async function validateChangeExists(
   if (!changeName) {
     const available = await getAvailableChanges(projectRoot, changesDir);
     if (available.length === 0) {
-      throw new Error(`No changes found. Create one with: ${newChangeHint}`);
+      throw new Error(`未找到 Change。可使用以下命令创建：${newChangeHint}`);
     }
     throw new Error(
-      `Missing required option --change. Available changes:\n  ${available.join('\n  ')}`
+      `缺少必需选项 --change。可用 Change：\n  ${available.join('\n  ')}`
     );
   }
 
   // Validate change name format to prevent path traversal
   const lookupError = validateChangeLookupName(changeName);
   if (lookupError) {
-    throw new Error(`Invalid change name '${changeName}': ${lookupError}`);
+    throw new Error(`Change 名称 '${changeName}' 无效：${lookupError}`);
   }
 
   // Check directory existence directly
@@ -277,11 +277,11 @@ export async function validateChangeExists(
     const available = await getAvailableChanges(projectRoot, changesDir);
     if (available.length === 0) {
       throw new Error(
-        `Change '${changeName}' not found. No changes exist. Create one with: ${newChangeHint}`
+        `未找到 Change '${changeName}'。当前没有活动 Change。可使用以下命令创建：${newChangeHint}`
       );
     }
     throw new Error(
-      `Change '${changeName}' not found. Available changes:\n  ${available.join('\n  ')}`
+      `未找到 Change '${changeName}'。可用 Change：\n  ${available.join('\n  ')}`
     );
   }
 
@@ -299,7 +299,7 @@ export function validateSchemaExists(schemaName: string, projectRoot?: string): 
   if (!schemaDir) {
     const availableSchemas = listSchemas(projectRoot);
     throw new Error(
-      `Schema '${schemaName}' not found. Available schemas:\n  ${availableSchemas.join('\n  ')}`
+      `未找到 Schema '${schemaName}'。可用 Schema：\n  ${availableSchemas.join('\n  ')}`
     );
   }
   return schemaName;

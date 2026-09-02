@@ -813,7 +813,7 @@ export async function registerExistingStore(
   const id = metadata?.id ?? explicitId ?? inferStoreIdFromPath(storeRoot);
   if (!metadata && !input.allowCreateIdentity) {
     throw new StoreError(
-      `Turn this OpenSpec root into store '${id}'?`,
+      `将此 OpenSpec 根目录转换为 Store '${id}'？`,
       'store_register_identity_confirmation_required',
       {
         target: 'store.metadata',

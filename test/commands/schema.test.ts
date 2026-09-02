@@ -223,7 +223,7 @@ artifacts:
         issues: [
           {
             path: 'artifacts.proposal.template',
-            message: expect.stringContaining('outside the schema templates directory'),
+            message: expect.stringContaining('指向 Schema 模板目录之外'),
           },
         ],
       });
@@ -740,7 +740,7 @@ artifacts:
       expect(typeof output).toBe('string');
       expect(JSON.parse(output as string)).toEqual({
         created: false,
-        error: "Unknown artifact 'task'",
+        error: "未知产物 'task'",
         valid: ['proposal', 'specs', 'design', 'tasks'],
       });
       expect(fs.readFileSync(schemaPath, 'utf-8')).toBe(existingSchema);
@@ -978,7 +978,7 @@ describe('schema command shell completion registry', () => {
 
     const schemaCmd = COMMAND_REGISTRY.find((cmd) => cmd.name === 'schema');
     expect(schemaCmd).toBeDefined();
-    expect(schemaCmd?.description).toBe('Manage workflow schemas');
+    expect(schemaCmd?.description).toBe('管理工作流 Schema');
   });
 
   it('should have all schema subcommands in registry', async () => {

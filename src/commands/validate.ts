@@ -117,12 +117,12 @@ export class ValidateCommand {
   private async runInteractiveSelector(root: ResolvedOpenSpecRoot, opts: { strict: boolean; json: boolean; concurrency?: string }): Promise<void> {
     const { select } = await import('@inquirer/prompts');
     const choice = await select({
-      message: 'What would you like to validate?',
+      message: '你想校验什么？',
       choices: [
-        { name: 'All (changes + specs)', value: 'all' },
-        { name: 'All changes', value: 'changes' },
-        { name: 'All specs', value: 'specs' },
-        { name: 'Pick a specific change or spec', value: 'one' },
+        { name: '全部（Change + Spec）', value: 'all' },
+        { name: '全部 Change', value: 'changes' },
+        { name: '全部 Spec', value: 'specs' },
+        { name: '选择一个 Change 或 Spec', value: 'one' },
       ],
     });
 
@@ -136,21 +136,21 @@ export class ValidateCommand {
     items.push(...changes.map(id => ({ name: `change/${id}`, value: { type: 'change' as const, id } })));
     items.push(...specs.map(id => ({ name: `spec/${id}`, value: { type: 'spec' as const, id } })));
     if (items.length === 0) {
-      console.error('No items found to validate.');
+      console.error('未找到可校验的条目。');
       process.exitCode = 1;
       return;
     }
-    const picked = await select<{ type: ItemType; id: string }>({ message: 'Pick an item', choices: items });
+    const picked = await select<{ type: ItemType; id: string }>({ message: '选择条目', choices: items });
     await this.validateByType(root, picked.type, picked.id, opts);
   }
 
   private printNonInteractiveHint(root: ResolvedOpenSpecRoot): void {
-    console.error('Nothing to validate. Try one of:');
+    console.error('没有可校验的内容。请尝试以下命令之一：');
     console.error(`  ${withStoreFlag(root, 'openspec validate --all')}`);
     console.error(`  ${withStoreFlag(root, 'openspec validate --changes')}`);
     console.error(`  ${withStoreFlag(root, 'openspec validate --specs')}`);
     console.error(`  ${withStoreFlag(root, 'openspec validate <item-name>')}`);
-    console.error('Or run in an interactive terminal.');
+    console.error('或者在交互式终端中运行。');
   }
 
   private async validateDirectItem(root: ResolvedOpenSpecRoot, itemName: string, opts: { typeOverride?: ItemType; strict: boolean; json: boolean }): Promise<void> {
@@ -163,8 +163,8 @@ export class ValidateCommand {
     if (!type) {
       const suggestions = nearestMatches(itemName, [...changes, ...specs]);
       const message = suggestions.length
-        ? `Unknown item '${itemName}'. Did you mean: ${suggestions.join(', ')}?`
-        : `Unknown item '${itemName}'.`;
+        ? `未知条目 '${itemName}'。你是否想输入：${suggestions.join('、')}？`
+        : `未知条目 '${itemName}'。`;
       if (opts.json) {
         console.log(
           JSON.stringify(
@@ -189,8 +189,8 @@ export class ValidateCommand {
                 {
                   severity: 'error',
                   code: 'ambiguous_item',
-                  message: `Ambiguous item '${itemName}' matches both a change and a spec.`,
-                  fix: 'Pass --type change|spec.',
+                  message: `条目 '${itemName}' 同时匹配 Change 和 Spec。`,
+                  fix: '传入 --type change|spec。',
                 },
               ],
             },
@@ -201,12 +201,12 @@ export class ValidateCommand {
         process.exitCode = 1;
         return;
       }
-      console.error(`Ambiguous item '${itemName}' matches both a change and a spec.`);
+      console.error(`条目 '${itemName}' 同时匹配 Change 和 Spec。`);
       // The noun-form commands are cwd-based and cannot reach a selected store.
       if (isStoreSelectedRoot(root)) {
-        console.error('Pass --type change|spec.');
+        console.error('传入 --type change|spec。');
       } else {
-        console.error('Pass --type change|spec, or use: openspec change validate / openspec spec validate');
+        console.error('传入 --type change|spec，或使用：openspec change validate / openspec spec validate');
       }
       process.exitCode = 1;
       return;
@@ -256,9 +256,9 @@ export class ValidateCommand {
       return;
     }
     if (report.valid) {
-      console.log(`${type === 'change' ? 'Change' : 'Specification'} '${id}' is valid`);
+      console.log(`${type === 'change' ? 'Change' : 'Spec'} '${id}' 校验通过`);
     } else {
-      console.error(`${type === 'change' ? 'Change' : 'Specification'} '${id}' has issues`);
+      console.error(`${type === 'change' ? 'Change' : 'Spec'} '${id}' 存在问题`);
       for (const issue of report.issues) {
         const label = issue.level === 'ERROR' ? 'ERROR' : issue.level;
         const prefix = issue.level === 'ERROR' ? '✗' : issue.level === 'WARNING' ? '⚠' : 'ℹ';
@@ -281,26 +281,26 @@ export class ValidateCommand {
       i.message.includes(VALIDATION_MESSAGES.CHANGE_SKIP_SPECS_INVALID_METADATA)
     );
     if (type === 'change' && conflictIssue) {
-      bullets.push('- This change declares skip_specs (no spec deltas): delete the files under specs/, or remove skip_specs from .openspec.yaml if requirements do change');
-      bullets.push('- skip_specs is only honored when .openspec.yaml is valid change metadata (schema: <name> naming a known schema is required)');
+      bullets.push('- 此 Change 声明了 skip_specs（没有 Spec 增量）：删除 specs/ 下的文件，或者在需求确实变化时移除 .openspec.yaml 中的 skip_specs');
+      bullets.push('- 只有 .openspec.yaml 是有效 Change 元数据时才会采用 skip_specs（必须通过 schema: <name> 指定已知 Schema）');
     } else if (type === 'change' && invalidMarkerIssue) {
-      bullets.push('- Fix .openspec.yaml so the skip_specs marker can be honored (schema: <name> naming a known schema is required)');
-      bullets.push('- Or remove skip_specs from .openspec.yaml and add delta specs instead');
+      bullets.push('- 修复 .openspec.yaml，使 skip_specs 标记有效（必须通过 schema: <name> 指定已知 Schema）');
+      bullets.push('- 或从 .openspec.yaml 移除 skip_specs，改为添加 Spec 增量');
     } else if (type === 'change') {
-      bullets.push('- Ensure change has deltas in specs/: use headers ## ADDED/MODIFIED/REMOVED/RENAMED Requirements');
-      bullets.push('- Each requirement MUST include at least one #### Scenario: block');
-      bullets.push(`- Debug parsed deltas: ${withStoreFlag(root, `openspec show ${id} --json --deltas-only`)}`);
+      bullets.push('- 确保 Change 在 specs/ 中包含增量：使用 ## ADDED/MODIFIED/REMOVED/RENAMED Requirements 标题');
+      bullets.push('- 每个 Requirement MUST 至少包含一个 #### Scenario: 块');
+      bullets.push(`- 调试解析后的增量：${withStoreFlag(root, `openspec show ${id} --json --deltas-only`)}`);
     } else {
-      bullets.push('- Ensure spec includes ## Purpose and ## Requirements sections');
-      bullets.push('- Each requirement MUST include at least one #### Scenario: block');
-      bullets.push('- Re-run with --json to see structured report');
+      bullets.push('- 确保 Spec 包含 ## Purpose 和 ## Requirements 章节');
+      bullets.push('- 每个 Requirement MUST 至少包含一个 #### Scenario: 块');
+      bullets.push('- 使用 --json 重新运行以查看结构化报告');
     }
-    console.error('Next steps:');
+    console.error('下一步：');
     bullets.forEach(b => console.error(`  ${b}`));
   }
 
   private async runBulkValidation(root: ResolvedOpenSpecRoot, scope: { changes: boolean; specs: boolean }, opts: { strict: boolean; json: boolean; concurrency?: string; noInteractive?: boolean }): Promise<void> {
-    const spinner = !opts.json && !opts.noInteractive ? ora('Validating...').start() : undefined;
+    const spinner = !opts.json && !opts.noInteractive ? ora('正在校验……').start() : undefined;
     const [changeIds, specIds] = await Promise.all([
       scope.changes ? this.listChangeIds(root) : Promise.resolve<string[]>([]),
       scope.specs ? getSpecIds(root.path) : Promise.resolve<string[]>([]),
@@ -355,7 +355,7 @@ export class ValidateCommand {
         const out = { items: [] as BulkItemResult[], summary, version: '1.0', root: toRootOutput(root) };
         console.log(JSON.stringify(out, null, 2));
       } else {
-        console.log('No items found to validate.');
+        console.log('未找到可校验的条目。');
       }
 
       process.exitCode = 0;
@@ -415,7 +415,7 @@ export class ValidateCommand {
         if (res.valid) console.log(`✓ ${res.type}/${res.id}`);
         else console.error(`✗ ${res.type}/${res.id}`);
       }
-      console.log(`Totals: ${summary.totals.passed} passed, ${summary.totals.failed} failed (${summary.totals.items} items)`);
+      console.log(`合计：通过 ${summary.totals.passed}，失败 ${summary.totals.failed}（共 ${summary.totals.items} 个条目）`);
       const firstFailure = results.find((res) => !res.valid);
       if (firstFailure) {
         const storeFlag = isStoreSelectedRoot(root) ? ` --store ${root.storeId}` : '';
@@ -530,7 +530,7 @@ export class ValidateCommand {
     }
 
     if (results.length === 0) {
-      console.log('No archived changes found.');
+      console.log('未找到已归档 Change。');
       process.exitCode = 0;
       return;
     }
@@ -548,7 +548,7 @@ export class ValidateCommand {
         }
       }
     }
-    console.log(`Totals: ${summary.totals.passed} passed, ${summary.totals.failed} failed (${summary.totals.items} items)`);
+    console.log(`合计：通过 ${summary.totals.passed}，失败 ${summary.totals.failed}（共 ${summary.totals.items} 个条目）`);
     process.exitCode = failed > 0 ? 1 : 0;
   }
 }

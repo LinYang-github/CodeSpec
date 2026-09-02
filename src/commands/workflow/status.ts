@@ -22,6 +22,7 @@ import {
   type ChangeStatus,
 } from '../../core/artifact-graph/index.js';
 import { asStatus } from '../shared-output.js';
+import { formatStatusLabel } from '../../ui/user-facing-messages.js';
 import { loadWorkspace, loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
 import { validateExitGate } from '../../core/openspec-workflow/gates.js';
 import type { StoreDiagnostic } from '../../core/store/errors.js';
@@ -65,7 +66,7 @@ export const BATCH_STATUS_FAILURE_PAYLOAD: Record<string, unknown> = {
 
 export async function statusCommand(options: StatusOptions): Promise<void> {
   if (options.all && options.change) {
-    throw new Error('The --all and --change options are mutually exclusive.');
+    throw new Error('--all 和 --change 不能同时使用。');
   }
 
   // The root resolves (and the store banner prints) before the spinner starts
@@ -79,7 +80,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     return;
   }
 
-  const spinner = options.json ? undefined : ora('Loading change status...').start();
+  const spinner = options.json ? undefined : ora('正在加载 Change 状态...').start();
 
   try {
     const planningHome = toPlanningHome(root);
@@ -105,7 +106,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       const openspecDir = canonicalWorkspace.openspecDir;
       const metadataPath = path.join(canonicalWorkspace.paths.changes, changeName, 'metadata.yaml');
       if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
-        throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
+        throw new Error(`未找到 canonical Change 元数据：${metadataPath}`);
       }
       {
         const workspace = canonicalWorkspace;
@@ -134,15 +135,15 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         spinner?.stop();
         if (options.json) {
           console.log(
-            JSON.stringify(
-              { changes: [], message: 'No active changes.', root: rootOutput },
+              JSON.stringify(
+                { changes: [], message: '没有活动 Change。', root: rootOutput },
               null,
               2
             )
           );
           return;
         }
-        console.log(`No active changes. Create one with: ${newChangeHint}`);
+        console.log(`没有活动 Change。可使用以下命令创建：${newChangeHint}`);
         return;
       }
 
@@ -183,10 +184,10 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
             printStatusText(entry);
           } else if ('changeId' in entry) {
             const canonicalEntry = entry as unknown as { changeId: string; status: string; revision: number; gateErrors?: string[] };
-            console.log(`Change: ${canonicalEntry.changeId}`);
-            console.log(`Status: ${canonicalEntry.status}`);
-            console.log(`Revision: ${canonicalEntry.revision}`);
-            if (Array.isArray(canonicalEntry.gateErrors) && canonicalEntry.gateErrors.length > 0) console.log(chalk.red(`Gate blockers: ${canonicalEntry.gateErrors.join('; ')}`));
+            console.log(`Change：${canonicalEntry.changeId}`);
+            console.log(`状态：${formatStatusLabel(canonicalEntry.status)}`);
+            console.log(`修订：${canonicalEntry.revision}`);
+            if (Array.isArray(canonicalEntry.gateErrors) && canonicalEntry.gateErrors.length > 0) console.log(chalk.red(`状态门禁阻塞：${canonicalEntry.gateErrors.join('；')}`));
           } else {
             console.log(chalk.red(`✗ ${entry.changeName}: ${entry.status[0]?.message}`));
           }
@@ -205,7 +206,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       // who wants every change should not have to find it in --help.
       spinner?.stop();
       throw new Error(
-        `Missing required option --change (or --all for every active change). Available changes:\n  ${available.join('\n  ')}`
+        `缺少必需选项 --change（或使用 --all 查看全部活动 Change）。可用 Change：\n  ${available.join('\n  ')}`
       );
     }
 
@@ -213,7 +214,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
       if (canonicalWorkspace) {
         const metadataPath = path.join(canonicalWorkspace.paths.changes, options.change, 'metadata.yaml');
-        if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
+        if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`未找到 canonical Change 元数据：${metadataPath}`);
       }
     }
     const canonicalWorkspaceForLookup = await tryLoadCanonicalWorkspace(projectRoot);
@@ -230,11 +231,11 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     if (canonical) {
       spinner?.stop();
       if (options.json) { console.log(JSON.stringify({ ...canonical, root: rootOutput }, null, 2)); return; }
-      console.log(`Change: ${canonical.changeId}`);
-      console.log(`Status: ${canonical.status}`);
-      console.log(`Revision: ${canonical.revision}`);
+      console.log(`Change：${canonical.changeId}`);
+      console.log(`状态：${formatStatusLabel(canonical.status)}`);
+      console.log(`修订：${canonical.revision}`);
       if (Array.isArray(canonical.gateErrors) && canonical.gateErrors.length > 0) {
-        console.log(`Gate blockers: ${canonical.gateErrors.join('; ')}`);
+        console.log(`状态门禁阻塞：${canonical.gateErrors.join('；')}`);
       }
       return;
     }
@@ -261,13 +262,13 @@ export function printStatusText(status: ChangeStatus): void {
   const skippedCount = status.artifacts.filter((a) => a.status === 'skipped').length;
   const total = status.artifacts.length - skippedCount;
 
-  console.log(`Change: ${status.changeName}`);
-  console.log(`Schema: ${status.schemaName}`);
+  console.log(`Change：${status.changeName}`);
+  console.log(`Schema：${status.schemaName}`);
   if (status.changeRoot) {
-    console.log(`Change root: ${status.changeRoot}`);
+    console.log(`Change 根目录：${status.changeRoot}`);
   }
-  const skippedSuffix = skippedCount > 0 ? ` (${skippedCount} skipped)` : '';
-  console.log(`Progress: ${doneCount}/${total} artifacts complete${skippedSuffix}`);
+  const skippedSuffix = skippedCount > 0 ? `（已跳过 ${skippedCount} 个）` : '';
+  console.log(`进度：${doneCount}/${total} 个产物已完成${skippedSuffix}`);
   console.log();
 
   for (const artifact of status.artifacts) {
@@ -276,11 +277,11 @@ export function printStatusText(status: ChangeStatus): void {
     let line = `${indicator} ${artifact.id}`;
 
     if (artifact.status === 'skipped') {
-      line += color(' (skipped: change declares skip_specs)');
+      line += color('（已跳过：Change 声明了 skip_specs）');
     }
 
     if (artifact.status === 'blocked' && artifact.missingDeps && artifact.missingDeps.length > 0) {
-      line += color(` (blocked by: ${artifact.missingDeps.join(', ')})`);
+      line += color(`（阻塞依赖：${artifact.missingDeps.join('、')}）`);
     }
 
     console.log(line);
@@ -288,6 +289,6 @@ export function printStatusText(status: ChangeStatus): void {
 
   if (status.isPlanningComplete) {
     console.log();
-    console.log(chalk.green('All planning artifacts complete!'));
+    console.log(chalk.green('全部规划产物已完成！'));
   }
 }

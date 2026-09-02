@@ -349,7 +349,7 @@ export class ZshInstaller {
       `Verify that ${completionsDir} is in your fpath by running:`,
       `  printf '%s\\n' $fpath | grep -F ${quotedDir}`,
       '',
-      'If not found, completions may not work. Restart your shell to ensure changes take effect.',
+      '如果未找到，补全可能无法工作。请重启 shell 使更改生效。',
     ];
   }
 
@@ -431,7 +431,7 @@ export class ZshInstaller {
         messages.push(`Completion script removed from ${targetPath}`);
       }
       if (zshrcCleaned && !isOhMyZsh) {
-        messages.push('Removed OpenSpec configuration from ~/.zshrc');
+        messages.push('已从 ~/.zshrc 移除 OpenSpec 配置');
       }
 
       return {

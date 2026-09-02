@@ -122,7 +122,7 @@ export function toolUnknownError(
     .filter((opener) => isOpenerEnabled(opener))
     .map((opener) => opener.id)
     .join(', ');
-  return new StoreError(`Unknown tool '${toolId}'.`, 'workset_tool_unknown', {
+  return new StoreError(`未知工具 '${toolId}'。`, 'workset_tool_unknown', {
     target: 'workset.tool',
     fix: `Known tools: ${knownIds}. Add new tools under "openers" in ${getGlobalConfigPath()}.`,
   });
@@ -153,14 +153,14 @@ export function toolUnavailableError(
   const alternative = firstInstalledAlternative(table, opener.id, scan);
 
   return new StoreError(
-    `${opener.label} ('${opener.command}') is not on PATH.`,
+    `${opener.label} ('${opener.command}') 不在 PATH 中。`,
     'workset_tool_unavailable',
     {
       target: 'workset.tool',
       fix:
         alternative !== null
-          ? `Install '${opener.command}' or run: openspec workset open ${worksetName} --tool ${alternative}`
-          : `Install '${opener.command}', then rerun: openspec workset open ${worksetName}`,
+          ? `安装 '${opener.command}'，或运行：openspec workset open ${worksetName} --tool ${alternative}`
+          : `安装 '${opener.command}'，然后重新运行：openspec workset open ${worksetName}`,
     }
   );
 }

@@ -61,9 +61,9 @@ async function publishPair(metadataPath: string, metadata: unknown, verification
 }
 
 export async function recordFreshVerification(workspace: WorkspaceContext, changeId: string, commands: VerificationCommand[]): Promise<VerificationEvidence> {
-  if (!commands.length) throw new Error('At least one verification command is required');
+  if (!commands.length) throw new Error('至少需要一条验证命令。');
   const artifacts = await loadChangeArtifacts(workspace.paths, changeId); const metadata = structuredClone(artifacts.metadata);
-  if (!['VERIFY', 'ARCHIVE'].includes(metadata.change.status)) throw new Error('Verification evidence requires VERIFY or ARCHIVE state');
+  if (!['VERIFY', 'ARCHIVE'].includes(metadata.change.status)) throw new Error('验证证据要求 Change 处于 VERIFY 或 ARCHIVE 状态。');
   const expectedRequirements = requirementIds(metadata);
   const parsed = parseDeltaSpec(artifacts.spec);
   const expectedScenarios = [...new Set(parsed.entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)))].sort();
@@ -74,7 +74,7 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
   };
   let failed = false;
   for (const item of commands) {
-    if (!item.command.trim()) throw new Error('Verification command must not be empty');
+    if (!item.command.trim()) throw new Error('验证命令不能为空。');
     const kind = item.kind ?? 'other'; const started_at = new Date().toISOString();
     const result = await new Promise<{ status: number; output: string }>((resolve) => {
       const child = spawn(item.command, { shell: true, cwd: workspace.openspecDir }); let output = '';
@@ -87,12 +87,12 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
     if (result.status !== 0) { failed = true; break; }
   }
   evidence.requirement_ids = [...new Set(evidence.requirement_ids)].sort(); evidence.scenario_ids = [...new Set(evidence.scenario_ids)].sort();
-  if (!failed && !expectedRequirements.every((id) => evidence.requirement_ids.includes(id))) throw new Error(`Verification coverage is missing Requirement ${expectedRequirements.find((id) => !evidence.requirement_ids.includes(id))}`);
-  if (!failed && !expectedScenarios.every((id) => evidence.scenario_ids.includes(id))) throw new Error(`Verification coverage is missing Scenario ${expectedScenarios.find((id) => !evidence.scenario_ids.includes(id))}`);
-  if (!failed && expectedRequirements.length === 0) throw new Error('Verification evidence must cover at least one Requirement');
-  if (!failed && !evidence.commands.some((item) => item.kind === 'test')) throw new Error('Verification evidence requires a test command');
-  if (!failed && !evidence.commands.some((item) => item.kind === 'build')) throw new Error('Verification evidence requires a build command');
-  if (!failed && !evidence.commands.some((item) => item.kind === 'lint')) throw new Error('Verification evidence requires a lint command');
+  if (!failed && !expectedRequirements.every((id) => evidence.requirement_ids.includes(id))) throw new Error(`验证覆盖范围缺少 Requirement ${expectedRequirements.find((id) => !evidence.requirement_ids.includes(id))}`);
+  if (!failed && !expectedScenarios.every((id) => evidence.scenario_ids.includes(id))) throw new Error(`验证覆盖范围缺少 Scenario ${expectedScenarios.find((id) => !evidence.scenario_ids.includes(id))}`);
+  if (!failed && expectedRequirements.length === 0) throw new Error('验证证据至少要覆盖一个 Requirement');
+  if (!failed && !evidence.commands.some((item) => item.kind === 'test')) throw new Error('验证证据必须包含 test 命令');
+  if (!failed && !evidence.commands.some((item) => item.kind === 'build')) throw new Error('验证证据必须包含 build 命令');
+  if (!failed && !evidence.commands.some((item) => item.kind === 'lint')) throw new Error('验证证据必须包含 lint 命令');
   if (failed) evidence.status = 'FAIL';
   evidence.receipt = hash({ ...evidence, receipt: undefined });
   metadata.verification = {
@@ -107,6 +107,6 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
   const metadataPath = path.join(workspace.openspecDir, metadata.artifacts.metadata);
   const verificationPath = path.join(workspace.openspecDir, metadata.artifacts.verification);
   await publishPair(metadataPath, metadata, verificationPath, evidence);
-  if (failed) throw new Error(`Verification command failed with exit code ${evidence.commands.at(-1)?.exit_code}`);
+  if (failed) throw new Error(`验证命令失败，退出码为 ${evidence.commands.at(-1)?.exit_code}`);
   return evidence;
 }

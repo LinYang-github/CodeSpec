@@ -8,7 +8,7 @@ export function renderCanonicalChangeContext(metadata: ChangeMetadata, spec = ''
   const scenarioMatches = [...spec.matchAll(/####\s+Scenario:\s*\[?(SCN-\d{3})\]?\s*[^\n]*/gu)];
   const scenarios = [...new Set(scenarioMatches.map((match) => match[1]))];
   const tasks = Object.entries(metadata.tasks.items).map(([id, task]) => `${id}:${task.status}`);
-  return `Current status: ${metadata.change.status}\n\nResolved Change context: ID=${metadata.change.id}; status=${metadata.change.status}; mode=${metadata.change.mode}; baseline=${metadata.baseline.stale ? 'STALE' : 'CURRENT'}; Requirements=${requirements.join(',') || 'none'}; Scenarios=${scenarios.join(',') || 'none'}; Tasks=${tasks.join(',') || 'none'}; required verification commands=requirements,test,build,lint; evidence=requirements:${metadata.verification.requirements_verified},tests:${metadata.verification.tests_passed},build:${metadata.verification.build_passed},lint:${metadata.verification.lint_passed}; artifacts: metadata=${metadata.artifacts.metadata}, proposal=${metadata.artifacts.proposal}, design=${metadata.artifacts.design}, spec=${metadata.artifacts.spec}, tasks=${metadata.artifacts.tasks}, verification=${metadata.artifacts.verification}.`;
+  return `当前状态：${metadata.change.status}\n\n已解析的 Change 上下文：ID=${metadata.change.id}；status=${metadata.change.status}；mode=${metadata.change.mode}；baseline=${metadata.baseline.stale ? 'STALE' : 'CURRENT'}；Requirements=${requirements.join(',') || 'none'}；Scenarios=${scenarios.join(',') || 'none'}；Tasks=${tasks.join(',') || 'none'}；必需验证命令=requirements,test,build,lint；证据=requirements:${metadata.verification.requirements_verified},tests:${metadata.verification.tests_passed},build:${metadata.verification.build_passed},lint:${metadata.verification.lint_passed}；产物路径：metadata=${metadata.artifacts.metadata}, proposal=${metadata.artifacts.proposal}, design=${metadata.artifacts.design}, spec=${metadata.artifacts.spec}, tasks=${metadata.artifacts.tasks}, verification=${metadata.artifacts.verification}。`;
 }
 
 export function getStageAdapterGuidance(stage: WorkflowStage): string {
@@ -16,28 +16,28 @@ export function getStageAdapterGuidance(stage: WorkflowStage): string {
   const methodology = stage === 'analyze' || stage === 'new' || stage === 'propose'
     ? 'feature → brainstorming → planning → TDD; bugfix → systematic-debugging → spec-impact decision → TDD; refactor → design-impact → planning → TDD'
     : 'preserve the Change mode routing above and use the existing Superpowers methodology';
-  return `### ${stage} stage adapter\n\nThis is the ${action} stage. Resolve canonical context before acting: run \`openspec context --json\`, resolve one explicit \`CHG-YYYYMMDD-NNN\` (fail explicitly on missing or ambiguous context), then run \`openspec status --change "<CHG-ID>" --json\` and load the declared \`metadata.yaml\` and artifact paths. Substitute the resolved Change ID, status, mode, baseline hashes, Requirement IDs, exact Scenario IDs, Task IDs, test/evidence references, required verification commands, and canonical paths into the ${action} prompt. Methodology routing: ${methodology}. Refresh status after the action and record traceability in the canonical artifact.`;
+  return `### ${stage} 阶段适配器\n\n当前是 ${action} 阶段。执行前解析 canonical 上下文：运行 \`openspec context --json\`，解析一个明确的 \`CHG-YYYYMMDD-NNN\`（上下文缺失或有歧义时明确停止），然后运行 \`openspec status --change "<CHG-ID>" --json\` 并加载声明的 \`metadata.yaml\` 和产物路径。将解析出的 Change ID、status、mode、baseline hash、Requirement ID、准确的 Scenario ID、Task ID、测试/证据引用、必需验证命令和 canonical 路径注入 ${action} 提示。方法论路由：${methodology}。动作完成后刷新状态，并在 canonical 产物中记录追踪关系。`;
 }
 
 export function getUnsupportedStageGuidance(workflowId: string): string {
-  return `### Unsupported canonical stage: ${workflowId}\n\nThis workflow is not a canonical lifecycle stage adapter. Do not infer planning, resume, implementation, verification, or archive behavior from it. Preserve its existing behavior or stop and require an explicitly supported canonical stage.`;
+  return `### 不支持的 canonical 阶段：${workflowId}\n\n此工作流不是 canonical 生命周期阶段适配器。不要从中推断规划、继续、实现、验证或归档行为。保留现有行为，或停止并要求使用明确支持的 canonical 阶段。`;
 }
 
 /** Canonical adapter guidance shared by generated OpenSpec workflow skills. */
 export const OPENSPEC_WORKFLOW_GUIDANCE = `
-## Canonical OpenSpec workflow
+## Canonical OpenSpec 工作流
 
-Route code-spec work through the \`openspec-workflow\` adapter. Resolve or create a canonical Change ID matching \`CHG-YYYYMMDD-NNN\`; never use a slug Change or legacy \`.openspec.yaml\` metadata. The Change directory is \`openspec/changes/<CHG-ID>/\`, and \`metadata.yaml\` is the status authority.
+将 code-spec 工作通过 \`openspec-workflow\` 适配器路由。解析或创建匹配 \`CHG-YYYYMMDD-NNN\` 的 canonical Change ID；不要使用 slug Change 或旧版 \`.openspec.yaml\` 元数据。Change 目录为 \`openspec/changes/<CHG-ID>/\`，状态以 \`metadata.yaml\` 为准。
 
-Carry the Change ID, lifecycle status, baseline, Requirement IDs (\`MOD-###-REQ-###\`), Scenarios, Task IDs (\`SP-##\`), and metadata artifact paths through every prompt and command. Keep \`tasks.md\` as a concise \`SP-##\` status projection; do not duplicate the detailed Superpowers plan there. Record required Requirement/test/build/lint commands and evidence in the verification artifact.
+在每次提示和命令中传递 Change ID、生命周期 status、baseline、Requirement ID（\`MOD-###-REQ-###\`）、Scenario、Task ID（\`SP-##\`）和元数据产物路径。\`tasks.md\` 只作为简洁的 \`SP-##\` 状态投影，不要在其中重复详细的 Superpowers 计划。在验证产物中记录必需的 Requirement/test/build/lint 命令及证据。
 
-### Resolve and inject context before acting
+### 执行前解析并注入上下文
 
-Run \`openspec context --json\` to resolve the canonical workspace. Resolve the Change by explicit \`CHG-YYYYMMDD-NNN\` ID or bound context, then run \`openspec status --change "<CHG-ID>" --json\` and load \`openspec/changes/<CHG-ID>/metadata.yaml\` plus its declared artifact paths. Inject the actual Change ID, status, baseline, affected Requirement IDs and Scenario IDs, Task IDs, prior evidence, and canonical proposal/design/spec/tasks/verification paths into each Superpowers prompt. If context is missing, metadata is absent, or resolution is ambiguous, fail explicitly and stop; never guess or fall back to slug/legacy metadata.
+运行 \`openspec context --json\` 解析 canonical workspace。通过明确的 \`CHG-YYYYMMDD-NNN\` ID 或绑定上下文解析 Change，然后运行 \`openspec status --change "<CHG-ID>" --json\` 并加载 \`openspec/changes/<CHG-ID>/metadata.yaml\` 及其声明的产物路径。将实际 Change ID、status、baseline、受影响 Requirement ID 和 Scenario ID、Task ID、已有证据以及 canonical proposal/design/spec/tasks/verification 路径注入每个 Superpowers 提示。上下文缺失、元数据缺失或解析有歧义时，明确失败并停止；不要猜测，也不要回退到 slug/旧版元数据。
 
-Before planning, implementation, verification, or archive, re-resolve status and artifacts and pass the resulting context to the relevant Superpowers skill. After each material action, refresh status and write traceability/evidence back to the canonical artifact. Required commands must be run from the resolved workspace and recorded verbatim with their results.
+在规划、实现、验证或归档前，重新解析 status 和产物，并将结果上下文传给对应的 Superpowers skill。每次有实质动作后刷新状态，并将追踪关系/证据写回 canonical 产物。必需命令必须从解析出的 workspace 执行，并逐字记录命令及结果。
 
-Reuse Superpowers methodology unchanged: brainstorming, writing-plans, TDD RED → GREEN, systematic debugging, fresh verification, code review, and branch finishing. If the baseline is stale, route through semantic rebase before continuing.
+原样复用 Superpowers 方法论：brainstorming、writing-plans、TDD RED → GREEN、systematic debugging、fresh verification、code review 和 branch finishing。baseline 过期时，继续之前先通过 semantic rebase。
 
 `;
 
@@ -48,8 +48,8 @@ export function withOpenSpecWorkflowGuidance(instructions: string): string {
 export function getOpenSpecWorkflowSkillTemplate() {
   return {
     name: 'openspec-workflow',
-    description: 'Route OpenSpec code-spec work through the canonical Change workflow.',
-    instructions: `${withOpenSpecWorkflowGuidance('Use this adapter whenever a Superpowers skill operates on OpenSpec code-spec work.')}\n\n${STORE_SELECTION_GUIDANCE}`,
+    description: '将 OpenSpec code-spec 工作路由到 canonical Change 工作流。',
+    instructions: `${withOpenSpecWorkflowGuidance('当 Superpowers skill 操作 OpenSpec code-spec 工作时，使用此适配器。')}\n\n${STORE_SELECTION_GUIDANCE}`,
     license: 'MIT',
     compatibility: 'Requires openspec CLI.',
     metadata: { author: 'openspec', version: '1.0' },

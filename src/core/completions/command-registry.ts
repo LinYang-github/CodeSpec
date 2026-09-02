@@ -3,119 +3,119 @@ import type { CommandDefinition } from './types.js';
 export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'rebase',
-    description: 'Semantically rebase a stale canonical Change',
+    description: '对过期的 canonical Change 执行语义 rebase',
     flags: [
-      { name: 'change', description: 'Canonical Change ID', takesValue: true },
-      { name: 'current-spec', description: 'Current specification path', takesValue: true },
+      { name: 'change', description: 'canonical Change ID', takesValue: true },
+      { name: 'current-spec', description: '当前 Spec 路径', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'transition',
-    description: 'Persist a gated lifecycle transition for a canonical Change',
+    description: '在状态门禁校验后持久化 canonical Change 生命周期转换',
     flags: [
-      { name: 'change', description: 'Canonical Change ID', takesValue: true },
-      { name: 'to', description: 'Target lifecycle state', takesValue: true },
-      { name: 'reason', description: 'Human-readable transition reason', takesValue: true },
+      { name: 'change', description: 'canonical Change ID', takesValue: true },
+      { name: 'to', description: '目标生命周期状态', takesValue: true },
+      { name: 'reason', description: '人类可读的转换原因', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'abandon',
-    description: 'Abandon a canonical Change through the lifecycle gate',
+    description: '通过生命周期门禁放弃 canonical Change',
     flags: [
-      { name: 'change', description: 'Canonical Change ID', takesValue: true },
-      { name: 'reason', description: 'Reason for abandoning the Change', takesValue: true },
+      { name: 'change', description: 'canonical Change ID', takesValue: true },
+      { name: 'reason', description: '放弃 Change 的原因', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'detect-stale',
-    description: 'Detect active Changes that overlap archived Requirements',
+    description: '检测与已归档 Requirement 重叠的活动 Change',
     flags: [
-      { name: 'requirements', description: 'Comma-separated archived Requirement IDs; defaults to all archived Changes', takesValue: true },
+      { name: 'requirements', description: '逗号分隔的已归档 Requirement ID；默认使用全部已归档 Change', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'allocate-requirements',
-    description: 'Atomically reserve the next canonical Requirement IDs',
+    description: '以原子方式预留下一组 canonical Requirement ID',
     flags: [
-      { name: 'module', description: 'Business Module ID, for example MOD-001', takesValue: true },
-      { name: 'count', description: 'Number of Requirement IDs to reserve', takesValue: true },
-      { name: 'change', description: 'Active Change to receive the reservation', takesValue: true },
+      { name: 'module', description: '业务 Module ID，例如 MOD-001', takesValue: true },
+      { name: 'count', description: '要预留的 Requirement ID 数量', takesValue: true },
+      { name: 'change', description: '接收预留 ID 的活动 Change', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'init',
-    description: 'Initialize OpenSpec in your project',
+    description: '在项目中初始化 OpenSpec',
     acceptsPositional: true,
     positionalType: 'path',
     positionals: [{ name: 'path', type: 'path', optional: true }],
     flags: [
       {
         name: 'tools',
-        description: 'Configure AI tools non-interactively (e.g., "all", "none", or comma-separated tool IDs)',
+        description: '以非交互方式配置 AI 工具（例如 "all"、"none" 或逗号分隔的工具 ID）',
         takesValue: true,
       },
       {
         name: 'language',
-        description: 'Write new OpenSpec artifacts in this language',
+        description: '使用指定语言编写新的 OpenSpec 产物',
         takesValue: true,
       },
       {
         name: 'force',
-        description: 'Auto-cleanup legacy files without prompting',
+        description: '无需提示，自动清理旧文件',
       },
       {
         name: 'profile',
-        description: 'Override global config profile (core or custom)',
+        description: '覆盖全局配置 Profile（core 或 custom）',
         takesValue: true,
         values: ['core', 'custom'],
       },
       {
         name: 'no-animation',
-        description: 'Show a static welcome screen instead of the animated one',
+        description: '使用静态欢迎界面而不是动画',
       },
       {
         name: 'copilot-cloud',
-        description: 'Generate GitHub Copilot cloud coding-agent files (opt-in; default: prompt)',
+        description: '生成 GitHub Copilot 云端编码代理文件（主动启用；默认询问）',
       },
       {
         name: 'no-copilot-cloud',
-        description: 'Skip generating GitHub Copilot cloud coding-agent files',
+        description: '跳过生成 GitHub Copilot 云端编码代理文件',
       },
     ],
   },
   {
     name: 'update',
-    description: 'Update OpenSpec instruction files',
+    description: '更新 OpenSpec 指导文件',
     acceptsPositional: true,
     positionalType: 'path',
     positionals: [{ name: 'path', type: 'path', optional: true }],
     flags: [
       {
         name: 'force',
-        description: 'Force update even when tools are up to date',
+        description: '即使工具已是最新也强制更新',
       },
     ],
   },
   {
     name: 'list',
-    description: 'List items (changes by default, or specs with --specs)',
+    description: '列出条目（默认列出 Change；使用 --specs 列出 Spec）',
     flags: [
       {
         name: 'specs',
-        description: 'List specs instead of changes',
+        description: '列出 Spec，而不是 Change',
       },
       {
         name: 'changes',
-        description: 'List changes explicitly (default)',
+        description: '明确列出 Change（默认）',
       },
       {
         name: 'sort',
-        description: 'Sort order: "recent" (default) or "name"',
+        description: '排序方式："recent"（默认）或 "name"',
         takesValue: true,
         values: ['recent', 'name'],
       },
@@ -125,40 +125,40 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'view',
-    description: 'Display an interactive dashboard of specs and changes',
+    description: '显示 Spec 和 Change 的交互式面板',
     flags: [
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'validate',
-    description: 'Validate changes and specs',
+    description: '校验 Change 和 Spec',
     acceptsPositional: true,
     positionalType: 'change-or-spec-id',
     positionals: [{ name: 'item-name', type: 'change-or-spec-id', optional: true }],
     flags: [
       {
         name: 'all',
-        description: 'Validate all changes and specs',
+        description: '校验全部 Change 和 Spec',
       },
       {
         name: 'changes',
-        description: 'Validate all changes',
+        description: '校验全部 Change',
       },
       {
         name: 'specs',
-        description: 'Validate all specs',
+        description: '校验全部 Spec',
       },
       {
         name: 'archived',
-        description: 'Validate that archived changes have all tasks completed (for pre-commit linting)',
+        description: '校验已归档 Change 的任务是否全部完成（用于提交前 lint）',
       },
       COMMON_FLAGS.type,
       COMMON_FLAGS.strict,
       COMMON_FLAGS.jsonValidation,
       {
         name: 'concurrency',
-        description: 'Max concurrent validations (defaults to env OPENSPEC_CONCURRENCY or 6)',
+        description: '最大并发校验数（默认读取环境变量 OPENSPEC_CONCURRENCY，或使用 6）',
         takesValue: true,
       },
       COMMON_FLAGS.noInteractive,
@@ -167,7 +167,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'show',
-    description: 'Show a change or spec',
+    description: '显示 Change 或 Spec',
     acceptsPositional: true,
     positionalType: 'change-or-spec-id',
     positionals: [{ name: 'item-name', type: 'change-or-spec-id', optional: true }],
@@ -177,28 +177,28 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       COMMON_FLAGS.noInteractive,
       {
         name: 'deltas-only',
-        description: 'Show only deltas (JSON only, change-specific)',
+        description: '仅显示增量（仅 JSON，Change 专用）',
       },
       {
         name: 'requirements-only',
-        description: 'Alias for --deltas-only (deprecated, change-specific)',
+        description: '--deltas-only 的弃用别名（Change 专用）',
       },
       {
         name: 'diff',
-        description: 'Show per-requirement diffs for delta specs (change-specific)',
+        description: '显示增量 Spec 的逐条 Requirement 差异（Change 专用）',
       },
       {
         name: 'requirements',
-        description: 'Show only requirements, exclude scenarios (JSON only, spec-specific)',
+        description: '仅显示 Requirement，排除场景（仅 JSON，Spec 专用）',
       },
       {
         name: 'no-scenarios',
-        description: 'Exclude scenario content (JSON only, spec-specific)',
+        description: '排除场景内容（仅 JSON，Spec 专用）',
       },
       {
         name: 'requirement',
         short: 'r',
-        description: 'Show specific requirement by ID (JSON only, spec-specific)',
+        description: '按 ID 显示指定 Requirement（仅 JSON，Spec 专用）',
         takesValue: true,
       },
       COMMON_FLAGS.store,
@@ -206,7 +206,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'archive',
-    description: 'Archive a completed change and update main specs',
+    description: '归档已完成的 Change 并更新主 Spec',
     acceptsPositional: true,
     positionalType: 'change-id',
     positionals: [{ name: 'change-name', type: 'change-id', optional: true }],
@@ -214,39 +214,39 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       {
         name: 'yes',
         short: 'y',
-        description: 'Skip confirmation prompts',
+        description: '跳过确认提示',
       },
       {
         name: 'skip-specs',
-        description: 'Skip spec update operations',
+        description: '跳过 Spec 更新操作',
       },
       {
         name: 'no-validate',
-        description: 'Skip validation (not recommended)',
+        description: '跳过校验（不建议）',
       },
       {
         name: 'json',
-        description: 'Output as JSON (non-interactive)',
+        description: '以 JSON 输出（非交互模式）',
       },
       COMMON_FLAGS.store,
     ],
   },
   {
     name: 'status',
-    description: 'Display artifact completion status for a change',
+    description: '显示 Change 的产物完成状态',
     flags: [
       {
         name: 'change',
-        description: 'Change name to show status for',
+        description: '要显示状态的 Change 名称',
         takesValue: true,
       },
       {
         name: 'all',
-        description: 'Show status for all active changes',
+        description: '显示全部活动 Change 的状态',
       },
       {
         name: 'schema',
-        description: 'Schema override',
+        description: 'Schema 覆盖值',
         takesValue: true,
       },
       COMMON_FLAGS.json,
@@ -255,18 +255,18 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'instructions',
-    description: 'Output enriched instructions for artifacts, apply, or archive',
+    description: '输出产物、apply 或 archive 的增强指导',
     acceptsPositional: true,
     positionals: [{ name: 'artifact', optional: true }],
     flags: [
       {
         name: 'change',
-        description: 'Change name',
+        description: 'Change 名称',
         takesValue: true,
       },
       {
         name: 'schema',
-        description: 'Schema override',
+        description: 'Schema 覆盖值',
         takesValue: true,
       },
       COMMON_FLAGS.json,
@@ -275,11 +275,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'templates',
-    description: 'Show resolved template paths for all artifacts in a schema',
+    description: '显示 Schema 中所有产物解析后的模板路径',
     flags: [
       {
         name: 'schema',
-        description: 'Schema to use',
+        description: '使用的 Schema',
         takesValue: true,
       },
       COMMON_FLAGS.json,
@@ -287,7 +287,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'schemas',
-    description: 'List available workflow schemas with descriptions',
+    description: '列出可用工作流 Schema 及其说明',
     flags: [
       COMMON_FLAGS.json,
       COMMON_FLAGS.store,
@@ -295,28 +295,28 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'new',
-    description: 'Create new items',
+    description: '创建新条目',
     flags: [],
     subcommands: [
       {
         name: 'change',
-        description: 'Create a new change directory',
+        description: '创建新的 Change 目录',
         acceptsPositional: true,
         positionals: [{ name: 'name' }],
         flags: [
           {
             name: 'description',
-            description: 'Description to add to README.md',
+            description: '要写入 README.md 的描述',
             takesValue: true,
           },
           {
             name: 'goal',
-            description: 'Optional goal metadata to store with the change',
+            description: '随 Change 保存的可选目标元数据',
             takesValue: true,
           },
           {
             name: 'schema',
-            description: 'Workflow schema to use',
+            description: '使用的工作流 Schema',
             takesValue: true,
           },
           COMMON_FLAGS.json,
@@ -328,32 +328,32 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'store',
     description:
-      'Create and manage stores - standalone OpenSpec repos you register on this machine',
+      '创建并管理 Store——在本机登记的独立 OpenSpec 仓库',
     flags: [],
     subcommands: [
       {
         name: 'setup',
-        description: 'Create or register a local store',
+        description: '创建或登记本地 Store',
         acceptsPositional: true,
         positionals: [{ name: 'id', optional: true }],
         flags: [
           {
             name: 'path',
-            description: 'Directory to use for the store',
+            description: 'Store 使用的目录',
             takesValue: true,
             completionType: 'path',
           },
           {
             name: 'init-git',
-            description: 'Initialize a Git repository in the store',
+            description: '在 Store 中初始化 Git 仓库',
           },
           {
             name: 'no-init-git',
-            description: 'Skip Git repository initialization',
+            description: '跳过 Git 仓库初始化',
           },
           {
             name: 'remote',
-            description: 'Canonical clone source recorded in store.yaml',
+            description: '记录在 store.yaml 中的 canonical 克隆源',
             takesValue: true,
           },
           COMMON_FLAGS.json,
@@ -361,25 +361,25 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       },
       {
         name: 'register',
-        description: 'Register an existing store directory',
+        description: '登记已有的 Store 目录',
         acceptsPositional: true,
         positionals: [{ name: 'path', type: 'path', optional: true }],
         flags: [
           {
             name: 'id',
-            description: 'Store id',
+            description: 'Store ID',
             takesValue: true,
           },
           {
             name: 'yes',
-            description: 'Confirm creating store identity metadata',
+            description: '确认创建 Store 身份元数据',
           },
           COMMON_FLAGS.json,
         ],
       },
       {
         name: 'unregister',
-        description: 'Forget a local store registration without deleting files',
+        description: '移除本地 Store 登记，但不删除文件',
         acceptsPositional: true,
         positionals: [{ name: 'id' }],
         flags: [
@@ -388,34 +388,34 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       },
       {
         name: 'remove',
-        description: 'Forget a local store registration and delete its local folder',
+        description: '移除本地 Store 登记并删除本地目录',
         acceptsPositional: true,
         positionals: [{ name: 'id' }],
         flags: [
           {
             name: 'yes',
-            description: 'Confirm local store folder deletion',
+            description: '确认删除本地 Store 目录',
           },
           COMMON_FLAGS.json,
         ],
       },
       {
         name: 'list',
-        description: 'List registered stores',
+        description: '列出已登记的 Store',
         flags: [
           COMMON_FLAGS.json,
         ],
       },
       {
         name: 'ls',
-        description: 'List registered stores',
+        description: '列出已登记的 Store',
         flags: [
           COMMON_FLAGS.json,
         ],
       },
       {
         name: 'doctor',
-        description: 'Check local store registration and metadata',
+        description: '检查本地 Store 登记和元数据',
         acceptsPositional: true,
         positionals: [{ name: 'id', optional: true }],
         flags: [
@@ -426,25 +426,25 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'context',
-    description: 'Print the working context for the resolved OpenSpec root',
+    description: '输出解析后 OpenSpec 根目录的工作上下文',
     flags: [
       COMMON_FLAGS.json,
       COMMON_FLAGS.store,
       {
         name: 'code-workspace',
-        description: 'Also write a VS Code workspace file for the set',
+        description: '同时为该工作集写入 VS Code workspace 文件',
         takesValue: true,
         completionType: 'path',
       },
       {
         name: 'force',
-        description: 'Overwrite an existing --code-workspace file',
+        description: '覆盖已有的 --code-workspace 文件',
       },
     ],
   },
   {
     name: 'doctor',
-    description: 'Report relationship health for the resolved OpenSpec root',
+    description: '报告解析后 OpenSpec 根目录的关联健康状态',
     flags: [
       COMMON_FLAGS.json,
       COMMON_FLAGS.store,
@@ -452,12 +452,12 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'workset',
-    description: 'Compose, keep, and open personal working views (purely local)',
+    description: '创建、保留并打开个人工作视图（完全本地）',
     flags: [],
     subcommands: [
       {
         name: 'create',
-        description: 'Compose and save a named working view of folders you choose',
+        description: '创建并保存由你选择目录组成的命名工作视图',
         acceptsPositional: true,
         positionals: [{ name: 'name', optional: true }],
         flags: [
@@ -470,7 +470,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           },
           {
             name: 'tool',
-            description: 'Preferred tool to open this workset with',
+            description: '优先用于打开此 Workset 的工具',
             takesValue: true,
           },
           COMMON_FLAGS.json,
@@ -478,12 +478,12 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       },
       {
         name: 'list',
-        description: 'Show saved worksets with their members',
+        description: '显示已保存的 Workset 及其成员',
         flags: [COMMON_FLAGS.json],
       },
       {
         name: 'ls',
-        description: 'Show saved worksets with their members',
+        description: '显示已保存的 Workset 及其成员',
         flags: [COMMON_FLAGS.json],
       },
       {
@@ -495,20 +495,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         flags: [
           {
             name: 'tool',
-            description: 'Open with this tool just this once',
+            description: '仅本次使用此工具打开',
             takesValue: true,
           },
         ],
       },
       {
         name: 'remove',
-        description: 'Delete a saved workset (member folders are never touched)',
+        description: '删除已保存的 Workset（不会修改成员目录）',
         acceptsPositional: true,
         positionals: [{ name: 'name' }],
         flags: [
           {
             name: 'yes',
-            description: 'Confirm removal non-interactively',
+            description: '确认以非交互方式删除',
           },
           COMMON_FLAGS.json,
         ],
@@ -517,38 +517,38 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'feedback',
-    description: 'Submit feedback about OpenSpec',
+    description: '提交 OpenSpec 反馈',
     acceptsPositional: true,
     positionals: [{ name: 'message' }],
     flags: [
       {
         name: 'body',
-        description: 'Detailed description for the feedback',
+        description: '反馈的详细说明',
         takesValue: true,
       },
     ],
   },
   {
     name: 'change',
-    description: 'Manage OpenSpec change proposals (deprecated)',
+    description: '管理 OpenSpec Change 提案（已弃用）',
     flags: [],
     subcommands: [
       {
         name: 'new',
-        description: 'Create a new change (deprecated alias)',
+        description: '创建 Change（已弃用别名）',
         acceptsPositional: true,
         positionals: [{ name: 'name' }],
         flags: [
-          { name: 'description', description: 'Description to add to README.md', takesValue: true },
-          { name: 'goal', description: 'Optional goal metadata to store with the change', takesValue: true },
-          { name: 'schema', description: 'Workflow schema to use', takesValue: true },
+          { name: 'description', description: '要写入 README.md 的描述', takesValue: true },
+          { name: 'goal', description: '随 Change 保存的可选目标元数据', takesValue: true },
+          { name: 'schema', description: '使用的工作流 Schema', takesValue: true },
           COMMON_FLAGS.json,
           COMMON_FLAGS.store,
         ],
       },
       {
         name: 'show',
-        description: 'Show a change proposal',
+        description: '显示 Change 提案',
         acceptsPositional: true,
         positionalType: 'change-id',
         positionals: [{ name: 'change-name', type: 'change-id', optional: true }],
@@ -556,33 +556,33 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           COMMON_FLAGS.json,
           {
             name: 'deltas-only',
-            description: 'Show only deltas (JSON only)',
+            description: '仅显示增量（仅 JSON）',
           },
           {
             name: 'requirements-only',
-            description: 'Alias for --deltas-only (deprecated)',
+            description: '--deltas-only 的弃用别名',
           },
           {
             name: 'diff',
-            description: 'Show per-requirement diffs for delta specs',
+            description: '显示增量 Spec 的逐条 Requirement 差异',
           },
           COMMON_FLAGS.noInteractive,
         ],
       },
       {
         name: 'list',
-        description: 'List all active changes (deprecated)',
+        description: '列出全部活动 Change（已弃用）',
         flags: [
           COMMON_FLAGS.json,
           {
             name: 'long',
-            description: 'Show id and title with counts',
+            description: '显示 ID、标题和数量',
           },
         ],
       },
       {
         name: 'validate',
-        description: 'Validate a change proposal',
+        description: '校验 Change 提案',
         acceptsPositional: true,
         positionalType: 'change-id',
         positionals: [{ name: 'change-name', type: 'change-id', optional: true }],
@@ -596,12 +596,12 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'spec',
-    description: 'Manage OpenSpec specifications',
+    description: '管理 OpenSpec Spec',
     flags: [],
     subcommands: [
       {
         name: 'show',
-        description: 'Show a specification',
+        description: '显示 Spec',
         acceptsPositional: true,
         positionalType: 'spec-id',
         positionals: [{ name: 'spec-id', type: 'spec-id', optional: true }],
@@ -609,16 +609,16 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           COMMON_FLAGS.json,
           {
             name: 'requirements',
-            description: 'Show only requirements, exclude scenarios (JSON only)',
+            description: '仅显示 Requirement，排除场景（仅 JSON）',
           },
           {
             name: 'no-scenarios',
-            description: 'Exclude scenario content (JSON only)',
+            description: '排除场景内容（仅 JSON）',
           },
           {
             name: 'requirement',
             short: 'r',
-            description: 'Show specific requirement by ID (JSON only)',
+            description: '按 ID 显示指定 Requirement（仅 JSON）',
             takesValue: true,
           },
           COMMON_FLAGS.noInteractive,
@@ -626,18 +626,18 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       },
       {
         name: 'list',
-        description: 'List all specifications',
+        description: '列出全部 Spec',
         flags: [
           COMMON_FLAGS.json,
           {
             name: 'long',
-            description: 'Show id and title with counts',
+            description: '显示 ID、标题和数量',
           },
         ],
       },
       {
         name: 'validate',
-        description: 'Validate a specification',
+        description: '校验 Spec',
         acceptsPositional: true,
         positionalType: 'spec-id',
         positionals: [{ name: 'spec-id', type: 'spec-id', optional: true }],
@@ -651,12 +651,12 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'completion',
-    description: 'Manage shell completions for OpenSpec CLI',
+    description: '管理 OpenSpec CLI 的 Shell 补全',
     flags: [],
     subcommands: [
       {
         name: 'generate',
-        description: 'Generate completion script for a shell (outputs to stdout)',
+        description: '生成 Shell 补全脚本（输出到 stdout）',
         acceptsPositional: true,
         positionalType: 'shell',
         positionals: [{ name: 'shell', type: 'shell', optional: true }],
@@ -664,20 +664,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       },
       {
         name: 'install',
-        description: 'Install completion script for a shell',
+        description: '安装 Shell 补全脚本',
         acceptsPositional: true,
         positionalType: 'shell',
         positionals: [{ name: 'shell', type: 'shell', optional: true }],
         flags: [
           {
             name: 'verbose',
-            description: 'Show detailed installation output',
+            description: '显示详细安装输出',
           },
         ],
       },
       {
         name: 'uninstall',
-        description: 'Uninstall completion script for a shell',
+        description: '卸载 Shell 补全脚本',
         acceptsPositional: true,
         positionalType: 'shell',
         positionals: [{ name: 'shell', type: 'shell', optional: true }],
@@ -685,7 +685,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           {
             name: 'yes',
             short: 'y',
-            description: 'Skip confirmation prompts',
+            description: '跳过确认提示',
           },
         ],
       },
@@ -693,11 +693,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'config',
-    description: 'View and modify global OpenSpec configuration',
+    description: '查看和修改全局 OpenSpec 配置',
     flags: [
       {
         name: 'scope',
-        description: 'Config scope (only "global" supported currently)',
+        description: '配置范围（当前仅支持 "global"）',
         takesValue: true,
         values: ['global'],
       },
@@ -705,69 +705,69 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     subcommands: [
       {
         name: 'path',
-        description: 'Show config file location',
+        description: '显示配置文件位置',
         flags: [],
       },
       {
         name: 'list',
-        description: 'Show all current settings',
+        description: '显示当前全部设置',
         flags: [
           COMMON_FLAGS.json,
         ],
       },
       {
         name: 'get',
-        description: 'Get a specific value (raw, scriptable)',
+        description: '获取指定值（原始值，适合脚本使用）',
         acceptsPositional: true,
         positionals: [{ name: 'key' }],
         flags: [],
       },
       {
         name: 'set',
-        description: 'Set a value (auto-coerce types)',
+        description: '设置值（自动转换类型）',
         acceptsPositional: true,
         positionals: [{ name: 'key' }, { name: 'value' }],
         flags: [
           {
             name: 'string',
-            description: 'Force value to be stored as string',
+            description: '强制以字符串保存值',
           },
           {
             name: 'allow-unknown',
-            description: 'Allow setting unknown keys',
+            description: '允许设置未知键',
           },
         ],
       },
       {
         name: 'unset',
-        description: 'Remove a key (revert to default)',
+        description: '移除配置键（恢复默认值）',
         acceptsPositional: true,
         positionals: [{ name: 'key' }],
         flags: [],
       },
       {
         name: 'reset',
-        description: 'Reset configuration to defaults',
+        description: '将配置重置为默认值',
         flags: [
           {
             name: 'all',
-            description: 'Reset all configuration (required)',
+            description: '重置全部配置（必需）',
           },
           {
             name: 'yes',
             short: 'y',
-            description: 'Skip confirmation prompts',
+            description: '跳过确认提示',
           },
         ],
       },
       {
         name: 'edit',
-        description: 'Open config in $EDITOR',
+        description: '使用 $EDITOR 打开配置',
         flags: [],
       },
       {
         name: 'profile',
-        description: 'Configure workflow profile (interactive picker or preset shortcut)',
+        description: '配置工作流 Profile（交互式选择或预设快捷方式）',
         acceptsPositional: true,
         positionals: [{ name: 'preset', optional: true }],
         flags: [],
@@ -776,12 +776,12 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'schema',
-    description: 'Manage workflow schemas',
+    description: '管理工作流 Schema',
     flags: [],
     subcommands: [
       {
         name: 'which',
-        description: 'Show where a schema resolves from',
+        description: '显示 Schema 的解析来源',
         acceptsPositional: true,
         positionalType: 'schema-name',
         positionals: [{ name: 'name', type: 'schema-name', optional: true }],
@@ -789,13 +789,13 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           COMMON_FLAGS.json,
           {
             name: 'all',
-            description: 'List all schemas with their resolution sources',
+            description: '列出全部 Schema 及其解析来源',
           },
         ],
       },
       {
         name: 'validate',
-        description: 'Validate a schema structure and templates',
+        description: '校验 Schema 结构和模板',
         acceptsPositional: true,
         positionalType: 'schema-name',
         positionals: [{ name: 'name', type: 'schema-name', optional: true }],
@@ -803,13 +803,13 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           COMMON_FLAGS.json,
           {
             name: 'verbose',
-            description: 'Show detailed validation steps',
+            description: '显示详细校验步骤',
           },
         ],
       },
       {
         name: 'fork',
-        description: 'Copy an existing schema to project for customization',
+        description: '复制已有 Schema 到项目中进行定制',
         acceptsPositional: true,
         positionalType: 'schema-name',
         positionals: [
@@ -820,38 +820,38 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
           COMMON_FLAGS.json,
           {
             name: 'force',
-            description: 'Overwrite existing destination',
+            description: '覆盖已有目标',
           },
         ],
       },
       {
         name: 'init',
-        description: 'Create a new project-local schema',
+        description: '创建新的项目级 Schema',
         acceptsPositional: true,
         positionals: [{ name: 'name' }],
         flags: [
           COMMON_FLAGS.json,
           {
             name: 'description',
-            description: 'Schema description',
+            description: 'Schema 描述',
             takesValue: true,
           },
           {
             name: 'artifacts',
-            description: 'Comma-separated artifact IDs',
+            description: '逗号分隔的产物 ID',
             takesValue: true,
           },
           {
             name: 'default',
-            description: 'Set as project default schema',
+            description: '设为项目默认 Schema',
           },
           {
             name: 'no-default',
-            description: 'Do not prompt to set as default',
+            description: '不询问是否设为默认值',
           },
           {
             name: 'force',
-            description: 'Overwrite existing schema',
+            description: '覆盖已有 Schema',
           },
         ],
       },

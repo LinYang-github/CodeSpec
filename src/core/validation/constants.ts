@@ -23,46 +23,43 @@ export const PURPOSE_PLACEHOLDER_SUFFIX = '. Update Purpose after archive.';
 // Validation messages
 export const VALIDATION_MESSAGES = {
   // Required content
-  SCENARIO_EMPTY: 'Scenario text cannot be empty',
-  REQUIREMENT_EMPTY: 'Requirement text cannot be empty',
-  REQUIREMENT_NO_SHALL: 'Requirement must contain SHALL or MUST keyword',
-  REQUIREMENT_NO_SCENARIOS: 'Requirement must have at least one scenario',
-  SPEC_NAME_EMPTY: 'Spec name cannot be empty',
-  SPEC_PURPOSE_EMPTY: 'Purpose section cannot be empty',
-  SPEC_NO_REQUIREMENTS: 'Spec must have at least one requirement',
-  CHANGE_NAME_EMPTY: 'Change name cannot be empty',
-  CHANGE_WHY_TOO_SHORT: `Why section must be at least ${MIN_WHY_SECTION_LENGTH} characters`,
-  CHANGE_WHY_TOO_LONG: `Why section should not exceed ${MAX_WHY_SECTION_LENGTH} characters`,
-  CHANGE_WHAT_EMPTY: 'What Changes section cannot be empty',
-  CHANGE_NO_DELTAS: 'Change must have at least one delta',
+  SCENARIO_EMPTY: 'Scenario 文本不能为空',
+  REQUIREMENT_EMPTY: 'Requirement 文本不能为空',
+  REQUIREMENT_NO_SHALL: 'Requirement 必须包含 SHALL 或 MUST 关键字',
+  REQUIREMENT_NO_SCENARIOS: 'Requirement 至少需要一个 Scenario',
+  SPEC_NAME_EMPTY: 'Spec 名称不能为空',
+  SPEC_PURPOSE_EMPTY: 'Purpose 部分不能为空',
+  SPEC_NO_REQUIREMENTS: 'Spec 至少需要一个 Requirement',
+  CHANGE_NAME_EMPTY: 'Change 名称不能为空',
+  CHANGE_WHY_TOO_SHORT: `Why 部分至少需要 ${MIN_WHY_SECTION_LENGTH} 个字符`,
+  CHANGE_WHY_TOO_LONG: `Why 部分不应超过 ${MAX_WHY_SECTION_LENGTH} 个字符`,
+  CHANGE_WHAT_EMPTY: 'What Changes 部分不能为空',
+  CHANGE_NO_DELTAS: 'Change 至少需要一个 delta',
   CHANGE_SKIP_SPECS_CONFLICT:
-    'skip_specs is set in .openspec.yaml but spec files exist under specs/. Remove skip_specs or delete the delta spec files',
+    '已在 .openspec.yaml 中设置 skip_specs，但 specs/ 下仍存在 Spec 文件。请移除 skip_specs 或删除 delta Spec 文件',
   CHANGE_SKIP_SPECS_ACCEPTED:
-    'skip_specs is set in .openspec.yaml: change declares no spec-level behavior changes, zero deltas accepted',
+    '已在 .openspec.yaml 中设置 skip_specs：Change 声明不包含 Spec 层行为变更，接受零个 delta',
   CHANGE_SKIP_SPECS_INVALID_METADATA:
-    'skip_specs is set but .openspec.yaml is not valid change metadata, so the marker is not honored. Fix the metadata',
-  CHANGE_TOO_MANY_DELTAS: `Consider splitting changes with more than ${MAX_DELTAS_PER_CHANGE} deltas`,
-  DELTA_SPEC_EMPTY: 'Spec name cannot be empty',
-  DELTA_DESCRIPTION_EMPTY: 'Delta description cannot be empty',
+    '已设置 skip_specs，但 .openspec.yaml 不是有效的 Change 元数据，因此不会采用该标记。请修复元数据',
+  CHANGE_TOO_MANY_DELTAS: `包含超过 ${MAX_DELTAS_PER_CHANGE} 个 delta，建议拆分 Change`,
+  DELTA_SPEC_EMPTY: 'Spec 名称不能为空',
+  DELTA_DESCRIPTION_EMPTY: 'Delta 描述不能为空',
   
   // Warnings
-  PURPOSE_TOO_BRIEF: `Purpose section is too brief (less than ${MIN_PURPOSE_LENGTH} characters)`,
+  PURPOSE_TOO_BRIEF: `Purpose 部分过短（少于 ${MIN_PURPOSE_LENGTH} 个字符）`,
   PURPOSE_IS_PLACEHOLDER:
-    'Purpose section is still a placeholder rather than a Purpose anyone wrote (the sentence `openspec archive` ' +
-    'writes for a new capability, or a `TBD`/`TODO` marker left in its place). Replace it with what this ' +
-    'capability is for, editing the main spec directly: a `## Purpose` in a delta is read only when the ' +
-    'capability is created, so it cannot replace this one.',
-  REQUIREMENT_TOO_LONG: `Requirement text is very long (>${MAX_REQUIREMENT_TEXT_LENGTH} characters). Consider breaking it down.`,
-  DELTA_DESCRIPTION_TOO_BRIEF: 'Delta description is too brief',
-  DELTA_MISSING_REQUIREMENTS: 'Delta should include requirements',
+    'Purpose 部分仍是占位内容，而不是实际编写的 Purpose（可能是 `openspec archive` 为新 capability 写入的句子，或遗留的 `TBD`/`TODO` 标记）。请直接编辑主 Spec，改为说明 capability 的用途：delta 中的 `## Purpose` 只会在创建 capability 时读取，不能替代主 Spec 中的 Purpose。',
+  REQUIREMENT_TOO_LONG: `Requirement 文本过长（超过 ${MAX_REQUIREMENT_TEXT_LENGTH} 个字符），建议拆分。`,
+  DELTA_DESCRIPTION_TOO_BRIEF: 'Delta 描述过短',
+  DELTA_MISSING_REQUIREMENTS: 'Delta 应包含 Requirements',
   
   // Guidance snippets (appended to primary messages for remediation)
   GUIDE_NO_DELTAS:
-    'No deltas found. Ensure your change has a specs/ directory with capability folders (e.g. specs/http-server/spec.md) containing .md files that use delta headers (## ADDED/MODIFIED/REMOVED/RENAMED Requirements) and that each requirement includes at least one "#### Scenario:" block. If this change intentionally modifies no specs (pure refactor, tooling, docs), set "skip_specs: true" in the change\'s .openspec.yaml instead. Tip: run "openspec change show <change-id> --json --deltas-only" to inspect parsed deltas.',
+    '未找到 delta。请确认 Change 包含 specs/ 目录和 capability 子目录（例如 specs/http-server/spec.md），其中的 .md 文件使用 delta 标题（## ADDED/MODIFIED/REMOVED/RENAMED Requirements），且每个 Requirement 至少包含一个 "#### Scenario:" 块。如果 Change 有意不修改 Spec（纯重构、工具或文档），请在 Change 的 .openspec.yaml 中设置 "skip_specs: true"。提示：运行 "openspec change show <change-id> --json --deltas-only" 查看解析后的 delta。',
   GUIDE_MISSING_SPEC_SECTIONS:
-    'Missing required sections. Expected headers: "## Purpose" and "## Requirements". Example:\n## Purpose\n[brief purpose]\n\n## Requirements\n### Requirement: Clear requirement statement\nUsers SHALL ...\n\n#### Scenario: Descriptive name\n- **WHEN** ...\n- **THEN** ...',
+    '缺少必需部分。应包含标题："## Purpose" 和 "## Requirements"。示例：\n## Purpose\n[简要目的]\n\n## Requirements\n### Requirement: Clear requirement statement\nUsers SHALL ...\n\n#### Scenario: Descriptive name\n- **WHEN** ...\n- **THEN** ...',
   GUIDE_MISSING_CHANGE_SECTIONS:
-    'Missing required sections. Expected headers: "## Why" and "## What Changes". Ensure deltas are documented in specs/ using delta headers.',
+    '缺少必需部分。应包含标题："## Why" 和 "## What Changes"。请在 specs/ 中使用 delta 标题记录变更。',
   GUIDE_SCENARIO_FORMAT:
-    'Scenarios must use level-4 headers. Convert bullet lists into:\n#### Scenario: Short name\n- **WHEN** ...\n- **THEN** ...\n- **AND** ...',
+    'Scenario 必须使用四级标题。请将项目列表转换为：\n#### Scenario: Short name\n- **WHEN** ...\n- **THEN** ...\n- **AND** ...',
 } as const;

@@ -497,7 +497,7 @@ describe('InitCommand', () => {
 
       for (const content of generatedContents) {
         expect(content).toContain(
-          'treat `--store <id>` as sticky for the rest of the workflow'
+          '选择后，在本次工作流的后续步骤中持续使用 `--store <id>`'
         );
         expect(content).toContain(
           'openspec status --change "<name>" --json --store "<id>"'
@@ -1807,8 +1807,8 @@ describe('InitCommand - profile and detection features', () => {
       .flat()
       .join('\n');
 
-    expect(logsBeforeSelection).toContain('Deferred global prompts cleanup');
-    expect(logsBeforeSelection).toContain('will only be removed after matching replacement skills are installed');
+    expect(logsBeforeSelection).toContain('延后清理的全局提示');
+    expect(logsBeforeSelection).toContain('只有安装了对应替代 skill 后，才会移除这些全局提示');
     expect(logsBeforeSelection).toContain(`codex: ${legacyPrompt}`);
     expect(await fileExists(legacyPrompt)).toBe(false);
   });

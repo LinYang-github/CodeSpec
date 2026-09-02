@@ -16,7 +16,7 @@ async function withLock<T>(directory: string, work: () => Promise<T>): Promise<T
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       await new Promise((resolve) => setTimeout(resolve, 10));
-      if (attempt === 99) throw new Error('Requirement allocation lock is busy');
+      if (attempt === 99) throw new Error('Requirement 分配锁正忙');
     }
   }
   try { return await work(); } finally { await fs.rm(lock, { recursive: true, force: true }); }
@@ -62,12 +62,12 @@ async function collectActiveMetadata(workspace: RequirementWorkspace, used: Set<
 function moduleIdEscape(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 async function allocate(workspace: RequirementWorkspace, targetId: ChangeId | undefined, moduleId: BusinessModuleId, count: number): Promise<string[]> {
-  if (!Number.isInteger(count) || count < 1) throw new Error('Requirement allocation count must be a positive integer');
+  if (!Number.isInteger(count) || count < 1) throw new Error('Requirement 分配数量必须是正整数');
   return withLock(workspace.paths.changes, async () => {
     const used = new Set<number>();
     await collectFileIds(workspace.paths.currentSpecs, moduleId, used);
     const target = await collectActiveMetadata(workspace, used, targetId);
-    if (targetId && !target) throw new Error(`Canonical Change ${targetId} not found for Requirement reservation`);
+    if (targetId && !target) throw new Error(`需求预留未找到 canonical Change ${targetId}`);
     const ids: string[] = [];
     for (let n = Math.max(0, ...used) + 1; ids.length < count; n += 1) if (!used.has(n)) { used.add(n); ids.push(`${moduleId}-REQ-${String(n).padStart(3, '0')}`); }
     if (target) {

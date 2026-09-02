@@ -16,14 +16,14 @@ function isDesignReason(reason: string): boolean { return /spec|design|requireme
 
 /** Transition is deliberately async and requires loaded canonical artifacts, so no gate bypass overload exists. */
 export async function transitionChange(workspace: WorkspaceContext, artifacts: ChangeArtifacts, target: ChangeStatus, reason: string): Promise<ChangeMetadata> {
-  if (!workspace || !artifacts?.metadata) throw new Error('Canonical workspace and artifacts are required; lifecycle gate bypass is unsupported');
+  if (!workspace || !artifacts?.metadata) throw new Error('需要 canonical workspace 和 Change 产物；不支持绕过生命周期门禁。');
   const metadata = artifacts.metadata; const from = metadata.change.status;
-  if (!canTransition(from, target)) throw new Error(`Invalid lifecycle transition ${from} -> ${target}`);
-  if (!reason.trim()) throw new Error('A transition reason is required');
-  if (from === 'VERIFY' && target === 'IMPLEMENT' && isDesignReason(reason)) throw new Error('VERIFY -> IMPLEMENT is only valid for implementation failures; use DESIGN for spec/design errors');
-  if (metadata.baseline.stale && target !== 'DESIGN' && target !== 'ABANDONED') throw new Error(`Change ${metadata.change.id} is stale; rebase to DESIGN before continuing`);
+  if (!canTransition(from, target)) throw new Error(`无效的生命周期转换：${from} -> ${target}`);
+  if (!reason.trim()) throw new Error('必须提供状态转换原因。');
+  if (from === 'VERIFY' && target === 'IMPLEMENT' && isDesignReason(reason)) throw new Error('VERIFY -> IMPLEMENT 仅适用于实现失败；Spec 或设计问题应转换到 DESIGN。');
+  if (metadata.baseline.stale && target !== 'DESIGN' && target !== 'ABANDONED') throw new Error(`Change ${metadata.change.id} 已过期；请先 rebase 到 DESIGN。`);
   const gate = validateEntryGate(workspace, artifacts, target);
-  if (!gate.ok) throw new Error(`Lifecycle transition ${from} -> ${target} blocked: ${gate.errors.join('; ')}`);
+  if (!gate.ok) throw new Error(`生命周期转换 ${from} -> ${target} 被阻塞：${gate.errors.join('；')}`);
   const next = { ...metadata, change: { ...metadata.change, status: target, updated_at: new Date().toISOString() } };
   const metadataPath = path.join(workspace.openspecDir, metadata.artifacts.metadata);
   const indexPath = workspace.paths.changeIndex;
@@ -59,6 +59,6 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
 export function incrementRevision(metadata: ChangeMetadata, reason: string): ChangeMetadata {
   const semanticChange = /requirements?\s+(?:added|modified|removed|changed)|scope\s+changed/i.test(reason) && Object.values(metadata.requirements).some((items) => items.length > 0);
   const verifyToDesign = /^VERIFY\s*(?:->|to)\s*DESIGN(?:\s|$)/i.test(reason) && metadata.change.status === 'VERIFY';
-  if (!semanticChange && !verifyToDesign) throw new Error('Revision increment requires an approved semantic Requirement/Scope change or VERIFY -> DESIGN');
+  if (!semanticChange && !verifyToDesign) throw new Error('修订号递增需要已批准的 Requirement/Scope 语义变更，或 VERIFY -> DESIGN 转换。');
   return { ...metadata, change: { ...metadata.change, revision: metadata.change.revision + 1, updated_at: new Date().toISOString() } };
 }

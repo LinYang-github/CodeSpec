@@ -18,10 +18,10 @@ describe('openspec-workflow integration', () => {
       expect(template.instructions).toContain('openspec context --json');
       expect(template.instructions).toContain('openspec status --change "<CHG-ID>" --json');
       expect(template.instructions).toContain('metadata.yaml');
-      expect(template.instructions).toContain('Requirement IDs');
-      expect(template.instructions).toContain('Scenario IDs');
-      expect(template.instructions).toContain('Task IDs');
-      expect(template.instructions).toContain('fail explicitly');
+      expect(template.instructions).toContain('Requirement ID');
+      expect(template.instructions).toContain('Scenario ID');
+      expect(template.instructions).toContain('Task ID');
+      expect(template.instructions).toContain('明确失败并停止');
     }
     for (const command of getCommandContents()) {
       expect(command.body).toContain('openspec-workflow');
@@ -31,7 +31,7 @@ describe('openspec-workflow integration', () => {
 
   it('does not duplicate store-selection guidance in generated adapter content', () => {
     const content = getSkillTemplates().find(({ dirName }) => dirName === 'openspec-workflow')!.template.instructions;
-    expect(content.match(/\*\*Store selection:\*\*/g)).toHaveLength(1);
+    expect(content.match(/\*\*Store 选择：\*\*/g)).toHaveLength(1);
   });
 
   it('renders stable scenario IDs and names from the loaded spec artifact', async () => {
@@ -45,7 +45,7 @@ describe('openspec-workflow integration', () => {
   it('does not map unsupported workflows to continue guidance', () => {
     for (const workflowId of ['update', 'sync', 'onboard']) {
       const template = getSkillTemplates().find(entry => entry.workflowId === workflowId)!.template.instructions;
-      expect(template).toContain(`Unsupported canonical stage: ${workflowId}`);
+      expect(template).toContain(`不支持的 canonical 阶段：${workflowId}`);
       expect(template).not.toContain('### continue stage adapter');
     }
   });

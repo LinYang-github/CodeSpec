@@ -394,7 +394,7 @@ describe('store registry facade', () => {
 
     await expect(
       resolveRegisteredStore({ id: 'unknown-context', globalDataDir: tempDir })
-    ).rejects.toThrow(/Unknown store/u);
+    ).rejects.toThrow(/未知 Store/u);
 
     await expect(
       resolveRegisteredStore({ id: 'missing-metadata', globalDataDir: tempDir })

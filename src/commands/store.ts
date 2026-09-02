@@ -226,7 +226,7 @@ async function promptStoreId(): Promise<string> {
   const { input } = await import('@inquirer/prompts');
 
   return input({
-    message: 'Store name',
+    message: 'Store 名称',
     required: true,
     validate(value: string) {
       try {
@@ -245,7 +245,7 @@ async function promptStorePath(id: string): Promise<string> {
   const defaultPath = ['~', 'openspec', id].join('/');
 
   return input({
-    message: 'Where should this store live?',
+    message: 'Store 存放在哪里？',
     default: defaultPath,
     prefill: 'editable',
     required: true,
@@ -306,25 +306,25 @@ async function confirmSetup(
   const { confirm } = await import('@inquirer/prompts');
 
   console.log('');
-  console.log('OpenSpec will create:');
+  console.log('OpenSpec 将创建：');
   console.log('');
-  console.log(`  Store: ${prepared.id}`);
-  console.log(`  Location: ${formatPathForHuman(prepared.root)}`);
-  console.log(`  Git: ${initGit ? 'initialized' : 'not initialized'}`);
+  console.log(`  Store：${prepared.id}`);
+  console.log(`  位置：${formatPathForHuman(prepared.root)}`);
+  console.log(`  Git：${initGit ? '已初始化' : '未初始化'}`);
   console.log('');
 
   const confirmed = await confirm({
-    message: 'Create this store?',
+    message: '创建此 Store？',
     default: true,
   });
 
   if (!confirmed) {
     throw new StoreError(
-      'Store setup cancelled.',
+      'Store 设置已取消。',
       'store_setup_cancelled',
       {
         target: 'store.root',
-        fix: 'Rerun setup when you are ready.',
+        fix: '准备好后重新运行 setup。',
       }
     );
   }
@@ -346,17 +346,17 @@ async function confirmRemove(id: string, root: string, options: StoreRemoveOptio
 
   const { confirm } = await import('@inquirer/prompts');
   const confirmed = await confirm({
-    message: `Delete local store folder ${formatPathForHuman(root)}?`,
+    message: `删除本地 Store 目录 ${formatPathForHuman(root)}？`,
     default: false,
   });
 
   if (!confirmed) {
     throw new StoreError(
-      'Store remove cancelled.',
+      'Store 删除已取消。',
       'store_remove_cancelled',
       {
         target: 'store.root',
-        fix: 'Run "openspec store unregister <id>" if you only want to forget the local registration.',
+        fix: '如果只想移除本机登记，请运行 "openspec store unregister <id>"。',
       }
     );
   }
@@ -378,11 +378,11 @@ async function confirmRegisterConversion(error: unknown): Promise<void> {
 
   if (!confirmed) {
     throw new StoreError(
-      'Store register cancelled.',
+      'Store 注册已取消。',
       'store_register_cancelled',
       {
         target: 'store.metadata',
-        fix: 'Rerun register when you are ready to create store identity metadata.',
+        fix: '准备好创建 Store 身份元数据后重新运行 register。',
       }
     );
   }
@@ -397,22 +397,22 @@ function printMutationHuman(
     return;
   }
 
-  console.log(`${title}: ${payload.store.id}`);
-  console.log(`Location: ${formatPathForHuman(payload.store.root)}`);
-  console.log('OpenSpec root: ready');
-  console.log(`Registry: ${payload.registry.already_registered ? 'already registered' : 'registered'}`);
+  console.log(`${title}：${payload.store.id}`);
+  console.log(`位置：${formatPathForHuman(payload.store.root)}`);
+  console.log('OpenSpec 根目录：就绪');
+  console.log(`Registry：${payload.registry.already_registered ? '已注册' : '已登记'}`);
   for (const status of payload.status) {
-    console.log(`${status.severity === 'error' ? 'Issue' : 'Note'}: ${status.message}`);
+    console.log(`${status.severity === 'error' ? '问题' : '提示'}：${status.message}`);
   }
   console.log('');
-  console.log('Next: run normal OpenSpec commands against this store, for example:');
+  console.log('下一步：对该 Store 运行普通 OpenSpec 命令，例如：');
   console.log(`  openspec new change <change-id> --store ${payload.store.id}`);
   if (payload.git.is_repository) {
     const shareRemote = remotes?.canonical ?? remotes?.observed;
     console.log(
       shareRemote
-        ? `Share it: teammates clone ${shareRemote} and run openspec store register <path>.`
-        : 'Share this store by committing and pushing it like any Git repo.'
+        ? `共享方式：队友 clone ${shareRemote} 后运行 openspec store register <path>。`
+        : '共享方式：像普通 Git 仓库一样提交并 push 此 Store。'
     );
   }
 }
@@ -422,92 +422,92 @@ function printCleanupHuman(title: string, payload: StoreCleanupOutput): void {
     return;
   }
 
-  console.log(`${title}: ${payload.store.id}`);
+  console.log(`${title}：${payload.store.id}`);
 
   if (payload.files.deleted_path) {
-    console.log(`Deleted: ${formatPathForHuman(payload.files.deleted_path)}`);
+    console.log(`已删除：${formatPathForHuman(payload.files.deleted_path)}`);
   } else if (payload.files.left_on_disk) {
-    console.log(`Files kept at: ${formatPathForHuman(payload.files.left_on_disk)}`);
+    console.log(`保留文件位置：${formatPathForHuman(payload.files.left_on_disk)}`);
   } else if (!payload.files.deleted) {
-    console.log(`Files were already missing: ${formatPathForHuman(payload.store.root)}`);
+    console.log(`文件已不存在：${formatPathForHuman(payload.store.root)}`);
   }
 
   for (const status of payload.status) {
-    console.log(`${status.severity === 'error' ? 'Issue' : 'Note'}: ${status.message}`);
+    console.log(`${status.severity === 'error' ? '问题' : '提示'}：${status.message}`);
   }
 }
 
 function printListHuman(payload: StoreListOutput): void {
   if (payload.stores.length === 0) {
-    console.log('No stores registered.');
+    console.log('尚未注册 Store。');
     console.log('');
-    console.log('Next:');
+    console.log('下一步：');
     console.log('  openspec store setup team-context --path ~/openspec/team-context');
     console.log('  openspec store register /path/to/store');
     return;
   }
 
-  console.log(`OpenSpec stores (${payload.stores.length})`);
+  console.log(`OpenSpec Store（${payload.stores.length}）`);
   console.log('');
-  console.log(`${'ID'.padEnd(16)}Location`);
+  console.log(`${'ID'.padEnd(16)}位置`);
   for (const store of payload.stores) {
     console.log(`${store.id.padEnd(16)}${store.root}`);
   }
 }
 
 function formatMetadataHuman(store: StoreDoctorOutput['stores'][number]): string {
-  if (store.metadata.valid) return 'ok';
-  if (store.metadata.present === false) return 'missing';
-  if (store.metadata.present === null) return 'unknown';
-  return 'invalid';
+  if (store.metadata.valid) return '正常';
+  if (store.metadata.present === false) return '缺失';
+  if (store.metadata.present === null) return '未知';
+  return '无效';
 }
 
 function formatDoctorGitHuman(store: StoreDoctorOutput['stores'][number]): string {
-  if (store.git.is_repository === null) return 'unknown';
-  if (!store.git.is_repository) return 'not detected';
+  if (store.git.is_repository === null) return '未知';
+  if (!store.git.is_repository) return '未检测到';
 
   const fact = (value: boolean | null, yes: string, no: string): string =>
     value === null ? 'unknown' : value ? yes : no;
 
-  return `repository detected (commits: ${fact(store.git.has_commits, 'yes', 'none')}, uncommitted changes: ${fact(store.git.has_uncommitted_changes, 'yes', 'no')}, remote: ${fact(store.git.has_remote, 'yes', 'none')})`;
+  return `已检测到仓库（commits：${fact(store.git.has_commits, '有', '无')}，未提交变更：${fact(store.git.has_uncommitted_changes, '有', '无')}，remote：${fact(store.git.has_remote, '有', '无')}）`;
 }
 
 function formatOpenSpecRootHuman(store: StoreDoctorOutput['stores'][number]): string {
-  if (store.openspec_root.healthy) return 'ok';
-  if (store.openspec_root.present === false) return 'missing';
-  if (store.openspec_root.present === null) return 'unknown';
-  return 'incomplete';
+  if (store.openspec_root.healthy) return '正常';
+  if (store.openspec_root.present === false) return '缺失';
+  if (store.openspec_root.present === null) return '未知';
+  return '不完整';
 }
 
 function printDoctorHuman(payload: StoreDoctorOutput): void {
   if (payload.stores.length === 0) {
-    console.log('No stores registered.');
+    console.log('尚未注册 Store。');
     return;
   }
 
-  console.log('Store doctor');
+  console.log('Store 健康检查');
   for (const store of payload.stores) {
     console.log('');
     console.log(store.id);
-    console.log(`  Location: ${store.root}`);
-    console.log(`  OpenSpec root: ${formatOpenSpecRootHuman(store)}`);
-    console.log(`  Metadata: ${formatMetadataHuman(store)}`);
+    console.log(`  位置：${store.root}`);
+    console.log(`  OpenSpec 根目录：${formatOpenSpecRootHuman(store)}`);
+    console.log(`  元数据：${formatMetadataHuman(store)}`);
     const remoteLine = store.metadata.remote ?? store.git.origin_url;
     if (remoteLine) {
-      console.log(`  Remote: ${remoteLine}`);
+      console.log(`  Remote：${remoteLine}`);
     }
-    console.log(`  Git: ${formatDoctorGitHuman(store)}`);
+    console.log(`  Git：${formatDoctorGitHuman(store)}`);
 
     if (store.status.length === 0) {
-      console.log('  Issues: none');
+      console.log('  问题：无');
       continue;
     }
 
-    console.log('  Issues:');
+    console.log('  问题：');
     for (const status of store.status) {
       console.log(`    - ${status.message}`);
       if (status.fix) {
-        console.log(`      Fix: ${status.fix}`);
+        console.log(`      修复：${status.fix}`);
       }
     }
   }
@@ -530,7 +530,7 @@ class StoreCommand {
         return;
       }
 
-      printMutationHuman('Store ready', payload, result.remotes);
+      printMutationHuman('Store 已就绪', payload, result.remotes);
     } catch (error) {
       this.handleFailure(
         options.json,
@@ -569,7 +569,7 @@ class StoreCommand {
         return;
       }
 
-      printMutationHuman('Store registered', payload, result.remotes);
+      printMutationHuman('Store 已注册', payload, result.remotes);
     } catch (error) {
       this.handleFailure(
         options.json,
@@ -664,44 +664,44 @@ export function registerStoreCommand(program: Command): void {
   // entry, which shell completion scripts also consume.
   const storeGroupDescription =
     COMMAND_REGISTRY.find((entry) => entry.name === 'store')?.description ??
-    'Create and manage stores - standalone OpenSpec repos you register on this machine';
+    '创建并管理 Store——在本机登记的独立 OpenSpec 仓库';
   const store = program.command('store').description(storeGroupDescription);
 
   store
     .command('setup [id]')
-    .description('Create and register a local store')
-    .option('--path <path>', 'Folder where the store should live (for example ~/openspec/<id>)')
-    .option('--init-git', 'Initialize a Git repository with an initial commit (default)')
-    .option('--no-init-git', 'Skip every Git action: no init, no initial commit')
-    .option('--remote <url>', 'Canonical clone source recorded in store.yaml')
-    .option('--json', 'Output as JSON')
+    .description('创建并登记本地 Store')
+    .option('--path <path>', 'Store 所在目录（例如 ~/openspec/<id>）')
+    .option('--init-git', '初始化 Git 仓库并创建初始提交（默认）')
+    .option('--no-init-git', '跳过所有 Git 操作：不初始化，也不创建初始提交')
+    .option('--remote <url>', '记录在 store.yaml 中的 canonical 克隆源')
+    .option('--json', '以 JSON 输出')
     .action(async (id: string | undefined, options: StoreSetupOptions) => {
       await storeCommand.setup(id, options);
     });
 
   store
     .command('register [path]')
-    .description('Register an existing local store')
-    .option('--id <id>', 'Store id; defaults to metadata or folder name')
-    .option('--yes', 'Confirm creating store identity metadata for a healthy OpenSpec root')
-    .option('--json', 'Output as JSON')
+    .description('登记已有的本地 Store')
+    .option('--id <id>', 'Store ID；默认使用元数据或目录名称')
+    .option('--yes', '确认为健康的 OpenSpec 根目录创建 Store 身份元数据')
+    .option('--json', '以 JSON 输出')
     .action(async (inputPath: string | undefined, options: StoreRegisterOptions) => {
       await storeCommand.register(inputPath, options);
     });
 
   store
     .command('unregister <id>')
-    .description('Forget a local store registration without deleting files')
-    .option('--json', 'Output as JSON')
+    .description('移除本地 Store 登记，但不删除文件')
+    .option('--json', '以 JSON 输出')
     .action(async (id: string, options: StoreJsonOptions) => {
       await storeCommand.unregister(id, options);
     });
 
   store
     .command('remove <id>')
-    .description('Forget a local store registration and delete its local folder')
-    .option('--yes', 'Confirm local store folder deletion')
-    .option('--json', 'Output as JSON')
+    .description('移除本地 Store 登记并删除本地目录')
+    .option('--yes', '确认删除本地 Store 目录')
+    .option('--json', '以 JSON 输出')
     .action(async (id: string, options: StoreRemoveOptions) => {
       await storeCommand.remove(id, options);
     });
@@ -709,16 +709,16 @@ export function registerStoreCommand(program: Command): void {
   store
     .command('list')
     .alias('ls')
-    .description('List locally registered stores')
-    .option('--json', 'Output as JSON')
+    .description('列出本机已登记的 Store')
+    .option('--json', '以 JSON 输出')
     .action(async (options: StoreJsonOptions) => {
       await storeCommand.list(options);
     });
 
   store
     .command('doctor [id]')
-    .description('Check local store registration and metadata')
-    .option('--json', 'Output as JSON')
+    .description('检查本地 Store 登记和元数据')
+    .option('--json', '以 JSON 输出')
     .action(async (id: string | undefined, options: StoreJsonOptions) => {
       await storeCommand.doctor(id, options);
     });
@@ -758,15 +758,15 @@ export function registerStoreCommand(program: Command): void {
     if (operands.includes('--json')) {
       const message =
         attempted.length > 0
-          ? `Unknown command '${attempted[0]}' for 'openspec store'. Store subcommands: ${storeSubcommandsLine}.`
-          : `Missing subcommand for 'openspec store'. Store subcommands: ${storeSubcommandsLine}.`;
+          ? `"openspec store" 中的未知命令 '${attempted[0]}'。Store 子命令：${storeSubcommandsLine}。`
+          : `缺少 "openspec store" 子命令。Store 子命令：${storeSubcommandsLine}。`;
       printJson({
         status: [
           {
             severity: 'error',
             code: 'unknown_store_subcommand',
             message,
-            fix: 'Run a store subcommand, or use the lifecycle command with --store <id>.',
+            fix: '运行 Store 子命令，或使用带 --store <id> 的生命周期命令。',
           },
         ],
       });
@@ -784,14 +784,14 @@ export function registerStoreCommand(program: Command): void {
     }
     console.error(
       attempted.length > 0
-        ? `Error: unknown command '${attempted[0]}' for 'openspec store'.`
-        : "Error: missing subcommand for 'openspec store'."
+        ? `错误："openspec store" 中的未知命令 '${attempted[0]}'。`
+        : '错误：缺少 "openspec store" 子命令。'
     );
     console.error(
-      `Store subcommands manage store registration: ${storeSubcommandsLine}.`
+      `Store 子命令用于管理 Store 登记：${storeSubcommandsLine}。`
     );
     console.error(
-      'To create or work on a change in a store, use the normal command with --store, for example:'
+      '要在 Store 中创建或处理 Change，请在普通命令中传入 --store，例如：'
     );
     console.error(`  ${example}`);
     process.exitCode = 1;

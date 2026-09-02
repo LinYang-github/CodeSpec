@@ -67,20 +67,20 @@ function applyDelta(spec: string, delta: RequirementDelta): string {
 function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   const m = artifacts.metadata;
   if (m.change.status !== 'ARCHIVE') throw new Error(`Archive requires ARCHIVE state, got ${m.change.status}`);
-  if (!m.archive.ready || !m.gates.archive.satisfied) throw new Error('Archive gate is not satisfied');
-  if (m.archive.conflict) throw new Error('Archive conflict must be resolved before archiving');
-  if (m.baseline.stale) throw new Error('Archive is blocked: baseline is stale');
-  if (m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((t) => t.status !== 'DONE')) throw new Error('Archive requires all Tasks DONE');
-  if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) throw new Error('Archive requires fresh Verification evidence');
+  if (!m.archive.ready || !m.gates.archive.satisfied) throw new Error('归档门禁未满足');
+  if (m.archive.conflict) throw new Error('归档前必须先解决冲突');
+  if (m.baseline.stale) throw new Error('归档被阻塞：baseline 已过期');
+  if (m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((t) => t.status !== 'DONE')) throw new Error('归档要求所有 Task 均为 DONE');
+  if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) throw new Error('归档要求最新的 Verification 证据');
   let evidence: any;
   try { evidence = parseYaml(artifacts.verification); } catch (error) { throw new Error(`Invalid Verification evidence: ${error instanceof Error ? error.message : String(error)}`); }
   const expectedIds = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed].map((r) => r.id).sort();
   const expectedScenarios = (() => { try { return parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)); } catch { return []; } })();
   const validCommands = Array.isArray(evidence?.commands) && evidence.commands.length > 0 && evidence.commands.every((command: any) => command && typeof command.command === 'string' && command.command.trim() && command.exit_code === 0 && typeof command.started_at === 'string' && typeof command.finished_at === 'string' && !Number.isNaN(Date.parse(command.started_at)) && !Number.isNaN(Date.parse(command.finished_at)) && Date.parse(command.finished_at) >= Date.parse(command.started_at));
-  if (evidence?.schema_version !== 1 || evidence.change_id !== m.change.id || evidence.status !== 'PASS' || evidence.revision !== m.change.revision || evidence.baseline_identity !== digest(m.baseline) || typeof evidence.receipt !== 'string' || !validCommands || !expectedIds.every((id) => evidence.requirement_ids?.includes(id)) || !expectedScenarios.every((id) => evidence.scenario_ids?.includes(id))) throw new Error('Archive requires validated fresh Verification evidence for the current revision, baseline, Requirements, and Scenarios');
-  if (evidence.receipt !== digest({ ...evidence, receipt: undefined }) || m.verification.evidence_receipt !== evidence.receipt || m.verification.baseline_identity !== evidence.baseline_identity) throw new Error('Archive requires authentic Verification evidence bound to metadata');
-  if (m.baseline.created_at && Date.parse(m.baseline.created_at) > Date.parse(m.verification.verified_at)) throw new Error('Verification evidence predates the current baseline');
-  if (m.relations.conflicts_with.length) throw new Error('Archive has unresolved Change conflicts');
+  if (evidence?.schema_version !== 1 || evidence.change_id !== m.change.id || evidence.status !== 'PASS' || evidence.revision !== m.change.revision || evidence.baseline_identity !== digest(m.baseline) || typeof evidence.receipt !== 'string' || !validCommands || !expectedIds.every((id) => evidence.requirement_ids?.includes(id)) || !expectedScenarios.every((id) => evidence.scenario_ids?.includes(id))) throw new Error('归档要求当前修订、baseline、Requirements 和 Scenarios 对应的最新 Verification 证据');
+  if (evidence.receipt !== digest({ ...evidence, receipt: undefined }) || m.verification.evidence_receipt !== evidence.receipt || m.verification.baseline_identity !== evidence.baseline_identity) throw new Error('归档要求绑定到元数据且真实有效的 Verification 证据');
+  if (m.baseline.created_at && Date.parse(m.baseline.created_at) > Date.parse(m.verification.verified_at)) throw new Error('Verification 证据早于当前 baseline');
+  if (m.relations.conflicts_with.length) throw new Error('归档存在未解决的 Change 冲突');
   const trace = validateChangeTraceability(artifacts);
   if (!trace.valid) throw new Error(`Archive traceability gate failed: ${trace.issues.join('; ')}`);
 }
@@ -161,8 +161,8 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
   let ownsLock = false;
   let ownsIndexLock = false;
   try {
-    try { await fs.mkdir(lock); ownsLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Another archive transaction is already in progress'); throw error; }
-    try { await fs.mkdir(indexLock); ownsIndexLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change index is busy'); throw error; }
+    try { await fs.mkdir(lock); ownsLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('已有归档事务正在进行'); throw error; }
+    try { await fs.mkdir(indexLock); ownsIndexLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change 索引正忙'); throw error; }
     const latestMetadata = await fs.readFile(path.join(plan.workspace.openspecDir, plan.artifacts.metadata.artifacts.metadata), 'utf8');
     const latestIndex = await fs.readFile(plan.workspace.paths.changeIndex, 'utf8');
     const latestCurrent = new Map<string, string>();
@@ -182,7 +182,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
       }));
     }
     if (latestMetadata !== plan.snapshot.metadata || latestIndex !== plan.snapshot.index || [...latestCurrent].some(([module, content]) => content !== plan.snapshot.current.get(module))) {
-      throw new Error('ARCHIVE CONFLICT: workspace changed after preflight; rerun archive');
+      throw new Error('归档冲突：预检后工作区发生变化，请重新运行 archive');
     }
     await fs.mkdir(stage, { recursive: true });
     for (const [module, content] of specs) {
@@ -202,7 +202,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     const archiveRecord = { change: plan.changeId, status: 'ARCHIVED', archived_at: archivedMetadata.archive.archived_at };
     const parsedHistory = existingHistory.trim() ? parseYaml(existingHistory) : { version: 1, records: [] };
     if (!parsedHistory || typeof parsedHistory !== 'object' || Array.isArray(parsedHistory) || (parsedHistory as any).version !== 1 || !Array.isArray((parsedHistory as any).records) || (parsedHistory as any).records.some((record: any) => !record || !/^CHG-\d{8}-\d{3}$/u.test(record.change) || record.status !== 'ARCHIVED' || typeof record.archived_at !== 'string' || Number.isNaN(Date.parse(record.archived_at)))) {
-      throw new Error('Archive history must use the canonical version 1 records schema');
+      throw new Error('归档历史必须使用 canonical version 1 records Schema');
     }
     const mergedHistory = { version: 1, records: [...(parsedHistory as any).records, archiveRecord] };
     await fs.writeFile(path.join(stage, 'README.md'), `${existingReadme}${existingReadme && !existingReadme.endsWith('\n') ? '\n' : ''}\n## Archived ${plan.changeId}\n\nStatus: ARCHIVED\n`);

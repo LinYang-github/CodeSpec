@@ -145,7 +145,7 @@ export async function resolveChange(
   if (explicitId) {
     const match = activeChanges.find((candidate) => candidate.changeId === explicitId);
     if (!match) {
-      throw new Error(`Active Change "${explicitId}" not found.`);
+      throw new Error(`未找到活动 Change "${explicitId}"。`);
     }
     return {
       changeId: match.changeId,
@@ -181,11 +181,11 @@ export async function resolveChange(
   }
 
   if (activeChanges.length === 0) {
-    throw new Error('No active Changes found.');
+    throw new Error('未找到活动 Change。');
   }
 
   if (selector.text) {
-    throw new Error(`No active Change matches "${selector.text}".`);
+    throw new Error(`没有活动 Change 匹配 "${selector.text}"。`);
   }
 
   const available = activeChanges.map((candidate) => `${candidate.changeId} (${candidate.metadata.change.title})`);

@@ -72,7 +72,7 @@ const STORE_OPTION_DESCRIPTION = COMMON_FLAGS.store.description;
 function hiddenStorePathOption(): Option {
   return new Option(
     '--store-path <path>',
-    'Not supported; register the path with "openspec store register <path>" and use --store <id>'
+    '不支持；请使用 "openspec store register <path>" 登记路径，再使用 --store <id>'
   ).hideHelp();
 }
 
@@ -93,11 +93,11 @@ function failWithError(
     process.exitCode = 1;
     return;
   }
-  ora().fail(`Error: ${(error as Error).message}`);
+  ora().fail(`错误：${(error as Error).message}`);
   // Resolution and store errors carry a pasteable fix - never drop it.
   const fix = (error as { diagnostic?: { fix?: string } }).diagnostic?.fix;
   if (fix) {
-    console.error(`Fix: ${fix}`);
+    console.error(`修复：${fix}`);
   }
   process.exitCode = process.exitCode ?? 1;
 }
@@ -172,11 +172,11 @@ export function shouldDeferCompletionTip(command: Command, stderrIsTty: boolean)
 
 program
   .name('openspec')
-  .description('AI-native system for spec-driven development')
+  .description('面向 AI 的 code-spec 需求与变更管理工具')
   .version(version);
 
 // Global options
-program.option('--no-color', 'Disable color output');
+program.option('--no-color', '禁用彩色输出');
 
 // Apply global flags and telemetry before any command runs
 // Note: preAction receives (thisCommand, actionCommand) where:
@@ -224,7 +224,7 @@ const availableToolIds = AI_TOOLS
 const toolAliasNote = Object.entries(TOOL_ID_ALIASES)
   .map(([retired, current]) => `${retired} (now ${current})`)
   .join(', ');
-const toolsOptionDescription = `Configure AI tools non-interactively. Use "all", "none", or a comma-separated list of: ${availableToolIds.join(', ')}. Also accepted: ${toolAliasNote}`;
+const toolsOptionDescription = `非交互式配置 AI 工具。可使用 "all"、"none"，或逗号分隔的工具 ID：${availableToolIds.join(', ')}。也接受：${toolAliasNote}`;
 
 program
   .command('init [path]')
@@ -245,16 +245,16 @@ program
       try {
         const stats = await fs.stat(resolvedPath);
         if (!stats.isDirectory()) {
-          throw new Error(`Path "${targetPath}" is not a directory`);
+          throw new Error(`路径 "${targetPath}" 不是目录`);
         }
       } catch (error: any) {
         if (error.code === 'ENOENT') {
           // Directory doesn't exist, but we can create it
-          console.log(`Directory "${targetPath}" doesn't exist, it will be created.`);
+          console.log(`目录 "${targetPath}" 不存在，将自动创建。`);
         } else if (error.message && error.message.includes('not a directory')) {
           throw error;
         } else {
-          throw new Error(`Cannot access path "${targetPath}": ${error.message}`);
+          throw new Error(`无法访问路径 "${targetPath}"：${error.message}`);
         }
       }
 
@@ -278,12 +278,12 @@ program
 // Hidden alias: 'experimental' -> 'init' for backwards compatibility
 program
   .command('experimental', { hidden: true })
-  .description('Alias for init (deprecated)')
-  .option('--tool <tool-id>', 'Target AI tool (maps to --tools)')
-  .option('--no-interactive', 'Disable interactive prompts')
+  .description('init 的别名（已弃用）')
+  .option('--tool <tool-id>', '目标 AI 工具（映射到 --tools）')
+  .option('--no-interactive', '禁用交互式提示')
   .action(async (options?: { tool?: string; noInteractive?: boolean }) => {
     try {
-      console.log('Note: "openspec experimental" is deprecated. Use "openspec init" instead.');
+      console.log('提示："openspec experimental" 已弃用，请改用 "openspec init"。');
       const { InitCommand } = await import('../core/init.js');
       const initCommand = new InitCommand({
         tools: options?.tool,
@@ -298,8 +298,8 @@ program
 
 program
   .command('update [path]')
-  .description('Update OpenSpec instruction files')
-  .option('--force', 'Force update even when tools are up to date')
+  .description('更新 OpenSpec 指导文件')
+  .option('--force', '即使工具已是最新也强制更新')
   .action(async (targetPath = '.', options?: { force?: boolean }) => {
     try {
       const installDir = getInstallDir();
@@ -363,11 +363,11 @@ program
 
 program
   .command('list')
-  .description('List items (changes by default). Use --specs to list specs.')
-  .option('--specs', 'List specs instead of changes')
-  .option('--changes', 'List changes explicitly (default)')
-  .option('--sort <order>', 'Sort order: "recent" (default) or "name"', 'recent')
-  .option('--json', 'Output as JSON (for programmatic use)')
+  .description('列出项目条目（默认列出 Change）；使用 --specs 列出 Spec。')
+  .option('--specs', '列出 Spec，而不是 Change')
+  .option('--changes', '明确列出 Change（默认）')
+  .option('--sort <order>', '排序方式："recent"（默认）或 "name"', 'recent')
+  .option('--json', '以 JSON 输出（供程序使用）')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options?: { specs?: boolean; changes?: boolean; sort?: string; json?: boolean; store?: string; storePath?: string }) => {
@@ -392,8 +392,8 @@ program
           .sort((a, b) => sort === 'name' ? a.id.localeCompare(b.id) : b.updated_at.localeCompare(a.updated_at))
           .map((entry) => ({ name: entry.id, completedTasks: 0, totalTasks: 0, lastModified: entry.updated_at, status: entry.status }));
         if (options?.json) console.log(JSON.stringify({ changes, root: toRootOutput(root) }, null, 2));
-        else if (!changes.length) console.log('No active changes found.');
-        else { console.log('Changes:'); for (const change of changes) console.log(`  ${change.name}     ${change.status}`); }
+        else if (!changes.length) console.log('未找到活动 Change。');
+        else { console.log('Change：'); for (const change of changes) console.log(`  ${change.name}     ${change.status}`); }
         return;
       }
       await listCommand.execute(root.path, mode, {
@@ -413,7 +413,7 @@ program
 
 program
   .command('view')
-  .description('Display an interactive dashboard of specs and changes')
+  .description('显示 Spec 和 Change 的交互式面板')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options?: { store?: string; storePath?: string }) => {
@@ -436,24 +436,24 @@ program
 // Change command with subcommands
 const changeCmd = program
   .command('change')
-  .description('Manage OpenSpec change proposals');
+  .description('管理 OpenSpec Change 提案');
 
 // Deprecation notice for noun-based commands
 changeCmd.hook('preAction', () => {
-  console.error('Warning: The "openspec change ..." commands are deprecated. Prefer verb-first commands (e.g., "openspec list", "openspec validate --changes").');
+  console.error('警告："openspec change ..." 命令已弃用，建议使用动词优先的命令（例如 "openspec list"、"openspec validate --changes"）。');
 });
 
 changeCmd
   .command('new <name>')
-  .description('Create a new change (deprecated alias for "openspec new change")')
-  .option('--description <text>', 'Description to add to README.md')
-  .option('--goal <text>', 'Optional goal metadata to store with the change')
-  .option('--schema <name>', `Workflow schema to use (default: ${DEFAULT_SCHEMA})`)
-  .option('--json', 'Output as JSON')
+  .description('创建 Change（"openspec new change" 的弃用别名）')
+  .option('--description <text>', '要写入 README.md 的描述')
+  .option('--goal <text>', '随 Change 保存的可选目标元数据')
+  .option('--schema <name>', `使用的工作流 Schema（默认：${DEFAULT_SCHEMA}）`)
+  .option('--json', '以 JSON 输出')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
-  .addOption(new Option('--initiative <id>', 'No longer supported').hideHelp())
-  .addOption(new Option('--areas <names>', 'No longer supported').hideHelp())
+  .addOption(new Option('--initiative <id>', '不再支持').hideHelp())
+  .addOption(new Option('--areas <names>', '不再支持').hideHelp())
   .action(async (name: string, options: NewChangeOptions) => {
     try {
       await newChangeCommand(name, options);
@@ -465,44 +465,44 @@ changeCmd
 
 changeCmd
   .command('show [change-name]')
-  .description('Show a change proposal in JSON or markdown format')
-  .option('--json', 'Output as JSON')
-  .option('--deltas-only', 'Show only deltas (JSON only)')
-  .option('--requirements-only', 'Alias for --deltas-only (deprecated)')
-  .option('--diff', 'Show per-requirement diffs for delta specs')
-  .option('--no-interactive', 'Disable interactive prompts')
+  .description('以 JSON 或 Markdown 格式显示 Change 提案')
+  .option('--json', '以 JSON 输出')
+  .option('--deltas-only', '仅显示增量（仅 JSON）')
+  .option('--requirements-only', '--deltas-only 的弃用别名')
+  .option('--diff', '显示增量 Spec 的逐条 Requirement 差异')
+  .option('--no-interactive', '禁用交互式提示')
   .action(async (changeName?: string, options?: { json?: boolean; requirementsOnly?: boolean; deltasOnly?: boolean; diff?: boolean; noInteractive?: boolean }) => {
     try {
       const changeCommand = new ChangeCommand();
       await changeCommand.show(changeName, options);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`错误：${(error as Error).message}`);
       process.exitCode = 1;
     }
   });
 
 changeCmd
   .command('list')
-  .description('List all active changes (DEPRECATED: use "openspec list" instead)')
-  .option('--json', 'Output as JSON')
-  .option('--long', 'Show id and title with counts')
+  .description('列出全部活动 Change（已弃用：请改用 "openspec list"）')
+  .option('--json', '以 JSON 输出')
+  .option('--long', '显示 ID、标题和数量')
   .action(async (options?: { json?: boolean; long?: boolean }) => {
     try {
-      console.error('Warning: "openspec change list" is deprecated. Use "openspec list".');
+      console.error('警告："openspec change list" 已弃用，请改用 "openspec list"。');
       const changeCommand = new ChangeCommand();
       await changeCommand.list(options);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`错误：${(error as Error).message}`);
       process.exitCode = 1;
     }
   });
 
 changeCmd
   .command('validate [change-name]')
-  .description('Validate a change proposal')
-  .option('--strict', 'Enable strict validation mode')
-  .option('--json', 'Output validation report as JSON')
-  .option('--no-interactive', 'Disable interactive prompts')
+  .description('校验 Change 提案')
+  .option('--strict', '启用严格校验模式')
+  .option('--json', '以 JSON 输出校验报告')
+  .option('--no-interactive', '禁用交互式提示')
   .action(async (changeName?: string, options?: { strict?: boolean; json?: boolean; noInteractive?: boolean }) => {
     try {
       const changeCommand = new ChangeCommand();
@@ -513,18 +513,18 @@ changeCmd
       // a routine outcome, not an error: a change that fails validation.
       await changeCommand.validate(changeName, options);
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`错误：${(error as Error).message}`);
       process.exitCode = 1;
     }
   });
 
 program
   .command('archive [change-name]')
-  .description('Archive a completed change and update main specs')
-  .option('-y, --yes', 'Skip confirmation prompts')
-  .option('--skip-specs', 'Skip spec update operations (useful for infrastructure, tooling, or doc-only changes)')
-  .option('--no-validate', 'Skip validation (not recommended, requires confirmation)')
-  .option('--json', 'Output as JSON (non-interactive)')
+  .description('归档已完成的 Change 并更新主 Spec')
+  .option('-y, --yes', '跳过确认提示')
+  .option('--skip-specs', '跳过 Spec 更新（适用于基础设施、工具或仅文档变更）')
+  .option('--no-validate', '跳过校验（不建议，且需要确认）')
+  .option('--json', '以 JSON 输出（非交互模式）')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (changeName?: string, options?: ArchiveOptions) => {
@@ -532,7 +532,7 @@ program
       if (changeName && !/^CHG-\d{8}-\d{3}$/u.test(changeName)) {
         const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
         if (!root) return;
-        if (await tryLoadCanonicalWorkspace(root.path)) throw new Error(`Canonical code-spec archive requires a Change ID matching CHG-YYYYMMDD-NNN; '${changeName}' is unsupported.`);
+        if (await tryLoadCanonicalWorkspace(root.path)) throw new Error(`canonical code-spec 归档要求 Change ID 符合 CHG-YYYYMMDD-NNN；不支持 '${changeName}'。`);
       }
       if (changeName?.startsWith('CHG-')) {
         const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
@@ -540,7 +540,7 @@ program
         const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
         const result = await archiveChange(workspace, changeName);
         if (options?.json) console.log(JSON.stringify(result));
-        else console.log(`Archived ${result.changeId}`);
+        else console.log(`已归档 ${result.changeId}`);
         return;
       }
       const archiveCommand = new ArchiveCommand();
@@ -553,10 +553,10 @@ program
 
 program
   .command('allocate-requirements')
-  .description('Atomically reserve the next canonical Requirement IDs')
-  .requiredOption('--module <id>', 'Business Module ID, for example MOD-001')
-  .requiredOption('--count <n>', 'Number of Requirement IDs to reserve')
-  .option('--change <id>', 'Active Change to receive the reservation')
+  .description('以原子方式预留下一组 canonical Requirement ID')
+  .requiredOption('--module <id>', 'Business Module ID，例如 MOD-001')
+  .requiredOption('--count <n>', '要预留的 Requirement ID 数量')
+  .option('--change <id>', '接收预留 ID 的活动 Change')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: { module: `MOD-${string}`; count: string; change?: `CHG-${string}-${string}`; store?: string; storePath?: string }) => {
@@ -585,16 +585,16 @@ registerWorksetCommand(program);
 // Top-level validate command
 program
   .command('validate [item-name]')
-  .description('Validate changes and specs')
-  .option('--all', 'Validate all changes and specs')
-  .option('--changes', 'Validate all changes')
-  .option('--specs', 'Validate all specs')
-  .option('--archived', 'Validate that archived changes have all tasks completed (for pre-commit linting)')
-  .option('--type <type>', 'Specify item type when ambiguous: change|spec')
-  .option('--strict', 'Enable strict validation mode')
-  .option('--json', 'Output validation results as JSON')
-  .option('--concurrency <n>', 'Max concurrent validations (defaults to env OPENSPEC_CONCURRENCY or 6)')
-  .option('--no-interactive', 'Disable interactive prompts')
+  .description('校验 Change 和 Spec')
+  .option('--all', '校验全部 Change 和 Spec')
+  .option('--changes', '校验全部 Change')
+  .option('--specs', '校验全部 Spec')
+  .option('--archived', '校验已归档 Change 的任务是否全部完成（用于提交前 lint）')
+  .option('--type <type>', '条目类型不明确时指定：change|spec')
+  .option('--strict', '启用严格校验模式')
+  .option('--json', '以 JSON 输出校验结果')
+  .option('--concurrency <n>', '最大并发校验数（默认读取 OPENSPEC_CONCURRENCY，或使用 6）')
+  .option('--no-interactive', '禁用交互式提示')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (itemName?: string, options?: { all?: boolean; changes?: boolean; specs?: boolean; archived?: boolean; type?: string; strict?: boolean; json?: boolean; noInteractive?: boolean; concurrency?: string; store?: string; storePath?: string }) => {
@@ -610,18 +610,18 @@ program
 // Top-level show command
 program
   .command('show [item-name]')
-  .description('Show a change or spec')
-  .option('--json', 'Output as JSON')
-  .option('--type <type>', 'Specify item type when ambiguous: change|spec')
-  .option('--no-interactive', 'Disable interactive prompts')
+  .description('显示 Change 或 Spec')
+  .option('--json', '以 JSON 输出')
+  .option('--type <type>', '条目类型不明确时指定：change|spec')
+  .option('--no-interactive', '禁用交互式提示')
   // change-only flags
-  .option('--deltas-only', 'Show only deltas (JSON only, change)')
-  .option('--requirements-only', 'Alias for --deltas-only (deprecated, change)')
-  .option('--diff', 'Show per-requirement diffs for delta specs (change)')
+  .option('--deltas-only', '仅显示增量（仅 JSON，change）')
+  .option('--requirements-only', '--deltas-only 的弃用别名（change）')
+  .option('--diff', '显示增量 Spec 的逐条 Requirement 差异（change）')
   // spec-only flags
-  .option('--requirements', 'JSON only: Show only requirements (exclude scenarios)')
-  .option('--no-scenarios', 'JSON only: Exclude scenario content')
-  .option('-r, --requirement <id>', 'JSON only: Show specific requirement by ID (1-based)')
+  .option('--requirements', '仅 JSON：只显示 Requirement（排除场景）')
+  .option('--no-scenarios', '仅 JSON：排除场景内容')
+  .option('-r, --requirement <id>', '仅 JSON：按 ID 显示指定 Requirement（从 1 开始）')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   // Explicit registration required: allowUnknownOption would otherwise
   // silently swallow --store-path instead of rejecting it deliberately.
@@ -641,8 +641,8 @@ program
 // Feedback command
 program
   .command('feedback <message>')
-  .description('Submit feedback about OpenSpec')
-  .option('--body <text>', 'Detailed description for the feedback')
+  .description('提交 OpenSpec 反馈')
+  .option('--body <text>', '反馈的详细说明')
   .action(async (message: string, options?: { body?: string }) => {
     try {
       const feedbackCommand = new FeedbackCommand();
@@ -656,11 +656,11 @@ program
 // Completion command with subcommands
 const completionCmd = program
   .command('completion')
-  .description('Manage shell completions for OpenSpec CLI');
+  .description('管理 OpenSpec CLI 的 Shell 补全');
 
 completionCmd
   .command('generate [shell]')
-  .description('Generate completion script for a shell (outputs to stdout)')
+  .description('生成 Shell 补全脚本（输出到 stdout）')
   .action(async (shell?: string) => {
     try {
       const completionCommand = new CompletionCommand();
@@ -673,8 +673,8 @@ completionCmd
 
 completionCmd
   .command('install [shell]')
-  .description('Install completion script for a shell')
-  .option('--verbose', 'Show detailed installation output')
+  .description('安装 Shell 补全脚本')
+  .option('--verbose', '显示详细安装输出')
   .action(async (shell?: string, options?: { verbose?: boolean }) => {
     try {
       const completionCommand = new CompletionCommand();
@@ -687,8 +687,8 @@ completionCmd
 
 completionCmd
   .command('uninstall [shell]')
-  .description('Uninstall completion script for a shell')
-  .option('-y, --yes', 'Skip confirmation prompts')
+  .description('卸载 Shell 补全脚本')
+  .option('-y, --yes', '跳过确认提示')
   .action(async (shell?: string, options?: { yes?: boolean }) => {
     try {
       const completionCommand = new CompletionCommand();
@@ -702,7 +702,7 @@ completionCmd
 // Hidden command for machine-readable completion data
 program
   .command('__complete <type>', { hidden: true })
-  .description('Output completion data in machine-readable format (internal use)')
+  .description('以机器可读格式输出补全数据（内部使用）')
   .action(async (type: string) => {
     try {
       const completionCommand = new CompletionCommand();
@@ -719,9 +719,9 @@ program
 
 program
   .command('rebase')
-  .description('Semantically rebase a stale canonical Change')
+  .description('对过期的 canonical Change 执行语义 rebase')
   .requiredOption('--change <id>', 'Canonical Change ID')
-  .option('--current-spec <path>', 'Current specification path', (value, previous: string[] = []) => [...previous, value], [])
+  .option('--current-spec <path>', '当前 Spec 路径', (value, previous: string[] = []) => [...previous, value], [])
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: { change: string; currentSpec: string[]; store?: string; storePath?: string }) => {
@@ -739,10 +739,10 @@ program
 
 program
   .command('transition')
-  .description('Persist a gated lifecycle transition for a canonical Change')
+  .description('在状态门禁校验后持久化 canonical Change 生命周期转换')
   .requiredOption('--change <id>', 'Canonical Change ID')
-  .requiredOption('--to <state>', 'Target lifecycle state')
-  .requiredOption('--reason <text>', 'Human-readable transition reason')
+  .requiredOption('--to <state>', '目标生命周期状态')
+  .requiredOption('--reason <text>', '人类可读的转换原因')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: { change: string; to: string; reason: string; store?: string; storePath?: string }) => {
@@ -761,9 +761,9 @@ program
 
 program
   .command('abandon')
-  .description('Abandon a canonical Change through the lifecycle gate')
+  .description('通过生命周期门禁放弃 canonical Change')
   .requiredOption('--change <id>', 'Canonical Change ID')
-  .option('--reason <text>', 'Reason for abandoning the Change', 'User requested abandonment')
+  .option('--reason <text>', '放弃 Change 的原因', '用户请求放弃')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: { change: string; reason: string; store?: string; storePath?: string }) => {
@@ -782,8 +782,8 @@ program
 
 program
   .command('detect-stale')
-  .description('Detect active Changes that overlap archived Requirements')
-  .option('--requirements <ids>', 'Comma-separated archived Requirement IDs; defaults to all archived Changes')
+  .description('检测与已归档 Requirement 重叠的活动 Change')
+  .option('--requirements <ids>', '逗号分隔的已归档 Requirement ID；默认使用全部已归档 Change')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: { requirements?: string; store?: string; storePath?: string }) => {
@@ -814,11 +814,11 @@ program
 // Status command
 program
   .command('status')
-  .description('Display artifact completion status for a change')
-  .option('--change <id>', 'Change name to show status for')
-  .option('--all', 'Show status for all active changes')
-  .option('--schema <name>', 'Schema override (auto-detected from config.yaml)')
-  .option('--json', 'Output as JSON')
+  .description('显示 Change 的产物完成状态')
+  .option('--change <id>', '要显示状态的 Change 名称')
+  .option('--all', '显示全部活动 Change 的状态')
+  .option('--schema <name>', 'Schema 覆盖值（自动从 config.yaml 检测）')
+  .option('--json', '以 JSON 输出')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: StatusOptions) => {
@@ -839,10 +839,10 @@ program
 // Instructions command
 program
   .command('instructions [artifact]')
-  .description('Output enriched instructions for artifacts, apply, or archive')
-  .option('--change <id>', 'Change name')
-  .option('--schema <name>', 'Schema override (auto-detected from config.yaml)')
-  .option('--json', 'Output as JSON')
+  .description('输出产物、apply 或 archive 的增强指导')
+  .option('--change <id>', 'Change 名称')
+  .option('--schema <name>', 'Schema 覆盖值（自动从 config.yaml 检测）')
+  .option('--json', '以 JSON 输出')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (artifactId: string | undefined, options: InstructionsOptions) => {
@@ -864,9 +864,9 @@ program
 // Templates command
 program
   .command('templates')
-  .description('Show resolved template paths for all artifacts in a schema')
-  .option('--schema <name>', `Schema to use (default: ${DEFAULT_SCHEMA})`)
-  .option('--json', 'Output as JSON mapping artifact IDs to template paths')
+  .description('显示 Schema 中所有产物解析后的模板路径')
+  .option('--schema <name>', `使用的 Schema（默认：${DEFAULT_SCHEMA}）`)
+  .option('--json', '以 JSON 映射输出产物 ID 和模板路径')
   .action(async (options: TemplatesOptions) => {
     try {
       await templatesCommand(options);
@@ -879,8 +879,8 @@ program
 // Schemas command
 program
   .command('schemas')
-  .description('List available workflow schemas with descriptions')
-  .option('--json', 'Output as JSON (for agent use)')
+  .description('列出可用工作流 Schema 及其说明')
+  .option('--json', '以 JSON 输出（供 Agent 使用）')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: SchemasOptions) => {
@@ -897,21 +897,21 @@ program
   });
 
 // New command group with change subcommand
-const newCmd = program.command('new').description('Create new items');
+const newCmd = program.command('new').description('创建新条目');
 
 newCmd
   .command('change <name>')
-  .description('Create a new change directory')
-  .option('--description <text>', 'Description to add to README.md')
-  .option('--goal <text>', 'Optional goal metadata to store with the change')
-  .option('--schema <name>', `Workflow schema to use (default: ${DEFAULT_SCHEMA})`)
-  .option('--json', 'Output as JSON')
+  .description('创建新的 Change 目录')
+  .option('--description <text>', '写入 README.md 的说明')
+  .option('--goal <text>', '要写入 Change 的可选目标元数据')
+  .option('--schema <name>', `使用的工作流 Schema（默认：${DEFAULT_SCHEMA}）`)
+  .option('--json', '以 JSON 输出')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   // Removed options kept registered (hidden) so users get a deliberate
   // explanation instead of a generic unknown-option error.
-  .addOption(new Option('--initiative <id>', 'No longer supported').hideHelp())
-  .addOption(new Option('--areas <names>', 'No longer supported').hideHelp())
+  .addOption(new Option('--initiative <id>', '不再支持').hideHelp())
+  .addOption(new Option('--areas <names>', '不再支持').hideHelp())
   .action(async (name: string, options: NewChangeOptions) => {
     try {
       await newChangeCommand(name, options);

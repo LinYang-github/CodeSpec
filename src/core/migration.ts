@@ -368,7 +368,7 @@ export function describeLegacyMigration(migration: LegacyToolMigration): string 
   if (migration.commandFiles > 0) {
     parts.push(`${migration.commandFiles} command${migration.commandFiles === 1 ? '' : 's'}`);
   }
-  return parts.join(' and ');
+  return parts.join(' 和 ');
 }
 
 /**
@@ -404,12 +404,12 @@ export function hasMovableContent(migration: LegacyToolMigration): boolean {
 export function legacyMigrationNotice(migration: LegacyToolMigration): string {
   if (migration.toolId === 'devin') {
     return (
-      `Windsurf is now Devin Desktop, and its config directory moved from ` +
-      `${migration.from}/ to ${migration.to}/. Devin Desktop reads ${migration.from}/ ` +
-      `only as a fallback, and Devin Local does not read it at all.`
+      `Windsurf 现在称为 Devin Desktop，其配置目录已从 ${migration.from}/ ` +
+      `迁移到 ${migration.to}/。Devin Desktop 仅将 ${migration.from}/ 作为备用目录，` +
+      `Devin Local 完全不会读取该目录。`
     );
   }
-  return `${migration.from}/ is the former location for this tool; ${migration.to}/ is current.`;
+  return `${migration.from}/ 是此工具的旧目录；当前目录为 ${migration.to}/。`;
 }
 
 /**
@@ -596,7 +596,7 @@ export function migrateIfNeeded(projectPath: string, tools: AIToolOption[]): voi
   }
   saveGlobalConfig(config);
 
-  console.log(`Migrated: custom profile with ${installedWorkflows.length} workflows`);
+  console.log(`已迁移：自定义 Profile，包含 ${installedWorkflows.length} 个 workflow`);
   // Each detected tool resolves to a propose reference for its surface: the
   // command name its generated files answer to when commands will exist for it
   // under the effective delivery (/opsx:propose when namespaced under opsx/,
@@ -621,5 +621,5 @@ export function migrateIfNeeded(projectPath: string, tools: AIToolOption[]): voi
   );
   const proposeReference =
     proposeReferences.size === 1 ? [...proposeReferences][0] : 'the openspec-propose skill';
-  console.log(`New in this version: ${proposeReference}. Try 'openspec config profile core' for the streamlined experience.`);
+  console.log(`此版本新增：${proposeReference}。运行 'openspec config profile core' 使用精简工作流。`);
 }

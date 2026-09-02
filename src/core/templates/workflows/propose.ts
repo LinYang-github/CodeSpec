@@ -11,12 +11,12 @@ import { withOpenSpecWorkflowGuidance } from './openspec-workflow.js';
 export function getOpsxProposeSkillTemplate(): SkillTemplate {
   return {
     name: 'openspec-propose',
-    description: 'Propose a new change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, and tasks ready for implementation.',
+    description: '一次性提出 Change 并生成完整规划产物。',
     instructions: withOpenSpecWorkflowGuidance(`Propose a new change - create the change and generate all artifacts in one step.
 
 **Planning boundary**: This workflow creates planning artifacts only. The user request that selected or triggered this workflow authorizes planning only, even if it asks to build or fix something. Do not edit project code. After the planning artifacts are complete, stop. Do not start implementation in the same response, even if the initial request asks for it. Wait for a new user request after the artifacts are presented; then start the apply workflow.
 
-I'll create a change with the artifacts your schema defines. With the default spec-driven schema that is:
+我会根据当前 schema 定义创建 Change 产物。默认 code-spec schema 的流程由实际 status 输出决定：
 - proposal.md (what & why)
 - \`specs/<capability-path>/spec.md\` (what the system must do - a delta, not the main spec)
 - design.md (how)
@@ -158,7 +158,7 @@ After completing all artifacts, summarize:
 export function getOpsxProposeCommandTemplate(): CommandTemplate {
   return {
     name: 'OPSX: Propose',
-    description: 'Propose a new change - create it and generate all artifacts in one step',
+    description: '提出 Change 并一次性生成全部规划产物',
     category: 'Workflow',
     tags: ['workflow', 'artifacts', 'experimental'],
     content: `Propose a new change - create the change and generate all artifacts in one step.

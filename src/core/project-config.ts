@@ -123,7 +123,7 @@ function parseOperations(raw: unknown): OperationsConfig | undefined {
     return undefined;
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    console.warn(`Invalid 'operations' field in config (must be object)`);
+    console.warn(`配置中的 operations 字段无效（必须是对象）`);
     return undefined;
   }
 
@@ -133,7 +133,7 @@ function parseOperations(raw: unknown): OperationsConfig | undefined {
   for (const [operationId, value] of Object.entries(raw)) {
     if (!supported.has(operationId)) {
       console.warn(
-        `Unknown operation ID '${operationId}' in config. Supported operation IDs: ${OPERATION_IDS.join(', ')}`
+        `配置中的 operation ID '${operationId}' 未知。支持的 operation ID：${OPERATION_IDS.join('、')}`
       );
       continue;
     }
@@ -141,7 +141,7 @@ function parseOperations(raw: unknown): OperationsConfig | undefined {
     const typedOperationId = operationId as OperationId;
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       console.warn(
-        `Invalid 'operations.${operationId}' field in config (must be object), ignoring this operation`
+        `配置中的 operations.${operationId} 字段无效（必须是对象），已忽略此 operation`
       );
       continue;
     }
@@ -150,7 +150,7 @@ function parseOperations(raw: unknown): OperationsConfig | undefined {
     const unknownFields = Object.keys(operation).filter((field) => field !== 'guidance');
     if (unknownFields.length > 0) {
       console.warn(
-        `Unknown field(s) in 'operations.${operationId}': ${unknownFields.join(', ')}. Supported fields: guidance`
+        `operations.${operationId} 中存在未知字段：${unknownFields.join('、')}。支持的字段：guidance`
       );
     }
 
@@ -161,7 +161,7 @@ function parseOperations(raw: unknown): OperationsConfig | undefined {
     const guidanceResult = z.array(z.string()).safeParse(operation.guidance);
     if (!guidanceResult.success) {
       console.warn(
-        `Guidance for operation '${operationId}' must be an array of strings, ignoring this operation's guidance`
+        `操作 '${operationId}' 的指导必须是字符串数组，已忽略对应指导`
       );
       continue;
     }
@@ -169,7 +169,7 @@ function parseOperations(raw: unknown): OperationsConfig | undefined {
     const guidance = guidanceResult.data.filter((entry) => entry.length > 0);
     if (guidance.length < guidanceResult.data.length) {
       console.warn(
-        `Some guidance for operation '${operationId}' are empty strings, ignoring them`
+        `操作 '${operationId}' 的部分指导为空字符串，已忽略`
       );
     }
     if (guidance.length > 0) {
@@ -195,7 +195,7 @@ function parseDeclarationList(raw: unknown): DeclarationEntry[] | undefined {
     return undefined;
   }
   if (!Array.isArray(raw)) {
-    console.warn(`Invalid '${fieldName}' field in config (must be an array of store ids)`);
+    console.warn(`配置中的 '${fieldName}' 字段无效（必须是 Store ID 数组）`);
     return undefined;
   }
 
@@ -233,11 +233,11 @@ function parseDeclarationList(raw: unknown): DeclarationEntry[] | undefined {
   }
 
   if (droppedEntries) {
-    console.warn(`Some '${fieldName}' entries are invalid, ignoring them`);
+    console.warn(`'${fieldName}' 中的部分条目无效，已忽略`);
   }
   if (droppedRemotes) {
     console.warn(
-      `Some '${fieldName}' remotes are not non-empty strings; the ids are kept without a clone source`
+      `'${fieldName}' 中的部分 remote 不是非空字符串；已保留 ID，但未保存克隆源`
     );
   }
   return byId.size > 0 ? [...byId.values()] : undefined;
@@ -275,7 +275,7 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
     const raw = parseYaml(content);
 
     if (!raw || typeof raw !== 'object') {
-      console.warn(`openspec/config.yaml is not a valid YAML object`);
+      console.warn(`openspec/config.yaml 不是有效的 YAML 对象`);
       return null;
     }
 
@@ -287,7 +287,7 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
     if (schemaResult.success) {
       config.schema = schemaResult.data;
     } else if (raw.schema !== undefined) {
-      console.warn(`Invalid 'schema' field in config (must be non-empty string)`);
+      console.warn(`配置中的 'schema' 字段无效（必须是非空字符串）`);
     }
 
     // Parse context field with size limit
@@ -299,14 +299,14 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
         const contextSize = Buffer.byteLength(contextResult.data, 'utf-8');
         if (contextSize > MAX_CONTEXT_SIZE) {
           console.warn(
-            `Context too large (${(contextSize / 1024).toFixed(1)}KB, limit: ${MAX_CONTEXT_SIZE / 1024}KB)`
+            `context 过大（${(contextSize / 1024).toFixed(1)}KB，限制：${MAX_CONTEXT_SIZE / 1024}KB）`
           );
-          console.warn(`Ignoring context field`);
+          console.warn(`已忽略 context 字段`);
         } else {
           config.context = contextResult.data;
         }
       } else {
-        console.warn(`Invalid 'context' field in config (must be string)`);
+        console.warn(`配置中的 'context' 字段无效（必须是字符串）`);
       }
     }
 
@@ -335,12 +335,12 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
             }
             if (validRules.length < rulesArrayResult.data.length) {
               console.warn(
-                `Some rules for '${artifactId}' are empty strings, ignoring them`
+                `'${artifactId}' 的部分 rules 为空字符串，已忽略`
               );
             }
           } else {
             console.warn(
-              `Rules for '${artifactId}' must be an array of strings, ignoring this artifact's rules`
+              `'${artifactId}' 的 rules 必须是字符串数组，已忽略该产物的 rules`
             );
           }
         }
@@ -349,7 +349,7 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
           config.rules = parsedRules;
         }
       } else {
-        console.warn(`Invalid 'rules' field in config (must be object)`);
+        console.warn(`配置中的 'rules' 字段无效（必须是对象）`);
       }
     }
 
@@ -371,7 +371,7 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
         config.store = raw.store;
       } else {
         console.warn(
-          `Warning: ignoring invalid store: field in ${configPathForWarnings(projectRoot)} (must be a single store id string).`
+          `警告：已忽略 ${configPathForWarnings(projectRoot)} 中无效的 store 字段（必须是单个 Store ID 字符串）。`
         );
       }
     }
@@ -387,10 +387,10 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
         if (typeof cloudAgent === 'boolean') {
           config.githubCopilot = { cloudAgent };
         } else if (cloudAgent !== undefined) {
-          console.warn(`Invalid 'githubCopilot.cloudAgent' field in config (must be a boolean)`);
+          console.warn(`配置中的 'githubCopilot.cloudAgent' 字段无效（必须是布尔值）`);
         }
       } else {
-        console.warn(`Invalid 'githubCopilot' field in config (must be an object)`);
+        console.warn(`配置中的 'githubCopilot' 字段无效（必须是对象）`);
       }
     }
 
@@ -398,7 +398,7 @@ export function readProjectConfig(projectRoot: string): ProjectConfig | null {
     return Object.keys(config).length > 0 ? (config as ProjectConfig) : null;
   } catch (error) {
     console.warn(
-      `Warning: could not parse ${configPathForWarnings(projectRoot)} (${error instanceof Error ? error.message.split('\n')[0] : String(error)}); ignoring it.`
+      `警告：无法解析 ${configPathForWarnings(projectRoot)}（${error instanceof Error ? error.message.split('\n')[0] : String(error)}）；已忽略。`
     );
     return null;
   }
@@ -428,7 +428,7 @@ export function validateConfigRules(
     if (!validArtifactIds.has(artifactId)) {
       const validIds = Array.from(validArtifactIds).sort().join(', ');
       warnings.push(
-        `Unknown artifact ID in rules: "${artifactId}". ` +
+        `规则中包含未知产物 ID："${artifactId}"。` +
           `It matches no artifact in any available schema. Known artifact IDs: ${validIds}`
       );
     }
@@ -484,7 +484,7 @@ export function suggestSchemas(
   const builtIn = availableSchemas.filter((s) => s.isBuiltIn).map((s) => s.name);
   const projectLocal = availableSchemas.filter((s) => !s.isBuiltIn).map((s) => s.name);
 
-  let message = `Schema '${invalidSchemaName}' not found in openspec/config.yaml\n\n`;
+  let message = `openspec/config.yaml 中未找到 Schema '${invalidSchemaName}'\n\n`;
 
   if (suggestions.length > 0) {
     message += `Did you mean one of these?\n`;
