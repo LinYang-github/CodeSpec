@@ -7,6 +7,44 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     flags: [
       { name: 'change', description: 'Canonical Change ID', takesValue: true },
       { name: 'current-spec', description: 'Current specification path', takesValue: true },
+      COMMON_FLAGS.store,
+    ],
+  },
+  {
+    name: 'transition',
+    description: 'Persist a gated lifecycle transition for a canonical Change',
+    flags: [
+      { name: 'change', description: 'Canonical Change ID', takesValue: true },
+      { name: 'to', description: 'Target lifecycle state', takesValue: true },
+      { name: 'reason', description: 'Human-readable transition reason', takesValue: true },
+      COMMON_FLAGS.store,
+    ],
+  },
+  {
+    name: 'abandon',
+    description: 'Abandon a canonical Change through the lifecycle gate',
+    flags: [
+      { name: 'change', description: 'Canonical Change ID', takesValue: true },
+      { name: 'reason', description: 'Reason for abandoning the Change', takesValue: true },
+      COMMON_FLAGS.store,
+    ],
+  },
+  {
+    name: 'detect-stale',
+    description: 'Detect active Changes that overlap archived Requirements',
+    flags: [
+      { name: 'requirements', description: 'Comma-separated archived Requirement IDs; defaults to all archived Changes', takesValue: true },
+      COMMON_FLAGS.store,
+    ],
+  },
+  {
+    name: 'allocate-requirements',
+    description: 'Atomically reserve the next canonical Requirement IDs',
+    flags: [
+      { name: 'module', description: 'Business Module ID, for example MOD-001', takesValue: true },
+      { name: 'count', description: 'Number of Requirement IDs to reserve', takesValue: true },
+      { name: 'change', description: 'Active Change to receive the reservation', takesValue: true },
+      COMMON_FLAGS.store,
     ],
   },
   {

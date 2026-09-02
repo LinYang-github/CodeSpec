@@ -19,7 +19,6 @@ import {
 } from '../core/version-check.js';
 import { ListCommand } from '../core/list.js';
 import { ArchiveCommand, type ArchiveOptions } from '../core/archive.js';
-import { archiveBusinessChange } from '../core/business-archive.js';
 import { ViewCommand } from '../core/view.js';
 import { resolveRootForCommand, toRootOutput } from '../core/root-selection.js';
 import { registerSpecCommand } from '../commands/spec.js';
@@ -51,11 +50,18 @@ import {
   type NewChangeOptions,
 } from '../commands/workflow/index.js';
 import { rebaseChange } from '../core/openspec-workflow/rebase.js';
-import { loadWorkspace } from '../core/openspec-workflow/loaders.js';
+import { loadWorkspace, loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
+import { transitionChange } from '../core/openspec-workflow/state-machine.js';
+import { detectStaleChanges } from '../core/openspec-workflow/stale.js';
+import { archiveChange } from '../core/openspec-workflow/archive-transaction.js';
+import { allocateRequirementIds } from '../core/openspec-workflow/requirement-allocator.js';
+import type { ChangeStatus } from '../core/openspec-workflow/types.js';
+import { parse as parseYaml } from 'yaml';
 import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
 import { maybeShowCompletionTip } from '../core/completion-tip.js';
 import { COMMON_FLAGS } from '../core/completions/shared-flags.js';
 import { isInteractive } from '../utils/interactive.js';
+import { tryLoadCanonicalWorkspace } from '../commands/workflow/shared.js';
 
 const STORE_OPTION_DESCRIPTION = COMMON_FLAGS.store.description;
 
@@ -377,6 +383,17 @@ program
       const listCommand = new ListCommand();
       const mode: 'changes' | 'specs' = options?.specs ? 'specs' : 'changes';
       const sort = options?.sort === 'name' ? 'name' : 'recent';
+      const canonicalWorkspace = mode === 'changes' ? await tryLoadCanonicalWorkspace(root.path) : null;
+      if (canonicalWorkspace) {
+        const changes = canonicalWorkspace.index.entries
+          .filter((entry) => ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'].includes(entry.status))
+          .sort((a, b) => sort === 'name' ? a.id.localeCompare(b.id) : b.updated_at.localeCompare(a.updated_at))
+          .map((entry) => ({ name: entry.id, completedTasks: 0, totalTasks: 0, lastModified: entry.updated_at, status: entry.status }));
+        if (options?.json) console.log(JSON.stringify({ changes, root: toRootOutput(root) }, null, 2));
+        else if (!changes.length) console.log('No active changes found.');
+        else { console.log('Changes:'); for (const change of changes) console.log(`  ${change.name}     ${change.status}`); }
+        return;
+      }
       await listCommand.execute(root.path, mode, {
         sort,
         json: options?.json,
@@ -510,15 +527,47 @@ program
   .addOption(hiddenStorePathOption())
   .action(async (changeName?: string, options?: ArchiveOptions) => {
     try {
+      if (changeName && !/^CHG-\d{8}-\d{3}$/u.test(changeName)) {
+        const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
+        if (!root) return;
+        if (await tryLoadCanonicalWorkspace(root.path)) throw new Error(`Canonical code-spec archive requires a Change ID matching CHG-YYYYMMDD-NNN; '${changeName}' is unsupported.`);
+      }
       if (changeName?.startsWith('CHG-')) {
-        const result = await archiveBusinessChange(process.cwd(), changeName);
+        const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
+        if (!root) return;
+        const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+        const result = await archiveChange(workspace, changeName);
         if (options?.json) console.log(JSON.stringify(result));
+        else console.log(`Archived ${result.changeId}`);
         return;
       }
       const archiveCommand = new ArchiveCommand();
       await archiveCommand.execute(changeName, options);
     } catch (error) {
       failWithError(error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('allocate-requirements')
+  .description('Atomically reserve the next canonical Requirement IDs')
+  .requiredOption('--module <id>', 'Business Module ID, for example MOD-001')
+  .requiredOption('--count <n>', 'Number of Requirement IDs to reserve')
+  .option('--change <id>', 'Active Change to receive the reservation')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (options: { module: `MOD-${string}`; count: string; change?: `CHG-${string}-${string}`; store?: string; storePath?: string }) => {
+    try {
+      const root = await resolveRootForCommand(options, { json: true });
+      if (!root) return;
+      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const ids = options.change
+        ? await allocateRequirementIds(workspace, options.change, options.module, Number(options.count))
+        : await allocateRequirementIds(workspace, options.module, Number(options.count));
+      console.log(JSON.stringify({ module: options.module, changeId: options.change ?? null, requirementIds: ids }, null, 2));
+    } catch (error) {
+      failWithError(error, { enabled: true, fallbackCode: 'allocation_error' });
       process.exit(1);
     }
   });
@@ -671,14 +720,91 @@ program
   .description('Semantically rebase a stale canonical Change')
   .requiredOption('--change <id>', 'Canonical Change ID')
   .option('--current-spec <path>', 'Current specification path', (value, previous: string[] = []) => [...previous, value], [])
-  .action(async (options: { change: string; currentSpec: string[] }) => {
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (options: { change: string; currentSpec: string[]; store?: string; storePath?: string }) => {
     try {
-      const openspecDir = path.join(process.cwd(), 'openspec');
-      const workspace = await loadWorkspace(openspecDir);
+      const root = await resolveRootForCommand(options, { json: true });
+      if (!root) return;
+      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
       const result = await rebaseChange(workspace, options.change, options.currentSpec);
       console.log(JSON.stringify(result, null, 2));
     } catch (error) {
       failWithError(error, { enabled: true, fallbackCode: 'rebase_error' });
+      process.exit(1);
+    }
+  });
+
+program
+  .command('transition')
+  .description('Persist a gated lifecycle transition for a canonical Change')
+  .requiredOption('--change <id>', 'Canonical Change ID')
+  .requiredOption('--to <state>', 'Target lifecycle state')
+  .requiredOption('--reason <text>', 'Human-readable transition reason')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (options: { change: string; to: string; reason: string; store?: string; storePath?: string }) => {
+    try {
+      const root = await resolveRootForCommand(options, { json: true });
+      if (!root) return;
+      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const artifacts = await loadChangeArtifacts(workspace.paths, options.change);
+      const result = await transitionChange(workspace, artifacts, options.to as ChangeStatus, options.reason);
+      console.log(JSON.stringify({ changeId: options.change, status: result.change.status, revision: result.change.revision }, null, 2));
+    } catch (error) {
+      failWithError(error, { enabled: true, fallbackCode: 'transition_error' });
+      process.exit(1);
+    }
+  });
+
+program
+  .command('abandon')
+  .description('Abandon a canonical Change through the lifecycle gate')
+  .requiredOption('--change <id>', 'Canonical Change ID')
+  .option('--reason <text>', 'Reason for abandoning the Change', 'User requested abandonment')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (options: { change: string; reason: string; store?: string; storePath?: string }) => {
+    try {
+      const root = await resolveRootForCommand(options, { json: true });
+      if (!root) return;
+      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const artifacts = await loadChangeArtifacts(workspace.paths, options.change);
+      const result = await transitionChange(workspace, artifacts, 'ABANDONED', options.reason);
+      console.log(JSON.stringify({ changeId: options.change, status: result.change.status }, null, 2));
+    } catch (error) {
+      failWithError(error, { enabled: true, fallbackCode: 'abandon_error' });
+      process.exit(1);
+    }
+  });
+
+program
+  .command('detect-stale')
+  .description('Detect active Changes that overlap archived Requirements')
+  .option('--requirements <ids>', 'Comma-separated archived Requirement IDs; defaults to all archived Changes')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (options: { requirements?: string; store?: string; storePath?: string }) => {
+    try {
+      const root = await resolveRootForCommand(options, { json: true });
+      if (!root) return;
+      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      let ids = options.requirements?.split(',').map((item) => item.trim()).filter(Boolean) ?? [];
+      if (!ids.length) {
+        const entries = await fs.readdir(workspace.paths.archivedChanges, { withFileTypes: true }).catch(() => []);
+        for (const entry of entries) {
+          if (!entry.isDirectory() || !/^CHG-\d{8}-\d{3}$/.test(entry.name)) continue;
+          const raw = await fs.readFile(path.join(workspace.paths.archivedChanges, entry.name, 'metadata.yaml'), 'utf8').catch(() => '');
+          try {
+            const metadata = parseYaml(raw) as any;
+            ids.push(...Object.values(metadata?.requirements ?? {}).flat().map((item: any) => item.id).filter(Boolean));
+          } catch { /* malformed archive is reported by archive validation */ }
+        }
+      }
+      const stale = await detectStaleChanges(workspace, [...new Set(ids)]);
+      console.log(JSON.stringify({ stale }, null, 2));
+    } catch (error) {
+      failWithError(error, { enabled: true, fallbackCode: 'stale_error' });
       process.exit(1);
     }
   });

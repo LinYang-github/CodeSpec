@@ -16,6 +16,9 @@ import { nearestMatches } from '../utils/match.js';
 import { promises as fs } from 'fs';
 import { getTaskProgressDetailForChange, type SchemaGlobCache } from '../utils/task-progress.js';
 import { FileSystemUtils } from '../utils/file-system.js';
+import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
+import { loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
+import { validateExitGate } from '../core/openspec-workflow/gates.js';
 
 type ItemType = 'change' | 'spec';
 
@@ -215,6 +218,17 @@ export class ValidateCommand {
   private async validateByType(root: ResolvedOpenSpecRoot, type: ItemType, id: string, opts: { strict: boolean; json: boolean }): Promise<void> {
     const validator = new Validator(opts.strict);
     if (type === 'change') {
+      const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
+      if (canonicalWorkspace) {
+        if (!/^CHG-\d{8}-\d{3}$/u.test(id)) throw new Error(`Canonical code-spec Changes require IDs matching CHG-YYYYMMDD-NNN; '${id}' is unsupported.`);
+        const start = Date.now();
+        const artifacts = await loadChangeArtifacts(canonicalWorkspace.paths, id);
+        const gate = validateExitGate(canonicalWorkspace, artifacts, artifacts.metadata.change.status);
+        const report = { valid: gate.ok, issues: gate.errors.map((message) => ({ level: 'ERROR' as const, path: 'lifecycle', message })) };
+        this.printReport('change', id, report, Date.now() - start, opts.json, root);
+        process.exitCode = report.valid ? 0 : 1;
+        return;
+      }
       const changeDir = path.join(root.changesDir, id);
       const start = Date.now();
       const report = await validator.validateChangeDeltaSpecs(changeDir, {
@@ -297,11 +311,17 @@ export class ValidateCommand {
     const concurrency = normalizeConcurrency(opts.concurrency) ?? normalizeConcurrency(process.env.OPENSPEC_CONCURRENCY) ?? DEFAULT_CONCURRENCY;
     const validator = new Validator(opts.strict);
     const queue: Array<() => Promise<BulkItemResult>> = [];
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
 
     for (const id of changeIds) {
       queue.push(async () => {
         const start = Date.now();
         const changeDir = path.join(root.changesDir, id);
+        if (canonicalWorkspace) {
+          const artifacts = await loadChangeArtifacts(canonicalWorkspace.paths, id);
+          const gate = validateExitGate(canonicalWorkspace, artifacts, artifacts.metadata.change.status);
+          return { id, type: 'change' as const, valid: gate.ok, issues: gate.errors.map((message) => ({ level: 'ERROR' as const, path: 'lifecycle', message })), durationMs: Date.now() - start };
+        }
         const report = await validator.validateChangeDeltaSpecs(changeDir, {
           mainSpecsDir: root.specsDir,
           projectRoot: root.path,

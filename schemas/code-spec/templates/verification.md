@@ -3,7 +3,7 @@
 <!-- 每次 VERIFY 都重新执行命令，不复用过期输出。 -->
 | Requirement ID | Scenario ID | 命令 | Exit status | 结果摘要 | 时间 |
 | --- | --- | --- | ---: | --- | --- |
-| MOD-###-REQ-### | SC-## | `pnpm test` | 0 | 中文摘要 | YYYY-MM-DDThh:mm:ssZ |
+| MOD-001-REQ-001 | SCN-001 | `pnpm test` | 0 | 中文摘要 | 2026-09-01T00:00:00Z |
 ## RED → GREEN
 - RED 命令与失败原因：
 - GREEN 命令与通过结果：

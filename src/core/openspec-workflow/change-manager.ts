@@ -269,7 +269,7 @@ export async function resumeChange(
   }
 
   const diagnostic =
-    (action === 'IMPLEMENT' || action === 'ARCHIVE') && artifacts.metadata.baseline.stale
+    action !== 'DESIGN' && action !== 'ABANDONED' && artifacts.metadata.baseline.stale
       ? {
           code: 'STALE' as const,
           message: `Change ${resolved.changeId} is stale and must be rebased before ${action}.`,

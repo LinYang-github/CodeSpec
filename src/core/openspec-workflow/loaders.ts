@@ -19,13 +19,32 @@ export interface WorkspaceContext {
 
 async function readWorkspaceConfig(openspecDir: string): Promise<WorkspaceConfig> {
   const configPath = path.join(openspecDir, 'config.yaml');
+  if ((await fs.lstat(configPath)).isSymbolicLink()) throw new Error(`Canonical workspace config must not be a symlink: ${configPath}`);
   const raw = parseYaml(await fs.readFile(configPath, 'utf8'));
   return parseWorkspaceConfig(raw);
+}
+
+async function assertConfiguredPathsAreSafe(paths: WorkspacePaths): Promise<void> {
+  for (const [label, target] of Object.entries(paths)) {
+    let current = target;
+    while (true) {
+      try {
+        if ((await fs.lstat(current)).isSymbolicLink()) throw new Error(`${label} path must not contain a symlink: ${target}`);
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        const parent = path.dirname(current);
+        if (parent === current) break;
+        current = parent;
+      }
+    }
+  }
 }
 
 export async function loadWorkspace(openspecDir: string): Promise<WorkspaceContext> {
   const config = await readWorkspaceConfig(openspecDir);
   const paths = getWorkspacePaths(openspecDir, config);
+  await assertConfiguredPathsAreSafe(paths);
   const [registry, index] = await Promise.all([
     loadBusinessRegistry(paths),
     loadChangeIndex(paths),

@@ -1,16 +1,58 @@
 schema_version: 1
-# GIVEN 输入 WHEN 管理 Change THEN 使用稳定 ID（ADDED MODIFIED REMOVED）。
-# Requirement ID 与 stable scenario ID 由 metadata.yaml 保持追踪。
 change:
-  id: CHG-YYYYMMDD-NNN
+  id: CHG-20260901-001
   revision: 1
-  title: 中文标题
+  title: 示例 Change
   mode: feature
   status: ANALYZE
-baseline: { created_at: null, stale: false, modules: {} }
-relations: { depends_on: [], related_to: [], conflicts_with: [], supersedes: [] }
-modules: { candidates: [], confirmed: [], dependencies: [] }
-requirements: { added: [], modified: [], removed: [] }
-tasks: { total: 0, completed: 0, items: {} }
-verification: { requirements_verified: false, tests_passed: false, build_passed: false, lint_passed: false, verified_at: null }
-archive: { ready: false, conflict: false, archived_at: null }
+  created_at: '2026-09-01T00:00:00Z'
+  updated_at: '2026-09-01T00:00:00Z'
+impact:
+  summary: 示例变更影响说明
+  mode: feature
+  scope: single-module
+baseline:
+  created_at: null
+  stale: false
+  modules: {}
+relations:
+  depends_on: []
+  related_to: []
+  conflicts_with: []
+  supersedes: []
+gates:
+  analyze: { required: true, satisfied: false }
+  design: { required: true, satisfied: false }
+  plan: { required: true, satisfied: false }
+  implement: { required: true, satisfied: false }
+  verify: { required: true, satisfied: false }
+  archive: { required: true, satisfied: false }
+modules:
+  candidates: []
+  confirmed: []
+  dependencies: []
+requirements:
+  added: []
+  modified: []
+  removed: []
+artifacts:
+  metadata: changes/CHG-20260901-001/metadata.yaml
+  proposal: changes/CHG-20260901-001/proposal.md
+  design: changes/CHG-20260901-001/design.md
+  spec: changes/CHG-20260901-001/spec.md
+  tasks: changes/CHG-20260901-001/tasks.md
+  verification: changes/CHG-20260901-001/verification.md
+tasks:
+  total: 0
+  completed: 0
+  items: {}
+verification:
+  requirements_verified: false
+  tests_passed: false
+  build_passed: false
+  lint_passed: false
+  verified_at: null
+archive:
+  ready: false
+  conflict: false
+  archived_at: null

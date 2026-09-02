@@ -142,11 +142,10 @@ export async function instructionsCommand(
     );
 
     if (/^CHG-\d{8}-\d{3}$/.test(changeName)) {
-      const openspecDir = path.basename(projectRoot) === 'openspec' ? projectRoot : path.join(projectRoot, 'openspec');
-      const metadataPath = path.join(openspecDir, 'changes', changeName, 'metadata.yaml');
-      if (!(await fs.promises.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
       const workspace = await tryLoadCanonicalWorkspace(projectRoot);
       if (!workspace) throw new Error('Canonical code-spec workspace config is missing or invalid.');
+      const metadataPath = path.join(workspace.paths.changes, changeName, 'metadata.yaml');
+      if (!(await fs.promises.access(metadataPath).then(() => true).catch(() => false))) throw new Error(`Canonical Change metadata not found: ${metadataPath}`);
       const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
       const status = artifacts.metadata.change.status;
       if (artifactId) {

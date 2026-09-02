@@ -16,6 +16,11 @@ export interface ArchivePlan extends ContractArchivePlan {
   artifacts: ChangeArtifacts;
   deltas: RequirementDelta[];
   current: Map<string, string>;
+  snapshot: {
+    metadata: string;
+    current: Map<string, string>;
+    index: string;
+  };
 }
 
 export interface PreparedArchive {
@@ -73,6 +78,7 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   const expectedScenarios = (() => { try { return parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)); } catch { return []; } })();
   const validCommands = Array.isArray(evidence?.commands) && evidence.commands.length > 0 && evidence.commands.every((command: any) => command && typeof command.command === 'string' && command.command.trim() && command.exit_code === 0 && typeof command.started_at === 'string' && typeof command.finished_at === 'string' && !Number.isNaN(Date.parse(command.started_at)) && !Number.isNaN(Date.parse(command.finished_at)) && Date.parse(command.finished_at) >= Date.parse(command.started_at));
   if (evidence?.schema_version !== 1 || evidence.change_id !== m.change.id || evidence.status !== 'PASS' || evidence.revision !== m.change.revision || evidence.baseline_identity !== digest(m.baseline) || typeof evidence.receipt !== 'string' || !validCommands || !expectedIds.every((id) => evidence.requirement_ids?.includes(id)) || !expectedScenarios.every((id) => evidence.scenario_ids?.includes(id))) throw new Error('Archive requires validated fresh Verification evidence for the current revision, baseline, Requirements, and Scenarios');
+  if (evidence.receipt !== digest({ ...evidence, receipt: undefined }) || m.verification.evidence_receipt !== evidence.receipt || m.verification.baseline_identity !== evidence.baseline_identity) throw new Error('Archive requires authentic Verification evidence bound to metadata');
   if (m.baseline.created_at && Date.parse(m.baseline.created_at) > Date.parse(m.verification.verified_at)) throw new Error('Verification evidence predates the current baseline');
   if (m.relations.conflicts_with.length) throw new Error('Archive has unresolved Change conflicts');
   const trace = validateChangeTraceability(artifacts);
@@ -90,7 +96,11 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
     const moduleDir = path.join(workspace.paths.currentSpecs, module.module);
     try { if ((await fs.lstat(moduleDir)).isSymbolicLink()) throw new Error(`Current specification module path must not be a symlink: ${module.module}`); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    try { current.set(module.module, await fs.readFile(file, 'utf8')); }
+    try {
+      const fileStat = await fs.lstat(file);
+      if (fileStat.isSymbolicLink()) throw new Error(`Current specification must not be a symlink: ${file}`);
+      current.set(module.module, await fs.readFile(file, 'utf8'));
+    }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') current.set(module.module, '');
       else throw error;
@@ -101,13 +111,25 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
     if (delta.action !== 'ADDED' && !requirementBlock(current.get(delta.module)!, delta.id)) throw new Error(`ARCHIVE CONFLICT: missing ${delta.id}`);
   }
   if (await exists(path.join(workspace.paths.archivedChanges, changeId))) throw new Error(`Archive destination already exists: ${changeId}`);
-  return { changeId: changeId as ContractArchivePlan['changeId'], ready: true, conflict: false, reasons: [], workspace, artifacts, deltas, current };
+  const metadataPath = path.join(workspace.openspecDir, artifacts.metadata.artifacts.metadata);
+  const indexRaw = await fs.readFile(workspace.paths.changeIndex, 'utf8');
+  return {
+    changeId: changeId as ContractArchivePlan['changeId'], ready: true, conflict: false, reasons: [], workspace, artifacts, deltas, current,
+    snapshot: { metadata: await fs.readFile(metadataPath, 'utf8'), current: new Map(current), index: indexRaw },
+  };
+}
+
+function validatePreparedCurrentSpec(module: string, spec: string): void {
+  const ids = [...spec.matchAll(/^###\s+(MOD-\d{3}-REQ-\d{3})(?:\s+.*)?$/gmu)].map((match) => match[1]);
+  if (!spec.trim() || (ids.length === 0 && !/^#(?:\s|$)/m.test(spec))) throw new Error(`Archive validation failed: Current spec for ${module} is not a canonical specification document`);
+  if (new Set(ids).size !== ids.length) throw new Error(`Archive validation failed: Current spec for ${module} contains duplicate Requirement headings`);
+  if (ids.some((id) => !id.startsWith(`${module}-`))) throw new Error(`Archive validation failed: Current spec for ${module} contains a Requirement from another module`);
 }
 
 export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive> {
   const specs = new Map(plan.current);
   for (const delta of plan.deltas) specs.set(delta.module, applyDelta(specs.get(delta.module) ?? '', delta));
-  for (const [module, spec] of specs) if (!spec.trim()) throw new Error(`Archive validation failed: empty Current spec for ${module}`);
+  for (const [module, spec] of specs) validatePreparedCurrentSpec(module, spec);
   const archivedMetadata = structuredClone(plan.artifacts.metadata);
   archivedMetadata.change.status = 'ARCHIVED';
   archivedMetadata.archive.archived_at = new Date().toISOString();
@@ -141,6 +163,27 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
   try {
     try { await fs.mkdir(lock); ownsLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Another archive transaction is already in progress'); throw error; }
     try { await fs.mkdir(indexLock); ownsIndexLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change index is busy'); throw error; }
+    const latestMetadata = await fs.readFile(path.join(plan.workspace.openspecDir, plan.artifacts.metadata.artifacts.metadata), 'utf8');
+    const latestIndex = await fs.readFile(plan.workspace.paths.changeIndex, 'utf8');
+    const latestCurrent = new Map<string, string>();
+    for (const module of specs.keys()) {
+      const file = path.join(plan.workspace.paths.currentSpecs, module, 'spec.md');
+      const currentDirStat = await fs.lstat(path.dirname(file)).catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      });
+      if (currentDirStat?.isSymbolicLink() || (await fs.lstat(file).catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw error;
+      }))?.isSymbolicLink()) throw new Error(`Current specification must not be a symlink: ${file}`);
+      latestCurrent.set(module, await fs.readFile(file, 'utf8').catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+        throw error;
+      }));
+    }
+    if (latestMetadata !== plan.snapshot.metadata || latestIndex !== plan.snapshot.index || [...latestCurrent].some(([module, content]) => content !== plan.snapshot.current.get(module))) {
+      throw new Error('ARCHIVE CONFLICT: workspace changed after preflight; rerun archive');
+    }
     await fs.mkdir(stage, { recursive: true });
     for (const [module, content] of specs) {
       const dir = path.join(stage, 'specs', module); await fs.mkdir(dir, { recursive: true }); await fs.writeFile(path.join(dir, 'spec.md'), content);

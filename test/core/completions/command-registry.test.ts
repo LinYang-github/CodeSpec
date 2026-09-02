@@ -165,16 +165,21 @@ describe('command completion registry', () => {
 
     walk(program, '');
     expect(seen.sort()).toEqual([
+      'abandon',
+      'allocate-requirements',
       'archive',
       'change new',
       'context',
+      'detect-stale',
       'doctor',
       'instructions',
       'list',
       'new change',
+      'rebase',
       'schemas',
       'show',
       'status',
+      'transition',
       'validate',
       'view',
     ]);

@@ -151,9 +151,12 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         // with the same comparator validate --all uses so the two batch
         // commands order a given change set identically.
         const entries: BatchStatusEntry[] = [];
+        const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
         for (const changeName of available.sort((a, b) => a.localeCompare(b))) {
           try {
-            entries.push(loadStatus(changeName));
+            const canonical = canonicalWorkspace ? await canonicalStatus(changeName) : null;
+            if (canonical) entries.push(canonical as unknown as BatchStatusEntry);
+            else entries.push(loadStatus(changeName));
           } catch (error) {
             // One malformed change must not blank the sweep; carry its
             // diagnostic in place and keep going.
@@ -162,7 +165,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         }
 
         spinner?.stop();
-        const failed = entries.some((entry) => !('artifacts' in entry));
+        const failed = entries.some((entry) => !('artifacts' in entry) && !('changeId' in entry));
 
         if (options.json) {
           console.log(JSON.stringify({ changes: entries, root: rootOutput }, null, 2));
@@ -178,6 +181,12 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           }
           if ('artifacts' in entry) {
             printStatusText(entry);
+          } else if ('changeId' in entry) {
+            const canonicalEntry = entry as unknown as { changeId: string; status: string; revision: number; gateErrors?: string[] };
+            console.log(`Change: ${canonicalEntry.changeId}`);
+            console.log(`Status: ${canonicalEntry.status}`);
+            console.log(`Revision: ${canonicalEntry.revision}`);
+            if (Array.isArray(canonicalEntry.gateErrors) && canonicalEntry.gateErrors.length > 0) console.log(chalk.red(`Gate blockers: ${canonicalEntry.gateErrors.join('; ')}`));
           } else {
             console.log(chalk.red(`✗ ${entry.changeName}: ${entry.status[0]?.message}`));
           }

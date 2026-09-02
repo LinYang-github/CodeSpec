@@ -9,7 +9,7 @@ export const METADATA_FILENAME = '.openspec.yaml';
 export const CANONICAL_METADATA_FILENAME = 'metadata.yaml';
 
 function isCanonicalCodeSpecChange(changeDir: string, projectRoot?: string): boolean {
-  if (path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/)) return true;
+  if (path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/) && fs.existsSync(path.join(changeDir, METADATA_FILENAME)) && !fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME))) return true;
   if (!projectRoot) return false;
   try {
     const config = yaml.parse(fs.readFileSync(path.join(projectRoot, 'openspec', 'config.yaml'), 'utf8')) as { schema?: unknown };
@@ -78,7 +78,7 @@ export function writeChangeMetadata(
   metadata: ChangeMetadata,
   projectRoot?: string
 ): void {
-  if (isCanonicalCodeSpecChange(changeDir, projectRoot)) {
+  if (isCanonicalCodeSpecChange(changeDir, projectRoot) || path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/)) {
     throw new ChangeMetadataError(
       "Canonical code-spec Changes use metadata.yaml; .openspec.yaml is unsupported. Use 'openspec new change <title>'.",
       path.join(changeDir, METADATA_FILENAME)
@@ -177,7 +177,13 @@ export function readChangeMetadata(
 }
 
 export function isCanonicalChangeDirectory(changeDir: string): boolean {
-  return /^CHG-\d{8}-\d{3}$/.test(path.basename(changeDir));
+  if (!/^CHG-\d{8}-\d{3}$/.test(path.basename(changeDir))) return false;
+  try {
+    const parsed = yaml.parse(fs.readFileSync(path.join(changeDir, CANONICAL_METADATA_FILENAME), 'utf8')) as Record<string, unknown>;
+    return parsed?.schema_version === 1 && typeof parsed.change === 'object' && parsed.change !== null;
+  } catch {
+    return false;
+  }
 }
 
 export interface ResolveSchemaForChangeOptions {

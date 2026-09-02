@@ -11,6 +11,8 @@ import {
 import { ChangeCommand } from './change.js';
 import { SpecCommand } from './spec.js';
 import { nearestMatches } from '../utils/match.js';
+import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
+import { loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
 
 type ItemType = 'change' | 'spec';
 
@@ -35,6 +37,11 @@ export class ShowCommand {
 
     const interactive = isInteractive(options);
     const typeOverride = this.normalizeType(options.type);
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
+    if (canonicalWorkspace) {
+      await this.showCanonical(itemName, options, root, canonicalWorkspace, interactive, typeOverride);
+      return;
+    }
 
     if (!itemName) {
       if (interactive) {
@@ -55,6 +62,43 @@ export class ShowCommand {
     }
 
     await this.showDirect(itemName, { typeOverride, options, root });
+  }
+
+  private async showCanonical(
+    itemName: string | undefined,
+    options: ShowExecuteOptions,
+    root: ResolvedOpenSpecRoot,
+    workspace: Awaited<ReturnType<typeof tryLoadCanonicalWorkspace>>,
+    interactive: boolean,
+    typeOverride?: ItemType,
+  ): Promise<void> {
+    if (!workspace) return;
+    const active = workspace.index.entries.filter((entry) => ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'].includes(entry.status));
+    let selected = itemName;
+    if (!selected && interactive && active.length) {
+      const { select } = await import('@inquirer/prompts');
+      selected = await select({ message: 'Select a Change', choices: active.map((entry) => ({ name: entry.id, value: entry.id })) });
+    }
+    if (!selected) {
+      const message = active.length ? `No Change specified. Available IDs: ${active.map((entry) => entry.id).join(', ')}` : 'No active Changes found.';
+      if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'change_required', message }] }, null, 2));
+      else console.error(message);
+      process.exitCode = 1;
+      return;
+    }
+    if (typeOverride === 'spec' || !/^CHG-\d{8}-\d{3}$/u.test(selected)) {
+      const message = `Canonical code-spec show requires a Change ID matching CHG-YYYYMMDD-NNN; '${selected}' is unsupported.`;
+      if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'legacy_change_unsupported', message }] }, null, 2));
+      else console.error(message);
+      process.exitCode = 1;
+      return;
+    }
+    const artifacts = await loadChangeArtifacts(workspace.paths, selected);
+    if (options.json) {
+      console.log(JSON.stringify({ changeId: selected, status: artifacts.metadata.change.status, revision: artifacts.metadata.change.revision, title: artifacts.metadata.change.title, requirements: artifacts.metadata.requirements, spec: artifacts.spec, root: toRootOutput(root) }, null, 2));
+    } else {
+      console.log(`# Change: ${selected}\n\nStatus: ${artifacts.metadata.change.status}\nRevision: ${artifacts.metadata.change.revision}\n\n${artifacts.spec}`);
+    }
   }
 
   private normalizeType(value?: string): ItemType | undefined {

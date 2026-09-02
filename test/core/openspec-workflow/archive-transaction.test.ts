@@ -18,13 +18,16 @@ const ready = (fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, modul
 
 async function setup(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, metadata: ChangeMetadata, spec: string) {
   const dir = path.join(fixture.paths.changes, fixture.changeId); await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(path.join(dir, 'metadata.yaml'), stringify(metadata));
   const ids = [...metadata.requirements.added, ...metadata.requirements.modified, ...metadata.requirements.removed].map((r) => r.id);
   const scenarios = [...spec.matchAll(/#### Scenario:\s*(SCN-\d{3})/gu)].map((m) => m[1]);
   await fs.writeFile(path.join(dir, 'proposal.md'), '# Proposal\n\nsummary goals scope\n'); await fs.writeFile(path.join(dir, 'design.md'), `# Design\n\n${ids.join('\n')}\n`);
   await fs.writeFile(path.join(dir, 'tasks.md'), `# Tasks\n\n${ids.map((id, index) => `- [x] SP-${String(index + 1).padStart(2, '0')} ${id} ${scenarios[index] ?? scenarios[0] ?? 'SCN-001'} test/spec.test.ts`).join('\n')}\n`);
   const baselineIdentity = createHash('sha256').update(JSON.stringify(metadata.baseline)).digest('hex');
-  await fs.writeFile(path.join(dir, 'verification.md'), stringify({ schema_version: 1, change_id: metadata.change.id, verified_at: new Date().toISOString(), revision: metadata.change.revision, status: 'PASS', requirement_ids: ids, scenario_ids: scenarios, baseline_identity: baselineIdentity, receipt: 'a'.repeat(64), commands: ['requirements', 'test', 'build', 'lint'].map((kind) => ({ command: `node -e "process.exit(0)"`, kind, exit_code: 0, output_summary: 'ok', started_at: new Date().toISOString(), finished_at: new Date().toISOString() })) }));
+  const evidence = { schema_version: 1, change_id: metadata.change.id, verified_at: new Date().toISOString(), revision: metadata.change.revision, status: 'PASS' as const, requirement_ids: ids, scenario_ids: scenarios, baseline_identity: baselineIdentity, receipt: '', commands: ['requirements', 'test', 'build', 'lint'].map((kind) => ({ command: `node -e "process.exit(0)"`, kind, exit_code: 0, output_summary: 'ok', started_at: new Date().toISOString(), finished_at: new Date().toISOString() })) };
+  evidence.receipt = createHash('sha256').update(JSON.stringify({ ...evidence, receipt: undefined })).digest('hex');
+  metadata.verification.evidence_receipt = evidence.receipt; metadata.verification.baseline_identity = evidence.baseline_identity;
+  await fs.writeFile(path.join(dir, 'metadata.yaml'), stringify(metadata));
+  await fs.writeFile(path.join(dir, 'verification.md'), stringify(evidence));
   await fs.writeFile(path.join(dir, 'spec.md'), spec);
 }
 

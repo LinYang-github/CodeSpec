@@ -31,6 +31,11 @@ export async function loadChangeIndex(paths: WorkspacePaths): Promise<ChangeInde
   if (!raw || raw.version !== 1 || !Array.isArray(raw.changes)) throw new Error(`Invalid canonical Change index ${paths.changeIndex}: expected version 1 and changes array`);
 
   const entries = (raw?.changes ?? []).map((entry) => parseChangeIndexEntry(entry));
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    if (ids.has(entry.id)) throw new Error(`Invalid canonical Change index ${paths.changeIndex}: duplicate Change ID ${entry.id}`);
+    ids.add(entry.id);
+  }
   return {
     version: 1,
     entries,

@@ -48,6 +48,15 @@ async function loadCurrentSpecs(workspace: WorkspaceContext, metadata: ChangeMet
       const resolved = path.resolve(item);
       const relative = path.relative(workspace.openspecDir, resolved);
       if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error(`Current specification path must be under openspec: ${item}`);
+      let cursor = resolved;
+      while (true) {
+        const stat = await fs.lstat(cursor);
+        if (stat.isSymbolicLink()) throw new Error(`Current specification path must not contain a symlink: ${item}`);
+        if (cursor === workspace.openspecDir) break;
+        const parent = path.dirname(cursor);
+        if (parent === cursor) throw new Error(`Current specification path escaped openspec: ${item}`);
+        cursor = parent;
+      }
       suppliedContents.push(await fs.readFile(resolved, 'utf8'));
     }
   }
@@ -76,17 +85,31 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
   const nextSpec = renderDelta(entries, current);
   const decision: RebaseDecision = { strategy: 'semantic-rebase', route: 'DESIGN', reason: 'Re-evaluated each Requirement against the configured Current Specification; authored New/Reason content was preserved.', current_specs: [...current.values()], decisions };
   change.change.revision += 1; change.change.status = 'DESIGN'; change.change.updated_at = new Date().toISOString();
+  // A rebase invalidates implementation and verification conclusions. Force
+  // the workflow through planning and a new VERIFY run instead of allowing
+  // stale task/evidence state to satisfy downstream gates.
+  change.tasks = { total: 0, completed: 0, items: {} };
+  change.verification = {
+    requirements_verified: false, tests_passed: false, build_passed: false,
+    lint_passed: false, verified_at: null,
+  };
+  change.archive = { ready: false, conflict: false, archived_at: null };
   const baseline = await captureBaseline(workspace, change, Object.fromEntries(current));
   change.baseline = baseline;
   const metadataPath = path.join(workspace.openspecDir, change.artifacts.metadata); const specPath = path.join(workspace.openspecDir, change.artifacts.spec); const designPath = path.join(workspace.openspecDir, change.artifacts.design);
   const token = `.rebase-${process.pid}-${Date.now()}`; const metadataTmp = `${metadataPath}.${token}.tmp`; const specTmp = `${specPath}.${token}.tmp`; const designTmp = `${designPath}.${token}.tmp`;
-  const original = { metadata: await fs.readFile(metadataPath, 'utf8'), spec: await fs.readFile(specPath, 'utf8'), design: await fs.readFile(designPath, 'utf8') };
+  const verificationPath = path.join(workspace.openspecDir, change.artifacts.verification);
+  const original = { metadata: await fs.readFile(metadataPath, 'utf8'), spec: await fs.readFile(specPath, 'utf8'), design: await fs.readFile(designPath, 'utf8'), verification: await fs.readFile(verificationPath, 'utf8') };
   try {
     await fs.writeFile(metadataTmp, stringifyYaml(change)); await fs.writeFile(specTmp, nextSpec); await fs.writeFile(designTmp, `${original.design}\n\n## Rebase decision (revision ${change.change.revision})\n\n${stringifyYaml(decision)}`);
+    const verificationTmp = `${verificationPath}.${token}.tmp`;
+    await fs.writeFile(verificationTmp, '# Verification\n');
     await fs.rename(metadataTmp, metadataPath); await fs.rename(specTmp, specPath); await fs.rename(designTmp, designPath);
+    await fs.rename(verificationTmp, verificationPath);
   } catch (error) {
     await fs.writeFile(metadataPath, original.metadata).catch(() => undefined); await fs.writeFile(specPath, original.spec).catch(() => undefined); await fs.writeFile(designPath, original.design).catch(() => undefined);
     await fs.rm(metadataTmp, { force: true }).catch(() => undefined); await fs.rm(specTmp, { force: true }).catch(() => undefined); await fs.rm(designTmp, { force: true }).catch(() => undefined);
+    await fs.writeFile(path.join(workspace.openspecDir, change.artifacts.verification), original.verification ?? '# Verification\n').catch(() => undefined);
     throw error;
   }
   return { change: change.change, baseline, decision };
