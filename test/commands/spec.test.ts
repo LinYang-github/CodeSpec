@@ -202,7 +202,7 @@ The system SHALL process credit card payments securely`;
           encoding: 'utf-8'
         });
         
-        expect(output).toContain("Specification 'auth' is valid");
+        expect(output).toContain("Spec 'auth' 校验通过");
       } finally {
         process.chdir(originalCwd);
       }
@@ -290,7 +290,7 @@ This section has no actual requirements`;
         
         expect(error).toBeDefined();
         expect(error.status).not.toBe(0);
-        expect(error.stderr.toString()).toContain('not found');
+        expect(error.stderr.toString()).toContain("未找到 Spec 'nonexistent'");
       } finally {
         process.chdir(originalCwd);
       }
@@ -302,7 +302,7 @@ This section has no actual requirements`;
       try {
         process.chdir(testDir);
         const output = execFileSync('node', [openspecBin, 'spec', 'list'], { encoding: 'utf-8' });
-        expect(output.trim()).toBe('No items found');
+        expect(output.trim()).toBe('未找到条目');
       } finally {
         process.chdir(originalCwd);
       }

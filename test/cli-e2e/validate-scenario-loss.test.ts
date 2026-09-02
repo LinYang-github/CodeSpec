@@ -99,6 +99,6 @@ describe('openspec validate reports scenarios a MODIFIED block would drop (#1477
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Change 'keeps-every-scenario' is valid");
+    expect(result.stdout).toContain("Change 'keeps-every-scenario' 校验通过");
   });
 });

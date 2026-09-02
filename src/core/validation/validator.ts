@@ -849,8 +849,8 @@ export class Validator {
     blockName: string,
     guidanceOnly = false
   ): string {
-    const base = `${prefix} ${guidanceOnly ? 'should' : 'must'} contain SHALL or MUST`;
-    const suffix = guidanceOnly ? ' (RFC 2119 best practice for English specs)' : '';
+    const base = `${prefix}${guidanceOnly ? '建议' : '必须'}包含 SHALL 或 MUST`;
+    const suffix = guidanceOnly ? '（英文 Spec 的 RFC 2119 最佳实践）' : '';
     if (this.containsShallOrMust(blockName)) {
       return `${base} in the requirement body, not only in the header. Move the SHALL/MUST statement to the line immediately after the "### Requirement: ..." header.${suffix}`;
     }

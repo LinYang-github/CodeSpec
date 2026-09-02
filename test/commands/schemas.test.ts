@@ -134,7 +134,7 @@ describe('openspec schemas root selection', () => {
       env,
     });
     expect(human.exitCode).toBe(0);
-    expect(human.stdout).toContain('Available schemas:');
+    expect(human.stdout).toContain('可用 Schema：');
     expect(human.stdout).toContain('store-only');
     expect(human.stdout).not.toContain('local-only');
     expect(human.stderr).toContain('使用 OpenSpec 根目录：team-context');
