@@ -1179,20 +1179,12 @@ describe('InitCommand', () => {
       for (const proposeFile of proposeFiles) {
         expect(await fileExists(proposeFile), proposeFile).toBe(true);
         const content = await fs.readFile(proposeFile, 'utf-8');
-        expect(content, proposeFile).toContain('**Planning boundary**');
-        expect(content, proposeFile).toContain(
-          'selected or triggered this workflow authorizes planning only'
-        );
-        expect(content, proposeFile).toContain('ambiguity that would materially affect scope');
-        expect(content, proposeFile).toContain(
-          'ask the user before creating the change'
-        );
-        expect(content, proposeFile).toContain(
-          'Any implementation or apply instruction in that request does not carry forward'
-        );
-        expect(content, proposeFile).toContain(
-          'wait for a new user request to start the apply workflow'
-        );
+        expect(content, proposeFile).toContain('**规划边界**');
+        expect(content, proposeFile).toContain('本工作流只授权规划');
+        expect(content, proposeFile).toContain('歧义会实质影响范围');
+        expect(content, proposeFile).toContain('创建 Change 前询问用户');
+        expect(content, proposeFile).toContain('任何实现或 apply 指令都不会延续');
+        expect(content, proposeFile).toContain('等待新的用户请求');
       }
     });
 
@@ -1713,7 +1705,7 @@ describe('InitCommand - profile and detection features', () => {
     const newCommandsDir = path.join(testDir, '.opencode', 'commands');
     expect(await directoryExists(newCommandsDir)).toBe(true);
     const proposeCommand = await fs.readFile(path.join(newCommandsDir, 'opsx-propose.md'), 'utf-8');
-    expect(proposeCommand).toContain('**Provided arguments**: $ARGUMENTS');
+    expect(proposeCommand).toContain('**传入参数**: $ARGUMENTS');
   });
 
   it('should remove managed global Codex prompts in non-interactive mode', async () => {

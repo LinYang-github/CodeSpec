@@ -2,15 +2,35 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { DEFAULT_OPENSPEC_SCHEMA } from '../../src/core/index.js';
+import {
+  renderBusinessTemplate,
+  renderCanonicalWorkspaceConfig,
+  renderEmptyChangeIndex,
+} from '../../src/core/openspec-workflow/default-config.js';
 
 /**
  * Shared fixtures for store tests that touch real Git.
  */
 
 export function createHealthyOpenSpecRoot(root: string, configName = 'config.yaml'): void {
-  fs.mkdirSync(path.join(root, 'openspec', 'specs'), { recursive: true });
-  fs.mkdirSync(path.join(root, 'openspec', 'changes', 'archive'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'openspec', configName), `schema: ${DEFAULT_OPENSPEC_SCHEMA}\n`);
+  const openspecRoot = path.join(root, 'openspec');
+
+  if (DEFAULT_OPENSPEC_SCHEMA === 'code-spec') {
+    fs.mkdirSync(path.join(openspecRoot, 'changes'), { recursive: true });
+    fs.mkdirSync(path.join(openspecRoot, 'archive', 'specs'), { recursive: true });
+    fs.mkdirSync(path.join(openspecRoot, 'archive', 'changes'), { recursive: true });
+    fs.writeFileSync(path.join(openspecRoot, configName), renderCanonicalWorkspaceConfig('store-fixture'));
+    fs.writeFileSync(
+      path.join(openspecRoot, 'business.md'),
+      `${renderBusinessTemplate()}| MOD-001 | Store 测试模块 | 测试 Store 工作流 | Store 测试 | Store；测试 |\n`
+    );
+    fs.writeFileSync(path.join(openspecRoot, 'changes', 'index.yaml'), renderEmptyChangeIndex());
+    return;
+  }
+
+  fs.mkdirSync(path.join(openspecRoot, 'specs'), { recursive: true });
+  fs.mkdirSync(path.join(openspecRoot, 'changes', 'archive'), { recursive: true });
+  fs.writeFileSync(path.join(openspecRoot, configName), `schema: ${DEFAULT_OPENSPEC_SCHEMA}\n`);
 }
 
 /**

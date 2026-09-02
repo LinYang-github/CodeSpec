@@ -164,7 +164,7 @@ describe('store canonical remote (3.3)', () => {
         { cwd: tempDir, env }
       );
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain(`Share it: teammates clone ${TEST_NET_URL}`);
+      expect(result.stdout).toContain(`共享方式：队友 clone ${TEST_NET_URL}`);
     });
   });
 
@@ -250,7 +250,7 @@ describe('store canonical remote (3.3)', () => {
       const storeRoot = makeUnregisteredStore('origin-only-context', { origin: TEST_NET_URL });
       const result = await runCLI(['store', 'register', storeRoot], { cwd: tempDir, env });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain(`Share it: teammates clone ${TEST_NET_URL}`);
+      expect(result.stdout).toContain(`共享方式：队友 clone ${TEST_NET_URL}`);
     });
 
     it('prefers the canonical remote over the origin in sharing guidance', async () => {
@@ -260,7 +260,7 @@ describe('store canonical remote (3.3)', () => {
         metadataRemote: canonical,
       });
       const result = await runCLI(['store', 'register', storeRoot], { cwd: tempDir, env });
-      expect(result.stdout).toContain(`Share it: teammates clone ${canonical}`);
+      expect(result.stdout).toContain(`共享方式：队友 clone ${canonical}`);
     });
   });
 
@@ -354,8 +354,8 @@ describe('store canonical remote (3.3)', () => {
       createHealthyOpenSpecRoot(originWorktree);
       // Anchor every directory a healthy clone needs (the same job
       // store setup's anchor files do).
-      fs.writeFileSync(path.join(originWorktree, 'openspec', 'specs', '.gitkeep'), '');
-      fs.writeFileSync(path.join(originWorktree, 'openspec', 'changes', 'archive', '.gitkeep'), '');
+      fs.writeFileSync(path.join(originWorktree, 'openspec', 'archive', 'specs', '.gitkeep'), '');
+      fs.writeFileSync(path.join(originWorktree, 'openspec', 'archive', 'changes', '.gitkeep'), '');
       fs.mkdirSync(path.join(originWorktree, '.openspec-store'), { recursive: true });
       fs.writeFileSync(
         path.join(originWorktree, '.openspec-store', 'store.yaml'),
@@ -431,8 +431,8 @@ describe('store canonical remote (3.3)', () => {
       createHealthyOpenSpecRoot(storeRoot);
       // Keep specs/ and archive/ tracked so the pre-existing
       // fragile-directories warning stays out of this assertion.
-      fs.writeFileSync(path.join(storeRoot, 'openspec', 'specs', '.gitkeep'), '');
-      fs.writeFileSync(path.join(storeRoot, 'openspec', 'changes', 'archive', '.gitkeep'), '');
+      fs.writeFileSync(path.join(storeRoot, 'openspec', 'archive', 'specs', '.gitkeep'), '');
+      fs.writeFileSync(path.join(storeRoot, 'openspec', 'archive', 'changes', '.gitkeep'), '');
       fs.mkdirSync(path.join(storeRoot, '.openspec-store'), { recursive: true });
       fs.writeFileSync(
         path.join(storeRoot, '.openspec-store', 'store.yaml'),
@@ -454,7 +454,7 @@ describe('store canonical remote (3.3)', () => {
       expect(store.status).toEqual([]);
 
       const human = await runCLI(['store', 'doctor', 'doc-context'], { cwd: tempDir, env });
-      expect(human.stdout).toContain(`  Remote: ${canonical}`);
+      expect(human.stdout).toContain(`  Remote：${canonical}`);
       expect(human.stdout).not.toContain(TEST_NET_URL);
 
       // The remote-bearing store.yaml resolves normally with --store.
@@ -474,7 +474,7 @@ describe('store canonical remote (3.3)', () => {
       });
       const human = await runCLI(['store', 'doctor', 'quiet-context'], { cwd: tempDir, env });
       expect(human.exitCode).toBe(0);
-      expect(human.stdout).not.toContain('Remote:');
+      expect(human.stdout).not.toContain('Remote：');
     });
   });
 });

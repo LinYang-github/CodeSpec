@@ -8,7 +8,7 @@ import path from 'path';
 import type { CommandContent, ToolCommandAdapter } from '../types.js';
 import { escapeYamlValue } from '../yaml.js';
 
-const OPENCODE_INPUT_BLOCK = /^\*\*Input\*\*:[^\r\n]*(?:\r?\n(?!\r?\n)[^\r\n]*)*/m;
+const OPENCODE_INPUT_BLOCK = /^\*\*(?:Input|输入)\*\*[:：][^\r\n]*(?:\r?\n(?!\r?\n)[^\r\n]*)*/m;
 const OPENCODE_NO_INPUT = /^\*\*Input\*\*:\s*None required\b/im;
 const OPENCODE_ARGUMENT_PLACEHOLDER = /\$(?:ARGUMENTS\b|[1-9]\d*\b)/;
 
@@ -18,10 +18,10 @@ function injectOpenCodeArgs(body: string): string {
   }
 
   const eol = body.includes('\r\n') ? '\r\n' : '\n';
-  return body.replace(
-    OPENCODE_INPUT_BLOCK,
-    (input) => `${input}${eol}**Provided arguments**: $ARGUMENTS`
-  );
+  return body.replace(OPENCODE_INPUT_BLOCK, (input) => {
+    const argumentsLabel = input.startsWith('**输入**') ? '传入参数' : 'Provided arguments';
+    return `${input}${eol}**${argumentsLabel}**: $ARGUMENTS`;
+  });
 }
 
 /**

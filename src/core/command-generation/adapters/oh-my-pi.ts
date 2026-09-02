@@ -10,17 +10,17 @@ import path from 'path';
 import type { CommandContent, ToolCommandAdapter } from '../types.js';
 import { escapeYamlValue } from '../yaml.js';
 
-const OMP_INPUT_HEADING = /^\*\*Input\*\*:[^\n]*$/m;
+const OMP_INPUT_HEADING = /^\*\*(?:Input|输入)\*\*[:：][^\n]*$/m;
 
 function injectOmpArgs(body: string): string {
   if (body.includes('$@') || body.includes('$ARGUMENTS')) {
     return body;
   }
 
-  return body.replace(
-    OMP_INPUT_HEADING,
-    (heading) => `${heading}\n**Provided arguments**: $@`
-  );
+  return body.replace(OMP_INPUT_HEADING, (heading) => {
+    const argumentsLabel = heading.startsWith('**输入**') ? '传入参数' : 'Provided arguments';
+    return `${heading}\n**${argumentsLabel}**: $@`;
+  });
 }
 
 /**

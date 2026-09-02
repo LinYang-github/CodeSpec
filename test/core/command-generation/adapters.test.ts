@@ -143,6 +143,14 @@ describe('command-generation/adapters', () => {
       );
     });
 
+    it('should pass invocation arguments into a Chinese input contract', () => {
+      const output = commandCodeAdapter.formatFile({
+        ...sampleContent,
+        body: '# OpenSpec 命令\n\n**输入**：Change 名称或描述。\n\n运行工作流。',
+      });
+      expect(output).toContain('**输入**：Change 名称或描述。\n**传入参数**: $ARGUMENTS');
+    });
+
     it.each(['$ARGUMENTS', '$@', '${ARGUMENTS}', '${@}'])(
       'should not duplicate an existing %s placeholder',
       (placeholder) => {
@@ -158,7 +166,7 @@ describe('command-generation/adapters', () => {
       const commandsWithoutArguments = getCommandContents()
         .filter((content) => {
           const output = generateCommand(content, commandCodeAdapter).fileContent;
-          return !output.includes('**Provided arguments**: $ARGUMENTS');
+          return !/(?:\*\*Provided arguments\*\*|\*\*传入参数\*\*): \$ARGUMENTS/.test(output);
         })
         .map((content) => content.id);
 
@@ -665,7 +673,7 @@ describe('command-generation/adapters', () => {
     it('should preserve exactly one argument placeholder for each workflow that accepts input', () => {
       for (const content of getCommandContents()) {
         const output = generateCommand(content, opencodeAdapter).fileContent;
-        const acceptsInput = /^\*\*Input\*\*:(?!\s*None required\b)/im.test(content.body);
+        const acceptsInput = /^\*\*(?:Input|输入)\*\*[:：](?!\s*None required\b)/im.test(content.body);
         expect(output.match(/\$ARGUMENTS/g) ?? [], content.id).toHaveLength(acceptsInput ? 1 : 0);
       }
     });

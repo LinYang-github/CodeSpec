@@ -10,17 +10,17 @@
 import path from 'path';
 import type { CommandContent, ToolCommandAdapter } from '../types.js';
 
-const COMMAND_CODE_INPUT_HEADING = /^\*\*Input\*\*:[^\n]*$/m;
+const COMMAND_CODE_INPUT_HEADING = /^\*\*(?:Input|输入)\*\*[:：][^\n]*$/m;
 
 function injectCommandCodeArgs(body: string): string {
   if (/^\*\*Provided arguments\*\*:\s*(?:\$(?:ARGUMENTS|@)|\$\{(?:ARGUMENTS|@)\})\s*$/m.test(body)) {
     return body;
   }
 
-  return body.replace(
-    COMMAND_CODE_INPUT_HEADING,
-    (heading) => `${heading}\n**Provided arguments**: $ARGUMENTS`
-  );
+  return body.replace(COMMAND_CODE_INPUT_HEADING, (heading) => {
+    const argumentsLabel = heading.startsWith('**输入**') ? '传入参数' : 'Provided arguments';
+    return `${heading}\n**${argumentsLabel}**: $ARGUMENTS`;
+  });
 }
 
 /**
