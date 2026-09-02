@@ -8,13 +8,15 @@ import { resolveSchema } from '../core/artifact-graph/resolver.js';
 import { isSpecsArtifactPath } from '../core/artifact-graph/outputs.js';
 import type { ChangeMetadata } from '../core/change-metadata/index.js';
 
+// This helper is retained for the explicit legacy `change` command surface.
+// Canonical `new change` uses createCanonicalChange after workspace detection.
 const DEFAULT_SCHEMA = 'spec-driven';
 
 /**
  * Options for creating a change.
  */
 export interface CreateChangeOptions {
-  /** The workflow schema to use (default: 'spec-driven') */
+  /** The workflow schema to use (default: 'code-spec') */
   schema?: string;
   /** Default schema to use when no explicit schema or project config is present */
   defaultSchema?: string;
@@ -66,7 +68,7 @@ export interface ValidationResult {
  */
 export function validateChangeName(name: string): ValidationResult {
   if (!name) {
-    return { valid: false, error: 'Change name cannot be empty' };
+    return { valid: false, error: 'Change 名称不能为空' };
   }
 
   // Filesystem directory components cap at 255 bytes and archive prepends a
@@ -82,19 +84,19 @@ export function validateChangeName(name: string): ValidationResult {
       return { valid: false, error: 'Change name must be lowercase (use kebab-case)' };
     }
     if (/\s/.test(name)) {
-      return { valid: false, error: 'Change name cannot contain spaces (use hyphens instead)' };
+      return { valid: false, error: 'Change 名称不能包含空格（请改用连字符）' };
     }
     if (/_/.test(name)) {
-      return { valid: false, error: 'Change name cannot contain underscores (use hyphens instead)' };
+      return { valid: false, error: 'Change 名称不能包含下划线（请改用连字符）' };
     }
     if (name.startsWith('-')) {
-      return { valid: false, error: 'Change name cannot start with a hyphen' };
+      return { valid: false, error: 'Change 名称不能以连字符开头' };
     }
     if (name.endsWith('-')) {
-      return { valid: false, error: 'Change name cannot end with a hyphen' };
+      return { valid: false, error: 'Change 名称不能以连字符结尾' };
     }
     if (/--/.test(name)) {
-      return { valid: false, error: 'Change name cannot contain consecutive hyphens' };
+      return { valid: false, error: 'Change 名称不能包含连续连字符' };
     }
     if (/[^a-z0-9-]/.test(name)) {
       return { valid: false, error: 'Change name can only contain lowercase letters, numbers, and hyphens' };
@@ -134,7 +136,7 @@ export async function createChange(
   options: CreateChangeOptions = {}
 ): Promise<CreateChangeResult> {
   if (/^CHG-\d{8}-\d{3}$/.test(name)) {
-    throw new Error("Canonical Change IDs are allocated automatically. Use 'openspec new change <title>'.");
+    throw new Error("canonical Change ID 会自动分配，请使用 'openspec new change <title>'。");
   }
   // Validate the name first
   const validation = validateChangeName(name);

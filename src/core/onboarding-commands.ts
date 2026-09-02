@@ -32,10 +32,10 @@ export const DESCRIPTION_BUDGET = 17;
  * then implement.
  */
 const ONBOARDING_COMMANDS: readonly OnboardingCommand[] = [
-  { workflow: 'propose', command: '/opsx:propose', description: 'Start a change' },
-  { workflow: 'new', command: '/opsx:new', description: 'Scaffold a change' },
-  { workflow: 'continue', command: '/opsx:continue', description: 'Next artifact' },
-  { workflow: 'apply', command: '/opsx:apply', description: 'Implement tasks' },
+  { workflow: 'propose', command: '/opsx:propose', description: '开始一个 Change' },
+  { workflow: 'new', command: '/opsx:new', description: '创建 Change' },
+  { workflow: 'continue', command: '/opsx:continue', description: '继续下一个产物' },
+  { workflow: 'apply', command: '/opsx:apply', description: '实现任务' },
 ];
 
 /**

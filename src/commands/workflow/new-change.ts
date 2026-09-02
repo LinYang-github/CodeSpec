@@ -59,7 +59,7 @@ interface NewChangeOutput {
 function assertRemovedOptionsAbsent(options: NewChangeOptions): void {
   if (options.initiative !== undefined) {
     throw new RootSelectionError(
-      '--initiative is no longer supported. Normal changes no longer attach to initiatives; --store <id> selects the OpenSpec root.',
+      '--initiative 已不再支持。普通 Change 不再关联 initiative；使用 --store <id> 选择 OpenSpec 根目录。',
       'initiative_option_removed',
       { target: 'change.options' }
     );
@@ -67,7 +67,7 @@ function assertRemovedOptionsAbsent(options: NewChangeOptions): void {
 
   if (options.areas !== undefined) {
     throw new RootSelectionError(
-      '--areas is no longer supported. Workspace affected areas are not part of the normal OpenSpec root path.',
+      '--areas 已不再支持。普通 OpenSpec 根目录不再维护 workspace affected areas。',
       'areas_option_removed',
       { target: 'change.options' }
     );
@@ -84,9 +84,9 @@ function printCreatedChangeHuman(
     !isStoreSelectedRoot(root) && root.path === process.cwd()
       ? formatChangeLocation(toPlanningHome(root), payload.change.id)
       : payload.change.path;
-  console.log(`Created change '${payload.change.id}' at ${location}/`);
-  console.log(`Schema: ${payload.change.schema}`);
-  console.log(`Next: ${withStoreFlag(root, `openspec status --change ${payload.change.id}`)}`);
+  console.log(`已创建 Change：${payload.change.id}，位置：${location}/`);
+  console.log(`Schema：${payload.change.schema}`);
+  console.log(`下一步：${withStoreFlag(root, `openspec status --change ${payload.change.id}`)}`);
 }
 
 export async function newChangeCommand(name: string | undefined, options: NewChangeOptions): Promise<void> {
@@ -94,7 +94,7 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
 
   try {
     if (!name) {
-      throw new Error('Missing required argument <name>');
+      throw new Error('缺少必需参数 <name>。');
     }
 
     assertRemovedOptionsAbsent(options);
@@ -112,10 +112,10 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
 
     if (canonicalWorkspace) {
       if (/^CHG-\d{8}-\d{3}$/.test(name)) {
-        throw new Error('canonical Change IDs are allocated automatically. Provide a descriptive change title instead.');
+        throw new Error('canonical Change ID 会自动分配，请提供描述性的 Change 标题。');
       }
       if (options.schema) {
-        throw new Error('--schema is not supported for canonical code-spec changes.');
+        throw new Error('canonical code-spec Change 不支持 --schema；请使用默认 schema。');
       }
     } else {
       const validation = validateChangeName(name);
@@ -131,7 +131,7 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
 
     const resolvedSchema = options.schema ?? root.defaultSchema;
     if (spinner) {
-      spinner.start(`Creating change '${name}' with schema '${resolvedSchema}'...`);
+      spinner.start(`正在使用 schema '${resolvedSchema}' 创建 Change '${name}'...`);
     }
 
     const result = canonicalWorkspace

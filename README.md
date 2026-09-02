@@ -15,7 +15,7 @@
 </p>
 
 <details>
-<summary><strong>The most loved spec framework.</strong></summary>
+<summary><strong>面向 AI 协作的需求与变更管理工具。</strong></summary>
 
 [![Stars](https://img.shields.io/github/stars/Fission-AI/OpenSpec?style=flat-square&label=Stars)](https://github.com/Fission-AI/OpenSpec/stargazers)
 [![Downloads](https://img.shields.io/npm/dm/@fission-ai/openspec?style=flat-square&label=Downloads/mo)](https://www.npmjs.com/package/@fission-ai/openspec)
@@ -23,23 +23,23 @@
 
 </details>
 <p></p>
-Our philosophy:
+我们的工作方式：
 
 ```text
-→ fluid not rigid
-→ iterative not waterfall
-→ easy not complex
-→ built for brownfield not just greenfield
-→ scalable from personal projects to enterprises
+→ 灵活，而不是僵化
+→ 迭代，而不是瀑布
+→ 清晰，而不是复杂
+→ 适用于存量项目，也适用于新项目
+→ 从个人项目扩展到团队项目
 ```
 
 > [!TIP]
-> **New workflow now available!** We've rebuilt OpenSpec with a new artifact-guided workflow.
+> **默认工作流是 `code-spec`。** OpenSpec 使用产物驱动的工作流。
 >
-> Run `/opsx:propose "your idea"` to get started. → [Learn more here](docs/opsx.md)
+> 在 AI 对话中运行 `/opsx:propose "你的想法"` 开始。→ [了解工作流](docs/opsx.md)
 
 > [!WARNING]
-> **Breaking boundary for code-spec work:** the canonical layout is `openspec/business.md`, `openspec/changes/CHG-YYYYMMDD-NNN/`, `openspec/archive/specs/`, and `openspec/archive/changes/`. Create Changes with `openspec new change` (or the deprecated `openspec change new` alias), archive them explicitly with `openspec archive CHG-...`, and do not rely on slug directories or `.openspec.yaml`; those legacy code-spec forms are unsupported. Generic schema workflows and their documentation remain available where explicitly configured.
+> **`code-spec` 迁移边界：**规范目录为 `openspec/business.md`、`openspec/changes/CHG-YYYYMMDD-NNN/`、`openspec/archive/specs/` 和 `openspec/archive/changes/`。使用 `openspec new change` 创建 Change，使用 `openspec archive CHG-...` 显式归档。旧 Change 标识、slug 目录和 `.openspec.yaml` 不再兼容。旧文件可以保留，但不会被新的 canonical 工作流读取。只有显式指定时才使用通用 Schema 工作流。
 
 <p align="center">
   Follow <a href="https://x.com/0xTab">@0xTab on X</a> for updates · Join the <a href="https://discord.gg/YctCnvvshC">OpenSpec Discord</a> for help and questions.
@@ -47,7 +47,7 @@ Our philosophy:
 
 <!-- TODO: Add GIF demo of /opsx:propose → /opsx:archive workflow -->
 
-## See it in action
+## 使用示例
 
 ```text
 You: /opsx:explore
@@ -123,29 +123,29 @@ Solo, OpenSpec keeps you and your AI honest on a single repo. On a team, the har
 
 > Stores are in **beta**. Start with the [Stores User Guide](docs/stores-beta/user-guide.md).
 
-## Quick Start
+## 快速开始
 
-**Requires Node.js 20.19.0 or higher.**
+**需要 Node.js 20.19.0 或更高版本。**
 
-Install OpenSpec globally:
+在终端中全局安装 OpenSpec：
 
 ```bash
 npm install -g @fission-ai/openspec@latest
 ```
 
-Then navigate to your project directory and initialize:
+进入项目目录并初始化：
 
 ```bash
 cd your-project
 openspec init
 ```
 
-> **Want your AI to do it?** Paste the [setup prompt](docs/installation.md#install-with-your-ai-assistant) into your coding assistant — it installs the CLI, runs `openspec init`, and verifies the result.
+> **让 AI 协助安装：**将[安装提示词](docs/installation.md#install-with-your-ai-assistant)粘贴到编码助手中。它会安装 CLI、运行 `openspec init` 并验证结果。
 
-Now talk to your AI:
+然后在 AI 对话中使用：
 
-- **Not sure what to build yet?** Start with `/opsx:explore`, a no-stakes thinking partner that reads your code, weighs options, and shapes a plan before anything is written. ([Explore guide](docs/explore.md))
-- **Already know what you want?** Go straight to `/opsx:propose <what-you-want-to-build>`.
+- **还不确定做什么：**先运行 `/opsx:explore`，让 AI 读取代码、比较方案并整理计划。（[Explore 指南](docs/explore.md)）
+- **已经明确目标：**直接运行 `/opsx:propose <what-you-want-to-build>`。
 
 Both are in the default profile. If you want the expanded workflow (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:verify`, `/opsx:bulk-archive`, `/opsx:onboard`), select it with `openspec config profile` and apply with `openspec update`.
 
@@ -156,9 +156,9 @@ Both are in the default profile. If you want the expanded workflow (`/opsx:new`,
 >
 > Also works with pnpm, yarn, bun, and nix. [See installation options](docs/installation.md).
 
-## Docs
+## 文档
 
-**Start here:** the **[Documentation Home](docs/README.md)** maps everything. New to OpenSpec? Read [Getting Started](docs/getting-started.md), then [How Commands Work](docs/how-commands-work.md) (where you actually type `/opsx:propose`).
+**从这里开始：**[文档首页](docs/README.md)提供完整导航。第一次使用 OpenSpec？先读[快速入门](docs/getting-started.md)，再读[命令如何工作](docs/how-commands-work.md)，了解 `/opsx:propose` 应该在哪输入。
 
 → **[Getting Started](docs/getting-started.md)**: first steps<br>
 → **[Explore First](docs/explore.md)**: think it through with `/opsx:explore` before you commit<br>

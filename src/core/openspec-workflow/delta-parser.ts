@@ -90,7 +90,7 @@ export function parseDeltaSpec(content: string): ParsedDeltaSpec {
     if (/^##\s+/u.test(line) && line.trim()) throw new Error(`Unknown delta action section: ${line}`);
     current?.lines.push(line);
   }
-  if (!sections.length) throw new Error('Delta spec must contain at least one action section');
+  if (!sections.length) throw new Error('Delta Spec 至少需要一个 action section');
   const entries: RequirementDelta[] = []; const ids = new Set<string>();
   for (const section of sections) {
     const starts = section.lines.map((line, index) => ({ line, index })).filter(({ line }) => /^###\s+/u.test(line));

@@ -202,8 +202,8 @@ describe('store command', () => {
     const storeRoot = path.join(tempDir, 'guided-context');
     const { input, confirm } = await getPromptMocks();
     input.mockImplementation(async (options: { message: string; default?: string }) => {
-      if (options.message === 'Store name') return 'guided-context';
-      if (options.message === 'Where should this store live?') return storeRoot;
+      if (options.message === 'Store 名称') return 'guided-context';
+      if (options.message === 'Store 存放在哪里？') return storeRoot;
       return options.default;
     });
     confirm.mockResolvedValueOnce(true);
@@ -211,16 +211,16 @@ describe('store command', () => {
     await runStoreCommand(['setup', '--no-init-git']);
 
     expect(input).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Store name',
+      message: 'Store 名称',
     }));
     // The suggested location is a visible user path, never the XDG data dir.
     expect(input).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'Where should this store live?',
+      message: 'Store 存放在哪里？',
       default: '~/openspec/guided-context',
     }));
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(confirm).toHaveBeenNthCalledWith(1, {
-      message: 'Create this store?',
+      message: '创建此 Store？',
       default: true,
     });
     expect(fs.existsSync(getStoreMetadataPath(storeRoot))).toBe(true);
@@ -659,7 +659,7 @@ describe('store command', () => {
     await runStoreCommand(['register', storeRoot]);
 
     expect(confirm).toHaveBeenCalledWith({
-      message: "Turn this OpenSpec root into store 'team-context'?",
+      message: "将此 OpenSpec 根目录转换为 Store 'team-context'？",
       default: false,
     });
     expect(fs.existsSync(getStoreMetadataPath(storeRoot))).toBe(false);
@@ -1239,7 +1239,7 @@ describe('store command', () => {
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("unknown command 'new' for 'openspec store'");
+      expect(result.stderr).toContain('"openspec store" 中的未知命令 \'new\'');
       expect(result.stderr).toContain(
         'setup, register, unregister, remove, list (ls), doctor'
       );
@@ -1274,7 +1274,7 @@ describe('store command', () => {
       expect(payload.status[0]).toEqual(
         expect.objectContaining({
           code: 'unknown_store_subcommand',
-          message: expect.stringContaining("Unknown command 'bogus'"),
+          message: expect.stringContaining('未知命令 \'bogus\''),
         })
       );
     });
@@ -1287,7 +1287,7 @@ describe('store command', () => {
       expect(payload.status[0]).toEqual(
         expect.objectContaining({
           code: 'unknown_store_subcommand',
-          message: expect.stringContaining('Missing subcommand'),
+          message: expect.stringContaining('缺少'),
         })
       );
     });
@@ -1303,7 +1303,7 @@ describe('store command', () => {
       const result = await runCLI(['--help'], { cwd: tempDir, env });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Create and manage stores - standalone');
+      expect(result.stdout).toContain('创建并管理 Store');
       expect(result.stdout).not.toContain(RETIRED_GROUP);
     });
   });

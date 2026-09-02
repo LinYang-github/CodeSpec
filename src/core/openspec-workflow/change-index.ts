@@ -14,7 +14,7 @@ export async function withChangeIndexLock<T>(paths: WorkspacePaths, work: () => 
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       await new Promise((resolve) => setTimeout(resolve, 10));
-      if (attempt === 99) throw new Error('Change index is busy');
+      if (attempt === 99) throw new Error('Change 索引正忙');
     }
   }
   try { return await work(); } finally { await fs.rm(lock, { recursive: true, force: true }); }

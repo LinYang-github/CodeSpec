@@ -1153,7 +1153,7 @@ export class ArchiveCommand {
       }
       const selectedChange = await this.selectChange(changesDir, root, options);
       if (!selectedChange) {
-        console.log('No change selected. Aborting.');
+        console.log('未选择 Change，已中止。');
         return null;
       }
       changeName = selectedChange;
@@ -1176,7 +1176,7 @@ export class ArchiveCommand {
         );
       }
       if (!stat.isDirectory()) {
-        throw new Error(`Change '${changeName}' not found.`);
+        throw new Error(`未找到 Change '${changeName}'。`);
       }
     } catch (error) {
       if (error instanceof ArchiveBlockedError) throw error;
@@ -1184,8 +1184,8 @@ export class ArchiveCommand {
       throw new ArchiveBlockedError(
         'archive_change_not_found',
         available.length > 0
-          ? `Change '${changeName}' not found. Available changes: ${available.join(', ')}`
-          : `Change '${changeName}' not found. No active changes exist in this root.`
+          ? `未找到 Change '${changeName}'。可用 Change：${available.join('、')}`
+          : `未找到 Change '${changeName}'。此根目录没有活动 Change。`
       );
     }
 
@@ -1332,7 +1332,7 @@ export class ArchiveCommand {
             )
         );
         if (!proceed) {
-          console.log('Archive cancelled.');
+        console.log('已取消归档。');
           return null;
         }
       } else {
@@ -1374,7 +1374,7 @@ export class ArchiveCommand {
             )
         );
         if (!proceed) {
-          console.log('Archive cancelled.');
+        console.log('已取消归档。');
           return null;
         }
       } else {
@@ -1418,7 +1418,7 @@ export class ArchiveCommand {
       let changeArchived = false;
       if (options.skipSpecs) {
       if (!json) {
-        console.log('Skipping spec updates (--skip-specs flag provided).');
+        console.log('跳过 Spec 更新（已提供 --skip-specs 选项）。');
       }
     } else {
       // Find specs to update
@@ -1517,7 +1517,7 @@ export class ArchiveCommand {
               )
           );
           if (!shouldUpdateSpecs) {
-            console.log('Skipping spec updates. Proceeding with archive.');
+            console.log('跳过 Spec 更新，继续归档。');
           }
         }
 
@@ -1540,7 +1540,7 @@ export class ArchiveCommand {
               const currentUpdates = await findSpecUpdates(changeDir, mainSpecsDir);
               const currentById = new Map(currentUpdates.map((update) => [update.id, update]));
               if (currentUpdates.length !== prepared.length) {
-                throw new Error('The change specs changed while archive was awaiting confirmation.');
+                throw new Error('等待归档确认期间 Change 的 Spec 发生变化。');
               }
               for (const proposed of prepared) {
                 const current = currentById.get(proposed.update.id);
@@ -1593,7 +1593,7 @@ export class ArchiveCommand {
               );
             }
             console.log(message);
-            console.log('Aborted. No files were changed.');
+            console.log('已中止，未修改任何文件。');
             process.exitCode = 1;
             return null;
           }
@@ -1692,7 +1692,7 @@ export class ArchiveCommand {
                 if (retirementHint) console.log(chalk.yellow(`  → ${retirementHint}`));
                 if (blockedRetirementHint) console.log(chalk.yellow(`  → ${blockedRetirementHint}`));
                 if (refusalReason) console.log(chalk.yellow(`  → ${refusalReason}`));
-                console.log('Aborted. No files were changed.');
+            console.log('已中止，未修改任何文件。');
                 process.exitCode = 1;
                 return null;
               }
@@ -2078,7 +2078,7 @@ export class ArchiveCommand {
     const changeDirs = await listActiveChangeNames(changesDir);
 
     if (changeDirs.length === 0) {
-      console.log('No active changes found.');
+      console.log('没有活动 Change。');
       return null;
     }
 

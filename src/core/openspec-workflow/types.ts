@@ -20,6 +20,10 @@ export interface WorkspaceConfig {
   project: {
     name: string;
   };
+  context?: string;
+  githubCopilot?: {
+    cloudAgent?: boolean;
+  };
   paths: {
     business: string;
     changes: string;

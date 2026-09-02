@@ -131,7 +131,7 @@ describe('resolveOpenSpecRoot', () => {
     expect(root.changesDir).toBe(path.join(storeRoot, 'openspec', 'changes'));
     expect(root.specsDir).toBe(path.join(storeRoot, 'openspec', 'specs'));
     expect(root.archiveDir).toBe(path.join(storeRoot, 'openspec', 'changes', 'archive'));
-    expect(root.defaultSchema).toBe('spec-driven');
+    expect(root.defaultSchema).toBe('code-spec');
   });
 
   it('rejects an unknown store id and lists registered ids', async () => {
@@ -233,7 +233,7 @@ describe('resolveOpenSpecRoot', () => {
     expect(root.source).toBe('nearest');
     expect(root.path).toBe(repoRoot);
     expect(root.changesDir).toBe(path.join(repoRoot, 'openspec', 'changes'));
-    expect(root.defaultSchema).toBe('spec-driven');
+    expect(root.defaultSchema).toBe('code-spec');
   });
 
   it('treats workspace state alone as no root at all', async () => {
@@ -357,8 +357,8 @@ describe('resolveOpenSpecRoot', () => {
       }
 
       expect(warnings).toHaveLength(1);
-      expect(warnings[0]).toContain("declares store 'team-context'");
-      expect(warnings[0]).toContain('the declaration is ignored');
+      expect(warnings[0]).toContain("声明了 Store 'team-context'");
+      expect(warnings[0]).toContain('该声明已忽略');
     });
 
     it('keeps config-only directories without a pointer as plain roots', async () => {
@@ -395,7 +395,7 @@ describe('resolveOpenSpecRoot', () => {
       );
       // The unparseable case names the real problem, not a phantom key.
       expect(yamlError.message).toContain('could not be read as YAML');
-      expect(yamlError.diagnostic.fix).toContain('Fix the YAML syntax');
+      expect(yamlError.diagnostic.fix).toContain('YAML 语法');
 
       // A config that parses to a non-mapping scalar has no pointer at
       // all: plain root, no error (readProjectConfig owns that warning).

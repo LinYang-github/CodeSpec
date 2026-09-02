@@ -115,7 +115,7 @@ function printDiagnosticLines(prefix: string, status: { message: string; fix?: s
   for (const entry of status) {
     console.log(`${prefix}- ${entry.message}`);
     if (entry.fix) {
-      console.log(`${prefix}  Fix: ${entry.fix}`);
+      console.log(`${prefix}  修复：${entry.fix}`);
     }
   }
 }
@@ -141,21 +141,21 @@ function printEntrySection<T extends { status: { message: string; fix?: string }
     for (const diagnostic of entry.status) {
       console.log(`  - ${idOf(entry)}: ${diagnostic.message}`);
       if (diagnostic.fix) {
-        console.log(`    Fix: ${diagnostic.fix}`);
+        console.log(`    修复：${diagnostic.fix}`);
       }
     }
   }
 }
 
 function printHumanHealth(health: RelationshipHealth, declaredReferenceCount: number): void {
-  console.log('Doctor');
+  console.log('健康检查');
   console.log('');
-  console.log('Root');
-  console.log(`  Location: ${health.root.path}`);
-  console.log(`  OpenSpec root: ${health.root.healthy ? 'ok' : 'unhealthy'}`);
+  console.log('根目录');
+  console.log(`  位置：${health.root.path}`);
+  console.log(`  OpenSpec 根目录：${health.root.healthy ? '正常' : '不健康'}`);
   if (health.store) {
-    const metadataNote = health.store.metadata.valid ? 'metadata ok' : 'metadata invalid';
-    console.log(`  Store: ${health.store.id} (${metadataNote})`);
+    const metadataNote = health.store.metadata.valid ? '元数据正常' : '元数据无效';
+    console.log(`  Store：${health.store.id}（${metadataNote}）`);
   }
   printDiagnosticLines('  ', [...health.root.status, ...(health.store?.status ?? [])]);
 
@@ -163,21 +163,21 @@ function printHumanHealth(health: RelationshipHealth, declaredReferenceCount: nu
   // the index, so an emptied-by-omission list gets its own line.
   const referencesEmptyLine =
     health.references.length === 0 && declaredReferenceCount > 0
-      ? '(declared references all resolve to this root)'
-      : '(none declared)';
+      ? '（声明的引用全部解析到此根目录）'
+      : '（未声明）';
   printEntrySection(
-    'References',
+    '引用',
     health.references,
     referencesEmptyLine,
-    (entry) => `${entry.store_id}: ok${entry.root ? ` (${entry.root})` : ''}`,
+    (entry) => `${entry.store_id}：正常${entry.root ? `（${entry.root}）` : ''}`,
     (entry) => entry.store_id
   );
 
   for (const entry of health.status) {
     console.log('');
-    console.log(`Note: ${entry.message}`);
+    console.log(`提示：${entry.message}`);
     if (entry.fix) {
-      console.log(`Fix: ${entry.fix}`);
+      console.log(`修复：${entry.fix}`);
     }
   }
 }
@@ -185,16 +185,16 @@ function printHumanHealth(health: RelationshipHealth, declaredReferenceCount: nu
 export function registerDoctorCommand(program: Command): void {
   const description =
     COMMAND_REGISTRY.find((entry) => entry.name === 'doctor')?.description ??
-    'Report relationship health for the resolved OpenSpec root';
+    '报告解析后 OpenSpec 根目录的关联健康状态';
 
   program
     .command('doctor')
     .description(description)
     .option('--store <id>', COMMON_FLAGS.store.description)
     .addOption(
-      new Option('--store-path <path>', 'Removed; register the store and use --store').hideHelp()
+      new Option('--store-path <path>', '已移除；请登记 Store 后使用 --store').hideHelp()
     )
-    .option('--json', 'Output as JSON')
+    .option('--json', '以 JSON 输出')
     .action(async (options: { store?: string; storePath?: string; json?: boolean }) => {
       try {
         const root = await resolveRootForCommand(

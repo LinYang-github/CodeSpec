@@ -13,6 +13,7 @@ import { SpecCommand } from './spec.js';
 import { nearestMatches } from '../utils/match.js';
 import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
 import { loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
+import { formatStatusLabel } from '../ui/user-facing-messages.js';
 
 type ItemType = 'change' | 'spec';
 
@@ -47,7 +48,7 @@ export class ShowCommand {
       if (interactive) {
         const { select } = await import('@inquirer/prompts');
         const type = await select<ItemType>({
-          message: 'What would you like to show?',
+          message: '要查看什么？',
           choices: [
             { name: 'Change', value: 'change' as const },
             { name: 'Spec', value: 'spec' as const },
@@ -77,17 +78,17 @@ export class ShowCommand {
     let selected = itemName;
     if (!selected && interactive && active.length) {
       const { select } = await import('@inquirer/prompts');
-      selected = await select({ message: 'Select a Change', choices: active.map((entry) => ({ name: entry.id, value: entry.id })) });
+      selected = await select({ message: '选择 Change', choices: active.map((entry) => ({ name: entry.id, value: entry.id })) });
     }
     if (!selected) {
-      const message = active.length ? `No Change specified. Available IDs: ${active.map((entry) => entry.id).join(', ')}` : 'No active Changes found.';
+      const message = active.length ? `未指定 Change。可用 ID：${active.map((entry) => entry.id).join('、')}` : '未找到活动 Change。';
       if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'change_required', message }] }, null, 2));
       else console.error(message);
       process.exitCode = 1;
       return;
     }
     if (typeOverride === 'spec' || !/^CHG-\d{8}-\d{3}$/u.test(selected)) {
-      const message = `Canonical code-spec show requires a Change ID matching CHG-YYYYMMDD-NNN; '${selected}' is unsupported.`;
+      const message = `canonical code-spec show 要求 Change ID 匹配 CHG-YYYYMMDD-NNN；'${selected}' 不受支持。`;
       if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'legacy_change_unsupported', message }] }, null, 2));
       else console.error(message);
       process.exitCode = 1;
@@ -97,7 +98,7 @@ export class ShowCommand {
     if (options.json) {
       console.log(JSON.stringify({ changeId: selected, status: artifacts.metadata.change.status, revision: artifacts.metadata.change.revision, title: artifacts.metadata.change.title, requirements: artifacts.metadata.requirements, spec: artifacts.spec, root: toRootOutput(root) }, null, 2));
     } else {
-      console.log(`# Change: ${selected}\n\nStatus: ${artifacts.metadata.change.status}\nRevision: ${artifacts.metadata.change.revision}\n\n${artifacts.spec}`);
+      console.log(`# Change：${selected}\n\n状态：${formatStatusLabel(artifacts.metadata.change.status)}\n修订：${artifacts.metadata.change.revision}\n\n${artifacts.spec}`);
     }
   }
 
@@ -124,11 +125,11 @@ export class ShowCommand {
     if (type === 'change') {
       const changes = await getActiveChangeIds(root.path);
       if (changes.length === 0) {
-        console.error('No changes found.');
+        console.error('未找到 Change。');
         process.exitCode = 1;
         return;
       }
-      const picked = await select<string>({ message: 'Pick a change', choices: changes.map(id => ({ name: id, value: id })) });
+      const picked = await select<string>({ message: '选择 Change', choices: changes.map(id => ({ name: id, value: id })) });
       const cmd = new ChangeCommand(root.path);
       await cmd.show(picked, this.delegateOptions(root, options) as any);
       return;
@@ -136,11 +137,11 @@ export class ShowCommand {
 
     const specs = await getSpecIds(root.path);
     if (specs.length === 0) {
-      console.error('No specs found.');
+      console.error('未找到 Spec。');
       process.exitCode = 1;
       return;
     }
-    const picked = await select<string>({ message: 'Pick a spec', choices: specs.map(id => ({ name: id, value: id })) });
+    const picked = await select<string>({ message: '选择 Spec', choices: specs.map(id => ({ name: id, value: id })) });
     const cmd = new SpecCommand(root.path);
     await cmd.show(picked, this.delegateOptions(root, options) as any);
   }
@@ -172,8 +173,8 @@ export class ShowCommand {
     if (!resolvedType) {
       const suggestions = nearestMatches(itemName, [...changes, ...specs]);
       const message = suggestions.length
-        ? `Unknown item '${itemName}'. Did you mean: ${suggestions.join(', ')}?`
-        : `Unknown item '${itemName}'.`;
+        ? `未知条目 '${itemName}'。你是否想输入：${suggestions.join('、')}？`
+        : `未知条目 '${itemName}'。`;
       if (params.options.json) {
         console.log(
           JSON.stringify(
@@ -198,8 +199,8 @@ export class ShowCommand {
                 {
                   severity: 'error',
                   code: 'ambiguous_item',
-                  message: `Ambiguous item '${itemName}' matches both a change and a spec.`,
-                  fix: 'Pass --type change|spec.',
+                  message: `条目 '${itemName}' 同时匹配 Change 和 Spec，无法确定类型。`,
+                  fix: '传入 --type change|spec。',
                 },
               ],
             },
@@ -210,12 +211,12 @@ export class ShowCommand {
         process.exitCode = 1;
         return;
       }
-      console.error(`Ambiguous item '${itemName}' matches both a change and a spec.`);
+      console.error(`条目 '${itemName}' 同时匹配 Change 和 Spec，无法确定类型。`);
       // The noun-form commands are cwd-based and cannot reach a selected store.
       if (isStoreSelectedRoot(root)) {
-        console.error('Pass --type change|spec.');
+        console.error('传入 --type change|spec。');
       } else {
-        console.error('Pass --type change|spec, or use: openspec change show / openspec spec show');
+        console.error('传入 --type change|spec，或使用：openspec change show / openspec spec show');
       }
       process.exitCode = 1;
       return;
@@ -232,7 +233,7 @@ export class ShowCommand {
   }
 
   private printNonInteractiveHint(root: ResolvedOpenSpecRoot): void {
-    console.error('Nothing to show. Try one of:');
+    console.error('没有可显示的条目。请尝试以下命令之一：');
     console.error(`  ${withStoreFlag(root, 'openspec show <item>')}`);
     if (isStoreSelectedRoot(root)) {
       // The noun-form commands are cwd-based and cannot reach a selected store.
@@ -242,7 +243,7 @@ export class ShowCommand {
       console.error('  openspec change show');
       console.error('  openspec spec show');
     }
-    console.error('Or run in an interactive terminal.');
+    console.error('或在交互式终端中运行。');
   }
 
   private warnIrrelevantFlags(type: ItemType, options: { [k: string]: any }): boolean {
@@ -257,7 +258,7 @@ export class ShowCommand {
       for (const k of CHANGE_FLAG_KEYS) if (isUserProvided(k)) irrelevant.push(k);
     }
     if (irrelevant.length > 0) {
-      console.error(`Warning: Ignoring flags not applicable to ${type}: ${irrelevant.join(', ')}`);
+      console.error(`警告：忽略不适用于 ${type} 的选项：${irrelevant.join('、')}`);
       return true;
     }
     return false;

@@ -73,7 +73,7 @@ export function buildNextSteps(input: ChangeNextStepsInput): string[] {
     );
   } else if (input.allArtifactsComplete) {
     steps.push(
-      `All planning artifacts are complete. Run openspec instructions apply --change "${input.changeName}"${storeFlag} --json to inspect implementation progress.`
+      `全部规划产物已完成。请运行 openspec instructions apply --change "${input.changeName}"${storeFlag} --json 查看实现进度。`
     );
   }
 

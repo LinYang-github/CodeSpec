@@ -89,7 +89,7 @@ export async function loadChangeArtifacts(
   changeId: string
 ): Promise<ChangeArtifacts> {
   if (!/^CHG-\d{8}-\d{3}$/.test(changeId)) {
-    throw new Error('Change ID must match CHG-YYYYMMDD-NNN');
+    throw new Error('Change ID 必须匹配 CHG-YYYYMMDD-NNN');
   }
   const changeDir = path.join(paths.changes, changeId);
   const changeStat = await fs.lstat(changeDir);

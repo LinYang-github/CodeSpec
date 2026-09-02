@@ -51,21 +51,21 @@ export class CompletionCommand {
 
       // Shell was detected but not supported
       if (detectionResult.detected && !detectionResult.shell) {
-        console.error(`Error: Shell '${detectionResult.detected}' is not supported yet. Currently supported: ${CompletionFactory.getSupportedShells().join(', ')}`);
+        console.error(`错误：暂不支持 Shell '${detectionResult.detected}'。当前支持：${CompletionFactory.getSupportedShells().join('、')}`);
         process.exitCode = 1;
         return null;
       }
 
       // No shell specified and cannot auto-detect
-      console.error('Error: Could not auto-detect shell. Please specify shell explicitly.');
-      console.error(`Usage: openspec completion ${operationName} [shell]`);
-      console.error(`Currently supported: ${CompletionFactory.getSupportedShells().join(', ')}`);
+      console.error('错误：无法自动检测 Shell。请明确指定 Shell。');
+      console.error(`用法：openspec completion ${operationName} [shell]`);
+      console.error(`当前支持：${CompletionFactory.getSupportedShells().join('、')}`);
       process.exitCode = 1;
       return null;
     }
 
     if (!CompletionFactory.isSupported(normalizedShell)) {
-      console.error(`Error: Shell '${normalizedShell}' is not supported yet. Currently supported: ${CompletionFactory.getSupportedShells().join(', ')}`);
+      console.error(`错误：暂不支持 Shell '${normalizedShell}'。当前支持：${CompletionFactory.getSupportedShells().join('、')}`);
       process.exitCode = 1;
       return null;
     }
@@ -199,7 +199,7 @@ export class CompletionCommand {
       }
     } catch (error) {
       spinner.stop();
-      console.error(`✗ Failed to install completion script: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`✗ 安装补全脚本失败：${error instanceof Error ? error.message : String(error)}`);
       process.exitCode = 1;
     }
   }
@@ -229,7 +229,7 @@ export class CompletionCommand {
       });
 
       if (!confirmed) {
-        console.log('Uninstall cancelled.');
+        console.log('已取消卸载。');
         return;
       }
     }
@@ -249,7 +249,7 @@ export class CompletionCommand {
       }
     } catch (error) {
       spinner.stop();
-      console.error(`✗ Failed to uninstall completion script: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`✗ 卸载补全脚本失败：${error instanceof Error ? error.message : String(error)}`);
       process.exitCode = 1;
     }
   }

@@ -199,7 +199,7 @@ export interface ResolveSchemaForChangeOptions {
  * 1. Explicit schema (if provided)
  * 2. Schema from legacy metadata (if present for a generic workspace)
  * 3. Schema from openspec/config.yaml (if exists)
- * 4. Default 'spec-driven'
+ * 4. Default 'code-spec'
  *
  * @param changeDir - The path to the change directory
  * @param explicitSchema - Optional explicit schema override
@@ -247,7 +247,7 @@ export function resolveSchemaForChange(
   }
 
   // 4. Default
-  return 'spec-driven';
+  return 'code-spec';
 }
 
 export interface MetadataMarker {

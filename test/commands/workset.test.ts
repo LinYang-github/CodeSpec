@@ -106,7 +106,7 @@ describe('openspec workset (7.1)', () => {
         { cwd: tempDir, env }
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('temporarily disabled');
+      expect(result.stderr).toContain('暂时不能');
       expect(result.stderr).toContain('--tool code');
     });
 
@@ -116,7 +116,7 @@ describe('openspec workset (7.1)', () => {
         { cwd: tempDir, env }
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('temporarily disabled');
+      expect(result.stderr).toContain('暂时不能');
     });
 
     it('never presents a CLI agent as a known tool', async () => {
@@ -285,14 +285,14 @@ describe('openspec workset (7.1)', () => {
       expect(payload.worksets[1].tool).toBe('claude');
 
       const human = await runCLI(['workset', 'list'], { cwd: tempDir, env });
-      expect(human.stdout).toContain('platform  (opens in Claude Code)');
+      expect(human.stdout).toContain('platform（使用 Claude Code 打开）');
       expect(human.stdout).toContain(memberA);
     });
 
     it('says so plainly when nothing is saved', async () => {
       const human = await runCLI(['workset', 'list'], { cwd: tempDir, env });
       expect(human.stdout).toContain(
-        'No worksets saved. Create one with: openspec workset create'
+        '尚未保存 Workset。可使用 openspec workset create 创建。'
       );
 
       const json = await runCLI(['workset', 'list', '--json'], {
@@ -364,7 +364,7 @@ describe('openspec workset (7.1)', () => {
       });
       expect(parseJson(noneSaved).status[0].code).toBe('workset_not_found');
       expect(parseJson(noneSaved).status[0].fix).toBe(
-        'Create it first: openspec workset create ghost'
+        '请先创建：openspec workset create ghost'
       );
 
       await createPlatform();
@@ -373,7 +373,7 @@ describe('openspec workset (7.1)', () => {
         env,
       });
       expect(parseJson(someSaved).status[0].fix).toBe(
-        'Saved worksets: platform. See them with: openspec workset list'
+        '已保存 Workset：platform。可使用 openspec workset list 查看。'
       );
     });
   });
@@ -390,7 +390,7 @@ describe('openspec workset (7.1)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain(
-        "Opening 'platform' in VS Code (a window opens; this command returns)."
+        "正在使用 VS Code 打开 'platform'（将打开窗口，当前命令随后返回）。"
       );
 
       const generated = getWorksetCodeWorkspacePath('platform', pathOptions());
@@ -419,7 +419,7 @@ describe('openspec workset (7.1)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain(
-        "Handing this terminal to Claude Code for 'platform' (the session ends when you exit)."
+        "正在将当前终端交给 Claude Code 打开 'platform'（退出时会结束当前会话）。"
       );
       const launch = readLaunchLog(fakeClaude.logPath);
       expect(launch.args).toEqual([
@@ -479,7 +479,7 @@ describe('openspec workset (7.1)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain(
-        `Skipped 'web-app' (${memberB} is not available).`
+        `已跳过 'web-app'（${memberB} 不可用）。`
       );
       expect(readLaunchLog(fakeClaude.logPath).args).toEqual([
         '--add-dir',
@@ -516,7 +516,7 @@ describe('openspec workset (7.1)', () => {
       });
       expect(third.exitCode).toBe(1);
       expect(third.stderr).toContain('workset');
-      expect(third.stderr).toContain('No member folder');
+      expect(third.stderr).toContain('成员目录');
     });
 
     it('overrides the saved tool per open without rewriting the file', async () => {
@@ -547,7 +547,7 @@ describe('openspec workset (7.1)', () => {
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain("Workset 'platform' has no saved tool.");
+      expect(result.stderr).toContain("Workset 'platform' 没有保存的工具。");
       expect(result.stderr).toContain(
         'openspec workset open platform --tool <id>'
       );
@@ -564,14 +564,14 @@ describe('openspec workset (7.1)', () => {
 
       expect(unavailable.exitCode).toBe(1);
       expect(unavailable.stderr).toContain(
-        "Error: Cursor ('cursor') is not on PATH."
+        "错误：Cursor ('cursor') 不在 PATH 中。"
       );
       expect(unavailable.stderr).toContain(
-        'Fix: Install \'cursor\' or run: openspec workset open platform --tool code'
+        '修复：安装 \'cursor\'，或运行：openspec workset open platform --tool code'
       );
-      expect(unavailable.stderr).toContain('Open manually:');
+      expect(unavailable.stderr).toContain('请手动打开：');
       const generated = getWorksetCodeWorkspacePath('platform', pathOptions());
-      expect(unavailable.stderr).toContain(`Workspace file: ${generated}`);
+      expect(unavailable.stderr).toContain(`Workspace 文件：${generated}`);
       expect(unavailable.stderr).toContain(memberA);
       // The named file exists with current content.
       expect(JSON.parse(fs.readFileSync(generated, 'utf-8')).folders).toHaveLength(3);
@@ -581,8 +581,8 @@ describe('openspec workset (7.1)', () => {
         { cwd: tempDir, env }
       );
       expect(unknown.exitCode).toBe(1);
-      expect(unknown.stderr).toContain("Unknown tool 'emacs'");
-      expect(unknown.stderr).toContain('Open manually:');
+      expect(unknown.stderr).toContain("未知工具 'emacs'");
+      expect(unknown.stderr).toContain('请手动打开：');
     });
 
     it('reports an unknown workset name', async () => {
@@ -607,7 +607,7 @@ describe('openspec workset (7.1)', () => {
       const payload = parseJson(result);
       expect(payload.status[0].code).toBe('workset_open_json_unsupported');
       expect(payload.status[0].fix).toBe(
-        'Inspect worksets with: openspec workset list --json'
+        '使用以下命令查看 Workset：openspec workset list --json'
       );
     });
   });
@@ -685,7 +685,7 @@ describe('openspec workset (7.1)', () => {
         expect(result.exitCode).toBe(1);
         const status = parseJson(result).status[0];
         expect(status.code).toBe('invalid_workset_file');
-        expect(status.fix).toBe(`Repair or remove ${filePath}.`);
+        expect(status.fix).toBe(`修复或移除 ${filePath}。`);
       }
 
       // open is human-only; it fails the same way on its stderr leg.
@@ -694,7 +694,7 @@ describe('openspec workset (7.1)', () => {
         env,
       });
       expect(open.exitCode).toBe(1);
-      expect(open.stderr).toContain('Invalid worksets file');
+      expect(open.stderr).toContain('Workset 文件无效');
 
       expect(fs.readFileSync(filePath, 'utf-8')).toBe('{broken');
     });
@@ -707,11 +707,11 @@ describe('openspec workset (7.1)', () => {
       expect(json.exitCode).toBe(1);
       const payload = parseJson(json);
       expect(payload.status[0].code).toBe('unknown_workset_subcommand');
-      expect(payload.status[0].message).toContain("Unknown command 'bogus'");
+      expect(payload.status[0].message).toContain("'openspec workset' 中的未知命令 'bogus'");
 
       const human = await runCLI(['workset', 'bogus'], { cwd: tempDir, env });
       expect(human.exitCode).toBe(1);
-      expect(human.stderr).toContain("Unknown command 'bogus'");
+      expect(human.stderr).toContain("'openspec workset' 中的未知命令 'bogus'");
       expect(human.stderr).toContain('create, list (ls), open, remove');
     });
 
@@ -720,11 +720,11 @@ describe('openspec workset (7.1)', () => {
       expect(json.exitCode).toBe(1);
       const payload = parseJson(json);
       expect(payload.status[0].code).toBe('unknown_workset_subcommand');
-      expect(payload.status[0].message).toContain('Missing subcommand');
+      expect(payload.status[0].message).toContain('缺少');
 
       const human = await runCLI(['workset'], { cwd: tempDir, env });
       expect(human.exitCode).toBe(1);
-      expect(human.stderr).toContain('Missing subcommand');
+      expect(human.stderr).toContain('缺少');
     });
 
     it('a launch failure carries a pasteable alternative and the manual route', async () => {
@@ -755,11 +755,11 @@ describe('openspec workset (7.1)', () => {
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('Could not launch Claude Code');
+      expect(result.stderr).toContain('无法启动 Claude Code');
       expect(result.stderr).toContain(
-        'Fix: Run: openspec workset open platform --tool code'
+        '修复：运行：openspec workset open platform --tool code'
       );
-      expect(result.stderr).toContain('Open manually:');
+      expect(result.stderr).toContain('请手动打开：');
     });
   });
 });
@@ -817,7 +817,7 @@ describe('launchOpenerCommand (in-process launch mechanics)', () => {
         code: 'workset_launch_failed',
         target: 'workset.tool',
       },
-      message: 'Could not launch Claude Code: spawn claude ENOENT',
+        message: '无法启动 Claude Code：spawn claude ENOENT',
     });
   });
 });
@@ -894,7 +894,7 @@ describe('interactive compose cancellation (in-process)', () => {
   }
 
   it.each(['name', 'member'])(
-    'Ctrl-C at the %s prompt prints Cancelled. and exits 130 with nothing saved',
+    'Ctrl-C at the %s prompt prints Chinese cancellation text and exits 130 with nothing saved',
     async (boundary) => {
       await runCreate({
         input: vi.fn(async (config: { message: string }) => {
@@ -912,7 +912,7 @@ describe('interactive compose cancellation (in-process)', () => {
       });
 
       expect(process.exitCode).toBe(130);
-      expect(errorSpy).toHaveBeenCalledWith('Cancelled.');
+      expect(errorSpy).toHaveBeenCalledWith('已取消。');
       expect(
         fs.existsSync(
           path.join(process.env.XDG_DATA_HOME!, 'openspec', 'worksets', 'worksets.yaml')
@@ -933,14 +933,14 @@ describe('interactive compose cancellation (in-process)', () => {
         return memberDir;
       }),
       select: vi.fn(async (config: { message: string }) => {
-        if (config.message.includes('Add another')) return 'finish';
+        if (config.message.includes('添加其他目录')) return 'finish';
         throw exitPromptError();
       }),
       confirm: vi.fn(async () => true),
     });
 
     expect(process.exitCode).toBe(130);
-    expect(errorSpy).toHaveBeenCalledWith('Cancelled.');
+    expect(errorSpy).toHaveBeenCalledWith('已取消。');
     expect(
       fs.existsSync(
         path.join(process.env.XDG_DATA_HOME!, 'openspec', 'worksets', 'worksets.yaml')
@@ -959,7 +959,7 @@ describe('interactive compose cancellation (in-process)', () => {
         return inputCalls === 1 ? 'platform' : memberDir;
       }),
       select: vi.fn(async (config: { message: string }) => {
-        if (config.message.includes('Add another')) return 'finish';
+        if (config.message.includes('添加其他目录')) return 'finish';
         return 'claude';
       }),
       confirm: vi.fn(async () => false),
@@ -977,7 +977,7 @@ describe('interactive compose cancellation (in-process)', () => {
     expect(fs.readFileSync(yamlPath, 'utf-8')).toContain('platform');
     expect(fs.readFileSync(yamlPath, 'utf-8')).toContain('tool: claude');
     expect(logSpy).toHaveBeenCalledWith(
-      'Open it any time with: openspec workset open platform'
+      '随时可使用以下命令打开：openspec workset open platform'
     );
   });
 
@@ -992,7 +992,7 @@ describe('interactive compose cancellation (in-process)', () => {
         return inputCalls === 1 ? 'platform' : memberDir;
       }),
       select: vi.fn(async (config: { message: string }) => {
-        if (config.message.includes('Add another')) return 'finish';
+        if (config.message.includes('添加其他目录')) return 'finish';
         return 'claude';
       }),
       confirm: vi.fn(async () => {
@@ -1006,7 +1006,7 @@ describe('interactive compose cancellation (in-process)', () => {
     );
     expect(errorSpy).not.toHaveBeenCalledWith('Cancelled.');
     expect(logSpy).toHaveBeenCalledWith(
-      'Open it any time with: openspec workset open platform'
+      '随时可使用以下命令打开：openspec workset open platform'
     );
     expect(
       fs.existsSync(
@@ -1054,7 +1054,7 @@ describe('interactive compose cancellation (in-process)', () => {
     });
 
     expect(process.exitCode).toBe(1);
-    expect(errorSpy).toHaveBeenCalledWith('Error: Workset remove cancelled.');
+    expect(errorSpy).toHaveBeenCalledWith('错误：Workset 删除已取消。');
     expect(
       fs.existsSync(
         path.join(process.env.XDG_DATA_HOME!, 'openspec', 'worksets', 'worksets.yaml')

@@ -9,6 +9,7 @@ import path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as fs from 'fs';
+import { parse as parseYaml } from 'yaml';
 import { createRequire } from 'module';
 import { FileSystemUtils } from '../utils/file-system.js';
 import {
@@ -27,7 +28,13 @@ import {
 } from './config.js';
 import { PALETTE } from './styles/palette.js';
 import { isInteractive } from '../utils/interactive.js';
-import { serializeConfig } from './config-prompts.js';
+import {
+  CANONICAL_SCHEMA,
+  renderBusinessTemplate,
+  renderCanonicalWorkspaceConfig,
+  renderEmptyChangeIndex,
+} from './openspec-workflow/default-config.js';
+import { parseWorkspaceConfig } from './openspec-workflow/schemas.js';
 import {
   generateCommands,
   CommandAdapterRegistry,
@@ -90,51 +97,70 @@ const { version: OPENSPEC_VERSION } = require('../../package.json');
 // Constants
 // -----------------------------------------------------------------------------
 
-const DEFAULT_SCHEMA = 'spec-driven';
+const DEFAULT_SCHEMA = CANONICAL_SCHEMA;
+type InitSchema = 'code-spec' | 'spec-driven';
+type ConfigStatus = 'created' | 'overwritten' | 'preserved' | 'skipped';
 
-function renderCanonicalWorkspaceConfig(context?: string): string {
-  const lines = [
-    'version: 1',
-    `schema: ${DEFAULT_SCHEMA}`,
-    'project:',
-    '  name: demo',
-  ];
+interface ConfigPlan {
+  targetSchema: InitSchema;
+  status: ConfigStatus;
+  configPath?: string;
+  resetIndex: boolean;
+}
 
+function renderGenericWorkspaceConfig(context?: string): string {
+  const lines = ['schema: spec-driven'];
   if (context) {
-    lines.push('context: |');
-    for (const line of context.split('\n')) {
-      lines.push(`  ${line}`);
-    }
+    lines.push('context: |', ...context.split('\n').map((line) => `  ${line}`));
   }
-
-  lines.push(
-    'paths:',
-    '  business: business.md',
-    '  changes: changes',
-    '  change_index: changes/index.yaml',
-    '  archive: archive',
-    '  specs: archive/specs',
-    '  archived_changes: archive/changes',
-    'workflow:',
-    '  multiple_active_changes: true',
-    'requirements:',
-    "  id_format: '{module}-REQ-{sequence:03d}'",
-    'changes:',
-    "  id_format: 'CHG-{date}-{sequence:03d}'",
-    'archive:',
-    '  update_index: true',
-    '  require_verification: true',
-    '  conflict_strategy: optimistic'
-  );
-
   return `${lines.join('\n')}\n`;
+}
+
+async function replaceFilesAtomically(
+  replacements: Array<{ path: string; content: string }>
+): Promise<void> {
+  const token = `${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+  const staged = replacements.map(({ path: filePath, content }) => ({
+    filePath,
+    content,
+    tempPath: `${filePath}.${token}.tmp`,
+    backupPath: `${filePath}.${token}.bak`,
+    hadOriginal: fs.existsSync(filePath),
+    installed: false,
+  }));
+
+  try {
+    for (const item of staged) {
+      await fs.promises.mkdir(path.dirname(item.filePath), { recursive: true });
+      await fs.promises.writeFile(item.tempPath, item.content, 'utf8');
+    }
+    for (const item of staged) {
+      if (item.hadOriginal) await fs.promises.rename(item.filePath, item.backupPath);
+    }
+    for (const item of staged) {
+      await fs.promises.rename(item.tempPath, item.filePath);
+      item.installed = true;
+    }
+    await Promise.all(staged.map((item) => fs.promises.rm(item.backupPath, { force: true })));
+  } catch (error) {
+    for (const item of staged) {
+      if (item.installed) await fs.promises.rm(item.filePath, { force: true }).catch(() => undefined);
+      await fs.promises.rm(item.tempPath, { force: true }).catch(() => undefined);
+    }
+    for (const item of [...staged].reverse()) {
+      if (item.hadOriginal && fs.existsSync(item.backupPath)) {
+        await fs.promises.rename(item.backupPath, item.filePath).catch(() => undefined);
+      }
+    }
+    throw error;
+  }
 }
 
 function formatLanguageContext(language: string): string {
   return [
-    `Language: ${language}`,
-    `All artifacts must be written in ${language}.`,
-    'Keep OpenSpec structural headings and SHALL/MUST keywords in English.',
+    `语言：${language}`,
+    `所有产物必须使用 ${language} 编写。`,
+    '保留 OpenSpec 结构标题以及 SHALL/MUST 关键词为英文。',
   ].join('\n');
 }
 
@@ -165,6 +191,7 @@ const WORKFLOW_TO_SKILL_DIR: Record<string, string> = {
 type InitCommandOptions = {
   tools?: string;
   language?: string;
+  schema?: InitSchema;
   force?: boolean;
   interactive?: boolean;
   profile?: string;
@@ -205,6 +232,7 @@ type DeferredLegacyCleanup = {
 export class InitCommand {
   private readonly toolsArg?: string;
   private readonly language?: string;
+  private readonly schema: InitSchema;
   private readonly force: boolean;
   private readonly interactiveOption?: boolean;
   private readonly profileOverride?: string;
@@ -214,6 +242,10 @@ export class InitCommand {
   constructor(options: InitCommandOptions = {}) {
     this.toolsArg = options.tools;
     this.language = this.normalizeLanguage(options.language);
+    this.schema = options.schema ?? CANONICAL_SCHEMA;
+    if (this.schema !== 'code-spec' && this.schema !== 'spec-driven') {
+      throw new Error('--schema 必须是 code-spec 或 spec-driven。');
+    }
     this.force = options.force ?? false;
     this.interactiveOption = options.interactive;
     this.profileOverride = options.profile;
@@ -256,7 +288,10 @@ export class InitCommand {
       }
     }
 
-    await this.assertLanguageCanBeApplied(projectPath, openspecPath);
+    // Inspect the project protocol before any tool or directory writes. A
+    // malformed or unknown config must fail closed and leave the project
+    // untouched; an old spec-driven config is migrated later as one transaction.
+    const configPlan = await this.inspectConfigPlan(openspecPath);
 
     // Check for legacy artifacts and handle cleanup
     const deferredLegacyCleanup = await this.handleLegacyCleanup(projectPath, extendMode);
@@ -303,7 +338,7 @@ export class InitCommand {
       validatedTools.map((tool) => tool.value)
     )) {
       if (hasMovableContent(migration)) {
-        console.log(chalk.dim(`Migrated ${describeLegacyMigration(migration)}: ${migration.from} → ${migration.to}`));
+        console.log(chalk.dim(`已迁移 ${describeLegacyMigration(migration)}：${migration.from} → ${migration.to}`));
       }
       const kept = keptInPlaceNotice(migration);
       if (kept) console.log(chalk.dim(kept));
@@ -341,13 +376,13 @@ export class InitCommand {
     }
 
     // Create config.yaml if needed
-    let configStatus: 'created' | 'exists' | 'skipped';
+    let configStatus: ConfigStatus;
     try {
-      configStatus = await this.createConfig(openspecPath, extendMode);
+      configStatus = await this.createConfig(openspecPath, configPlan);
     } catch (error) {
       if (this.language) {
-        const reason = error instanceof Error ? `: ${error.message}` : `: ${String(error)}`;
-        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+        const reason = error instanceof Error ? `：${error.message}` : `：${String(error)}`;
+        throw new Error(`创建 openspec/config.yaml 失败${reason}`);
       }
       configStatus = 'skipped';
     }
@@ -450,7 +485,7 @@ export class InitCommand {
       if (this.copilotCloudOption !== undefined) {
         console.log(
           chalk.yellow(
-            '--copilot-cloud/--no-copilot-cloud was ignored because the github-copilot tool was not selected.'
+            '--copilot-cloud/--no-copilot-cloud 已被忽略，因为未选择 github-copilot 工具。'
           )
         );
       }
@@ -479,8 +514,8 @@ export class InitCommand {
       const { confirm } = await import('@inquirer/prompts');
       const answer = await confirm({
         message:
-          'Set up GitHub Copilot cloud coding-agent files? This is for the GitHub-hosted ' +
-          'Copilot coding agent (github.com), not Copilot in your editor. It writes two files: ' +
+          '是否设置 GitHub Copilot 云端编码代理文件？此设置用于 GitHub 托管的 ' +
+          'Copilot 编码代理（github.com），而非编辑器中的 Copilot。它会写入两个文件：' +
           '.github/workflows/copilot-setup-steps.yml and .github/agents/openspec.agent.md.',
         default: false,
       });
@@ -561,13 +596,13 @@ export class InitCommand {
     // Interactive mode: prompt for confirmation
     const { confirm } = await import('@inquirer/prompts');
     const shouldCleanup = await confirm({
-      message: 'Upgrade and clean up legacy files?',
+      message: '是否升级并清理旧文件？',
       default: true,
     });
 
     if (!shouldCleanup) {
-      console.log(chalk.dim('Initialization cancelled.'));
-      console.log(chalk.dim('Run with --force to skip this prompt, or manually remove legacy files.'));
+      console.log(chalk.dim('已取消初始化。'));
+      console.log(chalk.dim('使用 --force 跳过此提示，或手动移除旧文件。'));
       process.exit(0);
     }
 
@@ -617,7 +652,7 @@ export class InitCommand {
       .filter((prompt) => !removableMatches.some((match) => match.path === prompt.path));
 
     if (blockedMatches.length > 0) {
-      console.log(chalk.yellow('Preserved deferred global prompts without replacement skills:'));
+      console.log(chalk.yellow('以下延后的全局提示未找到替代技能，已保留：'));
       for (const prompt of blockedMatches) {
         console.log(chalk.dim(`  - ${prompt.toolId}: ${prompt.path}`));
       }
@@ -639,11 +674,11 @@ export class InitCommand {
   }
 
   private async performLegacyCleanup(projectPath: string, detection: LegacyDetectionResult): Promise<void> {
-    const spinner = ora('Cleaning up legacy files...').start();
+    const spinner = ora('正在清理旧文件...').start();
 
     const result = await cleanupLegacyArtifacts(projectPath, detection);
 
-    spinner.succeed('Legacy files cleaned up');
+    spinner.succeed('旧文件已清理');
 
     const summary = formatCleanupSummary(result);
     if (summary) {
@@ -729,7 +764,7 @@ export class InitCommand {
       .map((toolId) => AI_TOOLS.find((t) => t.value === toolId)?.name || toolId);
 
     if (configuredNames.length > 0) {
-      console.log(`OpenSpec configured: ${configuredNames.join(', ')} (pre-selected)`);
+      console.log(`已配置 OpenSpec：${configuredNames.join(', ')}（已预选）`);
     }
 
     const detectedOnlyNames = detectedTools
@@ -738,16 +773,16 @@ export class InitCommand {
 
     if (detectedOnlyNames.length > 0) {
       const detectionLabel = shouldPreselectDetected
-        ? 'pre-selected for first-time setup'
-        : 'not pre-selected';
-      console.log(`Detected tool directories: ${detectedOnlyNames.join(', ')} (${detectionLabel})`);
+        ? '首次设置时已预选'
+        : '未预选';
+      console.log(`检测到工具目录：${detectedOnlyNames.join(', ')}（${detectionLabel}）`);
     }
 
     const selectedTools = await searchableMultiSelect({
-      message: `Select tools to set up (${validTools.length} available)`,
+      message: `选择要设置的工具（可用 ${validTools.length} 个）`,
       pageSize: 15,
       choices: sortedChoices,
-      validate: (selected: string[]) => selected.length > 0 || 'Select at least one tool',
+      validate: (selected: string[]) => selected.length > 0 || '请至少选择一个工具',
     });
 
     if (selectedTools.length === 0) {
@@ -881,7 +916,7 @@ export class InitCommand {
     for (const [root, group] of sharedRoots) {
       if (group.length < 2) continue;
       const owner = group.find((tool) => skillWriters.has(tool.value));
-      console.log(chalk.dim(`${group.map((tool) => tool.name).join(', ')} share ${root}/skills; writing one tree for ${owner?.value}.`));
+      console.log(chalk.dim(`${group.map((tool) => tool.name).join(', ')} 共用 ${root}/skills；将为 ${owner?.value} 写入一套目录树。`));
     }
 
     const validatedTools: ValidatedInitTool[] = [];
@@ -912,17 +947,21 @@ export class InitCommand {
 
   private async createDirectoryStructure(openspecPath: string, extendMode: boolean): Promise<void> {
     const projectRoot = path.dirname(openspecPath);
+    if (this.schema === 'spec-driven') {
+      await initializeGenericWorkspace(projectRoot);
+      return;
+    }
     if (extendMode) {
       await initializeCodeSpecWorkspace(projectRoot);
       return;
     }
 
-    const spinner = this.startSpinner('Creating OpenSpec structure...');
+    const spinner = this.startSpinner('正在创建 OpenSpec 结构...');
     await initializeCodeSpecWorkspace(projectRoot);
 
     spinner.stopAndPersist({
       symbol: PALETTE.white('▌'),
-      text: PALETTE.white('OpenSpec structure created'),
+      text: PALETTE.white('OpenSpec 结构已创建'),
     });
   }
 
@@ -972,7 +1011,7 @@ export class InitCommand {
 
     // Process each tool
     for (const tool of tools) {
-      const spinner = ora(`Setting up ${tool.name}...`).start();
+      const spinner = ora(`正在设置 ${tool.name}...`).start();
 
       try {
         const shouldGenerateSkills = shouldGenerateSkillsForTool(tool.value, delivery);
@@ -1036,7 +1075,7 @@ export class InitCommand {
           await writeCopilotCloudFiles(projectPath);
         }
 
-        spinner.succeed(`Setup complete for ${tool.name}`);
+        spinner.succeed(`${tool.name} 设置完成`);
 
         if (tool.wasConfigured) {
           refreshedTools.push(tool);
@@ -1044,7 +1083,7 @@ export class InitCommand {
           createdTools.push(tool);
         }
       } catch (error) {
-        spinner.fail(`Failed for ${tool.name}`);
+        spinner.fail(`${tool.name} 设置失败`);
         failedTools.push({ name: tool.name, error: error as Error });
       }
     }
@@ -1056,7 +1095,7 @@ export class InitCommand {
         'after-generation'
       )) {
         if (hasMovableContent(migration)) {
-          console.log(chalk.dim(`Migrated ${describeLegacyMigration(migration)}: ${migration.from} → ${migration.to}`));
+          console.log(chalk.dim(`已迁移 ${describeLegacyMigration(migration)}：${migration.from} → ${migration.to}`));
         }
         const kept = keptInPlaceNotice(migration);
         if (kept) console.log(chalk.dim(kept));
@@ -1104,60 +1143,104 @@ export class InitCommand {
     return formatLanguageContext(this.language);
   }
 
-  private async assertLanguageCanBeApplied(
-    projectPath: string,
-    openspecPath: string
-  ): Promise<void> {
-    const languageContext = this.languageContext();
-    if (!languageContext) return;
-
-    const configPath = path.join(openspecPath, 'config.yaml');
-    const hasConfig = fs.existsSync(configPath) ||
-      fs.existsSync(path.join(openspecPath, 'config.yml'));
-    if (!hasConfig) {
-      try {
-        FileSystemUtils.assertProjectArtifactPath(projectPath, configPath);
-      } catch (error) {
-        const reason = error instanceof Error ? `: ${error.message}` : '';
-        throw new Error(`Cannot create openspec/config.yaml for --language${reason}`);
-      }
-      if (!(await FileSystemUtils.canWriteFile(configPath))) {
-        throw new Error(
-          'Cannot create openspec/config.yaml for --language: the destination is not writable.'
-        );
-      }
-      return;
-    }
-
-    const existingContext = readProjectConfig(projectPath)?.context;
-    if (existingContext?.includes(languageContext)) return;
-
-    throw new Error(
-      '--language does not overwrite an existing OpenSpec config. ' +
-      'Add the language instruction to its context field instead.'
-    );
-  }
-
-  private async createConfig(openspecPath: string, extendMode: boolean): Promise<'created' | 'exists' | 'skipped'> {
+  private async inspectConfigPlan(openspecPath: string): Promise<ConfigPlan> {
     const configPath = path.join(openspecPath, 'config.yaml');
     const configYmlPath = path.join(openspecPath, 'config.yml');
-    const configYamlExists = fs.existsSync(configPath);
-    const configYmlExists = fs.existsSync(configYmlPath);
+    const pathExists = (filePath: string): boolean => {
+      try {
+        fs.lstatSync(filePath);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const yamlExists = pathExists(configPath);
+    const ymlExists = pathExists(configYmlPath);
 
-    if (configYamlExists || configYmlExists) {
-      return 'exists';
+    if (yamlExists && ymlExists) {
+      // A prior migration intentionally leaves config.yml in place. Once the
+      // canonical config.yaml is valid, it is the only file this workflow
+      // reads; the legacy sibling remains preserved but inert.
+      try {
+        const canonicalRaw = parseYaml(fs.readFileSync(configPath, 'utf8'));
+        if (canonicalRaw && typeof canonicalRaw === 'object' && !Array.isArray(canonicalRaw) && (canonicalRaw as { schema?: unknown }).schema === 'code-spec') {
+          parseWorkspaceConfig(canonicalRaw);
+          return { targetSchema: 'code-spec', status: 'preserved', configPath, resetIndex: false };
+        }
+      } catch {
+        // Fall through to the fail-closed diagnostic below.
+      }
+      throw new Error('openspec/config.yaml 与 openspec/config.yml 同时存在，且 canonical config.yaml 无效；为保护原文件，已停止初始化。');
+    }
+    if (!yamlExists && !ymlExists) {
+      if (this.language) {
+        FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
+        if (!(await FileSystemUtils.canWriteFile(configPath))) {
+          throw new Error('无法为 --language 创建 openspec/config.yaml：目标不可写。');
+        }
+      }
+      return { targetSchema: this.schema, status: 'created', resetIndex: false };
     }
 
+    const existingPath = yamlExists ? configPath : configYmlPath;
+    if (fs.lstatSync(existingPath).isSymbolicLink() || !fs.lstatSync(existingPath).isFile()) {
+      throw new Error(`配置路径 ${existingPath} 不是可安全读取的普通文件，已停止初始化。`);
+    }
+    let raw: unknown;
+    try {
+      raw = parseYaml(fs.readFileSync(existingPath, 'utf8'));
+    } catch (error) {
+      throw new Error(`无法解析 ${path.relative(path.dirname(openspecPath), existingPath)}：${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error(`配置 ${existingPath} 不是有效的 YAML 对象，已停止初始化。`);
+    }
+
+    const schema = (raw as { schema?: unknown }).schema;
+    if (schema === 'spec-driven') {
+      return {
+        targetSchema: this.schema,
+        status: this.schema === 'code-spec' ? 'overwritten' : 'preserved',
+        configPath: existingPath,
+        resetIndex: this.schema === 'code-spec',
+      };
+    }
+    if (schema === 'code-spec') {
+      try {
+        parseWorkspaceConfig(raw);
+      } catch (error) {
+        throw new Error(`现有 code-spec 配置无效，已停止初始化：${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { targetSchema: 'code-spec', status: 'preserved', configPath: existingPath, resetIndex: false };
+    }
+
+    throw new Error(`无法识别 ${existingPath} 中的 schema：${String(schema ?? '(缺失)')}；为保护原文件，已停止初始化。`);
+  }
+
+  private async createConfig(openspecPath: string, plan: ConfigPlan): Promise<ConfigStatus> {
+    if (plan.status === 'preserved') return 'preserved';
+    const projectPath = path.dirname(openspecPath);
+    const configPath = path.join(openspecPath, 'config.yaml');
+    const configContent = plan.targetSchema === 'code-spec'
+      ? renderCanonicalWorkspaceConfig(path.basename(projectPath), this.languageContext())
+      : renderGenericWorkspaceConfig(this.languageContext());
 
     try {
-      const yamlContent = renderCanonicalWorkspaceConfig(this.languageContext());
-      FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
-      await FileSystemUtils.writeFile(configPath, yamlContent);
-      return 'created';
+      FileSystemUtils.assertProjectArtifactPath(projectPath, configPath);
+      if (plan.resetIndex) {
+        const indexPath = path.join(openspecPath, 'changes', 'index.yaml');
+        FileSystemUtils.assertProjectArtifactPath(projectPath, indexPath);
+        await replaceFilesAtomically([
+          { path: configPath, content: configContent },
+          { path: indexPath, content: renderEmptyChangeIndex() },
+        ]);
+      } else {
+        await FileSystemUtils.writeFile(configPath, configContent);
+      }
+      return plan.status;
     } catch (error) {
       if (this.language) {
-        const reason = error instanceof Error ? `: ${error.message}` : '';
-        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+        throw new Error(`创建 openspec/config.yaml 失败：${error instanceof Error ? error.message : String(error)}`);
       }
       return 'skipped';
     }
@@ -1179,7 +1262,7 @@ export class InitCommand {
       removedCommandCount: number;
       removedSkillCount: number;
     },
-    configStatus: 'created' | 'exists' | 'skipped',
+    configStatus: ConfigStatus,
     copilot: {
       write: boolean;
       skippedUndecided: boolean;
@@ -1191,17 +1274,17 @@ export class InitCommand {
     console.log();
     console.log(
       chalk.bold(
-        results.failedTools.length > 0 ? 'OpenSpec Setup Incomplete' : 'OpenSpec Setup Complete'
+        results.failedTools.length > 0 ? 'OpenSpec 设置未完成' : 'OpenSpec 设置完成'
       )
     );
     console.log();
 
     // Show created vs refreshed tools
     if (results.createdTools.length > 0) {
-      console.log(`Created: ${results.createdTools.map((t) => t.name).join(', ')}`);
+      console.log(`已创建：${results.createdTools.map((t) => t.name).join(', ')}`);
     }
     if (results.refreshedTools.length > 0) {
-      console.log(`Refreshed: ${results.refreshedTools.map((t) => t.name).join(', ')}`);
+      console.log(`已刷新：${results.refreshedTools.map((t) => t.name).join(', ')}`);
     }
 
     // Show counts (respecting profile filter)
@@ -1232,11 +1315,11 @@ export class InitCommand {
           ? getCommandContents(workflows).length
           : 0;
         if (skillCount > 0 && commandCount > 0) {
-          console.log(`${skillCount} skills and ${commandCount} commands in ${toolDirs}/`);
+          console.log(`${skillCount} 个技能和 ${commandCount} 个命令，位于 ${toolDirs}/`);
         } else if (skillCount > 0) {
-          console.log(`${skillCount} skills in ${toolDirs}/`);
+          console.log(`${skillCount} 个技能，位于 ${toolDirs}/`);
         } else if (commandCount > 0) {
-          console.log(`${commandCount} commands in ${toolDirs}/`);
+          console.log(`${commandCount} 个命令，位于 ${toolDirs}/`);
         }
       } else {
         const skillTools = successfulTools.filter((tool) =>
@@ -1245,7 +1328,7 @@ export class InitCommand {
         const skillCount = skillTools.length * getSkillTemplates(workflows).length;
         if (skillCount > 0) {
           const skillDirs = [...new Set(skillTools.map((tool) => tool.skillsPath))];
-          console.log(`${skillCount} skills in ${skillDirs.join(', ')}`);
+          console.log(`${skillCount} 个技能，位于 ${skillDirs.join(', ')}`);
         }
 
         const commandContents = getCommandContents(workflows);
@@ -1269,28 +1352,28 @@ export class InitCommand {
               })
             ),
           ];
-          console.log(`${commandCount} commands in ${commandDirs.join(', ')}`);
+          console.log(`${commandCount} 个命令，位于 ${commandDirs.join(', ')}`);
         }
       }
     }
 
     // Show failures
     if (results.failedTools.length > 0) {
-      console.log(chalk.red(`Failed: ${results.failedTools.map((f) => `${f.name} (${f.error.message})`).join(', ')}`));
+      console.log(chalk.red(`失败：${results.failedTools.map((f) => `${f.name}（${f.error.message}）`).join('，')}`));
     }
 
     // Show skipped commands
     if (results.commandsSkipped.length > 0) {
-      console.log(chalk.dim(`Commands skipped for: ${results.commandsSkipped.join(', ')} (no adapter)`));
+      console.log(chalk.dim(`已跳过命令：${results.commandsSkipped.join(', ')}（无适配器）`));
     }
     if (results.skillsInvocableCommandSkips.length > 0) {
-      console.log(chalk.dim(`Commands skipped for: ${results.skillsInvocableCommandSkips.join(', ')} (uses skills)`));
+      console.log(chalk.dim(`已跳过命令：${results.skillsInvocableCommandSkips.join(', ')}（使用技能）`));
     }
     if (results.removedCommandCount > 0) {
-      console.log(chalk.dim(`Removed: ${results.removedCommandCount} command files (delivery: skills)`));
+      console.log(chalk.dim(`已移除：${results.removedCommandCount} 个命令文件（delivery：skills）`));
     }
     if (results.removedSkillCount > 0) {
-      console.log(chalk.dim(`Removed: ${results.removedSkillCount} skill directories (delivery: commands)`));
+      console.log(chalk.dim(`已移除：${results.removedSkillCount} 个技能目录（delivery：commands）`));
     }
 
     // GitHub Copilot cloud files are opt-in — report what is actually on disk:
@@ -1300,23 +1383,23 @@ export class InitCommand {
     const copilotSucceeded = successfulTools.some((tool) => tool.value === 'github-copilot');
     if (copilotSucceeded && copilot.write) {
       if (copilot.present.length > 0) {
-        console.log(`GitHub Copilot cloud files: ${copilot.present.join(', ')}`);
+        console.log(`GitHub Copilot 云端文件：${copilot.present.join('，')}`);
       }
       if (copilot.collisions.length > 0) {
         console.log(
           chalk.dim(
-            `Left your existing ${copilot.collisions.join(' and ')} untouched — add the OpenSpec ` +
-              `install step by hand so the Copilot cloud agent can run openspec.`
+            `保留了你现有的 ${copilot.collisions.join('、')}，未作修改。请手动添加 OpenSpec ` +
+              `安装步骤，以便 Copilot 云端编码代理运行 openspec。`
           )
         );
       }
     } else if (copilotSucceeded && copilot.removed > 0) {
       console.log(
-        chalk.dim(`Removed: ${copilot.removed} Copilot cloud agent file(s) (opted out of cloud files)`)
+        chalk.dim(`已移除：${copilot.removed} 个 Copilot 云端代理文件（已选择不生成云端文件）`)
       );
     } else if (copilotSucceeded && copilot.skippedUndecided) {
       console.log(
-        chalk.dim("Skipped GitHub Copilot cloud files (opt-in). Enable with 'openspec init --copilot-cloud'.")
+        chalk.dim("已跳过 GitHub Copilot 云端文件（需主动启用）。使用 'openspec init --copilot-cloud' 启用。")
       );
     }
 
@@ -1324,21 +1407,23 @@ export class InitCommand {
     for (const tool of successfulTools) {
       const setupNote = AI_TOOLS.find((t) => t.value === tool.value)?.setupNote;
       if (setupNote) {
-        console.log(chalk.yellow(`Setup required for ${tool.name}: ${setupNote}`));
+        console.log(chalk.yellow(`需要额外设置：${tool.name}：${setupNote}`));
       }
     }
 
     // Config status
     if (configStatus === 'created') {
-      console.log(`Config: openspec/config.yaml (schema: ${DEFAULT_SCHEMA})`);
-    } else if (configStatus === 'exists') {
+      console.log(`配置：openspec/config.yaml（schema：${DEFAULT_SCHEMA}）`);
+    } else if (configStatus === 'overwritten') {
+      console.log(`配置：openspec/config.yaml（已覆盖为 schema：${DEFAULT_SCHEMA}）`);
+    } else if (configStatus === 'preserved') {
       // Show actual filename (config.yaml or config.yml)
       const configYaml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yaml');
       const configYml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yml');
       const configName = fs.existsSync(configYaml) ? 'config.yaml' : fs.existsSync(configYml) ? 'config.yml' : 'config.yaml';
-      console.log(`Config: openspec/${configName} (exists)`);
+      console.log(`配置：openspec/${configName}（已存在，未重置）`);
     } else {
-      console.log(chalk.dim(`Config: skipped (non-interactive mode)`));
+      console.log(chalk.dim('配置：已跳过（非交互模式）'));
     }
 
     // Getting started (task 7.6: show propose if in profile)
@@ -1368,15 +1453,15 @@ export class InitCommand {
             resolveCommandSurfaceCapability(tool.value),
             resolveCommandInvocation(tool.value)
           );
-          hint = `Start your first change: ${transformer ? transformer(command) : command} "your idea"`;
+          hint = `开始第一个变更：${transformer ? transformer(command) : command} "你的想法"`;
         } else if (shouldGenerateSkillsForTool(tool.value, activeDelivery)) {
           const skillReference = getSkillReferenceTransformer(tool.value)(command);
           // Tools with no slash surface (e.g. Rovo Dev) reference skills as
           // prose ("the openspec-propose skill"); phrase the hint so it reads
           // as an instruction rather than a dead command with an argument.
           hint = usesNaturalLanguageSkillReferences(tool.value)
-            ? `Start your first change: ask ${tool.name} to use ${skillReference} with "your idea"`
-            : `Start your first change: ${skillReference} "your idea"`;
+            ? `开始第一个变更：请让 ${tool.name} 使用 ${skillReference} 处理“你的想法”`
+            : `开始第一个变更：${skillReference} "你的想法"`;
         } else {
           continue;
         }
@@ -1384,7 +1469,7 @@ export class InitCommand {
       }
       if (hintToTools.size === 0) {
         // No successful tools: keep the generic command hint
-        return [`Start your first change: ${command} "your idea"`];
+        return [`开始第一个变更：${command} "你的想法"`];
       }
       if (hintToTools.size === 1) {
         return [[...hintToTools.keys()][0]];
@@ -1392,7 +1477,7 @@ export class InitCommand {
       return [...hintToTools.entries()].map(([hint, toolNames]) => `${hint} (${toolNames.join(', ')})`);
     };
     const printStartHints = (command: string): void => {
-      console.log(chalk.bold('Getting started:'));
+      console.log(chalk.bold('开始使用：'));
       for (const line of startHintLines(command)) {
         console.log(`  ${line}`);
       }
@@ -1411,9 +1496,9 @@ export class InitCommand {
       const names = zeroArtifactTools.map((tool) => tool.name).join(', ');
       console.log(
         chalk.yellow(
-          `No skills or commands were generated for ${names}: delivery is set to 'commands' but ` +
-            `${zeroArtifactTools.length === 1 ? 'it supports' : 'they support'} only skills. ` +
-            `Run 'openspec config set delivery both' to generate skills.`
+          `未为 ${names} 生成技能或命令：delivery 已设为 'commands'，但` +
+            `${zeroArtifactTools.length === 1 ? '它仅支持' : '它们仅支持'}技能。` +
+            `运行 'openspec config set delivery both' 以生成技能。`
         )
       );
     }
@@ -1425,13 +1510,13 @@ export class InitCommand {
     } else if (activeWorkflows.includes('new')) {
       printStartHints('/opsx:new');
     } else {
-      console.log("Done. Run 'openspec config profile' to configure your workflows.");
+      console.log("完成。运行 'openspec config profile' 配置工作流。");
     }
 
     // Links
     console.log();
-    console.log(`Learn more: ${chalk.cyan('https://github.com/Fission-AI/OpenSpec')}`);
-    console.log(`Feedback:   ${chalk.cyan('https://github.com/Fission-AI/OpenSpec/issues')}`);
+    console.log(`了解更多：${chalk.cyan('https://github.com/Fission-AI/OpenSpec')}`);
+    console.log(`反馈：${chalk.cyan('https://github.com/Fission-AI/OpenSpec/issues')}`);
 
     // Restart instruction only when at least one IDE/editor-resident tool
     // actually received a generated surface. Two conditions, coupled to the SAME
@@ -1460,8 +1545,8 @@ export class InitCommand {
       console.log(
         chalk.white(
           restartCommandsGenerated
-            ? 'Restart your IDE for the new commands to take effect.'
-            : 'Restart your IDE for the new skills to take effect.'
+            ? '请重启 IDE，使新命令生效。'
+            : '请重启 IDE，使新技能生效。'
         )
       );
     }
@@ -1540,11 +1625,15 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
   const defaultFiles = [
     {
       path: path.join(openspecPath, 'business.md'),
-      content: ['# Business', '', '| Module ID | Module Name | Description | Responsibilities | Keywords |', '| --- | --- | --- | --- | --- |', ''].join('\n'),
+      content: renderBusinessTemplate(),
     },
     {
       path: path.join(openspecPath, 'changes', 'index.yaml'),
-      content: 'version: 1\nchanges: []\n',
+      content: renderEmptyChangeIndex(),
+    },
+    {
+      path: path.join(openspecPath, 'archive', 'README.md'),
+      content: '# 归档\n\n此目录保存已归档的规范和 Change。\n',
     },
   ];
 
@@ -1553,5 +1642,18 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
     if (!fs.existsSync(file.path)) {
       await FileSystemUtils.writeFile(file.path, file.content);
     }
+  }
+}
+
+async function initializeGenericWorkspace(projectRoot: string): Promise<void> {
+  const openspecPath = path.join(projectRoot, OPENSPEC_DIR_NAME);
+  for (const directory of [
+    openspecPath,
+    path.join(openspecPath, 'specs'),
+    path.join(openspecPath, 'changes'),
+    path.join(openspecPath, 'changes', 'archive'),
+  ]) {
+    FileSystemUtils.assertProjectArtifactPath(projectRoot, directory);
+    await FileSystemUtils.createDirectory(directory);
   }
 }

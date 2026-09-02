@@ -96,17 +96,17 @@ export class ChangeCommand {
       if (canPrompt && changes.length > 0) {
         const { select } = await import('@inquirer/prompts');
         const selected = await select({
-          message: 'Select a change to show',
+          message: '选择要显示的 Change',
           choices: changes.map(id => ({ name: id, value: id })),
         });
         changeName = selected;
       } else {
         if (changes.length === 0) {
-          console.error('No change specified. No active changes found.');
+          console.error('未指定 Change。未找到活动 Change。');
         } else {
-          console.error(`No change specified. Available IDs: ${changes.join(', ')}`);
+          console.error(`未指定 Change。可用 ID：${changes.join('、')}`);
         }
-        console.error('Hint: use "openspec change list" to view available changes.');
+        console.error('提示：使用 "openspec change list" 查看可用 Change。');
         process.exitCode = 1;
         return;
       }
@@ -116,7 +116,7 @@ export class ChangeCommand {
     const proposalPath = path.join(changeDir, 'proposal.md');
 
     if (!isChangeDirectoryName(changesPath, changeDir)) {
-      throw new Error(`Change "${changeName}" not found at ${proposalPath}`);
+      throw new Error(`在 ${proposalPath} 未找到 Change "${changeName}"`);
     }
 
     try {
@@ -138,7 +138,7 @@ export class ChangeCommand {
             `Run "openspec status --change ${changeName}" to see which artifact comes next.`
         );
       }
-      throw new Error(`Change "${changeName}" not found at ${proposalPath}`);
+      throw new Error(`在 ${proposalPath} 未找到 Change "${changeName}"`);
     }
     FileSystemUtils.assertPathWithin(path.dirname(proposalPath), proposalPath);
 
@@ -147,7 +147,7 @@ export class ChangeCommand {
       const jsonOutput = await this.converter.convertChangeToJson(proposalPath);
 
       if (options.requirementsOnly) {
-        console.error('Flag --requirements-only is deprecated; use --deltas-only instead.');
+        console.error('选项 --requirements-only 已弃用；请改用 --deltas-only。');
       }
 
       const parsed: Change = JSON.parse(jsonOutput);
@@ -333,11 +333,11 @@ export class ChangeCommand {
     if (capabilities.length === 0 || results.length === 0) {
       // Not an error: a change can be proposal-only. Saying so beats printing a
       // heading with nothing under it.
-      console.log(`No delta specs to diff for change "${changeName}".`);
+      console.log(`Change "${changeName}" 没有可比较的增量 Spec。`);
       return;
     }
 
-    console.log(chalk.bold('Specifications Changed (diffs)'));
+    console.log(chalk.bold('已变更的 Spec（差异）'));
     console.log();
     this.printDiffText(results);
   }
@@ -387,7 +387,7 @@ export class ChangeCommand {
               console.log(`    ${line}`);
             }
           } else if (r.diff === '') {
-            console.log(chalk.dim('    (no textual changes)'));
+            console.log(chalk.dim('    （没有文本变化）'));
           } else {
             for (const line of r.diff.split('\n')) {
               if (line.startsWith('+')) {
@@ -460,7 +460,7 @@ export class ChangeCommand {
       console.log(JSON.stringify(sorted, null, 2));
     } else {
       if (changes.length === 0) {
-        console.log('No items found');
+            console.log('未找到条目');
         return;
       }
       const sorted = [...changes].sort();
@@ -477,7 +477,7 @@ export class ChangeCommand {
         const { total, completed } = await getTaskProgressForChange(changesPath, changeName, process.cwd());
         const taskStatusText = total > 0 ? ` [tasks ${completed}/${total}]` : '';
         if (await isDefinitelyMissing(proposalPath)) {
-          console.log(`${changeName}: (no proposal.md yet)${taskStatusText}`);
+          console.log(`${changeName}：（尚无 proposal.md）${taskStatusText}`);
           continue;
         }
         try {
@@ -489,7 +489,7 @@ export class ChangeCommand {
           const deltaCountText = ` [deltas ${change.deltas.length}]`;
           console.log(`${changeName}: ${title}${deltaCountText}${taskStatusText}`);
         } catch {
-          console.log(`${changeName}: (unable to read)${taskStatusText}`);
+          console.log(`${changeName}：（无法读取）${taskStatusText}`);
         }
       }
     }
@@ -504,17 +504,17 @@ export class ChangeCommand {
       if (canPrompt && changes.length > 0) {
         const { select } = await import('@inquirer/prompts');
         const selected = await select({
-          message: 'Select a change to validate',
+          message: '选择要校验的 Change',
           choices: changes.map(id => ({ name: id, value: id })),
         });
         changeName = selected;
       } else {
         if (changes.length === 0) {
-          console.error('No change specified. No active changes found.');
+          console.error('未指定 Change。未找到活动 Change。');
         } else {
-          console.error(`No change specified. Available IDs: ${changes.join(', ')}`);
+          console.error(`未指定 Change。可用 ID：${changes.join('、')}`);
         }
-        console.error('Hint: use "openspec change list" to view available changes.');
+        console.error('提示：使用 "openspec change list" 查看可用 Change。');
         process.exitCode = 1;
         return;
       }
@@ -522,12 +522,12 @@ export class ChangeCommand {
     
     const changeDir = path.join(changesPath, changeName);
     if (!isChangeDirectoryName(changesPath, changeDir)) {
-      throw new Error(`Change "${changeName}" not found at ${changeDir}`);
+      throw new Error(`在 ${changeDir} 未找到 Change "${changeName}"`);
     }
     try {
       await fs.access(changeDir);
     } catch {
-      throw new Error(`Change "${changeName}" not found at ${changeDir}`);
+      throw new Error(`在 ${changeDir} 未找到 Change "${changeName}"`);
     }
     
     const validator = new Validator(options?.strict || false);
@@ -542,9 +542,9 @@ export class ChangeCommand {
       console.log(JSON.stringify(report, null, 2));
     } else {
       if (report.valid) {
-        console.log(`Change "${changeName}" is valid`);
+            console.log(`Change "${changeName}" 校验通过`);
       } else {
-        console.error(`Change "${changeName}" has issues`);
+            console.error(`Change "${changeName}" 存在问题`);
         report.issues.forEach(issue => {
           const label = issue.level === 'ERROR' ? 'ERROR' : 'WARNING';
           const prefix = issue.level === 'ERROR' ? '✗' : '⚠';
@@ -585,7 +585,7 @@ export class ChangeCommand {
       bullets.push('- Each requirement MUST include at least one #### Scenario: block');
       bullets.push('- Debug parsed deltas: openspec change show <id> --json --deltas-only');
     }
-    console.error('Next steps:');
+    console.error('下一步：');
     bullets.forEach(b => console.error(`  ${b}`));
   }
 }

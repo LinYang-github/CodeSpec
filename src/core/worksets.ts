@@ -156,11 +156,11 @@ function invalidWorksetsFileError(
   options: WorksetPathOptions
 ): StoreError {
   return new StoreError(
-    `Invalid worksets file: ${message}`,
+    `Workset 文件无效：${message}`,
     'invalid_workset_file',
     {
       target: 'workset.file',
-      fix: `Repair or remove ${getWorksetsFilePath(options)}.`,
+      fix: `修复或移除 ${getWorksetsFilePath(options)}。`,
     }
   );
 }
@@ -290,8 +290,8 @@ export function worksetNotFoundError(
       target: 'workset.name',
       fix:
         savedNames.length > 0
-          ? `Saved worksets: ${savedNames.join(', ')}. See them with: openspec workset list`
-          : `Create it first: openspec workset create ${name}`,
+          ? `已保存 Workset：${savedNames.join('、')}。可使用 openspec workset list 查看。`
+          : `请先创建：openspec workset create ${name}`,
     }
   );
 }

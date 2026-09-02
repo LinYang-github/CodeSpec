@@ -212,7 +212,7 @@ export function loadTemplate(
   const schemaDir = getSchemaDir(schemaName, projectRoot);
   if (!schemaDir) {
     throw new TemplateLoadError(
-      `Schema '${schemaName}' not found`,
+      `未找到 Schema '${schemaName}'`,
       templatePath
     );
   }
@@ -231,7 +231,7 @@ export function loadTemplate(
 
   if (!fs.existsSync(templatePathOnDisk)) {
     throw new TemplateLoadError(
-      `Template not found: ${templatePathOnDisk}`,
+      `未找到模板：${templatePathOnDisk}`,
       templatePathOnDisk
     );
   }
@@ -243,7 +243,7 @@ export function loadTemplate(
   } catch (err) {
     const ioError = err instanceof Error ? err : new Error(String(err));
     throw new TemplateLoadError(
-      `Failed to read template: ${ioError.message}`,
+      `读取模板失败：${ioError.message}`,
       fullPath
     );
   }
@@ -255,7 +255,7 @@ export function loadTemplate(
  * Schema resolution order:
  * 1. Explicit schemaName parameter (if provided)
  * 2. Schema from .openspec.yaml metadata (if exists in change directory)
- * 3. Default 'spec-driven'
+ * 3. Default 'code-spec'
  *
  * @param projectRoot - Project root directory
  * @param changeName - Change name
@@ -338,7 +338,7 @@ export function generateInstructions(
 ): ArtifactInstructions {
   const artifact = context.graph.getArtifact(artifactId);
   if (!artifact) {
-    throw new Error(`Artifact '${artifactId}' not found in schema '${context.schemaName}'`);
+    throw new Error(`Schema '${context.schemaName}' 中未找到产物 '${artifactId}'`);
   }
 
   const templateContent = loadTemplate(context.schemaName, artifact.template, context.projectRoot);

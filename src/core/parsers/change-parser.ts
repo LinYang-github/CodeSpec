@@ -25,11 +25,11 @@ export class ChangeParser extends MarkdownParser {
     const whatChanges = this.findSection(sections, 'What Changes')?.content || '';
     
     if (!why) {
-      throw new Error('Change must have a Why section');
+      throw new Error('Change 必须包含 Why 部分');
     }
     
     if (!whatChanges) {
-      throw new Error('Change must have a What Changes section');
+      throw new Error('Change 必须包含 What Changes 部分');
     }
 
     // Parse deltas from the What Changes section (simple format)

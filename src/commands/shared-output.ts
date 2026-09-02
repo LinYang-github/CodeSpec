@@ -5,12 +5,17 @@
  * array in JSON mode.
  */
 import { StoreError, type StoreDiagnostic } from '../core/store/errors.js';
+import { formatDiagnosticMessage } from '../ui/user-facing-messages.js';
 
 export function printJson(payload: unknown): void {
   console.log(JSON.stringify(payload, null, 2));
 }
 
 export function asErrorMessage(error: unknown): string {
+  const diagnostic = (error as { diagnostic?: StoreDiagnostic }).diagnostic;
+  if (diagnostic && typeof diagnostic.code === 'string' && typeof diagnostic.message === 'string') {
+    return formatDiagnosticMessage(diagnostic.code, diagnostic.message);
+  }
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -29,18 +34,18 @@ export function isPromptCancellationError(error: unknown): boolean {
 
 export function asStatus(error: unknown, fallbackCode: string): StoreDiagnostic {
   if (error instanceof StoreError) {
-    return error.diagnostic;
+    return { ...error.diagnostic, message: formatDiagnosticMessage(error.diagnostic.code, error.diagnostic.message) };
   }
   // RootSelectionError (and siblings) carry the same envelope without
   // sharing a class hierarchy; duck-type the diagnostic once, here.
   const diagnostic = (error as { diagnostic?: StoreDiagnostic }).diagnostic;
   if (diagnostic && typeof diagnostic.code === 'string') {
-    return diagnostic;
+    return { ...diagnostic, message: formatDiagnosticMessage(diagnostic.code, diagnostic.message) };
   }
   return {
     severity: 'error',
     code: fallbackCode,
-    message: asErrorMessage(error),
+    message: formatDiagnosticMessage(fallbackCode, asErrorMessage(error)),
   };
 }
 
@@ -53,7 +58,7 @@ export function emitFailure(
   // Ctrl-C in a prompt is the user's choice, not an error: every
   // command group gets the Cancelled./130 convention through here.
   if (!json && isPromptCancellationError(error)) {
-    console.error('Cancelled.');
+    console.error('已取消。');
     process.exitCode = 130;
     return;
   }
@@ -65,9 +70,9 @@ export function emitFailure(
     process.exitCode = 1;
     return;
   }
-  console.error(`Error: ${status.message}`);
+  console.error(`错误：${status.message}`);
   if (status.fix) {
-    console.error(`Fix: ${status.fix}`);
+    console.error(`修复：${status.fix}`);
   }
   process.exitCode = 1;
 }

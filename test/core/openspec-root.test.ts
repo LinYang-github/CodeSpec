@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { parse as parseYaml } from 'yaml';
 
 import {
   DEFAULT_OPENSPEC_SCHEMA,
@@ -9,6 +10,7 @@ import {
   inspectOpenSpecRoot,
   rollbackCreatedPaths,
 } from '../../src/core/index.js';
+import { parseWorkspaceConfig } from '../../src/core/openspec-workflow/schemas.js';
 
 describe('OpenSpec root helper', () => {
   let tempDir: string;
@@ -113,9 +115,12 @@ describe('OpenSpec root helper', () => {
       'openspec/config.yaml',
     ]);
     expect(result.inspection.healthy).toBe(true);
-    expect(fs.readFileSync(path.join(root, 'openspec', 'config.yaml'), 'utf-8')).toContain(
-      `schema: ${DEFAULT_OPENSPEC_SCHEMA}`
-    );
+    expect(parseWorkspaceConfig(parseYaml(
+      fs.readFileSync(path.join(root, 'openspec', 'config.yaml'), 'utf-8')
+    ))).toMatchObject({
+      schema: DEFAULT_OPENSPEC_SCHEMA,
+      project: { name: 'store' },
+    });
   });
 
   it('preserves existing config and user files', async () => {

@@ -10,7 +10,7 @@ import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 export function getNewChangeSkillTemplate(): SkillTemplate {
   return {
     name: 'openspec-new-change',
-    description: 'Start a new OpenSpec change using the experimental artifact workflow. Use when the user wants to create a new feature, fix, or modification with a structured step-by-step approach.',
+    description: '按步骤创建 OpenSpec Change 并准备第一个产物。',
     instructions: `Start a new change using the experimental artifact-driven approach.
 
 ${STORE_SELECTION_GUIDANCE}
@@ -85,7 +85,7 @@ After completing the steps, summarize:
 export function getOpsxNewCommandTemplate(): CommandTemplate {
   return {
     name: 'OPSX: New',
-    description: 'Start a new change using the experimental artifact workflow (OPSX)',
+    description: '按步骤开始新的 Change（OPSX）',
     category: 'Workflow',
     tags: ['workflow', 'artifacts', 'experimental'],
     content: `Start a new change using the experimental artifact-driven approach.

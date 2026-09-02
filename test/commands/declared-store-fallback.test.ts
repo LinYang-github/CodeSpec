@@ -69,7 +69,7 @@ describe('declared store fallback (3.2)', () => {
       env,
     });
     expect(statusHuman.exitCode).toBe(0);
-    expect(statusHuman.stderr).toContain('Using OpenSpec root: team-context');
+    expect(statusHuman.stderr).toContain('使用 OpenSpec 根目录：team-context');
 
     // Hint continuity: follow-ups carry --store (JSON nextSteps is the
     // surface that prints them).

@@ -53,7 +53,7 @@ function validateRequirementIndex(spec: Spec, requirementOpt?: string): number |
   if (!requirementOpt) return undefined;
   const index = Number.parseInt(requirementOpt, 10);
   if (!Number.isInteger(index) || index < 1 || index > spec.requirements.length) {
-    throw new Error(`Requirement ${requirementOpt} not found`);
+    throw new Error(`未找到 Requirement ${requirementOpt}`);
   }
   return index - 1; // convert to 0-based
 }
@@ -108,11 +108,11 @@ export class SpecCommand {
       if (canPrompt && specIds.length > 0) {
         const { select } = await import('@inquirer/prompts');
         specId = await select({
-          message: 'Select a spec to show',
+          message: '选择要显示的 Spec',
           choices: specIds.map(id => ({ name: id, value: id })),
         });
       } else {
-        throw new Error('Missing required argument <spec-id>');
+        throw new Error('缺少必需参数 <spec-id>');
       }
     }
 
@@ -122,12 +122,12 @@ export class SpecCommand {
       // Root-aware callers get the absolute path; the cwd-based noun form
       // keeps its historical forward-slash relative message on all platforms.
       const displayPath = this.rootPath ? specPath : `openspec/specs/${specId}/spec.md`;
-      throw new Error(`Spec '${specId}' not found at ${displayPath}`);
+      throw new Error(`未找到 Spec '${specId}'：${displayPath}`);
     }
 
     if (options.json) {
       if (options.requirements && options.requirement) {
-        throw new Error('Options --requirements and --requirement cannot be used together');
+        throw new Error('选项 --requirements 和 --requirement 不能同时使用');
       }
       const parsed = parseSpecFromFile(this.specsDir, specPath, specId);
       const filtered = filterSpec(parsed, options);
@@ -150,40 +150,40 @@ export class SpecCommand {
 export function registerSpecCommand(rootProgram: typeof program) {
   const specCommand = rootProgram
     .command('spec')
-    .description('Manage and view OpenSpec specifications');
+    .description('管理和查看 OpenSpec Spec');
 
   // Deprecation notice for noun-based commands
   specCommand.hook('preAction', () => {
-    console.error('Warning: The "openspec spec ..." commands are deprecated. Prefer verb-first commands (e.g., "openspec show", "openspec validate --specs").');
+    console.error('警告："openspec spec ..." 命令已弃用。建议使用动词优先命令（例如 "openspec show"、"openspec validate --specs"）。');
   });
 
   specCommand
     .command('show [spec-id]')
-    .description('Display a specific specification')
-    .option('--json', 'Output as JSON')
-    .option('--requirements', 'JSON only: Show only requirements (exclude scenarios)')
-    .option('--no-scenarios', 'JSON only: Exclude scenario content')
-    .option('-r, --requirement <id>', 'JSON only: Show specific requirement by ID (1-based)')
-    .option('--no-interactive', 'Disable interactive prompts')
+    .description('显示指定 Spec')
+    .option('--json', '以 JSON 输出')
+    .option('--requirements', '仅 JSON：只显示 Requirement（排除场景）')
+    .option('--no-scenarios', '仅 JSON：排除场景内容')
+    .option('-r, --requirement <id>', '仅 JSON：按 ID 显示指定 Requirement（从 1 开始）')
+    .option('--no-interactive', '禁用交互式提示')
     .action(async (specId: string | undefined, options: ShowOptions & { noInteractive?: boolean }) => {
       try {
         const cmd = new SpecCommand();
         await cmd.show(specId, options as any);
       } catch (error) {
-        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`错误：${error instanceof Error ? error.message : '未知错误'}`);
         process.exitCode = 1;
       }
     });
 
   specCommand
     .command('list')
-    .description('List all available specifications')
-    .option('--json', 'Output as JSON')
-    .option('--long', 'Show id and title with counts')
+    .description('列出全部可用 Spec')
+    .option('--json', '以 JSON 输出')
+    .option('--long', '显示 ID、标题和数量')
     .action(async (options: { json?: boolean; long?: boolean }) => {
       try {
         if (!existsSync(SPECS_DIR)) {
-          console.log('No items found');
+          console.log('未找到条目');
           return;
         }
 
@@ -213,7 +213,7 @@ export function registerSpecCommand(rootProgram: typeof program) {
           console.log(JSON.stringify(specs, null, 2));
         } else {
           if (specs.length === 0) {
-            console.log('No items found');
+            console.log('未找到条目');
             return;
           }
           if (!options.long) {
@@ -221,21 +221,21 @@ export function registerSpecCommand(rootProgram: typeof program) {
             return;
           }
           specs.forEach(spec => {
-            console.log(`${spec.id}: ${spec.title} [requirements ${spec.requirementCount}]`);
+            console.log(`${spec.id}：${spec.title}［Requirement ${spec.requirementCount}］`);
           });
         }
       } catch (error) {
-        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`错误：${error instanceof Error ? error.message : '未知错误'}`);
         process.exitCode = 1;
       }
     });
 
   specCommand
     .command('validate [spec-id]')
-    .description('Validate a specification structure')
-    .option('--strict', 'Enable strict validation mode')
-    .option('--json', 'Output validation report as JSON')
-    .option('--no-interactive', 'Disable interactive prompts')
+    .description('校验 Spec 结构')
+    .option('--strict', '启用严格校验模式')
+    .option('--json', '以 JSON 输出校验报告')
+    .option('--no-interactive', '禁用交互式提示')
     .action(async (specId: string | undefined, options: { strict?: boolean; json?: boolean; noInteractive?: boolean }) => {
       try {
         if (!specId) {
@@ -244,11 +244,11 @@ export function registerSpecCommand(rootProgram: typeof program) {
           if (canPrompt && specIds.length > 0) {
             const { select } = await import('@inquirer/prompts');
             specId = await select({
-              message: 'Select a spec to validate',
+              message: '选择要校验的 Spec',
               choices: specIds.map(id => ({ name: id, value: id })),
             });
           } else {
-            throw new Error('Missing required argument <spec-id>');
+            throw new Error('缺少必需参数 <spec-id>');
           }
         }
 
@@ -256,7 +256,7 @@ export function registerSpecCommand(rootProgram: typeof program) {
         assertSpecPath(SPECS_DIR, specPath);
         
         if (!existsSync(specPath)) {
-          throw new Error(`Spec '${specId}' not found at openspec/specs/${specId}/spec.md`);
+          throw new Error(`未找到 Spec '${specId}'：openspec/specs/${specId}/spec.md`);
         }
 
         const validator = new Validator(options.strict);
@@ -267,9 +267,9 @@ export function registerSpecCommand(rootProgram: typeof program) {
           console.log(JSON.stringify(report, null, 2));
         } else {
           if (report.valid) {
-            console.log(`Specification '${specId}' is valid`);
+            console.log(`Spec '${specId}' 校验通过`);
           } else {
-            console.error(`Specification '${specId}' has issues`);
+            console.error(`Spec '${specId}' 存在问题`);
             report.issues.forEach(issue => {
               const label = issue.level === 'ERROR' ? 'ERROR' : issue.level;
               const prefix = issue.level === 'ERROR' ? '✗' : issue.level === 'WARNING' ? '⚠' : 'ℹ';
@@ -279,7 +279,7 @@ export function registerSpecCommand(rootProgram: typeof program) {
         }
         process.exitCode = report.valid ? 0 : 1;
       } catch (error) {
-        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`错误：${error instanceof Error ? error.message : '未知错误'}`);
         process.exitCode = 1;
       }
     });

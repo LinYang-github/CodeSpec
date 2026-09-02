@@ -137,7 +137,7 @@ describe('openspec schemas root selection', () => {
     expect(human.stdout).toContain('Available schemas:');
     expect(human.stdout).toContain('store-only');
     expect(human.stdout).not.toContain('local-only');
-    expect(human.stderr).toContain('Using OpenSpec root: team-context');
+    expect(human.stderr).toContain('使用 OpenSpec 根目录：team-context');
     expect(human.stderr).toContain(fs.realpathSync.native(storeRoot));
   }, SCHEMAS_MATRIX_TIMEOUT_MS);
 

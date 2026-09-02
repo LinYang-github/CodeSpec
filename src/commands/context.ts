@@ -61,9 +61,9 @@ function memberLine(member: WorkingSetMember): string {
 
 function printHumanWorkingSet(workingSet: WorkingSet, declaredReferenceCount: number): void {
   const rootLabel = workingSet.root.store_id ?? path.basename(workingSet.root.path);
-  console.log(`Working context for ${rootLabel} (${workingSet.root.path})`);
+  console.log(`工作上下文：${rootLabel}（${workingSet.root.path}）`);
   console.log('');
-  console.log('OpenSpec root');
+  console.log('OpenSpec 根目录');
   console.log(`  ${rootLabel}  ${workingSet.root.path}`);
 
   const availableStores = workingSet.members.filter(
@@ -73,11 +73,11 @@ function printHumanWorkingSet(workingSet: WorkingSet, declaredReferenceCount: nu
 
   if (availableStores.length > 0) {
     console.log('');
-    console.log('Referenced stores');
+    console.log('引用的 Store');
     for (const member of availableStores) {
       console.log(memberLine(member));
       if (member.fetch) {
-        console.log(`    Fetch: ${member.fetch}`);
+        console.log(`    获取：${member.fetch}`);
       }
     }
   }
@@ -88,14 +88,14 @@ function printHumanWorkingSet(workingSet: WorkingSet, declaredReferenceCount: nu
     // emptied-by-omission set must not claim nothing was declared.
     console.log(
       declaredReferenceCount > 0
-        ? 'Declared references all resolve to this root; the working set is this root alone.'
-        : 'No references declared; the working set is this root alone.'
+        ? '声明的引用全部解析到此根目录；工作集仅包含此根目录。'
+        : '未声明引用；工作集仅包含此根目录。'
     );
   }
 
   if (unavailable.length > 0 || workingSet.status.length > 0) {
     console.log('');
-    console.log('Not available on this machine');
+    console.log('本机不可用');
     for (const member of unavailable) {
       if (member.status.length === 0) {
         console.log(`  - ${member.id}`);
@@ -104,14 +104,14 @@ function printHumanWorkingSet(workingSet: WorkingSet, declaredReferenceCount: nu
       for (const diagnostic of member.status) {
         console.log(`  - ${member.id}: ${diagnostic.message}`);
         if (diagnostic.fix) {
-          console.log(`    Fix: ${diagnostic.fix}`);
+          console.log(`    修复：${diagnostic.fix}`);
         }
       }
     }
     for (const diagnostic of workingSet.status) {
-      console.log(`  Note: ${diagnostic.message}`);
+      console.log(`  提示：${diagnostic.message}`);
       if (diagnostic.fix) {
-        console.log(`  Fix: ${diagnostic.fix}`);
+      console.log(`  修复：${diagnostic.fix}`);
       }
     }
   }
@@ -125,20 +125,20 @@ function writeCodeWorkspace(
   const resolved = path.resolve(outputPath);
   if (fs.existsSync(resolved) && !force) {
     throw new StoreError(
-      `Refusing to overwrite ${resolved}.`,
+      `拒绝覆盖 ${resolved}。`,
       'context_file_exists',
       {
         target: 'context.output',
-        fix: `Pass --force to overwrite, or choose a different path.`,
+        fix: `传入 --force 覆盖，或选择其他路径。`,
       }
     );
   }
   const parent = path.dirname(resolved);
   if (!fs.existsSync(parent)) {
     throw new StoreError(
-      `Output directory does not exist: ${parent}.`,
+      `输出目录不存在：${parent}。`,
       'context_output_dir_missing',
-      { target: 'context.output', fix: 'Create the directory first, or choose another path.' }
+      { target: 'context.output', fix: '先创建目录，或选择其他路径。' }
     );
   }
 
@@ -151,8 +151,8 @@ function writeCodeWorkspace(
     .map((member) => member.id);
   const summary =
     skipped.length > 0
-      ? `Wrote ${resolved} (${available + 1} folders; not available: ${skipped.join(', ')})`
-      : `Wrote ${resolved} (${available + 1} folders)`;
+      ? `已写入 ${resolved}（${available + 1} 个目录；不可用：${skipped.join('、')}）`
+      : `已写入 ${resolved}（${available + 1} 个目录）`;
   // stderr keeps JSON stdout pure; for humans it reads inline.
   console.error(summary);
 }
@@ -160,18 +160,18 @@ function writeCodeWorkspace(
 export function registerContextCommand(program: Command): void {
   const description =
     COMMAND_REGISTRY.find((entry) => entry.name === 'context')?.description ??
-    'Print the working context for the resolved OpenSpec root';
+    '输出解析后 OpenSpec 根目录的工作上下文';
 
   program
     .command('context')
     .description(description)
     .option('--store <id>', COMMON_FLAGS.store.description)
     .addOption(
-      new Option('--store-path <path>', 'Removed; register the store and use --store').hideHelp()
+      new Option('--store-path <path>', '已移除；请登记 Store 后使用 --store').hideHelp()
     )
-    .option('--json', 'Output the agent brief as JSON')
-    .option('--code-workspace <path>', 'Also write a VS Code workspace file for the set')
-    .option('--force', 'Overwrite an existing --code-workspace file')
+    .option('--json', '以 JSON 输出 Agent 简报')
+    .option('--code-workspace <path>', '同时为工作集写入 VS Code workspace 文件')
+    .option('--force', '覆盖已有的 --code-workspace 文件')
     .action(
       async (options: {
         store?: string;
