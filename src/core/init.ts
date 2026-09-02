@@ -99,9 +99,9 @@ const DEFAULT_SCHEMA = CANONICAL_SCHEMA;
 
 function formatLanguageContext(language: string): string {
   return [
-    `Language: ${language}`,
-    `All artifacts must be written in ${language}.`,
-    'Keep OpenSpec structural headings and SHALL/MUST keywords in English.',
+    `语言：${language}`,
+    `所有产物必须使用 ${language} 编写。`,
+    '保留 OpenSpec 结构标题以及 SHALL/MUST 关键词为英文。',
   ].join('\n');
 }
 
@@ -270,7 +270,7 @@ export class InitCommand {
       validatedTools.map((tool) => tool.value)
     )) {
       if (hasMovableContent(migration)) {
-        console.log(chalk.dim(`Migrated ${describeLegacyMigration(migration)}: ${migration.from} → ${migration.to}`));
+        console.log(chalk.dim(`已迁移 ${describeLegacyMigration(migration)}：${migration.from} → ${migration.to}`));
       }
       const kept = keptInPlaceNotice(migration);
       if (kept) console.log(chalk.dim(kept));
@@ -417,7 +417,7 @@ export class InitCommand {
       if (this.copilotCloudOption !== undefined) {
         console.log(
           chalk.yellow(
-            '--copilot-cloud/--no-copilot-cloud was ignored because the github-copilot tool was not selected.'
+            '--copilot-cloud/--no-copilot-cloud 已被忽略，因为未选择 github-copilot 工具。'
           )
         );
       }
@@ -446,8 +446,8 @@ export class InitCommand {
       const { confirm } = await import('@inquirer/prompts');
       const answer = await confirm({
         message:
-          'Set up GitHub Copilot cloud coding-agent files? This is for the GitHub-hosted ' +
-          'Copilot coding agent (github.com), not Copilot in your editor. It writes two files: ' +
+          '是否设置 GitHub Copilot 云端编码代理文件？此设置用于 GitHub 托管的 ' +
+          'Copilot 编码代理（github.com），而非编辑器中的 Copilot。它会写入两个文件：' +
           '.github/workflows/copilot-setup-steps.yml and .github/agents/openspec.agent.md.',
         default: false,
       });
@@ -528,13 +528,13 @@ export class InitCommand {
     // Interactive mode: prompt for confirmation
     const { confirm } = await import('@inquirer/prompts');
     const shouldCleanup = await confirm({
-      message: 'Upgrade and clean up legacy files?',
+      message: '是否升级并清理旧文件？',
       default: true,
     });
 
     if (!shouldCleanup) {
-      console.log(chalk.dim('Initialization cancelled.'));
-      console.log(chalk.dim('Run with --force to skip this prompt, or manually remove legacy files.'));
+      console.log(chalk.dim('已取消初始化。'));
+      console.log(chalk.dim('使用 --force 跳过此提示，或手动移除旧文件。'));
       process.exit(0);
     }
 
@@ -584,7 +584,7 @@ export class InitCommand {
       .filter((prompt) => !removableMatches.some((match) => match.path === prompt.path));
 
     if (blockedMatches.length > 0) {
-      console.log(chalk.yellow('Preserved deferred global prompts without replacement skills:'));
+      console.log(chalk.yellow('以下延后的全局提示未找到替代技能，已保留：'));
       for (const prompt of blockedMatches) {
         console.log(chalk.dim(`  - ${prompt.toolId}: ${prompt.path}`));
       }
@@ -606,11 +606,11 @@ export class InitCommand {
   }
 
   private async performLegacyCleanup(projectPath: string, detection: LegacyDetectionResult): Promise<void> {
-    const spinner = ora('Cleaning up legacy files...').start();
+    const spinner = ora('正在清理旧文件...').start();
 
     const result = await cleanupLegacyArtifacts(projectPath, detection);
 
-    spinner.succeed('Legacy files cleaned up');
+    spinner.succeed('旧文件已清理');
 
     const summary = formatCleanupSummary(result);
     if (summary) {
@@ -696,7 +696,7 @@ export class InitCommand {
       .map((toolId) => AI_TOOLS.find((t) => t.value === toolId)?.name || toolId);
 
     if (configuredNames.length > 0) {
-      console.log(`OpenSpec configured: ${configuredNames.join(', ')} (pre-selected)`);
+      console.log(`已配置 OpenSpec：${configuredNames.join(', ')}（已预选）`);
     }
 
     const detectedOnlyNames = detectedTools
@@ -705,16 +705,16 @@ export class InitCommand {
 
     if (detectedOnlyNames.length > 0) {
       const detectionLabel = shouldPreselectDetected
-        ? 'pre-selected for first-time setup'
-        : 'not pre-selected';
-      console.log(`Detected tool directories: ${detectedOnlyNames.join(', ')} (${detectionLabel})`);
+        ? '首次设置时已预选'
+        : '未预选';
+      console.log(`检测到工具目录：${detectedOnlyNames.join(', ')}（${detectionLabel}）`);
     }
 
     const selectedTools = await searchableMultiSelect({
-      message: `Select tools to set up (${validTools.length} available)`,
+      message: `选择要设置的工具（可用 ${validTools.length} 个）`,
       pageSize: 15,
       choices: sortedChoices,
-      validate: (selected: string[]) => selected.length > 0 || 'Select at least one tool',
+      validate: (selected: string[]) => selected.length > 0 || '请至少选择一个工具',
     });
 
     if (selectedTools.length === 0) {
@@ -848,7 +848,7 @@ export class InitCommand {
     for (const [root, group] of sharedRoots) {
       if (group.length < 2) continue;
       const owner = group.find((tool) => skillWriters.has(tool.value));
-      console.log(chalk.dim(`${group.map((tool) => tool.name).join(', ')} share ${root}/skills; writing one tree for ${owner?.value}.`));
+      console.log(chalk.dim(`${group.map((tool) => tool.name).join(', ')} 共用 ${root}/skills；将为 ${owner?.value} 写入一套目录树。`));
     }
 
     const validatedTools: ValidatedInitTool[] = [];
@@ -884,12 +884,12 @@ export class InitCommand {
       return;
     }
 
-    const spinner = this.startSpinner('Creating OpenSpec structure...');
+    const spinner = this.startSpinner('正在创建 OpenSpec 结构...');
     await initializeCodeSpecWorkspace(projectRoot);
 
     spinner.stopAndPersist({
       symbol: PALETTE.white('▌'),
-      text: PALETTE.white('OpenSpec structure created'),
+      text: PALETTE.white('OpenSpec 结构已创建'),
     });
   }
 
@@ -939,7 +939,7 @@ export class InitCommand {
 
     // Process each tool
     for (const tool of tools) {
-      const spinner = ora(`Setting up ${tool.name}...`).start();
+      const spinner = ora(`正在设置 ${tool.name}...`).start();
 
       try {
         const shouldGenerateSkills = shouldGenerateSkillsForTool(tool.value, delivery);
@@ -1003,7 +1003,7 @@ export class InitCommand {
           await writeCopilotCloudFiles(projectPath);
         }
 
-        spinner.succeed(`Setup complete for ${tool.name}`);
+        spinner.succeed(`${tool.name} 设置完成`);
 
         if (tool.wasConfigured) {
           refreshedTools.push(tool);
@@ -1011,7 +1011,7 @@ export class InitCommand {
           createdTools.push(tool);
         }
       } catch (error) {
-        spinner.fail(`Failed for ${tool.name}`);
+        spinner.fail(`${tool.name} 设置失败`);
         failedTools.push({ name: tool.name, error: error as Error });
       }
     }
@@ -1023,7 +1023,7 @@ export class InitCommand {
         'after-generation'
       )) {
         if (hasMovableContent(migration)) {
-          console.log(chalk.dim(`Migrated ${describeLegacyMigration(migration)}: ${migration.from} → ${migration.to}`));
+          console.log(chalk.dim(`已迁移 ${describeLegacyMigration(migration)}：${migration.from} → ${migration.to}`));
         }
         const kept = keptInPlaceNotice(migration);
         if (kept) console.log(chalk.dim(kept));
@@ -1246,21 +1246,21 @@ export class InitCommand {
 
     // Show failures
     if (results.failedTools.length > 0) {
-      console.log(chalk.red(`Failed: ${results.failedTools.map((f) => `${f.name} (${f.error.message})`).join(', ')}`));
+      console.log(chalk.red(`失败：${results.failedTools.map((f) => `${f.name}（${f.error.message}）`).join('，')}`));
     }
 
     // Show skipped commands
     if (results.commandsSkipped.length > 0) {
-      console.log(chalk.dim(`Commands skipped for: ${results.commandsSkipped.join(', ')} (no adapter)`));
+      console.log(chalk.dim(`已跳过命令：${results.commandsSkipped.join(', ')}（无适配器）`));
     }
     if (results.skillsInvocableCommandSkips.length > 0) {
-      console.log(chalk.dim(`Commands skipped for: ${results.skillsInvocableCommandSkips.join(', ')} (uses skills)`));
+      console.log(chalk.dim(`已跳过命令：${results.skillsInvocableCommandSkips.join(', ')}（使用技能）`));
     }
     if (results.removedCommandCount > 0) {
-      console.log(chalk.dim(`Removed: ${results.removedCommandCount} command files (delivery: skills)`));
+      console.log(chalk.dim(`已移除：${results.removedCommandCount} 个命令文件（delivery：skills）`));
     }
     if (results.removedSkillCount > 0) {
-      console.log(chalk.dim(`Removed: ${results.removedSkillCount} skill directories (delivery: commands)`));
+      console.log(chalk.dim(`已移除：${results.removedSkillCount} 个技能目录（delivery：commands）`));
     }
 
     // GitHub Copilot cloud files are opt-in — report what is actually on disk:
@@ -1270,23 +1270,23 @@ export class InitCommand {
     const copilotSucceeded = successfulTools.some((tool) => tool.value === 'github-copilot');
     if (copilotSucceeded && copilot.write) {
       if (copilot.present.length > 0) {
-        console.log(`GitHub Copilot cloud files: ${copilot.present.join(', ')}`);
+        console.log(`GitHub Copilot 云端文件：${copilot.present.join('，')}`);
       }
       if (copilot.collisions.length > 0) {
         console.log(
           chalk.dim(
-            `Left your existing ${copilot.collisions.join(' and ')} untouched — add the OpenSpec ` +
-              `install step by hand so the Copilot cloud agent can run openspec.`
+            `保留了你现有的 ${copilot.collisions.join('、')}，未作修改。请手动添加 OpenSpec ` +
+              `安装步骤，以便 Copilot 云端编码代理运行 openspec。`
           )
         );
       }
     } else if (copilotSucceeded && copilot.removed > 0) {
       console.log(
-        chalk.dim(`Removed: ${copilot.removed} Copilot cloud agent file(s) (opted out of cloud files)`)
+        chalk.dim(`已移除：${copilot.removed} 个 Copilot 云端代理文件（已选择不生成云端文件）`)
       );
     } else if (copilotSucceeded && copilot.skippedUndecided) {
       console.log(
-        chalk.dim("Skipped GitHub Copilot cloud files (opt-in). Enable with 'openspec init --copilot-cloud'.")
+        chalk.dim("已跳过 GitHub Copilot 云端文件（需主动启用）。使用 'openspec init --copilot-cloud' 启用。")
       );
     }
 
@@ -1294,7 +1294,7 @@ export class InitCommand {
     for (const tool of successfulTools) {
       const setupNote = AI_TOOLS.find((t) => t.value === tool.value)?.setupNote;
       if (setupNote) {
-        console.log(chalk.yellow(`Setup required for ${tool.name}: ${setupNote}`));
+        console.log(chalk.yellow(`需要额外设置：${tool.name}：${setupNote}`));
       }
     }
 
@@ -1430,8 +1430,8 @@ export class InitCommand {
       console.log(
         chalk.white(
           restartCommandsGenerated
-            ? 'Restart your IDE for the new commands to take effect.'
-            : 'Restart your IDE for the new skills to take effect.'
+            ? '请重启 IDE，使新命令生效。'
+            : '请重启 IDE，使新技能生效。'
         )
       );
     }

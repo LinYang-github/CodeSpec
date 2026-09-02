@@ -128,7 +128,7 @@ describe('InitCommand', () => {
       expect(content).toContain('workflow:');
       expect(content).toContain('  multiple_active_changes: true');
       expect(content).toContain('context: |');
-      expect(content).toContain('  Language: Portuguese (pt-BR)');
+      expect(content).toContain('  语言：Portuguese (pt-BR)');
     });
 
     it('should add the requested artifact language to a new config', async () => {
@@ -143,10 +143,10 @@ describe('InitCommand', () => {
       const configPath = path.join(testDir, 'openspec', 'config.yaml');
       const content = await fs.readFile(configPath, 'utf-8');
       expect(content).toContain('context: |');
-      expect(content).toContain('  Language: Portuguese (pt-BR)');
-      expect(content).toContain('  All artifacts must be written in Portuguese (pt-BR).');
-      expect(content).toContain('  Keep OpenSpec structural headings and SHALL/MUST keywords in English.');
-      expect(readProjectConfig(testDir)?.context).toContain('Language: Portuguese (pt-BR)');
+      expect(content).toContain('  语言：Portuguese (pt-BR)');
+      expect(content).toContain('  所有产物必须使用 Portuguese (pt-BR) 编写。');
+      expect(content).toContain('  保留 OpenSpec 结构标题以及 SHALL/MUST 关键词为英文。');
+      expect(readProjectConfig(testDir)?.context).toContain('语言：Portuguese (pt-BR)');
 
       await initCommand.execute(testDir);
       expect(await fs.readFile(configPath, 'utf-8')).toBe(content);
@@ -185,7 +185,7 @@ describe('InitCommand', () => {
     });
 
     it('should accept language context at the exact project context size limit', async () => {
-      const language = 'x'.repeat(25_542);
+      const language = 'x'.repeat(25_543);
       const initCommand = new InitCommand({ tools: 'none', force: true, language });
 
       await initCommand.execute(testDir);
@@ -628,7 +628,7 @@ describe('InitCommand', () => {
       const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
       expect(
         logCalls.some(
-          (entry) => entry.includes('Commands skipped for: agents') && entry.includes('(no adapter)'),
+          (entry) => entry.includes('已跳过命令：agents') && entry.includes('（无适配器）'),
         ),
       ).toBe(true);
     });
@@ -661,8 +661,8 @@ describe('InitCommand', () => {
       expect(
         logCalls.some(
           (entry) =>
-            entry.includes('Commands skipped for: minimax-code') &&
-            entry.includes('(no adapter)')
+            entry.includes('已跳过命令：minimax-code') &&
+            entry.includes('（无适配器）')
         )
       ).toBe(true);
       expect(
@@ -714,7 +714,7 @@ describe('InitCommand', () => {
       const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
       expect(
         logCalls.some(
-          (entry) => entry.includes('Commands skipped for: kimi') && entry.includes('(no adapter)'),
+          (entry) => entry.includes('已跳过命令：kimi') && entry.includes('（无适配器）'),
         ),
       ).toBe(true);
     });
@@ -782,7 +782,7 @@ describe('InitCommand', () => {
       expect(codeArtsLogCalls.some((entry) => entry.includes('已创建：CodeArts'))).toBe(true);
       expect(
         codeArtsLogCalls.some(
-          (entry) => entry.includes('Commands skipped for: codeartsagent') && entry.includes('(no adapter)'),
+          (entry) => entry.includes('已跳过命令：codeartsagent') && entry.includes('（无适配器）'),
         ),
       ).toBe(true);
     });
@@ -826,7 +826,7 @@ describe('InitCommand', () => {
       expect(rovoLogCalls.some((entry) => entry.includes('已创建：Rovo Dev CLI'))).toBe(true);
       expect(
         rovoLogCalls.some(
-          (entry) => entry.includes('Commands skipped for: rovodev') && entry.includes('(no adapter)'),
+          (entry) => entry.includes('已跳过命令：rovodev') && entry.includes('（无适配器）'),
         ),
       ).toBe(true);
       // The getting-started hint must not advertise a dead slash command.
@@ -855,12 +855,12 @@ describe('InitCommand', () => {
       const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
       expect(
         logCalls.some(
-          (entry) => entry.includes('Commands skipped for: hermes') && entry.includes('(no adapter)'),
+          (entry) => entry.includes('已跳过命令：hermes') && entry.includes('（无适配器）'),
         ),
       ).toBe(true);
       expect(
         logCalls.some(
-          (entry) => entry.includes('Setup required for Hermes Agent') && entry.includes('skills.external_dirs'),
+          (entry) => entry.includes('需要额外设置：Hermes Agent') && entry.includes('skills.external_dirs'),
         ),
       ).toBe(true);
     });
@@ -951,9 +951,9 @@ describe('InitCommand', () => {
         .map(String);
       expect(logCalls.some((entry) => entry.includes('已创建：Codex'))).toBe(true);
       expect(logCalls.some((entry) => entry.includes('Zed Agent'))).toBe(true);
-      expect(logCalls.some((entry) => entry.includes('Shared .agents skills'))).toBe(true);
+      expect(logCalls.some((entry) => entry.includes('共用 .agents/skills'))).toBe(true);
       expect(
-        logCalls.some((entry) => entry.includes('writing one tree for codex'))
+        logCalls.some((entry) => entry.includes('将为 codex 写入一套目录树'))
       ).toBe(true);
     });
 
@@ -1089,7 +1089,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(testDir);
 
-      expect(getConsoleOutput()).not.toContain('Restart your IDE');
+      expect(getConsoleOutput()).not.toContain('请重启 IDE');
     });
 
     it('should suggest an IDE restart for IDE-resident tools', async () => {
@@ -1097,7 +1097,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(testDir);
 
-      expect(getConsoleOutput()).toContain('Restart your IDE');
+      expect(getConsoleOutput()).toContain('请重启 IDE');
     });
 
     it('should suggest an IDE restart when a mix of CLI and IDE tools is configured', async () => {
@@ -1108,7 +1108,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(testDir);
 
-      expect(getConsoleOutput()).toContain('Restart your IDE');
+      expect(getConsoleOutput()).toContain('请重启 IDE');
     });
 
     it('should word the restart hint for commands when an IDE tool gets a command surface', async () => {
@@ -1118,7 +1118,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(testDir);
 
-      expect(getConsoleOutput()).toContain('Restart your IDE for the new commands to take effect.');
+      expect(getConsoleOutput()).toContain('请重启 IDE，使新命令生效。');
     });
 
     it('should word the restart hint for skills when an IDE tool gets only a skill surface', async () => {
@@ -1129,7 +1129,7 @@ describe('InitCommand', () => {
 
       await initCommand.execute(testDir);
 
-      expect(getConsoleOutput()).toContain('Restart your IDE for the new skills to take effect.');
+      expect(getConsoleOutput()).toContain('请重启 IDE，使新技能生效。');
     });
 
     it('should create skills for multiple tools at once', async () => {
@@ -1828,7 +1828,7 @@ describe('InitCommand - profile and detection features', () => {
   it('interactive init: confirming the cloud prompt writes files and persists the opt-in', async () => {
     searchableMultiSelectMock.mockResolvedValue(['github-copilot']);
     confirmMock.mockImplementation(({ message }: { message: string }) =>
-      Promise.resolve(String(message).includes('Copilot cloud coding-agent'))
+      Promise.resolve(String(message).includes('Copilot 云端编码代理'))
     );
 
     const initCommand = new InitCommand({});
@@ -1872,6 +1872,7 @@ describe('InitCommand - profile and detection features', () => {
     await new InitCommand({ tools: 'github-copilot', force: true, copilotCloud: false }).execute(testDir);
 
     expect(await fileExists(setupStepsPath)).toBe(false);
+    expect(getConsoleOutput()).toContain('个 Copilot 云端代理文件（已选择不生成云端文件）');
     const config = await fs.readFile(path.join(testDir, 'openspec', 'config.yaml'), 'utf8');
     expect(config).toContain('cloudAgent: false');
   });
@@ -1891,7 +1892,7 @@ describe('InitCommand - profile and detection features', () => {
     await new InitCommand({ tools: 'claude', force: true, copilotCloud: true }).execute(testDir);
 
     const out = vi.mocked(console.log).mock.calls.flat().join('\n');
-    expect(out).toContain('was ignored because the github-copilot tool was not selected');
+    expect(out).toContain('已被忽略，因为未选择 github-copilot 工具');
   });
 
   it('opting in over a user-owned cloud file never claims that file was written', async () => {
@@ -1905,9 +1906,9 @@ describe('InitCommand - profile and detection features', () => {
 
     const out = vi.mocked(console.log).mock.calls.flat().join('\n');
     // Only the agent file was actually written; the workflow was left untouched.
-    expect(out).toContain(`GitHub Copilot cloud files: ${agentRel}`);
-    expect(out).not.toContain(`cloud files: ${setupRel}`);
-    expect(out).toContain(`Left your existing ${setupRel} untouched`);
+    expect(out).toContain(`GitHub Copilot 云端文件：${agentRel}`);
+    expect(out).not.toContain(`云端文件：${setupRel}`);
+    expect(out).toContain(`保留了你现有的 ${setupRel}，未作修改`);
     // And the user's own file is preserved verbatim.
     await expect(fs.readFile(setupStepsPath, 'utf8')).resolves.toBe('name: my own workflow\n');
   });
@@ -2065,7 +2066,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(correction).toBeTruthy();
     expect(correction).toContain("openspec config set delivery both");
     // Nothing was generated, so there is nothing an IDE restart would pick up
-    expect(logCalls.some((entry) => entry.includes('Restart your IDE'))).toBe(false);
+    expect(logCalls.some((entry) => entry.includes('请重启 IDE'))).toBe(false);
   });
 
   it('should print one usable hint per invocation syntax when adapterless tools disagree', async () => {
@@ -2120,7 +2121,7 @@ describe('InitCommand - profile and detection features', () => {
 
     // Codex is a CLI tool: its skills load as soon as the files exist, with no
     // IDE process to restart, so the restart line must not appear at all (#1067).
-    const restartHint = logCalls.find((entry) => entry.includes('Restart your IDE'));
+    const restartHint = logCalls.find((entry) => entry.includes('请重启 IDE'));
     expect(restartHint).toBeUndefined();
   });
 
@@ -2149,8 +2150,8 @@ describe('InitCommand - profile and detection features', () => {
     expect(startHint).not.toContain('/opsx:propose');
 
     // Commands were generated, but they are not slash commands.
-    const restartHint = logCalls.find((entry) => entry.includes('Restart your IDE'));
-    expect(restartHint).toContain('Restart your IDE for the new commands to take effect.');
+    const restartHint = logCalls.find((entry) => entry.includes('请重启 IDE'));
+    expect(restartHint).toContain('请重启 IDE，使新命令生效。');
     expect(restartHint).not.toContain('slash commands');
   });
 
