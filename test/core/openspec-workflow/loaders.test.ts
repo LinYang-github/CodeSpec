@@ -7,6 +7,7 @@ import {
   loadChangeArtifacts,
   loadWorkspace,
 } from '../../../src/core/openspec-workflow/loaders.js';
+import { EmptyBusinessRegistryError } from '../../../src/core/openspec-workflow/business-registry.js';
 import { parseWorkspaceConfig } from '../../../src/core/openspec-workflow/schemas.js';
 import { listActiveChanges } from '../../../src/core/openspec-workflow/change-resolver.js';
 import {
@@ -133,6 +134,75 @@ describe('openspec workflow loaders', () => {
     );
 
     await expect(loadBusinessRegistry(fixture.paths)).rejects.toThrow(/duplicate.*MOD-001/i);
+  });
+
+  it('accepts localized or custom business table headers', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+
+    for (const header of [
+      '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
+      '| Module ID | Module Name | Description | Responsibilities | Keywords |',
+      '| 域 | 名称 | 说明 | 工作 | 标签 |',
+    ]) {
+      await writeBusinessFile(
+        fixture,
+        [
+          '# Business',
+          '',
+          header,
+          '| --- | --- | --- | --- | --- |',
+          '| MOD-001 | 账户 | 账户域 | 管理账户 | 账户 |',
+        ].join('\n')
+      );
+
+      await expect(loadBusinessRegistry(fixture.paths)).resolves.toMatchObject({
+        modules: [expect.objectContaining({ id: 'MOD-001' })],
+      });
+    }
+  });
+
+  it('rejects empty registries without parsing headers or fenced examples as modules', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+
+    for (const content of [
+      [
+        '# 业务',
+        '',
+        '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
+        '| --- | --- | --- | --- | --- |',
+      ].join('\n'),
+      [
+        '# 业务',
+        '',
+        '示例：',
+        '```markdown',
+        '| MOD-001 | 账户 | 账户域 | 管理账户 | 账户 |',
+        '```',
+      ].join('\n'),
+    ]) {
+      await writeBusinessFile(fixture, content);
+      await expect(loadBusinessRegistry(fixture.paths)).rejects.toBeInstanceOf(
+        EmptyBusinessRegistryError
+      );
+    }
+  });
+
+  it('keeps malformed non-header business rows invalid', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+
+    await writeBusinessFile(
+      fixture,
+      [
+        '| 自定义 ID | 名称 | 描述 | 职责 | 关键词 |',
+        '| --- | --- | --- | --- | --- |',
+        '| MOD-01 | 账户 | 账户域 | 管理账户 | 账户 |',
+      ].join('\n')
+    );
+
+    await expect(loadBusinessRegistry(fixture.paths)).rejects.toThrow(/MOD-###/);
   });
 
   it('loads canonical active change artifacts', async () => {

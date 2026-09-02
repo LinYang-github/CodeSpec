@@ -10,6 +10,19 @@ export interface BusinessRegistry {
   byName: Map<string, BusinessModule>;
 }
 
+export class EmptyBusinessRegistryError extends Error {
+  readonly code = 'empty_business_registry';
+
+  constructor(readonly businessPath: string) {
+    super(`尚未定义业务模块。请先在 ${businessPath} 中至少添加一条以 MOD-### 开头的模块记录。`);
+    this.name = 'EmptyBusinessRegistryError';
+  }
+}
+
+export function isEmptyBusinessRegistryError(error: unknown): error is EmptyBusinessRegistryError {
+  return error instanceof EmptyBusinessRegistryError;
+}
+
 function parseDelimitedList(rawValue: string, delimiters: RegExp): string[] {
   return rawValue
     .split(delimiters)
@@ -17,25 +30,40 @@ function parseDelimitedList(rawValue: string, delimiters: RegExp): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-function parseModuleRow(line: string): BusinessModule | null {
+function parseTableColumns(line: string): string[] | null {
   if (!line.startsWith('|')) {
     return null;
   }
 
-  const columns = line
+  return line
     .split('|')
     .slice(1, -1)
     .map((value) => value.trim());
+}
 
-  if (columns.length < 5) {
+function isTableSeparator(columns: string[]): boolean {
+  return columns.length >= 5 && columns.every((value) => /^:?-{3,}:?$/.test(value));
+}
+
+function isTableHeader(lines: string[], lineIndex: number): boolean {
+  const columns = parseTableColumns(lines[lineIndex]!.trim());
+  const nextColumns = parseTableColumns(lines[lineIndex + 1]?.trim() ?? '');
+
+  return !!columns && columns.length >= 5 && !!nextColumns && isTableSeparator(nextColumns);
+}
+
+function isFenceDelimiter(line: string): boolean {
+  return /^(?:`{3,}|~{3,})/.test(line);
+}
+
+function parseModuleRow(line: string): BusinessModule | null {
+  const columns = parseTableColumns(line);
+
+  if (!columns || columns.length < 5) {
     return null;
   }
 
-  if (columns.every((value) => /^:?-{3,}:?$/.test(value))) {
-    return null;
-  }
-
-  if (columns[0] === 'Module ID') {
+  if (isTableSeparator(columns)) {
     return null;
   }
 
@@ -54,8 +82,21 @@ export async function loadBusinessRegistry(paths: WorkspacePaths): Promise<Busin
   const byId = new Map<string, BusinessModule>();
   const byName = new Map<string, BusinessModule>();
 
-  for (const line of content.split(/\r?\n/u)) {
-    const moduleRow = parseModuleRow(line.trim());
+  const lines = content.split(/\r?\n/u);
+  let insideFence = false;
+
+  for (const [lineIndex, rawLine] of lines.entries()) {
+    const line = rawLine.trim();
+    if (isFenceDelimiter(line)) {
+      insideFence = !insideFence;
+      continue;
+    }
+
+    if (insideFence || isTableHeader(lines, lineIndex)) {
+      continue;
+    }
+
+    const moduleRow = parseModuleRow(line);
     if (!moduleRow) {
       continue;
     }
@@ -75,7 +116,7 @@ export async function loadBusinessRegistry(paths: WorkspacePaths): Promise<Busin
   }
 
   if (modules.length === 0) {
-    throw new Error(`Missing canonical module registry entries in ${paths.business}`);
+    throw new EmptyBusinessRegistryError(paths.business);
   }
 
   return { modules, byId, byName };
