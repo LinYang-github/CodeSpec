@@ -41,14 +41,14 @@ import { STORE_SELECTION_GUIDANCE } from '../../../src/core/templates/workflows/
 const EXPECTED_FUNCTION_HASHES: Record<string, string> = {
   getExploreSkillTemplate: '485b100552ddc28367c7f0a084bb2601d4542f41c1af02f643bd85073c82a577',
   getNewChangeSkillTemplate: '70818353ed59b63b94243edd78788ed55aea34085ff729ba525f187cfdc84aaf',
-  getContinueChangeSkillTemplate: '81fc210a076de624c245e9ea8d92560e9c3c1aa0e1407f902a9620c2740ee486',
+  getContinueChangeSkillTemplate: '0027105a23eac336d069f414c8a82b983e9fbf9b48b032f0116aa86420190ea4',
   getApplyChangeSkillTemplate: '812b75e53169600c8f7e9ebc5b8109a0fdc2a284acfe1f8c7b297cf00ed1235d',
   getFfChangeSkillTemplate: 'b812fa8850cc27570203a5b687bef67374464ff0ba9463739cdb9238f4199205',
   getSyncSpecsSkillTemplate: '5dfdf74ba4fa5dba754e589a56a9d9a1a9240567457d058d010ee00d68bf01d5',
   getOnboardSkillTemplate: 'bb87ebe3e65ef9dac12817ad9be09b0d998e7e87d6188bd0cda52d7f672bfbd7',
   getOpsxExploreCommandTemplate: '1eeae36d27b6b8fc478e670b7b4f76590abc6971b92c034899e61f0f04a91200',
   getOpsxNewCommandTemplate: '74f3881f80a74b6f5fdab05014ff22e5079a3196eef08481256fd5ff574c8195',
-  getOpsxContinueCommandTemplate: 'c6f8f36d262a63d709e93ddfcd218b481ade28eac8edb5829f0d0915214340d6',
+  getOpsxContinueCommandTemplate: '0929e0cc4fad79428b195c15ac868252b214819203e386e79134f37a5c39e22c',
   getOpsxApplyCommandTemplate: '31eba8b74564569c8c386b766ee0152fb4e0e46631df480f2af98ae18178e398',
   getOpsxFfCommandTemplate: '120b552b94d1cab6ed2e724b52bd45bacb3e912265c5102cc86bb27db2e756f1',
   getArchiveChangeSkillTemplate: '6062b00ae5c6dc2a1729200779eb9f5e9af811eb3e52afe80883de853250f293',
@@ -70,7 +70,7 @@ const EXPECTED_GENERATED_SKILL_CONTENT_HASHES: Record<string, string> = {
   'openspec-workflow': '54a00ac62981ca45cb2bbd828474549e06aaae084ca2ccb0d96a38d741926717',
   'openspec-explore': '26b441fccf8a10760e6c7d4ea474e8b4b92dc11c2bc384f37e71141b33504c52',
   'openspec-new-change': 'cd98e462dabeed3dbf7d2eb4b0453567918cf68b031134906da2f4d281946176',
-  'openspec-continue-change': '7118ff99ae6403f3eeb4eb8318b941c4054bbe685193d0600f539c6ff2002e54',
+  'openspec-continue-change': '1a5827bb170b14e9f6b68e9d9c834d21a240e81907c322349d3957bb4c84a785',
   'openspec-apply-change': '0427fbb216ad0c2033d5dc7faf5dc5dd46699fdb5903e27fdd2640c9a91f6a2a',
   'openspec-ff-change': '7e54150e4a204a47047eaeea4751da24ee7e028e48fda3a4a7531d1265bad8ca',
   'openspec-sync-specs': '391af02b2090ba2aabdbf698529d9d03d6a6002d19c18e60e30a454fb42e412e',
@@ -452,12 +452,9 @@ describe('skill templates split parity', () => {
     ];
 
     for (const [variant, content] of variants) {
-      expect(content, variant).toContain('Planning is complete!');
-      expect(content, variant).toContain(
-        'Once implementation and any tracked work are complete, archive it'
-      );
-      expect(content, variant).not.toContain('All artifacts created!');
-      expect(content, variant).not.toContain('or archive it');
+      expect(content, variant).toContain('说明规划已完成');
+      expect(content, variant).toContain('在新的用户请求中进入 apply');
+      expect(content, variant).not.toContain('archive it');
     }
   });
 
@@ -950,7 +947,7 @@ describe('skill templates split parity', () => {
       // The instruction field wins even for familiar artifact names: the old
       // hard-coded "Common artifact patterns" shortcut is what let agents
       // ignore custom schemas that reuse proposal.md/tasks.md file names.
-      const chinese = variant.startsWith('propose') || variant.startsWith('ff');
+      const chinese = /^(propose|continue|ff)/.test(variant);
       expect(content, variant).toContain(
         chinese ? '权威指导' : 'the authoritative guidance'
       );
@@ -960,9 +957,9 @@ describe('skill templates split parity', () => {
       // delegated skill's output is verified rather than assumed.
       expect(content, variant).toContain(
         chinese
-          ? variant.startsWith('ff')
-            ? '若说明委派给特定 skill 或命令'
-            : '`instruction` 委派给特定 skill 或命令'
+          ? variant.startsWith('propose')
+            ? '`instruction` 委派给特定 skill 或命令'
+            : '若说明委派给特定 skill 或命令'
           : 'If the `instruction` field delegates creation to a specific skill or command, invoke it to produce the artifact instead of writing the file yourself, then verify the artifact file exists at `resolvedOutputPath`'
       );
 
