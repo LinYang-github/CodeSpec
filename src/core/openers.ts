@@ -225,15 +225,15 @@ function defaultIsExecutableFile(
 }
 
 /**
- * PATH availability scan (ported from the deleted workspace openers
- * at f858c19^, sharpened for injectability: the path module is keyed
- * by the injected platform, and a command already carrying a known
- * executable extension matches as-is).
+ * Resolve the exact executable selected by the PATH scan. Keeping the
+ * resolved path matters when an earlier PATH entry is present but cannot
+ * actually spawn: passing the bare command to execvp would allow it to skip
+ * that entry and silently launch a later installation instead.
  */
-export function isOpenerCommandAvailable(
+export function resolveOpenerCommand(
   command: string,
   options: OpenerScanOptions = {}
-): boolean {
+): string | null {
   const env = options.env ?? process.env;
   const platform = options.platform ?? os.platform();
   const pathModule = platform === 'win32' ? path.win32 : path.posix;
@@ -256,7 +256,13 @@ export function isOpenerCommandAvailable(
     // Direct paths additionally match bare even on win32 (the spawn
     // call receives the literal path).
     const directSuffixes = Array.from(new Set(['', ...suffixes]));
-    return directSuffixes.some((suffix) => isExecutable(command + suffix));
+    for (const suffix of directSuffixes) {
+      const candidate = command + suffix;
+      if (isExecutable(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
   }
 
   for (const directory of getPathValue(env).split(pathModule.delimiter)) {
@@ -264,16 +270,28 @@ export function isOpenerCommandAvailable(
       continue;
     }
 
-    if (
-      suffixes.some((suffix) =>
-        isExecutable(pathModule.join(directory, command + suffix))
-      )
-    ) {
-      return true;
+    for (const suffix of suffixes) {
+      const candidate = pathModule.join(directory, command + suffix);
+      if (isExecutable(candidate)) {
+        return candidate;
+      }
     }
   }
 
-  return false;
+  return null;
+}
+
+/**
+ * PATH availability scan (ported from the deleted workspace openers
+ * at f858c19^, sharpened for injectability: the path module is keyed
+ * by the injected platform, and a command already carrying a known
+ * executable extension matches as-is).
+ */
+export function isOpenerCommandAvailable(
+  command: string,
+  options: OpenerScanOptions = {}
+): boolean {
+  return resolveOpenerCommand(command, options) !== null;
 }
 
 export interface OpenerChoice {

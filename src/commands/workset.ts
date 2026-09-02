@@ -33,6 +33,7 @@ import {
   isOpenerEnabled,
   listOpenerChoices,
   mergeOpenerTable,
+  resolveOpenerCommand,
   type LaunchCommand,
   type OpenerDefinition,
 } from '../core/openers.js';
@@ -443,10 +444,21 @@ class WorksetCommand {
         )!.opener;
       }
 
-      const launch = buildLaunchCommand(opener, {
-        members: prepared.surviving,
-        codeWorkspacePath: prepared.codeWorkspacePath,
-      });
+      // Use the same exact PATH hit that made the opener available. Passing
+      // the bare command here would let execvp skip a broken earlier PATH
+      // entry and launch a different installation later in PATH.
+      const resolvedCommand = resolveOpenerCommand(opener.command);
+      if (resolvedCommand === null) {
+        throw toolUnavailableError(opener, table, name);
+      }
+
+      const launch = buildLaunchCommand(
+        { ...opener, command: resolvedCommand },
+        {
+          members: prepared.surviving,
+          codeWorkspacePath: prepared.codeWorkspacePath,
+        }
+      );
 
       if (opener.style === 'workspace-file') {
         console.log(
