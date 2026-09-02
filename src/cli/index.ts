@@ -80,12 +80,14 @@ function failWithError(
   error: unknown,
   json?: { enabled: boolean | undefined; payload?: Record<string, unknown>; fallbackCode?: string }
 ): void {
+  const status = asStatus(error, json?.fallbackCode ?? 'command_error');
+
   // The agent contract: every --json failure leaves exactly one JSON
   // document on stdout (the command's null-shape plus a status array).
   if (json?.enabled) {
     console.log(
       JSON.stringify(
-        { ...(json.payload ?? {}), status: [asStatus(error, json.fallbackCode ?? 'command_error')] },
+        { ...(json.payload ?? {}), status: [status] },
         null,
         2
       )
@@ -93,11 +95,9 @@ function failWithError(
     process.exitCode = 1;
     return;
   }
-  ora().fail(`错误：${(error as Error).message}`);
-  // Resolution and store errors carry a pasteable fix - never drop it.
-  const fix = (error as { diagnostic?: { fix?: string } }).diagnostic?.fix;
-  if (fix) {
-    console.error(`修复：${fix}`);
+  ora().fail(`错误：${status.message}`);
+  if (status.fix) {
+    console.error(`修复：${status.fix}`);
   }
   process.exitCode = process.exitCode ?? 1;
 }

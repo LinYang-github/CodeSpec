@@ -5,6 +5,7 @@
  * array in JSON mode.
  */
 import { StoreError, type StoreDiagnostic } from '../core/store/errors.js';
+import { isEmptyBusinessRegistryError } from '../core/openspec-workflow/business-registry.js';
 import { formatDiagnosticMessage } from '../ui/user-facing-messages.js';
 
 export function printJson(payload: unknown): void {
@@ -33,6 +34,14 @@ export function isPromptCancellationError(error: unknown): boolean {
 }
 
 export function asStatus(error: unknown, fallbackCode: string): StoreDiagnostic {
+  if (isEmptyBusinessRegistryError(error)) {
+    return {
+      severity: 'error',
+      code: fallbackCode,
+      message: error.message,
+      fix: `请编辑 ${error.businessPath}，添加业务模块，例如：| MOD-001 | 用户管理 | 管理用户账户 | 管理账户；认证 | 用户；账户 |`,
+    };
+  }
   if (error instanceof StoreError) {
     return { ...error.diagnostic, message: formatDiagnosticMessage(error.diagnostic.code, error.diagnostic.message) };
   }

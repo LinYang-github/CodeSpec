@@ -35,9 +35,14 @@ describe('canonical workspace configuration', () => {
   });
 
   it('renders a Chinese business template for workspace authors', () => {
-    expect(renderBusinessTemplate()).toContain('# 业务');
-    expect(renderBusinessTemplate()).toContain('记录系统的业务模块、职责和关键词。');
-    expect(renderBusinessTemplate()).toContain(
+    const template = renderBusinessTemplate();
+
+    expect(template).toContain('# 业务');
+    expect(template).toContain('记录系统的业务模块、职责和关键词。');
+    expect(template).toContain('在创建 Change 或执行状态、校验前，请先添加至少一个真实业务模块。');
+    expect(template).toContain('```markdown');
+    expect(template).toContain('| MOD-001 | 用户管理 | 管理用户账户 | 管理账户；认证 | 用户；账户 |');
+    expect(template).toContain(
       '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |'
     );
   });
