@@ -84,6 +84,13 @@ const workspaceConfigSchema = z
         name: nonEmptyString,
       })
       .strict(),
+    context: z.string().optional(),
+    githubCopilot: z
+      .object({
+        cloudAgent: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     paths: z
       .object({
         business: nonEmptyString,

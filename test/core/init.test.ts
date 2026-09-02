@@ -152,7 +152,7 @@ describe('InitCommand', () => {
       expect(await fs.readFile(configPath, 'utf-8')).toBe(content);
     });
 
-    it('should not overwrite an existing config when --language is used', async () => {
+    it('should migrate an existing spec-driven config when --language is used', async () => {
       const openspecPath = path.join(testDir, 'openspec');
       await fs.mkdir(path.join(openspecPath, 'changes', 'archive'), { recursive: true });
       await fs.mkdir(path.join(openspecPath, 'specs'), { recursive: true });
@@ -162,13 +162,11 @@ describe('InitCommand', () => {
 
       const initCommand = new InitCommand({ tools: 'none', force: true, language: 'French' });
 
-      await expect(initCommand.execute(testDir)).rejects.toThrow(
-        '--language does not overwrite an existing OpenSpec config',
-      );
-      expect(await fs.readFile(configPath, 'utf-8')).toBe(originalConfig);
+      await initCommand.execute(testDir);
+      expect(await fs.readFile(configPath, 'utf-8')).toContain('schema: code-spec');
     });
 
-    it('should protect an existing config.yml when --language is used', async () => {
+    it('should migrate an existing config.yml while preserving the legacy file', async () => {
       const openspecPath = path.join(testDir, 'openspec');
       await fs.mkdir(path.join(openspecPath, 'changes', 'archive'), { recursive: true });
       await fs.mkdir(path.join(openspecPath, 'specs'), { recursive: true });
@@ -178,10 +176,23 @@ describe('InitCommand', () => {
 
       const initCommand = new InitCommand({ tools: 'none', force: true, language: 'French' });
 
-      await expect(initCommand.execute(testDir)).rejects.toThrow(
-        '--language does not overwrite an existing OpenSpec config',
-      );
+      await initCommand.execute(testDir);
+      expect(await fs.readFile(path.join(openspecPath, 'config.yaml'), 'utf-8')).toContain('schema: code-spec');
       expect(await fs.readFile(configPath, 'utf-8')).toBe(originalConfig);
+
+      await new InitCommand({ tools: 'none', force: true }).execute(testDir);
+      expect(await fs.readFile(path.join(openspecPath, 'config.yaml'), 'utf-8')).toContain('schema: code-spec');
+      expect(await fs.readFile(configPath, 'utf-8')).toBe(originalConfig);
+    });
+
+    it('should create the explicit generic spec-driven layout only when requested', async () => {
+      await new InitCommand({ tools: 'none', force: true, schema: 'spec-driven' }).execute(testDir);
+
+      const openspecPath = path.join(testDir, 'openspec');
+      expect(await fs.readFile(path.join(openspecPath, 'config.yaml'), 'utf-8')).toBe('schema: spec-driven\n');
+      expect(await directoryExists(path.join(openspecPath, 'specs'))).toBe(true);
+      expect(await directoryExists(path.join(openspecPath, 'changes', 'archive'))).toBe(true);
+      expect(await directoryExists(path.join(openspecPath, 'archive'))).toBe(false);
     });
 
     it('should accept language context at the exact project context size limit', async () => {
@@ -223,7 +234,7 @@ describe('InitCommand', () => {
       const initCommand = new InitCommand({ tools: 'claude', force: true, language: 'French' });
 
       await expect(initCommand.execute(testDir)).rejects.toThrow(
-        'Cannot create openspec/config.yaml for --language',
+        '无法为 --language 创建 openspec/config.yaml',
       );
       expect(FileSystemUtils.canWriteFile).toHaveBeenCalledWith(configPath);
       expect(await fileExists(path.join(testDir, 'openspec'))).toBe(false);
@@ -241,7 +252,7 @@ describe('InitCommand', () => {
         const initCommand = new InitCommand({ tools: 'claude', force: true, language: 'French' });
 
         await expect(initCommand.execute(testDir)).rejects.toThrow(
-          'Cannot create openspec/config.yaml for --language',
+          '配置路径',
         );
         expect((await fs.lstat(configPath)).isSymbolicLink()).toBe(true);
         expect(await fileExists(path.join(testDir, '.claude'))).toBe(false);
@@ -1249,7 +1260,7 @@ describe('InitCommand', () => {
       );
     });
 
-    it('should not create config.yaml if it already exists', async () => {
+    it('should preserve an unknown config and stop before setup', async () => {
       // Pre-create config.yaml
       const openspecDir = path.join(testDir, 'openspec');
       await fs.mkdir(openspecDir, { recursive: true });
@@ -1258,10 +1269,37 @@ describe('InitCommand', () => {
       await fs.writeFile(configPath, existingContent);
 
       const initCommand = new InitCommand({ tools: 'claude', force: true });
-      await initCommand.execute(testDir);
+      await expect(initCommand.execute(testDir)).rejects.toThrow('无法识别');
 
       const content = await fs.readFile(configPath, 'utf-8');
       expect(content).toBe(existingContent);
+    });
+
+    it('should overwrite spec-driven config, reset only the canonical index, and keep legacy files', async () => {
+      const openspecDir = path.join(testDir, 'openspec');
+      const legacyChangePath = path.join(openspecDir, 'changes', 'legacy-slug', 'proposal.md');
+      const indexPath = path.join(openspecDir, 'changes', 'index.yaml');
+      await fs.mkdir(path.dirname(legacyChangePath), { recursive: true });
+      await fs.writeFile(path.join(openspecDir, 'config.yaml'), 'schema: spec-driven\n', 'utf8');
+      await fs.writeFile(legacyChangePath, 'legacy', 'utf8');
+      await fs.writeFile(indexPath, 'version: 1\nchanges:\n  - id: legacy-slug\n', 'utf8');
+
+      await new InitCommand({ tools: 'none', force: true }).execute(testDir);
+
+      expect(await fs.readFile(path.join(openspecDir, 'config.yaml'), 'utf8')).toContain('schema: code-spec');
+      expect(await fs.readFile(legacyChangePath, 'utf8')).toBe('legacy');
+      expect(await fs.readFile(indexPath, 'utf8')).toBe('version: 1\nchanges: []\n');
+    });
+
+    it('should preserve a valid canonical config and active index on repeated init', async () => {
+      await new InitCommand({ tools: 'none', force: true }).execute(testDir);
+      const indexPath = path.join(testDir, 'openspec', 'changes', 'index.yaml');
+      const index = 'version: 1\nchanges:\n  - id: CHG-20260902-001\n';
+      await fs.writeFile(indexPath, index, 'utf8');
+
+      await new InitCommand({ tools: 'none', force: true }).execute(testDir);
+
+      expect(await fs.readFile(indexPath, 'utf8')).toBe(index);
     });
 
     it('should handle non-existent target directory', async () => {

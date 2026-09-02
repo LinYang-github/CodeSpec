@@ -9,6 +9,7 @@ import path from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as fs from 'fs';
+import { parse as parseYaml } from 'yaml';
 import { createRequire } from 'module';
 import { FileSystemUtils } from '../utils/file-system.js';
 import {
@@ -33,6 +34,7 @@ import {
   renderCanonicalWorkspaceConfig,
   renderEmptyChangeIndex,
 } from './openspec-workflow/default-config.js';
+import { parseWorkspaceConfig } from './openspec-workflow/schemas.js';
 import {
   generateCommands,
   CommandAdapterRegistry,
@@ -96,6 +98,63 @@ const { version: OPENSPEC_VERSION } = require('../../package.json');
 // -----------------------------------------------------------------------------
 
 const DEFAULT_SCHEMA = CANONICAL_SCHEMA;
+type InitSchema = 'code-spec' | 'spec-driven';
+type ConfigStatus = 'created' | 'overwritten' | 'preserved' | 'skipped';
+
+interface ConfigPlan {
+  targetSchema: InitSchema;
+  status: ConfigStatus;
+  configPath?: string;
+  resetIndex: boolean;
+}
+
+function renderGenericWorkspaceConfig(context?: string): string {
+  const lines = ['schema: spec-driven'];
+  if (context) {
+    lines.push('context: |', ...context.split('\n').map((line) => `  ${line}`));
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+async function replaceFilesAtomically(
+  replacements: Array<{ path: string; content: string }>
+): Promise<void> {
+  const token = `${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+  const staged = replacements.map(({ path: filePath, content }) => ({
+    filePath,
+    content,
+    tempPath: `${filePath}.${token}.tmp`,
+    backupPath: `${filePath}.${token}.bak`,
+    hadOriginal: fs.existsSync(filePath),
+    installed: false,
+  }));
+
+  try {
+    for (const item of staged) {
+      await fs.promises.mkdir(path.dirname(item.filePath), { recursive: true });
+      await fs.promises.writeFile(item.tempPath, item.content, 'utf8');
+    }
+    for (const item of staged) {
+      if (item.hadOriginal) await fs.promises.rename(item.filePath, item.backupPath);
+    }
+    for (const item of staged) {
+      await fs.promises.rename(item.tempPath, item.filePath);
+      item.installed = true;
+    }
+    await Promise.all(staged.map((item) => fs.promises.rm(item.backupPath, { force: true })));
+  } catch (error) {
+    for (const item of staged) {
+      if (item.installed) await fs.promises.rm(item.filePath, { force: true }).catch(() => undefined);
+      await fs.promises.rm(item.tempPath, { force: true }).catch(() => undefined);
+    }
+    for (const item of [...staged].reverse()) {
+      if (item.hadOriginal && fs.existsSync(item.backupPath)) {
+        await fs.promises.rename(item.backupPath, item.filePath).catch(() => undefined);
+      }
+    }
+    throw error;
+  }
+}
 
 function formatLanguageContext(language: string): string {
   return [
@@ -132,6 +191,7 @@ const WORKFLOW_TO_SKILL_DIR: Record<string, string> = {
 type InitCommandOptions = {
   tools?: string;
   language?: string;
+  schema?: InitSchema;
   force?: boolean;
   interactive?: boolean;
   profile?: string;
@@ -172,6 +232,7 @@ type DeferredLegacyCleanup = {
 export class InitCommand {
   private readonly toolsArg?: string;
   private readonly language?: string;
+  private readonly schema: InitSchema;
   private readonly force: boolean;
   private readonly interactiveOption?: boolean;
   private readonly profileOverride?: string;
@@ -181,6 +242,10 @@ export class InitCommand {
   constructor(options: InitCommandOptions = {}) {
     this.toolsArg = options.tools;
     this.language = this.normalizeLanguage(options.language);
+    this.schema = options.schema ?? CANONICAL_SCHEMA;
+    if (this.schema !== 'code-spec' && this.schema !== 'spec-driven') {
+      throw new Error('--schema 必须是 code-spec 或 spec-driven。');
+    }
     this.force = options.force ?? false;
     this.interactiveOption = options.interactive;
     this.profileOverride = options.profile;
@@ -223,7 +288,10 @@ export class InitCommand {
       }
     }
 
-    await this.assertLanguageCanBeApplied(projectPath, openspecPath);
+    // Inspect the project protocol before any tool or directory writes. A
+    // malformed or unknown config must fail closed and leave the project
+    // untouched; an old spec-driven config is migrated later as one transaction.
+    const configPlan = await this.inspectConfigPlan(openspecPath);
 
     // Check for legacy artifacts and handle cleanup
     const deferredLegacyCleanup = await this.handleLegacyCleanup(projectPath, extendMode);
@@ -308,13 +376,13 @@ export class InitCommand {
     }
 
     // Create config.yaml if needed
-    let configStatus: 'created' | 'exists' | 'skipped';
+    let configStatus: ConfigStatus;
     try {
-      configStatus = await this.createConfig(openspecPath, extendMode);
+      configStatus = await this.createConfig(openspecPath, configPlan);
     } catch (error) {
       if (this.language) {
-        const reason = error instanceof Error ? `: ${error.message}` : `: ${String(error)}`;
-        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+        const reason = error instanceof Error ? `：${error.message}` : `：${String(error)}`;
+        throw new Error(`创建 openspec/config.yaml 失败${reason}`);
       }
       configStatus = 'skipped';
     }
@@ -879,6 +947,10 @@ export class InitCommand {
 
   private async createDirectoryStructure(openspecPath: string, extendMode: boolean): Promise<void> {
     const projectRoot = path.dirname(openspecPath);
+    if (this.schema === 'spec-driven') {
+      await initializeGenericWorkspace(projectRoot);
+      return;
+    }
     if (extendMode) {
       await initializeCodeSpecWorkspace(projectRoot);
       return;
@@ -1071,63 +1143,104 @@ export class InitCommand {
     return formatLanguageContext(this.language);
   }
 
-  private async assertLanguageCanBeApplied(
-    projectPath: string,
-    openspecPath: string
-  ): Promise<void> {
-    const languageContext = this.languageContext();
-    if (!languageContext) return;
-
-    const configPath = path.join(openspecPath, 'config.yaml');
-    const hasConfig = fs.existsSync(configPath) ||
-      fs.existsSync(path.join(openspecPath, 'config.yml'));
-    if (!hasConfig) {
-      try {
-        FileSystemUtils.assertProjectArtifactPath(projectPath, configPath);
-      } catch (error) {
-        const reason = error instanceof Error ? `: ${error.message}` : '';
-        throw new Error(`Cannot create openspec/config.yaml for --language${reason}`);
-      }
-      if (!(await FileSystemUtils.canWriteFile(configPath))) {
-        throw new Error(
-          'Cannot create openspec/config.yaml for --language: the destination is not writable.'
-        );
-      }
-      return;
-    }
-
-    const existingContext = readProjectConfig(projectPath)?.context;
-    if (existingContext?.includes(languageContext)) return;
-
-    throw new Error(
-      '--language does not overwrite an existing OpenSpec config. ' +
-      'Add the language instruction to its context field instead.'
-    );
-  }
-
-  private async createConfig(openspecPath: string, extendMode: boolean): Promise<'created' | 'exists' | 'skipped'> {
+  private async inspectConfigPlan(openspecPath: string): Promise<ConfigPlan> {
     const configPath = path.join(openspecPath, 'config.yaml');
     const configYmlPath = path.join(openspecPath, 'config.yml');
-    const configYamlExists = fs.existsSync(configPath);
-    const configYmlExists = fs.existsSync(configYmlPath);
+    const pathExists = (filePath: string): boolean => {
+      try {
+        fs.lstatSync(filePath);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const yamlExists = pathExists(configPath);
+    const ymlExists = pathExists(configYmlPath);
 
-    if (configYamlExists || configYmlExists) {
-      return 'exists';
+    if (yamlExists && ymlExists) {
+      // A prior migration intentionally leaves config.yml in place. Once the
+      // canonical config.yaml is valid, it is the only file this workflow
+      // reads; the legacy sibling remains preserved but inert.
+      try {
+        const canonicalRaw = parseYaml(fs.readFileSync(configPath, 'utf8'));
+        if (canonicalRaw && typeof canonicalRaw === 'object' && !Array.isArray(canonicalRaw) && (canonicalRaw as { schema?: unknown }).schema === 'code-spec') {
+          parseWorkspaceConfig(canonicalRaw);
+          return { targetSchema: 'code-spec', status: 'preserved', configPath, resetIndex: false };
+        }
+      } catch {
+        // Fall through to the fail-closed diagnostic below.
+      }
+      throw new Error('openspec/config.yaml 与 openspec/config.yml 同时存在，且 canonical config.yaml 无效；为保护原文件，已停止初始化。');
+    }
+    if (!yamlExists && !ymlExists) {
+      if (this.language) {
+        FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
+        if (!(await FileSystemUtils.canWriteFile(configPath))) {
+          throw new Error('无法为 --language 创建 openspec/config.yaml：目标不可写。');
+        }
+      }
+      return { targetSchema: this.schema, status: 'created', resetIndex: false };
     }
 
+    const existingPath = yamlExists ? configPath : configYmlPath;
+    if (fs.lstatSync(existingPath).isSymbolicLink() || !fs.lstatSync(existingPath).isFile()) {
+      throw new Error(`配置路径 ${existingPath} 不是可安全读取的普通文件，已停止初始化。`);
+    }
+    let raw: unknown;
+    try {
+      raw = parseYaml(fs.readFileSync(existingPath, 'utf8'));
+    } catch (error) {
+      throw new Error(`无法解析 ${path.relative(path.dirname(openspecPath), existingPath)}：${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error(`配置 ${existingPath} 不是有效的 YAML 对象，已停止初始化。`);
+    }
+
+    const schema = (raw as { schema?: unknown }).schema;
+    if (schema === 'spec-driven') {
+      return {
+        targetSchema: this.schema,
+        status: this.schema === 'code-spec' ? 'overwritten' : 'preserved',
+        configPath: existingPath,
+        resetIndex: this.schema === 'code-spec',
+      };
+    }
+    if (schema === 'code-spec') {
+      try {
+        parseWorkspaceConfig(raw);
+      } catch (error) {
+        throw new Error(`现有 code-spec 配置无效，已停止初始化：${error instanceof Error ? error.message : String(error)}`);
+      }
+      return { targetSchema: 'code-spec', status: 'preserved', configPath: existingPath, resetIndex: false };
+    }
+
+    throw new Error(`无法识别 ${existingPath} 中的 schema：${String(schema ?? '(缺失)')}；为保护原文件，已停止初始化。`);
+  }
+
+  private async createConfig(openspecPath: string, plan: ConfigPlan): Promise<ConfigStatus> {
+    if (plan.status === 'preserved') return 'preserved';
+    const projectPath = path.dirname(openspecPath);
+    const configPath = path.join(openspecPath, 'config.yaml');
+    const configContent = plan.targetSchema === 'code-spec'
+      ? renderCanonicalWorkspaceConfig(path.basename(projectPath), this.languageContext())
+      : renderGenericWorkspaceConfig(this.languageContext());
 
     try {
-      const yamlContent = renderCanonicalWorkspaceConfig(
-        path.basename(path.dirname(openspecPath)),
-        this.languageContext()
-      );
-      FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
-      await FileSystemUtils.writeFile(configPath, yamlContent);
-      return 'created';
+      FileSystemUtils.assertProjectArtifactPath(projectPath, configPath);
+      if (plan.resetIndex) {
+        const indexPath = path.join(openspecPath, 'changes', 'index.yaml');
+        FileSystemUtils.assertProjectArtifactPath(projectPath, indexPath);
+        await replaceFilesAtomically([
+          { path: configPath, content: configContent },
+          { path: indexPath, content: renderEmptyChangeIndex() },
+        ]);
+      } else {
+        await FileSystemUtils.writeFile(configPath, configContent);
+      }
+      return plan.status;
     } catch (error) {
       if (this.language) {
-        const reason = error instanceof Error ? `: ${error.message}` : '';
-        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+        throw new Error(`创建 openspec/config.yaml 失败：${error instanceof Error ? error.message : String(error)}`);
       }
       return 'skipped';
     }
@@ -1149,7 +1262,7 @@ export class InitCommand {
       removedCommandCount: number;
       removedSkillCount: number;
     },
-    configStatus: 'created' | 'exists' | 'skipped',
+    configStatus: ConfigStatus,
     copilot: {
       write: boolean;
       skippedUndecided: boolean;
@@ -1301,12 +1414,14 @@ export class InitCommand {
     // Config status
     if (configStatus === 'created') {
       console.log(`配置：openspec/config.yaml（schema：${DEFAULT_SCHEMA}）`);
-    } else if (configStatus === 'exists') {
+    } else if (configStatus === 'overwritten') {
+      console.log(`配置：openspec/config.yaml（已覆盖为 schema：${DEFAULT_SCHEMA}）`);
+    } else if (configStatus === 'preserved') {
       // Show actual filename (config.yaml or config.yml)
       const configYaml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yaml');
       const configYml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yml');
       const configName = fs.existsSync(configYaml) ? 'config.yaml' : fs.existsSync(configYml) ? 'config.yml' : 'config.yaml';
-      console.log(`配置：openspec/${configName}（已存在）`);
+      console.log(`配置：openspec/${configName}（已存在，未重置）`);
     } else {
       console.log(chalk.dim('配置：已跳过（非交互模式）'));
     }
@@ -1516,6 +1631,10 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
       path: path.join(openspecPath, 'changes', 'index.yaml'),
       content: renderEmptyChangeIndex(),
     },
+    {
+      path: path.join(openspecPath, 'archive', 'README.md'),
+      content: '# 归档\n\n此目录保存已归档的规范和 Change。\n',
+    },
   ];
 
   for (const file of defaultFiles) {
@@ -1523,5 +1642,18 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
     if (!fs.existsSync(file.path)) {
       await FileSystemUtils.writeFile(file.path, file.content);
     }
+  }
+}
+
+async function initializeGenericWorkspace(projectRoot: string): Promise<void> {
+  const openspecPath = path.join(projectRoot, OPENSPEC_DIR_NAME);
+  for (const directory of [
+    openspecPath,
+    path.join(openspecPath, 'specs'),
+    path.join(openspecPath, 'changes'),
+    path.join(openspecPath, 'changes', 'archive'),
+  ]) {
+    FileSystemUtils.assertProjectArtifactPath(projectRoot, directory);
+    await FileSystemUtils.createDirectory(directory);
   }
 }

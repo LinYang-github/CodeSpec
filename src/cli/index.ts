@@ -228,15 +228,16 @@ const toolsOptionDescription = `Configure AI tools non-interactively. Use "all",
 
 program
   .command('init [path]')
-  .description('Initialize OpenSpec in your project')
+  .description('在项目中初始化 OpenSpec')
   .option('--tools <tools>', toolsOptionDescription)
-  .option('--language <language>', 'Write new OpenSpec artifacts in this language')
-  .option('--force', 'Auto-cleanup legacy files without prompting')
-  .option('--profile <profile>', 'Override global config profile (core or custom)')
-  .option('--no-animation', 'Show a static welcome screen instead of the animated one')
-  .option('--copilot-cloud', 'Set up GitHub Copilot cloud coding-agent files without prompting')
-  .option('--no-copilot-cloud', 'Skip GitHub Copilot cloud coding-agent files without prompting')
-  .action(async (targetPath = '.', options?: { tools?: string; language?: string; force?: boolean; profile?: string; animation?: boolean; copilotCloud?: boolean }) => {
+  .option('--language <language>', '使用指定语言编写新的 OpenSpec 产物')
+  .option('--schema <code-spec|spec-driven>', '选择工作流 schema（默认：code-spec）', DEFAULT_SCHEMA)
+  .option('--force', '无需提示，自动清理旧文件')
+  .option('--profile <profile>', '覆盖全局工作流配置（core 或 custom）')
+  .option('--no-animation', '使用静态欢迎界面而不是动画')
+  .option('--copilot-cloud', '无需提示，设置 GitHub Copilot 云端编码代理文件')
+  .option('--no-copilot-cloud', '无需提示，跳过 GitHub Copilot 云端编码代理文件')
+  .action(async (targetPath = '.', options?: { tools?: string; language?: string; schema?: 'code-spec' | 'spec-driven'; force?: boolean; profile?: string; animation?: boolean; copilotCloud?: boolean }) => {
     try {
       // Validate that the path is a valid directory
       const resolvedPath = path.resolve(targetPath);
@@ -261,6 +262,7 @@ program
       const initCommand = new InitCommand({
         tools: options?.tools,
         language: options?.language,
+        schema: options?.schema,
         force: options?.force,
         profile: options?.profile,
         animation: options?.animation,
