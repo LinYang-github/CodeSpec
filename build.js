@@ -16,7 +16,12 @@ console.log('🔨 Building OpenSpec...\n');
 // Clean dist directory
 if (existsSync('dist')) {
   console.log('Cleaning dist directory...');
-  rmSync('dist', { recursive: true, force: true });
+  rmSync('dist', {
+    recursive: true,
+    force: true,
+    maxRetries: 3,
+    retryDelay: 100,
+  });
 }
 
 // Run TypeScript compiler (use local version explicitly)

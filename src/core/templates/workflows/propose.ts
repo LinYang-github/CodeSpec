@@ -22,6 +22,8 @@ function renderProposeWorkflow(input: string): string {
 
 用户准备实施时，必须显式启动 apply 工作流。
 
+对于显式选择且使用 \`specs/\` 目录的 schema，\`<capability-path>\` 是相对于 \`specs/\` 的规范目录（例如 \`user-auth\` 或 \`identity/user-auth\`），规范文件为 \`specs/<capability-path>/spec.md\`。修改既有能力时必须保留其完整路径；新能力遵循项目既有的目录组织。
+
 ---
 
 ${STORE_SELECTION_GUIDANCE}

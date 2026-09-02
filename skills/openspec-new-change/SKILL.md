@@ -3,7 +3,7 @@ name: openspec-new-change
 description: 按步骤创建 OpenSpec Change 并准备第一个产物。
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires openspec CLI.
+compatibility: 需要 openspec CLI。
 metadata:
   author: openspec
   version: "1.0"
@@ -34,68 +34,58 @@ metadata:
 
 当前是 planning 阶段。执行前解析 canonical 上下文：运行 `openspec context --json`，解析一个明确的 `CHG-YYYYMMDD-NNN`（上下文缺失或有歧义时明确停止），然后运行 `openspec status --change "<CHG-ID>" --json` 并加载声明的 `metadata.yaml` 和产物路径。将解析出的 Change ID、status、mode、baseline hash、Requirement ID、准确的 Scenario ID、Task ID、测试/证据引用、必需验证命令和 canonical 路径注入 planning 提示。方法论路由：feature → brainstorming → planning → TDD; bugfix → systematic-debugging → spec-impact decision → TDD; refactor → design-impact → planning → TDD。动作完成后刷新状态，并在 canonical 产物中记录追踪关系。
 
-Start a new change using the experimental artifact-driven approach.
+开始新的 Change：创建 canonical 骨架并展示第一个待完成工件，不直接编写任何工件。
+
+默认 schema 为 `code-spec`。默认工件顺序必须以 `openspec status --change "<name>" --json` 的实际输出为准，通常包括 `metadata.yaml`、`proposal.md`、`design.md`、`spec.md`、`tasks.md` 和 `verification.md`。
 
 **Store 选择：** 如果用户指定了 store（store 是本机注册的独立 OpenSpec 仓库），或当前工作位于 store 中，请运行 `openspec store list --json` 查找已注册的 store ID，然后在读写 Spec 和 Change 的命令中传入 `--store <id>`（包括 `new change`、`change new`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`、`schemas`、`view`、`rebase`、`transition`、`abandon`、`detect-stale`、`allocate-requirements`）。选择后，在本次工作流的后续步骤中持续使用 `--store <id>`。下面未带范围的命令示例都只是简写：执行前要追加该选项。例如运行 `openspec status --change "<name>" --json --store "<id>"`，不要直接运行未带选项的形式。其他命令不接受该选项。命令打印的后续提示已经带有该选项，继续使用即可。没有 store 时，命令作用于最近的本地 `openspec/` 根目录。
 
-**Input**: The user's request should include a change name (kebab-case) OR a description of what they want to build.
+**输入**：用户请求应包含 Change 名称（kebab-case）或要构建内容的描述。
 
-**Steps**
+**步骤**
 
-1. **If no clear input provided, ask what they want to build**
+1. **理解请求**
 
-   Ask the user (open-ended, no preset options):
-   > "What change do you want to work on? Describe what you want to build or fix."
+   若输入不明确，开放式询问：“你想处理什么 Change？请描述要新增、调整或修复的内容。”从描述推导 kebab-case 名称（例如“新增用户认证”→ `add-user-auth`）。在理解目标前不得继续。
 
-   From their description, derive a kebab-case name (e.g., "add user authentication" → `add-user-auth`).
+2. **确定 schema**
 
-   **IMPORTANT**: Do NOT proceed without understanding what the user wants to build.
+   除非用户明确要求其他 schema，否则省略 `--schema` 并使用默认的 `code-spec`。用户明确指定 schema 时使用 `--schema <name>`；用户要求查看可用工作流时，运行 `openspec context --json` 解析根目录后，在返回的 `root.path` 中运行 `openspec schemas --json` 供其选择。
 
-2. **Determine the workflow schema**
+3. **创建 Change 目录**
 
-   Use the default schema (omit `--schema`) unless the user explicitly requests a different workflow.
-
-   **Use a different schema only if the user mentions:**
-   - A specific schema name → use `--schema <name>`
-   - "show workflows" or "what workflows" → run `openspec schemas --json` and let them choose
-
-   **Otherwise**: Omit `--schema` to use the default.
-
-3. **Create the change directory**
    ```bash
    openspec new change "<name>"
    ```
-   Add `--schema <name>` only if the user requested a specific workflow.
-   This creates a scaffolded change in the planning home resolved by the CLI.
 
-4. **Show the artifact status**
+   仅在用户指定其他 schema 时追加 `--schema <name>`。如已选择注册 Store，在此后支持该选项的命令中持续附加 `--store "<store-id>"`。CLI 会在解析出的规划目录创建 Change 骨架；不得手工创建 Change 目录。若同名 Change 已存在，建议继续现有 Change。
+
+4. **展示工件状态**
+
    ```bash
    openspec status --change "<name>" --json
    ```
-   Use the returned `planningHome`, `changeRoot`, `artifactPaths`, and `nextSteps` instead of assuming repo-local paths.
 
-5. **Get instructions for the first artifact**
-   The first artifact depends on the schema (e.g., `proposal` for spec-driven).
-   Check the status output to find the first artifact with status "ready".
+   使用返回的 `planningHome`、`changeRoot`、`artifactPaths`、`actionContext` 和 `nextSteps`，不得自行假定仓库内路径。
+
+5. **获取第一个工件的说明**
+
+   从 status 输出选择第一个 `status: "ready"` 的工件，然后运行：
    ```bash
-   openspec instructions <first-artifact-id> --change "<name>"
+   openspec instructions <first-artifact-id> --change "<name>" --json
    ```
-   This outputs the template and context for creating the first artifact.
 
-6. **STOP and wait for user direction**
+   该命令返回模板、上下文与工件指导。
 
-**Output**
+6. **停止并等待用户指示**
 
-After completing the steps, summarize:
-- Change name and location
-- Schema/workflow being used and its artifact sequence
-- Current status (0/N artifacts complete)
-- The template for the first artifact
-- Prompt: "Ready to create the first artifact? Just describe what this change is about and I'll draft it, or ask me to continue."
+**输出**
 
-**Guardrails**
-- Do NOT create any artifacts yet - just show the instructions
-- Do NOT advance beyond showing the first artifact template
-- If the name is invalid (not kebab-case), ask for a valid name
-- If a change with that name already exists, suggest continuing that change instead
-- Pass --schema if using a non-default workflow
+汇总 Change 名称与位置、使用的 schema 和工件序列、当前进度、首个工件模板，并提示：“已准备好创建第一个工件。请描述这个 Change 的具体内容，或要求我继续。”
+
+**护栏**
+
+- 不创建任何工件，只展示第一个工件说明。
+- 不得越过首个工件模板继续执行。
+- 名称不符合 kebab-case 时要求用户提供有效名称。
+- 使用非默认 schema 时传入 `--schema`。

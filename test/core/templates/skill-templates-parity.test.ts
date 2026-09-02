@@ -40,17 +40,17 @@ import { STORE_SELECTION_GUIDANCE } from '../../../src/core/templates/workflows/
 
 const EXPECTED_FUNCTION_HASHES: Record<string, string> = {
   getExploreSkillTemplate: '485b100552ddc28367c7f0a084bb2601d4542f41c1af02f643bd85073c82a577',
-  getNewChangeSkillTemplate: 'f8ecc30e7c84c685217f3ff55377de805f303f5f9e6c2e40a9913faf3a25d236',
+  getNewChangeSkillTemplate: '70818353ed59b63b94243edd78788ed55aea34085ff729ba525f187cfdc84aaf',
   getContinueChangeSkillTemplate: '81fc210a076de624c245e9ea8d92560e9c3c1aa0e1407f902a9620c2740ee486',
   getApplyChangeSkillTemplate: '812b75e53169600c8f7e9ebc5b8109a0fdc2a284acfe1f8c7b297cf00ed1235d',
-  getFfChangeSkillTemplate: 'cd33d51d709f4b04e117e4f13bee4adc1d47170c18862f7802041b4ec9d28aed',
+  getFfChangeSkillTemplate: 'b812fa8850cc27570203a5b687bef67374464ff0ba9463739cdb9238f4199205',
   getSyncSpecsSkillTemplate: '5dfdf74ba4fa5dba754e589a56a9d9a1a9240567457d058d010ee00d68bf01d5',
   getOnboardSkillTemplate: 'bb87ebe3e65ef9dac12817ad9be09b0d998e7e87d6188bd0cda52d7f672bfbd7',
   getOpsxExploreCommandTemplate: '1eeae36d27b6b8fc478e670b7b4f76590abc6971b92c034899e61f0f04a91200',
-  getOpsxNewCommandTemplate: 'e360db44712a2ed64b3d711beddba6ca336e6249f712c82ef8d181836e2cbfa7',
+  getOpsxNewCommandTemplate: '74f3881f80a74b6f5fdab05014ff22e5079a3196eef08481256fd5ff574c8195',
   getOpsxContinueCommandTemplate: 'c6f8f36d262a63d709e93ddfcd218b481ade28eac8edb5829f0d0915214340d6',
   getOpsxApplyCommandTemplate: '31eba8b74564569c8c386b766ee0152fb4e0e46631df480f2af98ae18178e398',
-  getOpsxFfCommandTemplate: 'ed1e03c5e6ee9604b11aed44b4a3394fd8598195112a91b8a1839ce804b63956',
+  getOpsxFfCommandTemplate: '120b552b94d1cab6ed2e724b52bd45bacb3e912265c5102cc86bb27db2e756f1',
   getArchiveChangeSkillTemplate: '6062b00ae5c6dc2a1729200779eb9f5e9af811eb3e52afe80883de853250f293',
   getBulkArchiveChangeSkillTemplate: '93e741108dd496711a137fb7fd7cbbee2730d073c4246fa70a1e0752b8fbfcd0',
   getOpsxSyncCommandTemplate: '8a7cb63637ac544b74828481cf4bca6e469ad750402621a677a0e1e5d90ab0fe',
@@ -59,8 +59,8 @@ const EXPECTED_FUNCTION_HASHES: Record<string, string> = {
   getOpsxOnboardCommandTemplate: 'efd955d9dd86dbe8b4998c3d25465bf02d78dc7f040fc76e2f76308ff150f8cd',
   getOpsxBulkArchiveCommandTemplate: '8aad8a82ff25d404b006431a5a5dbf8325d6746edaf894bda119f00dc4ad6351',
   getOpsxVerifyCommandTemplate: '7d3e57672c452b7a5288441f73389c2273ba1921dbfd5ff1fb928d81fab7c2dc',
-  getOpsxProposeSkillTemplate: 'b5ad2d90bd80733711e7e89e9e7da648d560144c525e27b22961bd6c2a94b0a7',
-  getOpsxProposeCommandTemplate: '9484b605f51cf67c7210266c60583112ed4b98b46232198bbcb37ee81986c012',
+  getOpsxProposeSkillTemplate: '608dc4dea1404d8dbcdd7625e18e0caa8560c2d4f0e2e8ef897a8d88a4407c85',
+  getOpsxProposeCommandTemplate: '8d208177477801412bcda9a5330818f79375c9f428b528f2d1cbe84765ecb18f',
   getFeedbackSkillTemplate: 'dabeb5e825b9349abc8156c3e7b8608f27987912a6d9bf47ef29addde6138133',
   getUpdateChangeSkillTemplate: '930fd4189a81c21f50ed10a8744d69886a829473ad0ac7d8da82253e6dcf38ba',
   getOpsxUpdateCommandTemplate: 'dc1a4df3d51c4fb68e3ccf8b8a3bf47e106b22a8d15da1c0ddbc6a52be67bc86',
@@ -69,16 +69,16 @@ const EXPECTED_FUNCTION_HASHES: Record<string, string> = {
 const EXPECTED_GENERATED_SKILL_CONTENT_HASHES: Record<string, string> = {
   'openspec-workflow': '54a00ac62981ca45cb2bbd828474549e06aaae084ca2ccb0d96a38d741926717',
   'openspec-explore': '26b441fccf8a10760e6c7d4ea474e8b4b92dc11c2bc384f37e71141b33504c52',
-  'openspec-new-change': 'af0c9e7be012944c81248840d4285c5b676030cbbca15a09b67d897bcdc7534a',
+  'openspec-new-change': 'cd98e462dabeed3dbf7d2eb4b0453567918cf68b031134906da2f4d281946176',
   'openspec-continue-change': '7118ff99ae6403f3eeb4eb8318b941c4054bbe685193d0600f539c6ff2002e54',
   'openspec-apply-change': '0427fbb216ad0c2033d5dc7faf5dc5dd46699fdb5903e27fdd2640c9a91f6a2a',
-  'openspec-ff-change': 'a46317b28792f546f95e65462409e21e93160f736a7576307bd6eaa96d8437f7',
+  'openspec-ff-change': '7e54150e4a204a47047eaeea4751da24ee7e028e48fda3a4a7531d1265bad8ca',
   'openspec-sync-specs': '391af02b2090ba2aabdbf698529d9d03d6a6002d19c18e60e30a454fb42e412e',
   'openspec-archive-change': 'ea0af29929d8f0bd6cd419ccf5f80f07e0e77985f6aff667249b2fecf8285e84',
   'openspec-bulk-archive-change': 'dad7df29a6e77cb3cb88d0197d3486236cf4225c9ed301fb8c758d9fa788d3d3',
   'openspec-verify-change': '8479346663605536a4bb08cbe4890a3d45c97fa655726c78bee0e941619958a0',
   'openspec-onboard': 'f93847414bcbe5bf6fb813d4af590c87fa9c6a4605de54fbdfd5d41bbc775d34',
-  'openspec-propose': 'b9d9c82cc3d37bf312a51f52077e68804757e32e34d0e4cf022f50a1341b011d',
+  'openspec-propose': '452ab96fb43c2669045e1e16f2e8c67f9b39afd3b98dc156f4b5de30eb84728f',
   'openspec-update-change': '199656b8607c66831d4829e25d181960ff86ae27950e1e914a1f343f13a888d7',
 };
 
@@ -249,19 +249,19 @@ describe('skill templates split parity', () => {
 
   it('preserves nested capability paths in spec-aware workflow guidance (#1459)', () => {
     const capabilityPathDefinition =
-      '`<capability-path>` is the spec directory relative to `specs/`';
+      '`<capability-path>` 是相对于 `specs/` 的规范目录';
     const pathAwareTemplates: Array<[string, string, string, string]> = [
       [
         'propose skill',
         generateSkillContent(getOpsxProposeSkillTemplate(), 'PARITY-BASELINE'),
         'specs/<capability-path>/spec.md',
-        "Preserve an existing capability's full path",
+        '修改既有能力时必须保留其完整路径',
       ],
       [
         'propose command',
         getOpsxProposeCommandTemplate().content,
         'specs/<capability-path>/spec.md',
-        "Preserve an existing capability's full path",
+        '修改既有能力时必须保留其完整路径',
       ],
       [
         'explore skill',
@@ -326,7 +326,11 @@ describe('skill templates split parity', () => {
     ];
 
     for (const [label, content, destination, preservationGuidance] of pathAwareTemplates) {
-      expect(content, label).toContain(capabilityPathDefinition);
+      expect(content, label).toContain(
+        label.startsWith('propose')
+          ? capabilityPathDefinition
+          : '`<capability-path>` is the spec directory relative to `specs/`'
+      );
       expect(content, label).toContain(destination);
       expect(content, label).toContain(preservationGuidance);
       expect(content, label).not.toContain('specs/<capability>/spec.md');
@@ -946,18 +950,27 @@ describe('skill templates split parity', () => {
       // The instruction field wins even for familiar artifact names: the old
       // hard-coded "Common artifact patterns" shortcut is what let agents
       // ignore custom schemas that reuse proposal.md/tasks.md file names.
-      expect(content, variant).toContain('the authoritative guidance');
+      const chinese = variant.startsWith('propose') || variant.startsWith('ff');
+      expect(content, variant).toContain(
+        chinese ? '权威指导' : 'the authoritative guidance'
+      );
       expect(content, variant).not.toContain('Common artifact patterns');
 
       // Delegated creation is honored at the creation step itself, and the
       // delegated skill's output is verified rather than assumed.
       expect(content, variant).toContain(
-        'If the `instruction` field delegates creation to a specific skill or command, invoke it to produce the artifact instead of writing the file yourself, then verify the artifact file exists at `resolvedOutputPath`'
+        chinese
+          ? variant.startsWith('ff')
+            ? '若说明委派给特定 skill 或命令'
+            : '`instruction` 委派给特定 skill 或命令'
+          : 'If the `instruction` field delegates creation to a specific skill or command, invoke it to produce the artifact instead of writing the file yourself, then verify the artifact file exists at `resolvedOutputPath`'
       );
 
       // ...and restated in the artifact-creation guidelines.
       expect(content, variant).toContain(
-        'If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly'
+        chinese
+          ? '调用它完成工件'
+          : 'If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly'
       );
     }
   });
