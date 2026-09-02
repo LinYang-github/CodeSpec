@@ -87,11 +87,11 @@ describe('openspec context (4.1)', () => {
 
     const human = await runCLI(['context', '--store', 'team-context'], { cwd: tempDir, env });
     expect(human.exitCode).toBe(0);
-    expect(human.stdout).toContain(`Working context for team-context (${storeRoot})`);
+    expect(human.stdout).toContain(`工作上下文：team-context（${storeRoot}）`);
     expect(human.stdout).toContain(`  upstream-context  ${upstream}`);
-    expect(human.stdout).toContain('Fetch: openspec show <spec-id> --type spec --store upstream-context');
-    expect(human.stdout).toContain('Not available on this machine');
-    expect(human.stdout).toContain('Fix: git clone --');
+    expect(human.stdout).toContain('获取：openspec show <spec-id> --type spec --store upstream-context');
+    expect(human.stdout).toContain('本机不可用');
+    expect(human.stdout).toContain('修复：git clone --');
 
     // Nearest-root session.
     const nearest = await runCLI(['context', '--json'], { cwd: storeRoot, env });
@@ -128,14 +128,14 @@ describe('openspec context (4.1)', () => {
       'schema: spec-driven\nreferences:\n  - team-context\n'
     );
     const human = await runCLI(['context', '--store', 'team-context'], { cwd: tempDir, env });
-    expect(human.stdout).toContain('Declared references all resolve to this root');
-    expect(human.stdout).not.toContain('No references declared');
+    expect(human.stdout).toContain('声明的引用全部解析到此根目录');
+    expect(human.stdout).not.toContain('未声明引用');
   });
 
   it('says so plainly when nothing is declared', async () => {
     fs.writeFileSync(path.join(storeRoot, 'openspec', 'config.yaml'), 'schema: spec-driven\n');
     const human = await runCLI(['context', '--store', 'team-context'], { cwd: tempDir, env });
-    expect(human.stdout).toContain('the working set is this root alone');
+    expect(human.stdout).toContain('工作集仅包含此根目录');
     const json = await runCLI(['context', '--json', '--store', 'team-context'], {
       cwd: tempDir,
       env,
@@ -152,7 +152,7 @@ describe('openspec context (4.1)', () => {
       { cwd: tempDir, env }
     );
     expect(fresh.exitCode).toBe(0);
-    expect(fresh.stderr).toContain('not available: design-system');
+    expect(fresh.stderr).toContain('不可用：design-system');
     const file = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
     expect(file.folders).toEqual([
       { name: 'team-context', path: storeRoot },
@@ -165,7 +165,7 @@ describe('openspec context (4.1)', () => {
       { cwd: tempDir, env }
     );
     expect(refused.exitCode).toBe(1);
-    expect(refused.stderr).toContain(`Refusing to overwrite ${outPath}`);
+    expect(refused.stderr).toContain(`拒绝覆盖 ${outPath}`);
     expect(refused.stderr).toContain('--force');
 
     // With --force: overwrites.
@@ -182,7 +182,7 @@ describe('openspec context (4.1)', () => {
       { cwd: tempDir, env }
     );
     expect(badDir.exitCode).toBe(1);
-    expect(badDir.stderr).toContain('Output directory does not exist');
+    expect(badDir.stderr).toContain('输出目录不存在');
     expect(fs.existsSync(path.dirname(nested))).toBe(false);
 
     // JSON mode: stdout stays the pure brief; confirmation on stderr.
@@ -193,7 +193,7 @@ describe('openspec context (4.1)', () => {
     );
     expect(jsonMode.exitCode).toBe(0);
     expect(() => JSON.parse(jsonMode.stdout)).not.toThrow();
-    expect(jsonMode.stderr).toContain(`Wrote ${jsonOut}`);
+    expect(jsonMode.stderr).toContain(`已写入 ${jsonOut}`);
 
     // JSON mode write FAILURE: exactly one JSON document on stdout (the
     // failure payload), never the brief plus a second payload.

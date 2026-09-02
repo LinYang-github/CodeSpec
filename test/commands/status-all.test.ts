@@ -78,7 +78,7 @@ describe('status --all', () => {
 
     const json = JSON.parse(result.stdout);
     expect(json.changes).toEqual([]);
-    expect(json.message).toBe('No active changes.');
+    expect(json.message).toBe('没有活动 Change。');
     expect(json.root).toBeDefined();
   });
 
@@ -96,10 +96,10 @@ describe('status --all', () => {
     const entry = json.changes[0];
     // Full ChangeStatus shape, same as the single-change payload
     expect(entry.changeName).toBe('json-change');
-    expect(entry.schemaName).toBe('spec-driven');
+    expect(entry.schemaName).toBe('code-spec');
     expect(entry.isComplete).toBe(false);
     expect(Array.isArray(entry.artifacts)).toBe(true);
-    expect(entry.artifacts).toHaveLength(4);
+    expect(entry.artifacts).toHaveLength(6);
     expect(Array.isArray(entry.nextSteps)).toBe(true);
     expect(entry.actionContext).toBeDefined();
     expect(entry.artifactPaths).toBeDefined();
@@ -117,7 +117,7 @@ describe('status --all', () => {
       cwd: tempDir,
     });
     expect(result.exitCode).toBe(1);
-    expect(getOutput(result)).toContain('mutually exclusive');
+    expect(getOutput(result)).toContain('--all 和 --change 不能同时使用');
   });
 
   it('offers --all when neither --change nor --all is given', async () => {
@@ -158,7 +158,7 @@ describe('status --all', () => {
     expect(json.root).toBeNull();
     expect(Array.isArray(json.status)).toBe(true);
     expect(json.status[0].severity).toBe('error');
-    expect(json.status[0].message).toContain('mutually exclusive');
+    expect(json.status[0].message).toContain('--all 和 --change 不能同时使用');
   });
 
   it('keeps sweeping when one change fails to load', async () => {
@@ -187,8 +187,8 @@ describe('status --all', () => {
     expect(broken.artifacts).toBeUndefined();
 
     const good = json.changes.find((c: any) => c.changeName === 'good-change');
-    expect(good.schemaName).toBe('spec-driven');
-    expect(good.artifacts).toHaveLength(4);
+    expect(good.schemaName).toBe('code-spec');
+    expect(good.artifacts).toHaveLength(6);
   });
 
   it('prints one text block per change with --all', async () => {
@@ -197,10 +197,10 @@ describe('status --all', () => {
 
     const result = await runCLI(['status', '--all'], { cwd: tempDir });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Change: first-change');
-    expect(result.stdout).toContain('Change: second-change');
-    expect(result.stdout).toContain('1/4 artifacts complete');
-    expect(result.stdout).toContain('2/4 artifacts complete');
+    expect(result.stdout).toContain('Change：first-change');
+    expect(result.stdout).toContain('Change：second-change');
+    expect(result.stdout).toContain('1/6 个产物已完成');
+    expect(result.stdout).toContain('2/6 个产物已完成');
   });
 
   it('exits 1 in text mode when a change fails to load, still printing the others', async () => {
@@ -214,8 +214,8 @@ describe('status --all', () => {
     const result = await runCLI(['status', '--all'], { cwd: tempDir });
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain('✗ broken-change:');
-    expect(result.stdout).toContain('Change: good-change');
-    expect(result.stdout).toContain('2/4 artifacts complete');
+    expect(result.stdout).toContain('Change：good-change');
+    expect(result.stdout).toContain('2/6 个产物已完成');
   });
 
   describe('--schema interaction', () => {
@@ -253,7 +253,7 @@ describe('status --all', () => {
       expect(json.root).toBeNull();
       expect(Array.isArray(json.status)).toBe(true);
       expect(json.status[0].severity).toBe('error');
-      expect(json.status[0].message).toContain("'no-such-schema' not found");
+      expect(json.status[0].message).toContain("未找到 Schema 'no-such-schema'");
     });
 
     it('rejects an unknown --schema even when no changes exist', async () => {
@@ -266,7 +266,7 @@ describe('status --all', () => {
       const json = JSON.parse(result.stdout);
       expect(json.changes).toEqual([]);
       expect(json.root).toBeNull();
-      expect(json.status[0].message).toContain("'no-such-schema' not found");
+      expect(json.status[0].message).toContain("未找到 Schema 'no-such-schema'");
     });
 
     it('applies a valid --schema override to every change', async () => {

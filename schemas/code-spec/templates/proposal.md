@@ -7,8 +7,8 @@
 ## 变更内容
 <!-- 描述可观察行为；破坏性变化标记 BREAKING。 -->
 
-## Module Mapping
-| Module ID | 模块 | Outcome | 责任与影响 |
+## 模块映射
+| 模块 ID | 模块 | 处理结果 | 责任与影响 |
 | --- | --- | --- | --- |
 | MOD-### | 中文模块名 | OWNED / DEPENDENCY / IRRELEVANT | 中文说明 |
 

@@ -66,14 +66,14 @@ function applyDelta(spec: string, delta: RequirementDelta): string {
 
 function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   const m = artifacts.metadata;
-  if (m.change.status !== 'ARCHIVE') throw new Error(`Archive requires ARCHIVE state, got ${m.change.status}`);
+  if (m.change.status !== 'ARCHIVE') throw new Error(`归档要求状态为 ARCHIVE，当前为 ${m.change.status}`);
   if (!m.archive.ready || !m.gates.archive.satisfied) throw new Error('归档门禁未满足');
   if (m.archive.conflict) throw new Error('归档前必须先解决冲突');
   if (m.baseline.stale) throw new Error('归档被阻塞：baseline 已过期');
   if (m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((t) => t.status !== 'DONE')) throw new Error('归档要求所有 Task 均为 DONE');
   if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) throw new Error('归档要求最新的 Verification 证据');
   let evidence: any;
-  try { evidence = parseYaml(artifacts.verification); } catch (error) { throw new Error(`Invalid Verification evidence: ${error instanceof Error ? error.message : String(error)}`); }
+  try { evidence = parseYaml(artifacts.verification); } catch (error) { throw new Error(`Verification 证据无效：${error instanceof Error ? error.message : String(error)}`); }
   const expectedIds = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed].map((r) => r.id).sort();
   const expectedScenarios = (() => { try { return parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)); } catch { return []; } })();
   const validCommands = Array.isArray(evidence?.commands) && evidence.commands.length > 0 && evidence.commands.every((command: any) => command && typeof command.command === 'string' && command.command.trim() && command.exit_code === 0 && typeof command.started_at === 'string' && typeof command.finished_at === 'string' && !Number.isNaN(Date.parse(command.started_at)) && !Number.isNaN(Date.parse(command.finished_at)) && Date.parse(command.finished_at) >= Date.parse(command.started_at));
@@ -82,7 +82,7 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   if (m.baseline.created_at && Date.parse(m.baseline.created_at) > Date.parse(m.verification.verified_at)) throw new Error('Verification 证据早于当前 baseline');
   if (m.relations.conflicts_with.length) throw new Error('归档存在未解决的 Change 冲突');
   const trace = validateChangeTraceability(artifacts);
-  if (!trace.valid) throw new Error(`Archive traceability gate failed: ${trace.issues.join('; ')}`);
+  if (!trace.valid) throw new Error(`归档追踪性门禁失败：${trace.issues.join('; ')}`);
 }
 
 export async function preflightArchive(workspace: WorkspaceContext, changeId: string): Promise<ArchivePlan> {

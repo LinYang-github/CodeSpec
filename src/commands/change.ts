@@ -134,8 +134,8 @@ export class ChangeCommand {
         .catch(() => false);
       if (isChangeDirectory) {
         throw new Error(
-          `Change "${changeName}" has no proposal.md yet. ` +
-            `Run "openspec status --change ${changeName}" to see which artifact comes next.`
+          `Change "${changeName}" 尚未创建 proposal.md。` +
+            `运行 "openspec status --change ${changeName}" 查看下一步需要完成的产物。`
         );
       }
       throw new Error(`在 ${proposalPath} 未找到 Change "${changeName}"`);

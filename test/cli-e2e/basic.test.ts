@@ -56,7 +56,7 @@ describe('openspec CLI e2e basics', () => {
       .join(', ');
     const normalizedOutput = result.stdout.replace(/\s+/g, ' ').trim();
     expect(normalizedOutput).toContain(
-      `Use "all", "none", or a comma-separated list of: ${expectedTools}`
+      `可使用 "all"、"none"，或逗号分隔的工具 ID：${expectedTools}`
     );
     expect(normalizedOutput).toContain('--language <language>');
   });
@@ -124,7 +124,7 @@ describe('openspec CLI e2e basics', () => {
     const projectDir = await prepareFixture('tmp-init');
     const result = await runCLI(['validate', 'does-not-exist'], { cwd: projectDir });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Unknown item 'does-not-exist'");
+    expect(result.stderr).toContain("未知条目 'does-not-exist'");
   });
 
   describe('init command non-interactive options', () => {
@@ -143,20 +143,27 @@ describe('openspec CLI e2e basics', () => {
         path.join(emptyProjectDir, 'openspec', 'config.yaml'),
         'utf-8',
       );
-      expect(config).toContain('Language: French');
-      expect(config).toContain('All artifacts must be written in French.');
-      expect(config).toContain('Keep OpenSpec structural headings and SHALL/MUST keywords in English.');
+      expect(config).toContain('语言：French');
+      expect(config).toContain('所有产物必须使用 French 编写。');
+      expect(config).toContain('保留 OpenSpec 结构标题以及 SHALL/MUST 关键词为英文。');
 
-      const created = await runCLI(['new', 'change', 'language-check'], {
+      await fs.appendFile(
+        path.join(emptyProjectDir, 'openspec', 'business.md'),
+        '\n| MOD-001 | 语言设置 | 管理产物语言 | 配置语言 | 用户 |\n',
+        'utf-8'
+      );
+
+      const created = await runCLI(['new', 'change', 'language-check', '--json'], {
         cwd: emptyProjectDir,
       });
       expect(created.exitCode).toBe(0);
+      const changeId = JSON.parse(created.stdout).change.id;
       const instructions = await runCLI(
-        ['instructions', 'proposal', '--change', 'language-check', '--json'],
+        ['instructions', 'propose', '--change', changeId, '--json'],
         { cwd: emptyProjectDir },
       );
       expect(instructions.exitCode).toBe(0);
-      expect(JSON.parse(instructions.stdout).context).toContain('Language: French');
+      expect(JSON.parse(instructions.stdout).instructions).toContain('语言：French');
     });
 
     it('initializes with --tools all option', async () => {
@@ -173,7 +180,7 @@ describe('openspec CLI e2e basics', () => {
       });
       expect(result.timedOut).toBe(false);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
+      expect(result.stdout).toContain('OpenSpec 设置完成');
 
       // Check that skills were created for multiple tools
       const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
@@ -194,7 +201,7 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'claude'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
+      expect(result.stdout).toContain('OpenSpec 设置完成');
       expect(result.stdout).toContain('Claude Code');
 
       // New init creates skills, not CLAUDE.md
@@ -211,7 +218,7 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'agents'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
+      expect(result.stdout).toContain('OpenSpec 设置完成');
 
       const skillPath = path.join(emptyProjectDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md');
       expect(await fileExists(skillPath)).toBe(true);
@@ -224,7 +231,7 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'zed'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
+      expect(result.stdout).toContain('OpenSpec 设置完成');
       expect(result.stdout).toContain('Zed Agent');
       expect(result.stdout).not.toContain('Restart your IDE');
 
@@ -253,7 +260,7 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'none'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec Setup Complete');
+      expect(result.stdout).toContain('OpenSpec 设置完成');
 
       // With --tools none, no tool skills should be created
       const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');

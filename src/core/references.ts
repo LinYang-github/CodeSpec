@@ -358,7 +358,7 @@ export async function assembleReferenceIndex(
         status: [
           warning(
             'reference_registry_unreadable',
-            `Referenced store '${id}' cannot be checked: the store registry is unreadable.`,
+            `引用的 Store '${id}' 无法检查：Store 注册表不可读取。`,
             'Run: openspec store doctor'
           ),
         ],
@@ -373,7 +373,7 @@ export async function assembleReferenceIndex(
         status: [
           warning(
             'reference_unresolved',
-            `Referenced store '${id}' is not registered on this machine.`,
+            `引用的 Store '${id}' 未在本机注册。`,
             registerFix(id, remote)
           ),
         ],
@@ -395,7 +395,7 @@ export async function assembleReferenceIndex(
         status: [
           warning(
             'reference_root_unhealthy',
-            `Referenced store '${id}' is registered but not usable (${inspection.kind.replace(/_/g, ' ')}).`,
+            `引用的 Store '${id}' 已注册但不可用（${inspection.kind.replace(/_/g, ' ')}）。`,
             `Run: openspec store doctor ${id}`
           ),
         ],
@@ -442,7 +442,7 @@ export async function assembleReferenceIndex(
       entry.status.push(
         warning(
           'reference_index_truncated',
-          `Referenced store '${id}' index truncated at the 50KB budget (${low} of ${specs.length} specs listed).`,
+          `引用的 Store '${id}' 索引已达到 50KB 上限并截断（已列出 ${low}/${specs.length} 个 Spec）。`,
           `List the rest directly: openspec list --specs --store ${id}`
         )
       );

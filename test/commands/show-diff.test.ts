@@ -133,7 +133,7 @@ describe('openspec show --diff', () => {
     // Proposal should appear first
     expect(output).toContain('Improve auth.');
     expect(output.indexOf('Improve auth.')).toBeLessThan(
-      output.indexOf('Specifications Changed (diffs)')
+      output.indexOf('已变更的 Spec（差异）')
     );
 
     // MODIFIED should show unified diff with changes
@@ -207,8 +207,8 @@ describe('openspec show --diff', () => {
 
     const output = run(['show', 'empty-change', '--type', 'change', '--diff']);
     expect(output).toContain('Test reason.');
-    expect(output).toContain('No delta specs to diff for change "empty-change".');
-    expect(output).not.toContain('Specifications Changed');
+    expect(output).toContain('Change "empty-change" 没有可比较的增量 Spec。');
+    expect(output).not.toContain('已变更的 Spec');
   });
 
   it('text mode: keeps the Reason and Migration text of a REMOVED requirement', async () => {
@@ -402,7 +402,7 @@ describe('openspec show --diff', () => {
 
   it('warns and ignores --diff when the item is a spec', async () => {
     const { stdout, stderr } = runWithStderr(['show', 'auth', '--type', 'spec', '--diff']);
-    expect(stderr).toContain('Ignoring flags not applicable to spec');
+    expect(stderr).toContain('忽略不适用于 spec 的选项');
     expect(stderr).toContain('diff');
     expect(stdout).toContain('### Requirement: User login');
     expect(stdout).not.toContain('Specifications Changed');
@@ -507,7 +507,7 @@ describe('openspec show --diff', () => {
 
     const output = run(['show', 'unchanged-modification', '--type', 'change', '--diff']);
     expect(output).toContain('MODIFIED: Session management');
-    expect(output).toContain('(no textual changes)');
+    expect(output).toContain('（没有文本变化）');
 
     const json = JSON.parse(
       run(['show', 'unchanged-modification', '--type', 'change', '--diff', '--json'])
@@ -574,7 +574,7 @@ describe('openspec show --diff', () => {
     // Proposal shown first
     expect(output).toContain('Rename.');
     expect(output.indexOf('Rename.')).toBeLessThan(
-      output.indexOf('Specifications Changed (diffs)')
+      output.indexOf('已变更的 Spec（差异）')
     );
 
     // RENAMED should appear

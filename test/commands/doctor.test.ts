@@ -101,9 +101,9 @@ describe('openspec doctor (3.6)', () => {
     const human = await runCLI(['doctor', '--store', 'team-context'], { cwd: tempDir, env });
     expect(human.exitCode).toBe(0);
     expect(human.stderr).toContain('使用 OpenSpec 根目录：team-context');
-    expect(human.stdout).toContain('Root');
-    expect(human.stdout).toContain('  Store: team-context (metadata ok)');
-    expect(human.stdout).toContain(`  - upstream-context: ok (${upstream})`);
+    expect(human.stdout).toContain('根目录');
+    expect(human.stdout).toContain('  Store：team-context（元数据正常）');
+    expect(human.stdout).toContain(`  - upstream-context：正常（${upstream}）`);
 
     // Nearest-root session.
     const nearest = await runCLI(['doctor', '--json'], { cwd: storeRoot, env });
@@ -134,7 +134,7 @@ describe('openspec doctor (3.6)', () => {
   it('renders none-declared sections distinguishably', async () => {
     const result = await runCLI(['doctor', '--store', 'team-context'], { cwd: tempDir, env });
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('References\n  (none declared)');
+    expect(result.stdout).toContain('引用\n  （未声明）');
     const json = await runCLI(['doctor', '--json', '--store', 'team-context'], {
       cwd: tempDir,
       env,
@@ -163,7 +163,7 @@ describe('openspec doctor (3.6)', () => {
     );
 
     const human = await runCLI(['doctor', '--store', 'team-context'], { cwd: tempDir, env });
-    expect(human.stdout).toContain('Fix: git clone --');
+    expect(human.stdout).toContain('修复：git clone --');
   });
 
   it('distinguishes an empty registry from an unreadable one', async () => {
@@ -336,7 +336,7 @@ describe('openspec doctor (3.6)', () => {
     const bare = mkdir('bare-dir-human');
     const result = await runCLI(['doctor'], { cwd: bare, env });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Error: No OpenSpec root found');
+    expect(result.stderr).toContain('错误：当前目录及其父目录中未找到 OpenSpec 根目录');
     expect(result.stderr).not.toContain('at ');
   });
 
@@ -346,8 +346,8 @@ describe('openspec doctor (3.6)', () => {
       'schema: spec-driven\nreferences:\n  - team-context\n'
     );
     const result = await runCLI(['doctor', '--store', 'team-context'], { cwd: tempDir, env });
-    expect(result.stdout).toContain('(declared references all resolve to this root)');
-    expect(result.stdout).not.toContain('References\n  (none declared)');
+    expect(result.stdout).toContain('（声明的引用全部解析到此根目录）');
+    expect(result.stdout).not.toContain('引用\n  （未声明）');
   });
 
   it('surfaces a malformed pointer on a real root', async () => {

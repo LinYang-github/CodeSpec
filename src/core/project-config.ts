@@ -429,7 +429,7 @@ export function validateConfigRules(
       const validIds = Array.from(validArtifactIds).sort().join(', ');
       warnings.push(
         `规则中包含未知产物 ID："${artifactId}"。` +
-          `It matches no artifact in any available schema. Known artifact IDs: ${validIds}`
+          `它不匹配任何可用 schema 的产物。已知产物 ID：${validIds}`
       );
     }
   }

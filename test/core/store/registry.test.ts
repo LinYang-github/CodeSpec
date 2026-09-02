@@ -355,7 +355,7 @@ describe('store registry facade', () => {
   it('rejects missing registry entries and bad registered metadata', async () => {
     await expect(
       resolveRegisteredStore({ id: 'missing-context', globalDataDir: tempDir })
-    ).rejects.toThrow(/No store registry found/u);
+    ).rejects.toThrow(/未找到 Store 注册表/u);
 
     // The no-registry fix must not point at --store-path, a flag this PR
     // deliberately rejects everywhere else.

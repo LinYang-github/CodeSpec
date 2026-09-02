@@ -42,11 +42,11 @@ export async function initGitRepository(storeRoot: string): Promise<boolean> {
     await execFileAsync('git', ['init'], { cwd: storeRoot });
   } catch (error) {
     throw new StoreError(
-      `Failed to initialize Git repository: ${error instanceof Error ? error.message : String(error)}`,
+      `初始化 Git 仓库失败：${error instanceof Error ? error.message : String(error)}`,
       'store_git_init_failed',
       {
         target: 'store.git',
-        fix: 'Install Git or rerun setup with --no-init-git.',
+        fix: '安装 Git，或使用 --no-init-git 重新运行设置。',
       }
     );
   }
@@ -65,7 +65,7 @@ export async function assertGitCommitIdentity(probeCwd: string): Promise<void> {
     } catch (error) {
       if (isSpawnNotFoundError(error)) {
         throw new StoreError(
-          'Git is not available, so setup cannot create the initial store commit.',
+          'Git 不可用，因此设置无法创建 Store 的初始提交。',
           'store_git_init_failed',
           {
             target: 'store.git',

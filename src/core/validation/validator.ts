@@ -435,7 +435,7 @@ export class Validator {
       issues.push({
         level: 'ERROR',
         path,
-        message: 'No delta sections found. Add headers such as "## ADDED Requirements" or move non-delta notes outside specs/.',
+        message: '未找到 delta 分区。请添加“## ADDED Requirements”等标题，或将非 delta 说明移出 specs/。',
       });
     }
 

@@ -41,7 +41,7 @@ describe('top-level show command', () => {
       expect(err).toBeDefined();
       expect(err.status).not.toBe(0);
       const stderr = err.stderr.toString();
-      expect(stderr).toContain('Nothing to show.');
+      expect(stderr).toContain('没有可显示的条目。');
       expect(stderr).toContain('openspec show <item>');
       expect(stderr).toContain('openspec change show');
       expect(stderr).toContain('openspec spec show');
@@ -82,7 +82,7 @@ describe('top-level show command', () => {
       { encoding: 'utf-8', cwd: testDir }
     );
     expect(res.status).toBe(0);
-    expect(res.stderr).toContain('Ignoring flags not applicable to change: scenarios');
+    expect(res.stderr).toContain('忽略不适用于 change 的选项：scenarios');
   });
 
   it('auto-detects spec id and supports spec-only flags', () => {
@@ -115,7 +115,7 @@ describe('top-level show command', () => {
       expect(err).toBeDefined();
       expect(err.status).not.toBe(0);
       const stderr = err.stderr.toString();
-      expect(stderr).toContain('Ambiguous item');
+      expect(stderr).toContain("条目 'foo' 同时匹配 Change 和 Spec");
       expect(stderr).toContain('--type change|spec');
     } finally {
       process.chdir(originalCwd);
@@ -139,7 +139,7 @@ describe('top-level show command', () => {
       const stderr = err.stderr.toString();
       // Resolved as a change, not rejected as an unknown item.
       expect(stderr).not.toContain('Unknown item');
-      expect(stderr).toContain('has no proposal.md yet');
+      expect(stderr).toContain('尚未创建 proposal.md');
       expect(stderr).toContain('openspec status --change scaffolded');
     } finally {
       process.chdir(originalCwd);
@@ -161,7 +161,7 @@ describe('top-level show command', () => {
       } catch (e) { err = e; }
       expect(err).toBeDefined();
       const stderr = err.stderr.toString();
-      expect(stderr).toContain('Available IDs:');
+      expect(stderr).toContain('可用 ID：');
       expect(stderr).toContain('scaffolded');
     } finally {
       process.chdir(originalCwd);
@@ -180,12 +180,10 @@ describe('top-level show command', () => {
       expect(err).toBeDefined();
       expect(err.status).not.toBe(0);
       const stderr = err.stderr.toString();
-      expect(stderr).toContain("Unknown item 'unknown-item'");
-      expect(stderr).toContain('Did you mean:');
+      expect(stderr).toContain("未知条目 'unknown-item'");
+      expect(stderr).toContain('你是否想输入：');
     } finally {
       process.chdir(originalCwd);
     }
   });
 });
-
-

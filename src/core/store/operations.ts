@@ -1197,9 +1197,9 @@ export async function doctorStores(id?: string): Promise<StoreDoctorResult> {
 
   if (!registry) {
     if (selectedId !== undefined) {
-      throw new StoreError(`Unknown store '${selectedId}'.`, 'store_not_found', {
+      throw new StoreError(`未知 Store：'${selectedId}'。`, 'store_not_found', {
         target: 'store.id',
-        fix: 'Run openspec store list to see registered stores.',
+        fix: '运行 openspec store list 查看已注册的 Store。',
       });
     }
 
@@ -1212,9 +1212,9 @@ export async function doctorStores(id?: string): Promise<StoreDoctorResult> {
     : entries;
 
   if (selectedId && selected.length === 0) {
-    throw new StoreError(`Unknown store '${selectedId}'.`, 'store_not_found', {
+    throw new StoreError(`未知 Store：'${selectedId}'。`, 'store_not_found', {
       target: 'store.id',
-      fix: 'Run openspec store list to see registered stores.',
+      fix: '运行 openspec store list 查看已注册的 Store。',
     });
   }
 

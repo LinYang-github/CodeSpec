@@ -153,7 +153,9 @@ export async function instructionsCommand(
         const label = artifactId.charAt(0).toUpperCase() + artifactId.slice(1);
         if (!isWorkflowStage(artifactId)) throw new Error(`不支持的 canonical 产物或阶段 '${artifactId}'。请明确指定生命周期阶段。`);
         const stage = artifactId;
-        const text = `## ${label}：${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}\n\n${getStageAdapterGuidance(stage)}\n\n使用 canonical Change 产物，并在转换前满足生命周期门禁。Superpowers 方法论保持不变：使用 TDD RED → GREEN、最新验证证据，并在基线处于 STALE 时执行语义 Rebase。\n`;
+        const projectContext = readProjectConfig(projectRoot)?.context?.trim();
+        const contextSection = projectContext ? `\n\n## 项目上下文\n\n${projectContext}` : '';
+        const text = `## ${label}：${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}${contextSection}\n\n${getStageAdapterGuidance(stage)}\n\n使用 canonical Change 产物，并在转换前满足生命周期门禁。Superpowers 方法论保持不变：使用 TDD RED → GREEN、最新验证证据，并在基线处于 STALE 时执行语义 Rebase。\n`;
         if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
         else console.log(text);
         return;

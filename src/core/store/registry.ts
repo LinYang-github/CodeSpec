@@ -149,9 +149,9 @@ function getRegisteredStoreOrThrow(
 ): StoreRegistryEntry {
   const entry = registry?.stores[id];
   if (!entry) {
-    throw new StoreError(`Unknown store '${id}'`, 'store_not_found', {
+    throw new StoreError(`未知 Store：'${id}'`, 'store_not_found', {
       target: 'store.id',
-      fix: 'Run openspec store list to see registered stores.',
+      fix: '运行 openspec store list 查看已注册的 Store。',
     });
   }
 
@@ -422,9 +422,9 @@ export async function unregisterStoreRegistration(
   );
 
   if (!removed) {
-    throw new StoreError(`Unknown store '${id}'`, 'store_not_found', {
+    throw new StoreError(`未知 Store：'${id}'`, 'store_not_found', {
       target: 'store.id',
-      fix: 'Run openspec store list to see registered stores.',
+      fix: '运行 openspec store list 查看已注册的 Store。',
     });
   }
 
@@ -443,9 +443,9 @@ export async function resolveRegisteredStore(
   });
 
   if (!registry) {
-    throw new StoreError('No store registry found', 'no_store_registry', {
+    throw new StoreError('未找到 Store 注册表', 'no_store_registry', {
       target: 'store.id',
-      fix: 'Register a store with openspec store register <path>, then select it with --store <id>.',
+      fix: '使用 openspec store register <路径> 注册 Store，然后通过 --store <id> 选择它。',
     });
   }
 

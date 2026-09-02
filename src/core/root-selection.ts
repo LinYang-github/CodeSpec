@@ -439,7 +439,7 @@ export async function resolveOpenSpecRoot(
       'no_root_with_registered_stores',
       {
         target: 'openspec.root',
-        fix: `Rerun with --store <id> (registered: ${registeredIds.join(', ')}) or run openspec init.`,
+        fix: `使用 --store <id> 重新运行（已注册：${registeredIds.join('、')}），或运行 openspec init。`,
       }
     );
   }
