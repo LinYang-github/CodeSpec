@@ -98,6 +98,18 @@ describe('InitCommand', () => {
       expect(content).toContain('schema: code-spec');
     });
 
+    it('prints Chinese setup, config, and next-step guidance', async () => {
+      const initCommand = new InitCommand({ tools: 'claude', force: true });
+
+      await initCommand.execute(testDir);
+
+      const output = getConsoleOutput();
+      expect(output).toContain('OpenSpec 设置完成');
+      expect(output).toContain('配置：openspec/config.yaml（schema：code-spec）');
+      expect(output).toContain('开始使用：');
+      expect(output).toContain('开始第一个变更：/opsx:propose "你的想法"');
+    });
+
     it('should create canonical config when language context is requested', async () => {
       const initCommand = new InitCommand({
         tools: 'none',
@@ -374,7 +386,7 @@ describe('InitCommand', () => {
       expect(await fs.readdir(outsideDir)).toEqual([]);
       expect((await fs.lstat(path.join(testDir, '.claude'))).isSymbolicLink()).toBe(true);
       expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain(
-        'OpenSpec Setup Incomplete'
+        'OpenSpec 设置未完成'
       );
     });
 
@@ -399,7 +411,7 @@ describe('InitCommand', () => {
       expect(await fs.readdir(outsideDir)).toEqual([]);
       expect((await fs.lstat(path.join(testDir, '.github'))).isSymbolicLink()).toBe(true);
       expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain(
-        'OpenSpec Setup Incomplete'
+        'OpenSpec 设置未完成'
       );
     });
 
@@ -446,7 +458,7 @@ describe('InitCommand', () => {
       expect(await fs.readdir(outsideDir)).toEqual([]);
       expect((await fs.lstat(linkedSkillDir)).isSymbolicLink()).toBe(true);
       expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain(
-        'OpenSpec Setup Incomplete'
+        'OpenSpec 设置未完成'
       );
     });
 
@@ -767,7 +779,7 @@ describe('InitCommand', () => {
       expect(await directoryExists(commandsDir)).toBe(false);
 
       const codeArtsLogCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-      expect(codeArtsLogCalls.some((entry) => entry.includes('Created: CodeArts'))).toBe(true);
+      expect(codeArtsLogCalls.some((entry) => entry.includes('已创建：CodeArts'))).toBe(true);
       expect(
         codeArtsLogCalls.some(
           (entry) => entry.includes('Commands skipped for: codeartsagent') && entry.includes('(no adapter)'),
@@ -811,14 +823,14 @@ describe('InitCommand', () => {
       expect(applyBody).toMatch(/the openspec-archive-change skill/);
 
       const rovoLogCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-      expect(rovoLogCalls.some((entry) => entry.includes('Created: Rovo Dev CLI'))).toBe(true);
+      expect(rovoLogCalls.some((entry) => entry.includes('已创建：Rovo Dev CLI'))).toBe(true);
       expect(
         rovoLogCalls.some(
           (entry) => entry.includes('Commands skipped for: rovodev') && entry.includes('(no adapter)'),
         ),
       ).toBe(true);
       // The getting-started hint must not advertise a dead slash command.
-      const hintLine = rovoLogCalls.find((entry) => entry.includes('Start your first change'));
+      const hintLine = rovoLogCalls.find((entry) => entry.includes('开始第一个变更'));
       expect(hintLine).toBeDefined();
       expect(hintLine).not.toMatch(/\/openspec-/);
       expect(hintLine).toContain('the openspec-propose skill');
@@ -937,7 +949,7 @@ describe('InitCommand', () => {
       const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls
         .flat()
         .map(String);
-      expect(logCalls.some((entry) => entry.includes('Created: Codex'))).toBe(true);
+      expect(logCalls.some((entry) => entry.includes('已创建：Codex'))).toBe(true);
       expect(logCalls.some((entry) => entry.includes('Zed Agent'))).toBe(true);
       expect(logCalls.some((entry) => entry.includes('Shared .agents skills'))).toBe(true);
       expect(
@@ -1515,7 +1527,7 @@ describe('InitCommand', () => {
 
       await expect(fs.stat(setupStepsPath)).rejects.toMatchObject({ code: 'ENOENT' });
       expect(vi.mocked(console.log).mock.calls.flat().join('\n')).toContain(
-        'OpenSpec Setup Incomplete'
+        'OpenSpec 设置未完成'
       );
     });
 
@@ -2027,7 +2039,7 @@ describe('InitCommand - profile and detection features', () => {
 
     // The getting-started hint must point at the skill, not a missing command
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHint = logCalls.find((entry) => entry.includes('Start your first change'));
+    const startHint = logCalls.find((entry) => entry.includes('开始第一个变更'));
     expect(startHint).toContain('/skill:openspec-propose');
     expect(startHint).not.toContain('/opsx:propose');
   });
@@ -2048,8 +2060,8 @@ describe('InitCommand - profile and detection features', () => {
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
     // No invocation hint may be shown — neither /opsx:* nor a skill reference exists
-    expect(logCalls.some((entry) => entry.includes('Start your first change'))).toBe(false);
-    const correction = logCalls.find((entry) => entry.includes('No skills or commands were generated'));
+    expect(logCalls.some((entry) => entry.includes('开始第一个变更'))).toBe(false);
+    const correction = logCalls.find((entry) => entry.includes('未为') && entry.includes('生成技能或命令'));
     expect(correction).toBeTruthy();
     expect(correction).toContain("openspec config set delivery both");
     // Nothing was generated, so there is nothing an IDE restart would pick up
@@ -2076,7 +2088,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(vibeSkill).not.toContain('/skill:');
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     expect(startHints).toHaveLength(2);
     const kimiHint = startHints.find((entry) => entry.includes('Kimi Code'));
     const vibeHint = startHints.find((entry) => entry.includes('Mistral Vibe'));
@@ -2101,7 +2113,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(skillContent).toContain('$openspec-');
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHint = logCalls.find((entry) => entry.includes('Start your first change'));
+    const startHint = logCalls.find((entry) => entry.includes('开始第一个变更'));
     expect(startHint).toContain('$openspec-propose');
     expect(startHint).not.toContain('/openspec-propose');
     expect(startHint).not.toContain('/opsx:propose');
@@ -2131,7 +2143,7 @@ describe('InitCommand - profile and detection features', () => {
     }
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHint = logCalls.find((entry) => entry.includes('Start your first change'));
+    const startHint = logCalls.find((entry) => entry.includes('开始第一个变更'));
     expect(startHint).toContain('@opsx-propose');
     expect(startHint).not.toContain('/opsx-propose');
     expect(startHint).not.toContain('/opsx:propose');
@@ -2147,7 +2159,7 @@ describe('InitCommand - profile and detection features', () => {
     await initCommand.execute(testDir);
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     expect(startHints).toHaveLength(2);
     const codexHint = startHints.find((entry) => entry.includes('(Codex)'));
     const vibeHint = startHints.find((entry) => entry.includes('Mistral Vibe'));
@@ -2187,7 +2199,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(claudeSkill).not.toContain('/opsx-');
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     expect(startHints.find((entry) => entry.includes('Cursor'))).toContain('/opsx-propose');
     expect(startHints.find((entry) => entry.includes('Claude Code'))).toContain('/opsx:propose');
   });
@@ -2197,7 +2209,7 @@ describe('InitCommand - profile and detection features', () => {
     await initCommand.execute(testDir);
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     // Qwen invokes commands by filename (/opsx-propose), so it must not share
     // Claude's /opsx:propose line
     expect(startHints).toHaveLength(2);
@@ -2224,7 +2236,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(await fileExists(path.join(testDir, '.kimi-code'))).toBe(false);
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     // Only the codex instruction may be advertised — a Kimi line would point
     // at skills that were never generated
     expect(startHints).toHaveLength(1);
@@ -2232,7 +2244,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(startHints[0]).not.toContain('Kimi');
     expect(logCalls.some((entry) => entry.includes('/skill:openspec-'))).toBe(false);
     // Kimi got zero artifacts, so it still deserves the configuration correction
-    const correction = logCalls.find((entry) => entry.includes('No skills or commands were generated for'));
+    const correction = logCalls.find((entry) => entry.includes('未为') && entry.includes('生成技能或命令'));
     expect(correction).toContain('Kimi Code');
     expect(correction).not.toContain('Codex');
     expect(correction).toContain("openspec config set delivery both");
@@ -2256,10 +2268,10 @@ describe('InitCommand - profile and detection features', () => {
     // The /opsx: hint is correct for Claude, but Kimi must not be left with
     // a dead instruction: the correction names it even though another tool
     // generated commands
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     expect(startHints).toHaveLength(1);
     expect(startHints[0]).toContain('/opsx:propose');
-    const correction = logCalls.find((entry) => entry.includes('No skills or commands were generated for'));
+    const correction = logCalls.find((entry) => entry.includes('未为') && entry.includes('生成技能或命令'));
     expect(correction).toContain('Kimi Code');
     expect(correction).not.toContain('Claude');
     expect(correction).toContain("openspec config set delivery both");
@@ -2277,7 +2289,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(await fileExists(path.join(testDir, '.kimi-code', 'skills', 'openspec-propose', 'SKILL.md'))).toBe(true);
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHints = logCalls.filter((entry) => entry.includes('Start your first change'));
+    const startHints = logCalls.filter((entry) => entry.includes('开始第一个变更'));
     expect(startHints).toHaveLength(2);
     const claudeHint = startHints.find((entry) => entry.includes('Claude Code'));
     const kimiHint = startHints.find((entry) => entry.includes('Kimi Code'));
@@ -2295,7 +2307,7 @@ describe('InitCommand - profile and detection features', () => {
     expect(skillContent).toContain('/opsx:');
 
     const logCalls = (console.log as unknown as { mock: { calls: unknown[][] } }).mock.calls.flat().map(String);
-    const startHint = logCalls.find((entry) => entry.includes('Start your first change'));
+    const startHint = logCalls.find((entry) => entry.includes('开始第一个变更'));
     expect(startHint).toContain('/opsx:propose');
   });
 

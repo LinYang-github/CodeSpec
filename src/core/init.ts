@@ -1161,17 +1161,17 @@ export class InitCommand {
     console.log();
     console.log(
       chalk.bold(
-        results.failedTools.length > 0 ? 'OpenSpec Setup Incomplete' : 'OpenSpec Setup Complete'
+        results.failedTools.length > 0 ? 'OpenSpec 设置未完成' : 'OpenSpec 设置完成'
       )
     );
     console.log();
 
     // Show created vs refreshed tools
     if (results.createdTools.length > 0) {
-      console.log(`Created: ${results.createdTools.map((t) => t.name).join(', ')}`);
+      console.log(`已创建：${results.createdTools.map((t) => t.name).join(', ')}`);
     }
     if (results.refreshedTools.length > 0) {
-      console.log(`Refreshed: ${results.refreshedTools.map((t) => t.name).join(', ')}`);
+      console.log(`已刷新：${results.refreshedTools.map((t) => t.name).join(', ')}`);
     }
 
     // Show counts (respecting profile filter)
@@ -1202,11 +1202,11 @@ export class InitCommand {
           ? getCommandContents(workflows).length
           : 0;
         if (skillCount > 0 && commandCount > 0) {
-          console.log(`${skillCount} skills and ${commandCount} commands in ${toolDirs}/`);
+          console.log(`${skillCount} 个技能和 ${commandCount} 个命令，位于 ${toolDirs}/`);
         } else if (skillCount > 0) {
-          console.log(`${skillCount} skills in ${toolDirs}/`);
+          console.log(`${skillCount} 个技能，位于 ${toolDirs}/`);
         } else if (commandCount > 0) {
-          console.log(`${commandCount} commands in ${toolDirs}/`);
+          console.log(`${commandCount} 个命令，位于 ${toolDirs}/`);
         }
       } else {
         const skillTools = successfulTools.filter((tool) =>
@@ -1215,7 +1215,7 @@ export class InitCommand {
         const skillCount = skillTools.length * getSkillTemplates(workflows).length;
         if (skillCount > 0) {
           const skillDirs = [...new Set(skillTools.map((tool) => tool.skillsPath))];
-          console.log(`${skillCount} skills in ${skillDirs.join(', ')}`);
+          console.log(`${skillCount} 个技能，位于 ${skillDirs.join(', ')}`);
         }
 
         const commandContents = getCommandContents(workflows);
@@ -1239,7 +1239,7 @@ export class InitCommand {
               })
             ),
           ];
-          console.log(`${commandCount} commands in ${commandDirs.join(', ')}`);
+          console.log(`${commandCount} 个命令，位于 ${commandDirs.join(', ')}`);
         }
       }
     }
@@ -1300,15 +1300,15 @@ export class InitCommand {
 
     // Config status
     if (configStatus === 'created') {
-      console.log(`Config: openspec/config.yaml (schema: ${DEFAULT_SCHEMA})`);
+      console.log(`配置：openspec/config.yaml（schema：${DEFAULT_SCHEMA}）`);
     } else if (configStatus === 'exists') {
       // Show actual filename (config.yaml or config.yml)
       const configYaml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yaml');
       const configYml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yml');
       const configName = fs.existsSync(configYaml) ? 'config.yaml' : fs.existsSync(configYml) ? 'config.yml' : 'config.yaml';
-      console.log(`Config: openspec/${configName} (exists)`);
+      console.log(`配置：openspec/${configName}（已存在）`);
     } else {
-      console.log(chalk.dim(`Config: skipped (non-interactive mode)`));
+      console.log(chalk.dim('配置：已跳过（非交互模式）'));
     }
 
     // Getting started (task 7.6: show propose if in profile)
@@ -1338,15 +1338,15 @@ export class InitCommand {
             resolveCommandSurfaceCapability(tool.value),
             resolveCommandInvocation(tool.value)
           );
-          hint = `Start your first change: ${transformer ? transformer(command) : command} "your idea"`;
+          hint = `开始第一个变更：${transformer ? transformer(command) : command} "你的想法"`;
         } else if (shouldGenerateSkillsForTool(tool.value, activeDelivery)) {
           const skillReference = getSkillReferenceTransformer(tool.value)(command);
           // Tools with no slash surface (e.g. Rovo Dev) reference skills as
           // prose ("the openspec-propose skill"); phrase the hint so it reads
           // as an instruction rather than a dead command with an argument.
           hint = usesNaturalLanguageSkillReferences(tool.value)
-            ? `Start your first change: ask ${tool.name} to use ${skillReference} with "your idea"`
-            : `Start your first change: ${skillReference} "your idea"`;
+            ? `开始第一个变更：请让 ${tool.name} 使用 ${skillReference} 处理“你的想法”`
+            : `开始第一个变更：${skillReference} "你的想法"`;
         } else {
           continue;
         }
@@ -1354,7 +1354,7 @@ export class InitCommand {
       }
       if (hintToTools.size === 0) {
         // No successful tools: keep the generic command hint
-        return [`Start your first change: ${command} "your idea"`];
+        return [`开始第一个变更：${command} "你的想法"`];
       }
       if (hintToTools.size === 1) {
         return [[...hintToTools.keys()][0]];
@@ -1362,7 +1362,7 @@ export class InitCommand {
       return [...hintToTools.entries()].map(([hint, toolNames]) => `${hint} (${toolNames.join(', ')})`);
     };
     const printStartHints = (command: string): void => {
-      console.log(chalk.bold('Getting started:'));
+      console.log(chalk.bold('开始使用：'));
       for (const line of startHintLines(command)) {
         console.log(`  ${line}`);
       }
@@ -1381,9 +1381,9 @@ export class InitCommand {
       const names = zeroArtifactTools.map((tool) => tool.name).join(', ');
       console.log(
         chalk.yellow(
-          `No skills or commands were generated for ${names}: delivery is set to 'commands' but ` +
-            `${zeroArtifactTools.length === 1 ? 'it supports' : 'they support'} only skills. ` +
-            `Run 'openspec config set delivery both' to generate skills.`
+          `未为 ${names} 生成技能或命令：delivery 已设为 'commands'，但` +
+            `${zeroArtifactTools.length === 1 ? '它仅支持' : '它们仅支持'}技能。` +
+            `运行 'openspec config set delivery both' 以生成技能。`
         )
       );
     }
@@ -1395,13 +1395,13 @@ export class InitCommand {
     } else if (activeWorkflows.includes('new')) {
       printStartHints('/opsx:new');
     } else {
-      console.log("Done. Run 'openspec config profile' to configure your workflows.");
+      console.log("完成。运行 'openspec config profile' 配置工作流。");
     }
 
     // Links
     console.log();
-    console.log(`Learn more: ${chalk.cyan('https://github.com/Fission-AI/OpenSpec')}`);
-    console.log(`Feedback:   ${chalk.cyan('https://github.com/Fission-AI/OpenSpec/issues')}`);
+    console.log(`了解更多：${chalk.cyan('https://github.com/Fission-AI/OpenSpec')}`);
+    console.log(`反馈：${chalk.cyan('https://github.com/Fission-AI/OpenSpec/issues')}`);
 
     // Restart instruction only when at least one IDE/editor-resident tool
     // actually received a generated surface. Two conditions, coupled to the SAME

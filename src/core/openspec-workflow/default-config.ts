@@ -5,7 +5,7 @@ export function renderCanonicalWorkspaceConfig(projectName: string, context?: st
     'version: 1',
     `schema: ${CANONICAL_SCHEMA}`,
     'project:',
-    `  name: ${projectName}`,
+    `  name: ${JSON.stringify(projectName)}`,
   ];
 
   if (context) {
@@ -40,9 +40,11 @@ export function renderCanonicalWorkspaceConfig(projectName: string, context?: st
 
 export function renderBusinessTemplate(): string {
   return [
-    '# Business',
+    '# 业务',
     '',
-    '| Module ID | Module Name | Description | Responsibilities | Keywords |',
+    '记录系统的业务模块、职责和关键词。',
+    '',
+    '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
     '| --- | --- | --- | --- | --- |',
     '',
   ].join('\n');
