@@ -24,7 +24,16 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
   if (metadata.baseline.stale && target !== 'DESIGN' && target !== 'ABANDONED') throw new Error(`Change ${metadata.change.id} 已过期；请先 rebase 到 DESIGN。`);
   const gate = validateEntryGate(workspace, artifacts, target);
   if (!gate.ok) throw new Error(`生命周期转换 ${from} -> ${target} 被阻塞：${gate.errors.join('；')}`);
-  const next = { ...metadata, change: { ...metadata.change, status: target, updated_at: new Date().toISOString() } };
+  const next: ChangeMetadata = {
+    ...metadata,
+    change: { ...metadata.change, status: target, updated_at: new Date().toISOString() },
+    archive: target === 'ARCHIVE'
+      ? { ...metadata.archive, ready: true }
+      : metadata.archive,
+    gates: target === 'ARCHIVE'
+      ? { ...metadata.gates, archive: { ...metadata.gates.archive, satisfied: true } }
+      : metadata.gates,
+  };
   const metadataPath = path.join(workspace.openspecDir, metadata.artifacts.metadata);
   const indexPath = workspace.paths.changeIndex;
   await withChangeIndexLock(workspace.paths, async () => {

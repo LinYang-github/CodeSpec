@@ -1,16 +1,63 @@
 # 验证证据
 <!-- GIVEN 基线 WHEN 执行验证 THEN 记录 fresh 结果。 -->
-<!-- 每次 VERIFY 都重新执行命令，不复用过期输出。 -->
-| Requirement ID | Scenario ID | 命令 | Exit status | 结果摘要 | 时间 |
-| --- | --- | --- | ---: | --- | --- |
-| MOD-001-REQ-001 | SCN-001 | `pnpm test` | 0 | 中文摘要 | 2026-09-01T00:00:00Z |
-## RED → GREEN
-- RED 命令与失败原因：
-- GREEN 命令与通过结果：
-- 回归测试：
+<!-- 本文档由 OpenSpec 生成。每次 VERIFY 都重新执行命令，不复用过期输出。 -->
+
+## 验证结果
+
+- 变更：`CHG-YYYYMMDD-NNN`
+- 状态：**PASS**
+- 修订：`1`
+- 验证时间：`YYYY-MM-DDTHH:mm:ss.sssZ`
+- Baseline：`<sha256>`
+- Receipt：`<sha256>`
+
+## Requirement 覆盖
+
+| Requirement ID |
+| --- |
+| `MOD-001-REQ-001` |
+
+## Scenario 覆盖
+
+| Scenario ID |
+| --- |
+| `SCN-001` |
+
+## 命令记录
+
+| 命令 | 类型 | Exit status | 结果摘要 | 时间 |
+| --- | --- | ---: | --- | --- |
+| `pnpm test` | test | 0 | 中文摘要 | `2026-09-01T00:00:00Z` |
+
 ## Gate
-- [ ] Requirements fresh verified
-- [ ] tests passed
-- [ ] build passed
-- [ ] lint passed
-- [ ] 明确执行 archive，不自动归档
+
+- ✅ Requirements fresh verified
+- ✅ tests passed
+- ✅ build passed
+- ✅ lint passed
+- 明确执行 archive，不自动归档
+
+## 机器校验数据
+
+下面的 YAML 是归档校验使用的完整证据，请勿手工修改。
+
+```yaml
+schema_version: 1
+change_id: CHG-YYYYMMDD-NNN
+verified_at: YYYY-MM-DDTHH:mm:ss.sssZ
+revision: 1
+status: PASS
+requirement_ids:
+  - MOD-001-REQ-001
+scenario_ids:
+  - SCN-001
+baseline_identity: <sha256>
+receipt: <sha256>
+commands:
+  - command: pnpm test
+    kind: test
+    exit_code: 0
+    output_summary: 中文摘要
+    started_at: 2026-09-01T00:00:00Z
+    finished_at: 2026-09-01T00:00:00Z
+```

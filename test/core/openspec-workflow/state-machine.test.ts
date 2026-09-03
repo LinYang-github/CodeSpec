@@ -103,6 +103,61 @@ describe('openspec workflow state machine', () => {
     expect(result.errors.join('\n')).toMatch(/requirements|tests|build|lint/i);
   });
 
+  it('marks archive readiness when VERIFY passes into ARCHIVE', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    const verifiedAt = '2026-09-03T00:00:00.000Z';
+    const base = fixture.metadataAt('VERIFY');
+    const requirementId = 'MOD-001-REQ-001';
+    await writeChangeArtifacts(fixture, {
+      metadata: {
+        change: { status: 'VERIFY' },
+        gates: {
+          ...base.gates,
+          verify: { required: true, satisfied: true },
+        },
+        verification: {
+          ...base.verification,
+          requirements_verified: true,
+          tests_passed: true,
+          build_passed: true,
+          lint_passed: true,
+          verified_at: verifiedAt,
+        },
+        requirements: {
+          added: [{ id: requirementId, module: 'MOD-001' }],
+          modified: [],
+          removed: [],
+        },
+        tasks: {
+          total: 1,
+          completed: 1,
+          items: {
+            'SP-01': { title: `${requirementId} SCN-001`, status: 'DONE' },
+          },
+        },
+      },
+      design: `# Design\n\n${requirementId}\n`,
+      spec: `## ADDED\n### ${requirementId} Login\n**New**\nThe system SHALL support login.\n#### Scenario: SCN-001 succeeds\n- **GIVEN** a user\n- **WHEN** the user logs in\n- **THEN** access is granted\n`,
+      tasks: `# Tasks\n\n- [x] SP-01 ${requirementId} SCN-001 test\n`,
+      verification: '# Verification\n\nstatus: PASS\n',
+    });
+
+    const workspace = await loadWorkspace(fixture.openspecDir);
+    const artifacts = await import('../../../src/core/openspec-workflow/artifacts.js').then((m) =>
+      m.loadChangeArtifacts(workspace.paths, fixture.changeId)
+    );
+
+    await transitionChange(workspace, artifacts, 'ARCHIVE', 'verification complete');
+    const persisted = await import('../../../src/core/openspec-workflow/artifacts.js').then((m) =>
+      m.loadChangeArtifacts(workspace.paths, fixture.changeId)
+    );
+
+    expect(persisted.metadata.change.status).toBe('ARCHIVE');
+    expect(persisted.metadata.archive.ready).toBe(true);
+    expect(persisted.metadata.gates.archive.satisfied).toBe(true);
+  });
+
   it('rejects a satisfied analyze flag when proposal sections and module consistency are absent', async () => {
     const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
     await writeBusinessFile(fixture, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Orders | Owns orders | Orders | orders |\n');

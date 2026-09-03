@@ -1,37 +1,37 @@
 name: code-spec
 version: 1
-description: OpenSpec canonical code-spec 变更工作流
+description: 用于管理代码变更的 OpenSpec 工作流
 # Protocol tokens: ADDED MODIFIED REMOVED Previous New Reason GIVEN WHEN THEN
 # Canonical paths: archive/specs and archive/changes
 artifacts:
   - id: metadata
     generates: metadata.yaml
-    description: 变更控制数据与状态权威
+    description: 记录变更信息和当前状态
     template: metadata.yaml
     requires: []
   - id: proposal
     generates: proposal.md
-    description: 变更动机与模块映射
+    description: 说明为什么改、改哪些模块
     template: proposal.md
     requires: [metadata]
   - id: design
     generates: design.md
-    description: 技术设计
+    description: 说明怎么实现
     template: design.md
     requires: [proposal]
   - id: spec
     generates: spec.md
-    description: 需求增量
+    description: 记录需求变更
     template: spec.md
     requires: [proposal]
   - id: tasks
     generates: tasks.md
-    description: SP-## 任务投影
+    description: 列出实现任务及完成情况
     template: tasks.md
     requires: [design, spec]
   - id: verification
     generates: verification.md
-    description: 新鲜验证证据
+    description: 记录测试、构建和 lint 结果
     template: verification.md
     requires: [tasks]
 apply:

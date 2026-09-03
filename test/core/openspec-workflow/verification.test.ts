@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   __setVerificationTestHooksForTests,
+  parseVerificationDocument,
   recordFreshVerification,
 } from '../../../src/core/openspec-workflow/verification.js';
 import { createWorkflowFixture } from '../../helpers/openspec-workflow.js';
@@ -95,6 +96,15 @@ describe('fresh verification', () => {
     expect(evidence.commands).toHaveLength(4);
     expect(evidence.commands.every((command) => command.exit_code === 0)).toBe(true);
 
+    const verificationDocument = await fs.readFile(
+      path.join(fixture.paths.changes, fixture.changeId, 'verification.md'),
+      'utf8'
+    );
+    expect(verificationDocument).toContain('# 验证证据');
+    expect(verificationDocument).toContain('## 验证结果');
+    expect(verificationDocument).toContain('| Requirement ID |');
+    expect(verificationDocument).toContain('## 机器校验数据');
+
     const metadata = parseYaml(
       await fs.readFile(
         path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml'),
@@ -151,7 +161,7 @@ describe('fresh verification', () => {
       ])
     ).rejects.toThrow('验证命令失败，退出码为 7');
 
-    const evidence = parseYaml(
+    const evidence = parseVerificationDocument(
       await fs.readFile(
         path.join(fixture.paths.changes, fixture.changeId, 'verification.md'),
         'utf8'
@@ -166,6 +176,30 @@ describe('fresh verification', () => {
     expect(evidence.status).toBe('FAIL');
     expect(evidence.commands[0].exit_code).toBe(7);
     expect(metadata.verification.requirements_verified).toBe(false);
+  });
+
+  it('reads legacy YAML evidence while accepting the new Markdown document format', () => {
+    const legacyEvidence = {
+      schema_version: 1,
+      change_id: 'CHG-20260901-001',
+      verified_at: '2026-09-03T00:00:00.000Z',
+      revision: 1,
+      status: 'PASS' as const,
+      requirement_ids: ['MOD-002-REQ-006'],
+      scenario_ids: ['SCN-002'],
+      baseline_identity: 'a'.repeat(64),
+      receipt: 'b'.repeat(64),
+      commands: [],
+    };
+
+    expect(parseVerificationDocument(stringifyYaml(legacyEvidence))).toEqual(legacyEvidence);
+  });
+
+  it('rejects Markdown without exactly one machine evidence block', () => {
+    const block = '```yaml\nschema_version: 1\n```';
+
+    expect(() => parseVerificationDocument('# 验证证据\n\n没有机器校验数据')).toThrow('缺少机器校验数据');
+    expect(() => parseVerificationDocument(`${block}\n\n${block}`)).toThrow('只能包含一个');
   });
 
   it('rolls back both files when atomic metadata publication fails', async () => {

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { stringify } from 'yaml';
 import { createHash } from 'node:crypto';
 import { archiveChange } from '../../../src/core/openspec-workflow/archive-transaction.js';
+import { renderVerificationMarkdown } from '../../../src/core/openspec-workflow/verification.js';
 import { createWorkflowFixture } from '../../helpers/openspec-workflow.js';
 import type { ChangeMetadata } from '../../../src/core/openspec-workflow/types.js';
 
@@ -27,7 +28,7 @@ async function setup(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>,
   evidence.receipt = createHash('sha256').update(JSON.stringify({ ...evidence, receipt: undefined })).digest('hex');
   metadata.verification.evidence_receipt = evidence.receipt; metadata.verification.baseline_identity = evidence.baseline_identity;
   await fs.writeFile(path.join(dir, 'metadata.yaml'), stringify(metadata));
-  await fs.writeFile(path.join(dir, 'verification.md'), stringify(evidence));
+  await fs.writeFile(path.join(dir, 'verification.md'), renderVerificationMarkdown(evidence));
   await fs.writeFile(path.join(dir, 'spec.md'), spec);
 }
 

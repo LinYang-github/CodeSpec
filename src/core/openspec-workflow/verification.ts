@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { WorkspaceContext } from './loaders.js';
 import { loadChangeArtifacts } from './loaders.js';
 import { parseDeltaSpec } from './delta-parser.js';
@@ -42,12 +42,93 @@ const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(valu
 const requirementIds = (metadata: { requirements: Record<string, Array<{ id: string }>> }) =>
   [...new Set(Object.values(metadata.requirements).flat().map((item) => item.id))].sort();
 
+const markdownCell = (value: string): string => value.replace(/\|/gu, '\\|').replace(/\r?\n/gu, '<br>');
+const markdownCode = (value: string): string => value.replace(/`/gu, '\\`');
+
+export function renderVerificationMarkdown(evidence: VerificationEvidence): string {
+  const requirements = evidence.requirement_ids.length
+    ? evidence.requirement_ids.map((id) => `| \`${markdownCell(id)}\` |`).join('\n')
+    : '| - |';
+  const scenarios = evidence.scenario_ids.length
+    ? evidence.scenario_ids.map((id) => `| \`${markdownCell(id)}\` |`).join('\n')
+    : '| - |';
+  const commands = evidence.commands.length
+    ? evidence.commands.map((command) => `| \`${markdownCell(markdownCode(command.command))}\` | ${command.kind} | ${command.exit_code} | ${markdownCell(command.output_summary) || '-'} | ${command.started_at} → ${command.finished_at} |`).join('\n')
+    : '| - | - | - | - | - |';
+  const allCommandsPassed = evidence.commands.length > 0 && evidence.commands.every((command) => command.exit_code === 0);
+  const passed = evidence.status === 'PASS';
+  const gate = (label: string, satisfied: boolean): string => `- ${satisfied ? '✅' : '❌'} ${label}`;
+
+  return [
+    '# 验证证据',
+    '',
+    '<!-- 本文档由 OpenSpec 生成。机器校验数据区块用于归档校验。 -->',
+    '',
+    '## 验证结果',
+    '',
+    `- 变更：\`${markdownCode(evidence.change_id)}\``,
+    `- 状态：**${evidence.status}**`,
+    `- 修订：${evidence.revision}`,
+    `- 验证时间：${evidence.verified_at}`,
+    `- Baseline：\`${evidence.baseline_identity}\``,
+    `- Receipt：\`${evidence.receipt}\``,
+    '',
+    '## Requirement 覆盖',
+    '',
+    '| Requirement ID |',
+    '| --- |',
+    requirements,
+    '',
+    '## Scenario 覆盖',
+    '',
+    '| Scenario ID |',
+    '| --- |',
+    scenarios,
+    '',
+    '## 命令记录',
+    '',
+    '| 命令 | 类型 | Exit status | 结果摘要 | 时间 |',
+    '| --- | --- | ---: | --- | --- |',
+    commands,
+    '',
+    '## Gate',
+    '',
+    gate('Requirements fresh verified', passed),
+    gate('tests passed', passed && evidence.commands.some((command) => command.kind === 'test' && command.exit_code === 0)),
+    gate('build passed', passed && evidence.commands.some((command) => command.kind === 'build' && command.exit_code === 0)),
+    gate('lint passed', passed && evidence.commands.some((command) => command.kind === 'lint' && command.exit_code === 0)),
+    gate('所有已记录命令均通过', allCommandsPassed),
+    '',
+    '## 机器校验数据',
+    '',
+    '```yaml',
+    stringifyYaml(evidence).trimEnd(),
+    '```',
+    '',
+  ].join('\n');
+}
+
+export function parseVerificationDocument(content: string): VerificationEvidence {
+  const blocks = [...content.matchAll(/^```yaml\s*\n([\s\S]*?)\n```\s*$/gmu)];
+  if (blocks.length > 1) throw new Error('Verification 文档只能包含一个机器校验数据区块。');
+  const document = content.trim();
+  const yamlText = blocks[0]?.[1] ?? (/^schema_version:\s*1(?:\s|$)/u.test(document) ? document : null);
+  if (!yamlText) throw new Error('Verification 文档缺少机器校验数据区块。');
+  try {
+    const evidence = parseYaml(yamlText);
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) throw new Error('证据必须是对象。');
+    return evidence as VerificationEvidence;
+  } catch (error) {
+    throw new Error(`Verification 证据无效：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function publishPair(metadataPath: string, metadata: unknown, verificationPath: string, evidence: VerificationEvidence): Promise<void> {
   const token = `.verification-${process.pid}-${Date.now()}`;
   const metadataTmp = `${metadataPath}.${token}.tmp`; const evidenceTmp = `${verificationPath}.${token}.tmp`;
   const originalMetadata = await fs.readFile(metadataPath, 'utf8'); const originalEvidence = await fs.readFile(verificationPath, 'utf8');
   try {
-    await fs.writeFile(evidenceTmp, stringifyYaml(evidence)); await fs.writeFile(metadataTmp, stringifyYaml(metadata));
+    await fs.writeFile(evidenceTmp, renderVerificationMarkdown(evidence)); await fs.writeFile(metadataTmp, stringifyYaml(metadata));
     await hooks?.beforePublish?.(evidenceTmp);
     await fs.rename(evidenceTmp, verificationPath);
     await hooks?.beforePublish?.(metadataPath);

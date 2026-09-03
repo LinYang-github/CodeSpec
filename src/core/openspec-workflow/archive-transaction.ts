@@ -9,6 +9,7 @@ import { parseDeltaSpec } from './delta-parser.js';
 import { detectStaleChanges } from './stale.js';
 import { validateRelations } from './relations.js';
 import { validateChangeTraceability } from './traceability.js';
+import { parseVerificationDocument } from './verification.js';
 import type { ArchivePlan as ContractArchivePlan, ChangeMetadata, RequirementDelta } from './types.js';
 
 export interface ArchivePlan extends ContractArchivePlan {
@@ -73,7 +74,7 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   if (m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((t) => t.status !== 'DONE')) throw new Error('归档要求所有 Task 均为 DONE');
   if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) throw new Error('归档要求最新的 Verification 证据');
   let evidence: any;
-  try { evidence = parseYaml(artifacts.verification); } catch (error) { throw new Error(`Verification 证据无效：${error instanceof Error ? error.message : String(error)}`); }
+  try { evidence = parseVerificationDocument(artifacts.verification); } catch (error) { throw new Error(error instanceof Error ? error.message : `Verification 证据无效：${String(error)}`); }
   const expectedIds = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed].map((r) => r.id).sort();
   const expectedScenarios = (() => { try { return parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)); } catch { return []; } })();
   const validCommands = Array.isArray(evidence?.commands) && evidence.commands.length > 0 && evidence.commands.every((command: any) => command && typeof command.command === 'string' && command.command.trim() && command.exit_code === 0 && typeof command.started_at === 'string' && typeof command.finished_at === 'string' && !Number.isNaN(Date.parse(command.started_at)) && !Number.isNaN(Date.parse(command.finished_at)) && Date.parse(command.finished_at) >= Date.parse(command.started_at));
