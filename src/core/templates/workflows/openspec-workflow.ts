@@ -1,4 +1,5 @@
 import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
+import type { CommandTemplate } from '../types.js';
 import type { ChangeMetadata } from '../../openspec-workflow/types.js';
 
 export type WorkflowStage = 'analyze' | 'design' | 'plan' | 'implement' | 'new' | 'continue' | 'propose' | 'apply' | 'verify' | 'archive' | 'ff';
@@ -45,13 +46,53 @@ export function withOpenSpecWorkflowGuidance(instructions: string): string {
   return `${OPENSPEC_WORKFLOW_GUIDANCE}\n\n${instructions}`;
 }
 
+const DEVELOPMENT_ORCHESTRATION = `## 唯一开发入口
+
+所有正常开发请求都从这里进入。先解析当前 canonical workspace 和 Change；不存在 Change 时由 OpenSpec Core 内部执行 createChange() 与 allocateChangeId()，存在 Change 时执行 resolveChange()，不得让用户在多个阶段 Skill 之间选择。
+
+### 领域治理由 OpenSpec Core 负责
+
+Core 内部负责模块解析、Requirement/Scenario ID 分配、captureBaseline()、detectStale()、状态迁移、Traceability、Canonical Spec 校验、delta 应用和事务边界。assessSddLevel()、resolveSddProfile() 与 escalateSddLevel() 也属于 Core 策略；入口只读取其结果，不复制判断规则。
+
+### 工程方法由 Superpowers 负责
+
+- 需求不清或涉及新功能：调用 superpowers:brainstorming。
+- 需要多步实现：调用 superpowers:writing-plans，随后按计划串行执行。
+- 实现和修复：遵循 superpowers:test-driven-development 的 RED → GREEN → REFACTOR。
+- 遇到失败或异常行为：调用 superpowers:systematic-debugging。
+- 完成前：调用 superpowers:verification-before-completion；需要审查时使用 code review 技能。
+
+### 路由门禁
+
+1. 运行 openspec context --json，再运行 openspec status --change "<CHG-ID>" --json，读取 metadata、proposal、design、spec、tasks 和 verification 的实际路径。
+2. 先由 Core 检查 Change、模块、Requirement、baseline 和 status。若 baseline 为 STALE、存在多 Change 冲突或需要重建基线，立即转交 openspec-rebase-change。
+3. 规划阶段只写 canonical Change 规划产物；实现阶段只按 tasks 和 Superpowers 计划修改代码；验证阶段记录 Requirement、Scenario、Task 与命令证据。
+4. 完成后刷新 status。只有所有必要验证通过且 Core 报告可归档时，才转交 openspec-archive-change。
+5. 任何阶段都不得直接修改 Current Specification；Current Specification 只能由 archive 事务写入。`;
+
 export function getOpenSpecWorkflowSkillTemplate() {
   return {
     name: 'openspec-workflow',
     description: '将 OpenSpec code-spec 工作路由到 canonical Change 工作流。',
-    instructions: `${withOpenSpecWorkflowGuidance('当 Superpowers skill 操作 OpenSpec code-spec 工作时，使用此适配器。')}\n\n${STORE_SELECTION_GUIDANCE}`,
+    instructions: `${withOpenSpecWorkflowGuidance(DEVELOPMENT_ORCHESTRATION)}\n\n${STORE_SELECTION_GUIDANCE}`,
     license: 'MIT',
     compatibility: 'Requires openspec CLI.',
     metadata: { author: 'openspec', version: '1.0' },
   } as const;
+}
+
+export function getOpsxWorkflowCommandTemplate(): CommandTemplate {
+  return {
+    name: 'OPSX: Workflow',
+    description: '统一处理 OpenSpec Change 的开发生命周期',
+    category: 'Workflow',
+    tags: ['workflow', 'code-spec', 'canonical'],
+    content: `${withOpenSpecWorkflowGuidance(`
+统一处理一个 OpenSpec Change 的开发请求。
+
+${STORE_SELECTION_GUIDANCE}
+
+根据用户意图路由到分析、规划、实现或验证阶段：工程方法交给 Superpowers，Change、Requirement、Baseline、STALE 和状态事务交给 OpenSpec Core。发现 STALE、多 Change 冲突或需要重建基线时，转交 \`openspec-rebase-change\`；完成且验证通过后，转交 \`openspec-archive-change\`。不要直接修改 Current Specification。
+`)}`,
+  };
 }

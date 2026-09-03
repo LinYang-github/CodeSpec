@@ -6,6 +6,8 @@
 
 export type { SkillTemplate, CommandTemplate } from './types.js';
 
+// Legacy template exports remain source-compatible for CLI and migration tests;
+// they are intentionally not registered by the public generator.
 export { getExploreSkillTemplate, getOpsxExploreCommandTemplate } from './workflows/explore.js';
 export { getNewChangeSkillTemplate, getOpsxNewCommandTemplate } from './workflows/new-change.js';
 export { getContinueChangeSkillTemplate, getOpsxContinueCommandTemplate } from './workflows/continue-change.js';
@@ -19,4 +21,5 @@ export { getVerifyChangeSkillTemplate, getOpsxVerifyCommandTemplate } from './wo
 export { getOnboardSkillTemplate, getOpsxOnboardCommandTemplate } from './workflows/onboard.js';
 export { getOpsxProposeSkillTemplate, getOpsxProposeCommandTemplate } from './workflows/propose.js';
 export { getFeedbackSkillTemplate } from './workflows/feedback.js';
-export { OPENSPEC_WORKFLOW_GUIDANCE, getOpenSpecWorkflowSkillTemplate, getStageAdapterGuidance, getUnsupportedStageGuidance, renderCanonicalChangeContext, withOpenSpecWorkflowGuidance } from './workflows/openspec-workflow.js';
+export { getRebaseChangeSkillTemplate, getOpsxRebaseCommandTemplate } from './workflows/rebase-change.js';
+export { OPENSPEC_WORKFLOW_GUIDANCE, getOpenSpecWorkflowSkillTemplate, getOpsxWorkflowCommandTemplate, getStageAdapterGuidance, getUnsupportedStageGuidance, renderCanonicalChangeContext, withOpenSpecWorkflowGuidance } from './workflows/openspec-workflow.js';

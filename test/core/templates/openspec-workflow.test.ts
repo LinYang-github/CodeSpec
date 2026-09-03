@@ -1,16 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { getOpsxProposeSkillTemplate } from '../../../src/core/templates/skill-templates.js';
+import { getOpenSpecWorkflowSkillTemplate } from '../../../src/core/templates/skill-templates.js';
 import { getSkillTemplates, getCommandContents } from '../../../src/core/shared/skill-generation.js';
 import { renderCanonicalChangeContext } from '../../../src/core/templates/workflows/openspec-workflow.js';
 import { createWorkflowFixture } from '../../helpers/openspec-workflow.js';
 
 describe('openspec-workflow integration', () => {
   it('routes OpenSpec code-spec work through openspec-workflow', () => {
-    const content = getOpsxProposeSkillTemplate().instructions;
+    const content = getOpenSpecWorkflowSkillTemplate().instructions;
     expect(content).toContain('openspec-workflow');
     expect(content).toContain('CHG-');
     expect(content).toContain('metadata.yaml');
     expect(content).not.toContain('docs/superpowers/specs/');
+  });
+
+  it('keeps development orchestration in the single workflow entry', () => {
+    const content = getOpenSpecWorkflowSkillTemplate().instructions;
+    expect(content).toContain('createChange()');
+    expect(content).toContain('resolveChange()');
+    expect(content).toContain('superpowers:brainstorming');
+    expect(content).toContain('superpowers:writing-plans');
+    expect(content).toContain('Current Specification');
+    expect(content).toContain('openspec-rebase-change');
+    expect(content).toContain('openspec-archive-change');
   });
 
   it('injects concrete canonical context resolution into every lifecycle surface', () => {
@@ -42,11 +53,10 @@ describe('openspec-workflow integration', () => {
     await fixture.cleanup();
   });
 
-  it('does not map unsupported workflows to continue guidance', () => {
-    for (const workflowId of ['update', 'sync', 'onboard']) {
-      const template = getSkillTemplates().find(entry => entry.workflowId === workflowId)!.template.instructions;
-      expect(template).toContain(`不支持的 canonical 阶段：${workflowId}`);
-      expect(template).not.toContain('### continue stage adapter');
-    }
+  it('does not expose retired phase-specific skill entries', () => {
+    const ids = getSkillTemplates().map((entry) => entry.workflowId);
+    expect(ids).toEqual(['workflow', 'rebase', 'archive']);
+    expect(ids).not.toContain('sync');
+    expect(ids).not.toContain('apply');
   });
 });
