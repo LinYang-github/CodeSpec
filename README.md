@@ -36,7 +36,7 @@
 > [!TIP]
 > **默认工作流是 `code-spec`。** OpenSpec 使用产物驱动的工作流。
 >
-> 在 AI 对话中运行 `/opsx:propose "你的想法"` 开始。→ [了解工作流](docs/opsx.md)
+> 在 AI 对话中运行 `/opsx:workflow "你的想法"` 开始。→ [了解工作流](docs/opsx.md)
 
 > [!WARNING]
 > **`code-spec` 迁移边界：**规范目录为 `openspec/business.md`、`openspec/changes/CHG-YYYYMMDD-NNN/`、`openspec/archive/specs/` 和 `openspec/archive/changes/`。使用 `openspec new change` 创建 Change，使用 `openspec archive CHG-...` 显式归档。旧 Change 标识、slug 目录和 `.openspec.yaml` 不再兼容。旧文件可以保留，但不会被新的 canonical 工作流读取。只有显式指定时才使用通用 Schema 工作流。
@@ -45,36 +45,29 @@
   Follow <a href="https://x.com/0xTab">@0xTab on X</a> for updates · Join the <a href="https://discord.gg/YctCnvvshC">OpenSpec Discord</a> for help and questions.
 </p>
 
-<!-- TODO: Add GIF demo of /opsx:propose → /opsx:archive workflow -->
+<!-- TODO: Add GIF demo of /opsx:workflow → /opsx:archive workflow -->
 
 ## 使用示例
 
 ```text
-You: /opsx:explore
-AI:  What would you like to explore?
-You: I want dark mode but I'm not sure how to do it cleanly.
-AI:  Let me look at your styling setup...
-     Cleanest path here: CSS variables + a small theme context,
-     with system-preference detection. No new dependencies. Scope it?
-You: Yes, let's do it.
-
-You: /opsx:propose add-dark-mode
+You: /opsx:workflow add-dark-mode
 AI:  Created openspec/changes/CHG-YYYYMMDD-NNN/
      ✓ proposal.md — why we're doing this, what's changing
-     ✓ specs/       — requirements and scenarios
+     ✓ spec.md      — requirement deltas and scenarios
      ✓ design.md    — technical approach
      ✓ tasks.md     — implementation checklist
      Ready for implementation!
 
-You: /opsx:apply
-AI:  Implementing tasks...
+AI:  Implementing tasks with TDD...
      ✓ 1.1 Add theme context provider
      ✓ 1.2 Create toggle component
      ✓ 2.1 Add CSS variables
      ✓ 2.2 Wire up localStorage
-     All tasks complete!
+     All tasks complete and verified!
 
 You: /opsx:archive
+AI:  Current Specification updated and Change archived.
+
 AI:  Archived explicitly to openspec/archive/changes/CHG-YYYYMMDD-NNN/
      Specs updated. Ready for the next feature.
 ```
@@ -98,7 +91,7 @@ defaulting to the system preference.
 
 Your AI writes these; you review the plan before any code is written.
 
-OpenSpec is built with OpenSpec — browse this repo's live [specs](openspec/specs) and in-flight [changes](openspec/changes) for real examples at scale.
+OpenSpec is built with OpenSpec — browse this repo's live [Current Specification](openspec/archive/specs) and in-flight [changes](openspec/changes) for real examples at scale.
 
 </details>
 
@@ -115,7 +108,7 @@ OpenSpec is built with OpenSpec — browse this repo's live [specs](openspec/spe
 
 Solo, OpenSpec keeps you and your AI honest on a single repo. On a team, the hard part moves: a feature spans the API server, the web app, and a shared library; requirements are owned by one team and consumed by others; planning starts before any code exists.
 
-**[Stores](docs/stores-beta/user-guide.md)** are the answer — planning in a repo of its own. The same `openspec/` shape you already know (specs and changes), shared by `git push` like anything else. One source of truth your whole team and every coding agent can read, across every repo.
+**[Stores](docs/stores-beta/user-guide.md)** are the answer — planning in a repo of its own. The same `openspec/` shape you already know (Current Specification and changes), shared by `git push` like anything else. One source of truth your whole team and every coding agent can read, across every repo.
 
 - **Cross-repo features** — one change, one plan, even when the code lands in three repos.
 - **Shared requirements** — a platform team owns the specs; product teams reference them read-only, right where their coding agent can read them. No drifting wiki.
@@ -144,12 +137,11 @@ openspec init
 
 然后在 AI 对话中使用：
 
-- **还不确定做什么：**先运行 `/opsx:explore`，让 AI 读取代码、比较方案并整理计划。（[Explore 指南](docs/explore.md)）
-- **已经明确目标：**直接运行 `/opsx:propose <what-you-want-to-build>`。
+- **开发：**运行 `/opsx:workflow <what-you-want-to-build>`。
+- **STALE 恢复：**运行 `/opsx:rebase`。
+- **完成归档：**运行 `/opsx:archive`。
 
-Both are in the default profile. If you want the expanded workflow (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:verify`, `/opsx:bulk-archive`, `/opsx:onboard`), select it with `openspec config profile` and apply with `openspec update`.
-
-`/opsx:propose` is the canonical name; your tool may spell it `/opsx-propose` (Cursor, GitHub Copilot), `@opsx-propose` (Amazon Q) or `$openspec-propose` (Codex). `openspec init` prints the right form for the tools you picked — see [How To Invoke](docs/supported-tools.md#how-to-invoke).
+OpenSpec exposes three AI entries: `openspec-workflow` for development, `openspec-rebase-change` for STALE recovery, and `openspec-archive-change` for the final Current Specification update. The exact invocation varies by tool; `openspec init` prints the usable form. See [How To Invoke](docs/supported-tools.md#how-to-invoke).
 
 > [!NOTE]
 > Not sure if your tool is supported? [View the full list](docs/supported-tools.md) – we support 30+ tools and growing.
@@ -158,10 +150,10 @@ Both are in the default profile. If you want the expanded workflow (`/opsx:new`,
 
 ## 文档
 
-**从这里开始：**[文档首页](docs/README.md)提供完整导航。第一次使用 OpenSpec？先读[快速入门](docs/getting-started.md)，再读[命令如何工作](docs/how-commands-work.md)，了解 `/opsx:propose` 应该在哪输入。
+**从这里开始：**[文档首页](docs/README.md)提供完整导航。第一次使用 OpenSpec？先读[快速入门](docs/getting-started.md)，再读[AI entries](docs/commands.md)，了解三个公开入口。
 
 → **[Getting Started](docs/getting-started.md)**: first steps<br>
-→ **[Explore First](docs/explore.md)**: think it through with `/opsx:explore` before you commit<br>
+→ **[AI entries](docs/commands.md)**: use `workflow`, `rebase`, and `archive`<br>
 → **[How Commands Work](docs/how-commands-work.md)**: where slash commands run vs the CLI<br>
 → **[Core Concepts at a Glance](docs/overview.md)**: the whole mental model, one page<br>
 → **[Examples & Recipes](docs/examples.md)**: real changes, start to finish<br>

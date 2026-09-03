@@ -3,9 +3,9 @@
 **The one thing to know: OpenSpec has two kinds of commands, and they run in two different places.**
 
 - `openspec ...` commands run in your **terminal**. (Example: `openspec init`.)
-- `/opsx:...` commands run in your **AI assistant's chat**. (Example: `/opsx:propose`.)
+- The three OpenSpec entries run in your **AI assistant's chat**. (Example: `/opsx:workflow`.)
 
-If you ever type `/opsx:propose` into your terminal and nothing happens, this page is why. You are talking to the wrong half of OpenSpec. Slash commands are not terminal commands. They are instructions you give to your AI coding assistant, in the same chat box where you'd normally type "add a login form."
+If you ever type `/opsx:workflow` into your terminal and nothing happens, this page is why. You are talking to the wrong half of OpenSpec. AI entries are not terminal commands. They are instructions you give to your AI coding assistant, in the same chat box where you'd normally type "add a login form."
 
 That single distinction is the most common stumbling block for new users, so let's make it crystal clear.
 
@@ -21,11 +21,11 @@ openspec list        # see active changes
 openspec view        # open the interactive dashboard
 ```
 
-**The slash commands (chat half).** Short commands like `/opsx:propose` and `/opsx:apply` that you type into your AI assistant. These tell the AI to follow the OpenSpec workflow: draft a proposal, write specs, build from the task list, archive when done. You type these into Claude Code, Cursor, Devin Desktop, Copilot, or whichever assistant you use.
+**The AI entries (chat half).** The public entries `workflow`, `rebase`, and `archive` that you type into your AI assistant. Core performs domain governance. Superpowers performs brainstorming, planning, TDD, debugging, verification, and review.
 
 ```text
-/opsx:propose add-dark-mode    (typed in your AI chat)
-/opsx:apply                    (typed in your AI chat)
+/opsx:workflow add-dark-mode   (typed in your AI chat)
+/opsx:rebase                   (typed in your AI chat when STALE)
 /opsx:archive                  (typed in your AI chat)
 ```
 
@@ -34,8 +34,8 @@ Here's the mental model in one picture:
 ```text
         YOUR TERMINAL                         YOUR AI ASSISTANT'S CHAT
    ┌──────────────────────┐               ┌──────────────────────────────┐
-   │  $ openspec init     │   installs    │  /opsx:propose add-dark-mode  │
-   │  $ openspec list     │  ──────────►  │  /opsx:apply                  │
+   │  $ openspec init     │   installs    │  /opsx:workflow add-dark-mode │
+   │  $ openspec list     │  ──────────►  │  /opsx:rebase                  │
    │  $ openspec view     │   commands    │  /opsx:archive                │
    └──────────────────────┘    & skills   └──────────────────────────────┘
         run openspec here                       run /opsx:* here
@@ -52,8 +52,8 @@ You don't enter a special OpenSpec mode. You just open your AI coding assistant 
 So the real instructions are:
 
 1. Open your AI coding assistant (Claude Code, Cursor, Devin Desktop, and so on) in your project.
-2. Type `/opsx:propose` in its chat, the same place you type any other request.
-3. Watch the autocomplete: if OpenSpec is installed, you'll see `/opsx:propose`, `/opsx:apply`, and friends appear as you type the slash.
+2. Type `/opsx:workflow` in its chat, the same place you type any other request.
+3. Watch the autocomplete: if OpenSpec is installed, you'll see the tool-specific forms of `workflow`, `rebase`, and `archive` as you type.
 
 That's it. No mode to toggle, no daemon to launch, no separate window.
 
@@ -65,7 +65,7 @@ It's worth understanding, because it explains why OpenSpec works with 30+ differ
 
 The CLI is the **engine**. It knows the rules: what a change folder looks like, which artifacts depend on which, how to merge a delta spec into your source of truth. It's the same everywhere.
 
-The slash commands are the **steering wheel**, and every AI tool has a slightly different one. Claude Code calls them commands. Cursor and Devin Desktop have their own formats. Some tools call them skills. When you run `openspec init`, OpenSpec generates the right kind of file for each tool you selected, so the same `/opsx:propose` intent works no matter which assistant you prefer.
+The AI entries are the **steering wheel**, and every AI tool has a slightly different spelling. When you run `openspec init`, OpenSpec generates the right kind of file for each tool you selected.
 
 The strength of this design: you learn the workflow once and carry it across tools. The tradeoff: the exact syntax of a command can differ slightly between tools, which is the next section.
 
@@ -75,25 +75,22 @@ The intent is identical everywhere. The spelling follows the file your tool load
 
 | Your tool's command file | How you type it | Example tools |
 |--------------------------|-----------------|---------------|
-| `.../commands/opsx/<id>.*` | `/opsx:propose` | Claude Code, Gemini CLI, Crush |
-| `.../opsx-<id>.*` | `/opsx-propose` | Cursor, GitHub Copilot (IDE), Devin Desktop, Trae, Oh My Pi |
-| `.amazonq/prompts/opsx-<id>.md` | `@opsx-propose` | Amazon Q Developer |
-| none — skills only | `/openspec-propose` | CodeArts, ForgeCode, Hermes, Mistral Vibe, Zed Agent, shared `.agents` |
-| none — Kimi Code | `/skill:openspec-propose` | Kimi Code |
-| none — Codex CLI | `$openspec-propose` | Codex |
+| `.../commands/opsx/<id>.*` | `/opsx:workflow` | Claude Code, Gemini CLI, Crush |
+| `.../opsx-<id>.*` | `/opsx-workflow` | Cursor, GitHub Copilot (IDE), Devin Desktop, Trae, Oh My Pi |
+| `.amazonq/prompts/opsx-<id>.md` | `@opsx-workflow` | Amazon Q Developer |
+| none — skills only | `/openspec-workflow` | CodeArts, ForgeCode, Hermes, Mistral Vibe, Zed Agent, shared `.agents` |
+| none — Kimi Code | `/skill:openspec-workflow` | Kimi Code |
+| none — Codex CLI | `$openspec-workflow` | Codex |
 
 Devin is the one tool that spans two rows. Devin Desktop reads
-`.devin/workflows/`, so `/opsx-propose` works there; [Devin Local does
-not](https://docs.devin.ai/desktop/devin-local), so on that agent use the
-`/openspec-propose` skill instead. The skills OpenSpec writes to
-`.devin/skills/` work on both, which is why they reference each other by skill
-name.
+`.devin/workflows/`, while Devin Local uses the generated skill form. Both
+forms expose the same three public entries; use the invocation printed by
+`openspec init` for the tool you selected.
 
 Every tool is listed in [How To Invoke](supported-tools.md#how-to-invoke) — that
 table is the authoritative one. Two rows are not slash commands at all: Amazon Q
-loads its files into a prompt library invoked with `@`, and the last three rows
-use the *skill* name, which is not the command id (`/opsx:apply` is the
-`openspec-apply-change` skill).
+loads its files into a prompt library invoked with `@`, and the skills-only rows
+use the public skill name directly.
 
 When in doubt, read the "Getting started" line `openspec init` printed: it already
 uses the form your tools registered. Typing a slash and watching the autocomplete
@@ -121,20 +118,7 @@ Quick checks, fastest first:
 
 ## Which commands do I even have?
 
-By default, OpenSpec installs the **core** set of slash commands:
-
-- `/opsx:explore`: think through an idea with the AI before committing to a change (great first step when you're unsure)
-- `/opsx:propose`: create a change and draft all its planning artifacts in one step
-- `/opsx:apply`: build the change by working through its task list
-- `/opsx:update`: revise a change's planning artifacts and keep them coherent
-- `/opsx:sync`: merge a change's spec updates into your main specs (usually automatic)
-- `/opsx:archive`: finish a change and file it away
-
-A good default rhythm: `explore` when you're figuring out what to do, then `propose`, `apply`, `archive`. The [Explore First](explore.md) guide explains why that opening step pays off.
-
-There's also an **expanded** set for people who want finer control (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:verify`, `/opsx:bulk-archive`, `/opsx:onboard`). You turn it on with `openspec config profile`, then apply it with `openspec update`.
-
-New to all of this? `/opsx:onboard` (in the expanded set) walks you through a complete change on your own codebase, narrating each step. It's the friendliest possible introduction.
+By default, OpenSpec installs the three public entries: `workflow`, `rebase`, and `archive`. `workflow` is the normal development entry. `rebase` is for STALE or conflicts. `archive` is the only Current Specification write boundary.
 
 For what each command does in detail, see [Commands](commands.md). For when to reach for which, see [Workflows](workflows.md).
 
@@ -148,14 +132,11 @@ TERMINAL   $ cd your-project
 TERMINAL   $ openspec init
               (installs slash commands into your AI tool)
 
-AI CHAT      /opsx:explore
-              (optional: think the idea through with the AI first)
+AI CHAT      /opsx:workflow add-dark-mode
+              (Core and Superpowers route the Change)
 
-AI CHAT      /opsx:propose add-dark-mode
-              (AI drafts proposal, specs, design, tasks)
-
-AI CHAT      /opsx:apply
-              (AI builds it, checking off tasks)
+AI CHAT      /opsx:rebase
+              (only when Core reports STALE or a conflict)
 
 AI CHAT      /opsx:archive
               (change is merged into your specs and filed away)

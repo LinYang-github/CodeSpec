@@ -9,17 +9,17 @@ OpenSpec 让你和 AI 编码助手在写代码前就**对要构建的内容达�
 如果只读两页，请阅读：
 
 1. [Getting Started](getting-started.md): install, initialize, and ship your first change.
-2. [How Commands Work](how-commands-work.md): where you actually type `/opsx:propose` (hint: in your AI chat, not the terminal). This trips up almost everyone once.
+2. [How Commands Work](how-commands-work.md): where you type the three public OpenSpec entries in your AI chat, not the terminal.
 
 OpenSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用的 skills。区分两个入口可以避免最常见的使用错误。
 
-> **还不确定要构建什么时，先运行 `/opsx:explore`。**它会读取代码、比较方案，并在生成产物或代码前整理具体计划。请阅读[先 Explore](explore.md)。
+> **还不确定要构建什么时，先运行 `/opsx:workflow`。**它会把 brainstorming 和 planning 交给 Superpowers，再进入 CodeSpec Change 流程。
 
 ## 选择入口
 
 **第一次使用：**从[快速入门](getting-started.md)开始，再阅读[核心概念](overview.md)。遇到术语或疑问时，查看[FAQ](faq.md)和[术语表](glossary.md)。
 
-**有问题但没有计划：**阅读[先 Explore](explore.md)，使用 `/opsx:explore` 和 AI 一起梳理，再决定是否创建 Change。
+**有问题但没有计划：**使用 `/opsx:workflow`，让 Superpowers 在同一个开发入口内完成 brainstorming 和 planning。
 
 **I have a big existing codebase.** You don't document all of it. [Using OpenSpec in an Existing Project](existing-projects.md) shows how to start on real, brownfield code without boiling the ocean.
 
@@ -44,7 +44,7 @@ OpenSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用
 | Doc | What it gives you |
 |-----|-------------------|
 | [Getting Started](getting-started.md) | Install, initialize, and run your first change end to end |
-| [Explore First](explore.md) | Use `/opsx:explore` to think through an idea before you commit |
+| [AI entries](commands.md) | Use `workflow`, `rebase`, and `archive` as the three public entries |
 | [How Commands Work](how-commands-work.md) | Where slash commands run, what "interactive mode" means, terminal vs chat |
 | [Core Concepts at a Glance](overview.md) | The whole mental model on one page: specs, changes, deltas, archive |
 | [Installation](installation.md) | npm, pnpm, yarn, bun, Nix, a prompt that hands setup to your AI assistant, and how to verify it worked |
@@ -99,13 +99,12 @@ OpenSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用
 ```text
 1. Install        npm install -g @fission-ai/openspec@latest
 2. Initialize     cd your-project && openspec init
-3. Explore        (in your AI chat)  /opsx:explore           ← optional, but a great habit
-4. Propose        (in your AI chat)  /opsx:propose add-dark-mode
-5. Build          (in your AI chat)  /opsx:apply
-6. Archive        (in your AI chat)  /opsx:archive
+3. Develop        (in your AI chat)  /opsx:workflow add-dark-mode
+4. Recover        (in your AI chat)  /opsx:rebase              ← only when STALE
+5. Archive        (in your AI chat)  /opsx:archive
 ```
 
-步骤 1 和 2 在终端中执行，其他步骤在 AI 对话中执行。[命令如何工作](how-commands-work.md)详细说明了这个区别。步骤 3 可选，但不确定目标时先运行 `/opsx:explore` 很有帮助。
+步骤 1 和 2 在终端中执行，其他步骤在 AI 对话中执行。[命令如何工作](how-commands-work.md)详细说明了这个区别。
 
 ## 获取帮助
 

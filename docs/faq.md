@@ -26,7 +26,7 @@ No. OpenSpec works with 30+ assistants, including Claude Code, Cursor, Devin Des
 
 ## Running commands
 
-### Where do I type `/opsx:propose`?
+### Where do I type `/opsx:workflow`?
 
 In your AI assistant's chat, not your terminal. This is the single most common point of confusion, so it has its own page: [How Commands Work](how-commands-work.md). Short version: `openspec ...` runs in the terminal, `/opsx:...` runs in chat.
 
@@ -38,9 +38,9 @@ There isn't a separate mode to start. You open your AI assistant like normal and
 
 Most likely you typed it in the terminal instead of your AI chat, you used a spelling your tool doesn't register, or the commands aren't installed yet. If the files are missing — or you never set the tool up — run `openspec init`; `openspec update` only refreshes files that already exist. Then restart your assistant and use the form printed under "Getting started" — see [How To Invoke](supported-tools.md#how-to-invoke). [Troubleshooting](troubleshooting.md#commands-dont-show-up) has the full checklist.
 
-### Why is the syntax `/opsx:propose` in one tool and `/opsx-propose` in another?
+### Why is the syntax `/opsx:workflow` in one tool and `/opsx-workflow` in another?
 
-Each AI tool surfaces custom commands a little differently, and OpenSpec spells them the way your tool loads the file it wrote. A command file named `opsx-propose.md` is typed `/opsx-propose`; one filed under `commands/opsx/` is typed `/opsx:propose`. Tools that take skills instead of commands use the skill name — Codex needs `$openspec-propose`, Kimi Code `/skill:openspec-propose`. The `openspec init` "Getting started" line already prints the right form for the tools you picked; the full table is in [How To Invoke](supported-tools.md#how-to-invoke).
+Each AI tool surfaces the three public entries differently. A command file named `opsx-workflow.md` is typed `/opsx-workflow`; one filed under `commands/opsx/` is typed `/opsx:workflow`. Codex uses `$openspec-workflow`, and Kimi Code uses `/skill:openspec-workflow`. The `openspec init` "Getting started" line prints the right form for your tools.
 
 ### What's the difference between a skill and a command?
 
@@ -50,27 +50,27 @@ Both are files OpenSpec writes so your assistant can run the workflow. Skills (`
 
 ### Where should I start if I'm not sure what to build?
 
-With `/opsx:explore`. It's a no-stakes thinking partner that reads your codebase, lays out options, and turns a fuzzy problem into a concrete plan, all before any change or code exists. It's in the default profile, so it's always available. When the plan is clear, it hands off to `/opsx:propose`. This is the single best habit to form, because it stops an eager AI from confidently building the wrong thing. See [Explore First](explore.md).
+With `/opsx:workflow`. It delegates brainstorming and planning to Superpowers, then continues through implementation and verification.
 
 ### What's the simplest possible flow?
 
 ```text
-/opsx:explore (optional)   then   /opsx:propose <what you want>   then   /opsx:apply   then   /opsx:archive
+/opsx:workflow <what you want>   then   /opsx:archive
 ```
 
-Explore to think it through, propose to draft the plan, apply to build it, archive to file it away. Skip explore when you already know exactly what you want.
+The workflow entry routes the request through planning, implementation, and verification. Archive only after the Change is complete.
 
-### What's the difference between `/opsx:propose` and `/opsx:new`?
+### How does `/opsx:workflow` differ from the internal phases?
 
-`/opsx:propose` is the default one-step command: it creates the change and drafts all the planning artifacts at once. `/opsx:new` is part of the expanded command set and only scaffolds an empty change, leaving you to create artifacts one at a time with `/opsx:continue` (or all at once with `/opsx:ff`). Use propose unless you want step-by-step control. See [Commands](commands.md).
+`workflow` is the only development entry. Core resolves the Change, requirements, baseline, and state transitions. Superpowers supplies the engineering method for brainstorming, planning, TDD, debugging, verification, and review.
 
-### What are `core` and expanded profiles?
+### What does the `core` profile install?
 
-A profile decides which slash commands get installed. **Core** (the default) gives you `propose`, `explore`, `apply`, `update`, `sync`, `archive`. The **expanded** set adds `new`, `continue`, `ff`, `verify`, `bulk-archive`, and `onboard` for finer control. Switch with `openspec config profile`, then apply with `openspec update`.
+A profile decides which public entries get installed. **Core** installs `workflow`, `rebase`, and `archive`. Legacy CLI workflow IDs may remain in configuration for migration, but they normalize to the public entries before generation.
 
-### Do I need to run `/opsx:sync`?
+### Do I need to run a separate sync step?
 
-Usually not. Sync merges a change's delta specs into your main specs, and `/opsx:archive` will offer to do it for you. Run sync manually only when you want the specs merged before archiving, for example on a long-running change. See [Commands](commands.md#opsxsync).
+No. Current Specification updates are part of the `archive` Core transaction. The sync implementation remains an internal compatibility capability, not a public Skill entry.
 
 ### How do I edit a proposal, spec, or task after I've started?
 
@@ -78,11 +78,16 @@ Just edit the file. Every artifact is plain Markdown in `openspec/changes/<name>
 
 ### Can I go back and change the plan after implementing some of it?
 
-Yes, at any time. The workflow is fluid, so review and editing aren't phases you get locked out of. Edit the artifact, then continue. If you want a structured check that the code still matches the plan, run `/opsx:verify`. See [Editing & Iterating on a Change](editing-changes.md#how-do-i-go-back-to-review-after-implementing).
+Yes, at any time. Edit the artifact, then return to `/opsx:workflow`. Use
+Superpowers verification and let Core re-check traceability and baseline
+freshness. See [Editing & Iterating on a Change](editing-changes.md).
 
 ### I edited the code by hand. How do I reconcile it with the spec?
 
-Bring them back in sync before you archive, since archiving makes your specs the record of truth. If the code is now correct, update the delta spec to match what you shipped; if the spec is correct, keep building until the code agrees. `/opsx:verify` surfaces the mismatches. See [Editing & Iterating on a Change](editing-changes.md#i-edited-the-code-by-hand-how-do-i-reconcile-that-with-openspec).
+Bring them back in sync before you archive, since archiving makes the Current
+Specification the record of truth. If the code is correct, update the delta and
+verification evidence; if the spec is correct, keep building until the code
+agrees. See [Editing & Iterating on a Change](editing-changes.md).
 
 ### When should I update an existing change versus start a new one?
 
@@ -90,7 +95,10 @@ Update when it's the same work, refined. Start fresh when the intent fundamental
 
 ### What if my session runs out of context, or requirements change mid-implementation?
 
-This is where specs earn their keep. Because the plan lives in files (not only in chat history), you can clear your context, start a fresh AI session, and pick up with `/opsx:apply`; it reads the artifacts and resumes from the first unchecked task. If requirements change, edit the artifacts to match the new reality and continue. Keeping a clean context window also produces better results; clear it before implementation.
+This is where specs earn their keep. Because the plan lives in files (not only
+in chat history), you can clear your context, start a fresh AI session, and
+pick up with `/opsx:workflow`; it resolves the active Change and resumes from
+the current task state. If requirements change, edit the artifacts and continue.
 
 ### Should I commit the `openspec/` folder to git?
 
@@ -108,7 +116,7 @@ A spec that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMO
 
 ### Where do archived changes go?
 
-To `openspec/changes/archive/YYYY-MM-DD-<name>/`, with all change artifacts preserved. The change moves out of your active list. A change that explicitly declares `retire_capabilities: true` can also delete a main capability spec when it removes that capability's final requirement.
+To `openspec/archive/changes/YYYY-MM-DD-<name>/`, with all Change artifacts preserved. The Change moves out of your active list. A Change that explicitly declares `retire_capabilities: true` can also delete a capability spec when it removes that capability's final requirement.
 
 ## Configuration and customization
 

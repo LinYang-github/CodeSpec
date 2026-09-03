@@ -5,7 +5,7 @@ This guide explains how OpenSpec works after you've installed and initialized it
 > **Where do I type these commands?** Two places, and mixing them up is the most common early stumble.
 >
 > - `openspec ...` commands (like `openspec init`) run in your **terminal**.
-> - `/opsx:...` commands (like `/opsx:propose`) run in your **AI assistant's chat**, the same box where you'd ask it to write code.
+> - The three OpenSpec entries run in your **AI assistant's chat**, the same box where you'd ask it to write code.
 >
 > There's no separate "interactive mode" to start. You just type the slash command in chat and your assistant takes it from there. Full explanation: [How Commands Work](how-commands-work.md).
 
@@ -16,17 +16,16 @@ The whole loop, with each step labeled by where it happens:
 ```text
 TERMINAL   $ npm install -g @fission-ai/openspec@latest
 TERMINAL   $ cd your-project && openspec init
-AI CHAT      /opsx:explore                    (optional: think it through first)
-AI CHAT      /opsx:propose add-dark-mode      (AI drafts the plan; you review it)
-AI CHAT      /opsx:apply                      (AI builds it)
-AI CHAT      /opsx:archive                    (specs updated, change filed away)
+AI CHAT      /opsx:workflow add-dark-mode     (start or continue the Change)
+AI CHAT      /opsx:rebase                      (only when the Change is STALE)
+AI CHAT      /opsx:archive                     (validate and archive the Change)
 ```
 
 Two terminal steps to set up, then you live in chat. The rest of this guide unpacks what each step does and what you'll see.
 
 **Don't want to do the terminal part yourself?** Paste the [setup prompt](installation.md#install-with-your-ai-assistant) into your assistant and it handles both lines, then reports what it created.
 
-> **Not sure what to build yet? Start with `/opsx:explore`.** It's a no-stakes thinking partner that reads your codebase, weighs options, and sharpens a fuzzy idea into a concrete plan, all before any artifact or code exists. When the picture is clear, it hands off to `/opsx:propose`. This is the single best habit for working with an AI that will otherwise confidently build the wrong thing. See the [Explore guide](explore.md).
+> **Not sure what to build yet? Start with `/opsx:workflow`.** The workflow entry delegates brainstorming and planning to Superpowers, then routes the approved Change through implementation and verification.
 
 ## How It Works
 
@@ -35,19 +34,14 @@ OpenSpec helps you and your AI coding assistant agree on what to build before an
 **Default quick path (core profile):**
 
 ```text
-/opsx:explore ──► /opsx:propose ──► /opsx:apply ──► /opsx:sync ──► /opsx:archive
-   (optional)
+/opsx:workflow ──► /opsx:rebase (when STALE) ──► /opsx:archive
 ```
 
-Start with `/opsx:explore` when you're figuring out what to do, or jump straight to `/opsx:propose` when you already know. Explore is in the default profile, so it's always there when you want it.
+Start with `/opsx:workflow` for every development request. Use `/opsx:rebase` only when Core reports STALE or an unresolved baseline conflict. Use `/opsx:archive` only after implementation and verification pass.
 
-**Expanded path (custom workflow selection):**
-
-```text
-/opsx:new ──► /opsx:ff or /opsx:continue ──► /opsx:apply ──► /opsx:verify ──► /opsx:archive
-```
-
-The default global profile is `core`, which includes `propose`, `explore`, `apply`, `update`, `sync`, and `archive`. You can enable the expanded workflow commands with `openspec config profile` and then `openspec update`.
+The default `core` profile installs the three public entries. Custom profile
+configuration may preserve legacy CLI workflow IDs, but OpenSpec normalizes
+them to these entries before generating skills.
 
 ## What OpenSpec Creates
 
@@ -55,7 +49,7 @@ After running `openspec init`, your project has this structure:
 
 ```
 openspec/
-├── specs/              # Source of truth (your system's behavior)
+├── archive/specs/      # Current Specification (system behavior)
 │   └── <domain>/
 │       └── spec.md
 ├── changes/            # Proposed updates (one folder per change)
@@ -63,17 +57,16 @@ openspec/
 │       ├── proposal.md
 │       ├── design.md
 │       ├── tasks.md
-│       └── specs/      # Delta specs (what's changing)
-│           └── <domain>/
-│               └── spec.md
+│       ├── spec.md     # Requirement deltas (what's changing)
+│       └── verification.md
 └── config.yaml         # Project configuration (optional)
 ```
 
 **Two key directories:**
 
-- **`specs/`** - The source of truth. These specs describe how your system currently behaves. Organized by domain (e.g., `specs/auth/`, `specs/payments/`).
+- **`archive/specs/`** - The Current Specification. These specs describe how your system currently behaves. Organized by domain (e.g., `archive/specs/auth/`, `archive/specs/payments/`).
 
-- **`changes/`** - Proposed modifications. Each change gets its own folder with all related artifacts. When a change is complete, its specs merge into the main `specs/` directory.
+- **`changes/`** - Proposed modifications. Each Change gets its own folder with all related artifacts. When a Change is complete, its delta merges into Current Specification through `/opsx:archive`.
 
 ## Understanding Artifacts
 
@@ -143,7 +136,7 @@ When you archive a change:
 2. **MODIFIED** requirements replace the existing version
 3. **REMOVED** requirements are deleted from the main spec
 
-The change folder moves to `openspec/changes/archive/` for audit history.
+The Change folder moves to `openspec/archive/changes/` for audit history.
 
 ## Example: Your First Change
 
@@ -152,17 +145,18 @@ Let's walk through adding dark mode to an application.
 ### 1. Start the Change (Default)
 
 ```text
-You: /opsx:propose add-dark-mode
+You: /opsx:workflow add-dark-mode
 
 AI:  Created openspec/changes/add-dark-mode/
      ✓ proposal.md — why we're doing this, what's changing
      ✓ specs/       — requirements and scenarios
      ✓ design.md    — technical approach
      ✓ tasks.md     — implementation checklist
-     Ready for implementation!
+     Ready for review and implementation!
 ```
 
-If you've enabled the expanded workflow profile, you can also do this as two steps: `/opsx:new` then `/opsx:ff` (or `/opsx:continue` incrementally).
+The workflow may call Superpowers brainstorming and writing-plans internally;
+there is no second public planning entry.
 
 ### 2. What Gets Created
 
@@ -230,7 +224,7 @@ The system SHALL allow users to choose between light and dark themes.
 ### 3. Implement
 
 ```
-You: /opsx:apply
+You: /opsx:workflow
 
 AI:  Working through tasks...
      ✓ 1.1 Created ThemeContext with light/dark state
@@ -238,7 +232,7 @@ AI:  Working through tasks...
      ✓ 1.3 Implemented localStorage persistence
      ✓ 2.1 Created ThemeToggle component
      ...
-     All tasks complete!
+     All tasks complete; verification evidence recorded.
 ```
 
 During implementation, if you discover the design needs adjustment, just update the artifact and continue.
@@ -249,12 +243,12 @@ During implementation, if you discover the design needs adjustment, just update 
 You: /opsx:archive
 
 AI:  Archiving add-dark-mode...
-     ✓ Merged specs into openspec/specs/ui/spec.md
-     ✓ Moved to openspec/changes/archive/2025-01-24-add-dark-mode/
+     ✓ Merged the delta into openspec/archive/specs/ui/spec.md
+     ✓ Moved to openspec/archive/changes/2025-01-24-add-dark-mode/
      Done! Ready for the next feature.
 ```
 
-Your delta specs are now part of the main specs, documenting how your system works.
+Your delta is now part of Current Specification, documenting how your system works.
 
 ## Verifying and Reviewing
 
@@ -276,7 +270,7 @@ openspec view
 
 ## Next Steps
 
-- [Explore First](explore.md) - Use `/opsx:explore` to think through an idea before you commit
+- [Explore First](explore.md) - Clarify an idea through Superpowers inside `workflow`
 - [Reviewing a Change](reviewing-changes.md) - What to check in the plan the AI drafts, before any code
 - [Writing Good Specs](writing-specs.md) - What a strong requirement and scenario look like
 - [Using OpenSpec in an Existing Project](existing-projects.md) - Start on a large brownfield codebase

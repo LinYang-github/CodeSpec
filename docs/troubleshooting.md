@@ -39,9 +39,10 @@ The full list of tool IDs is in [Supported Tools](supported-tools.md). Use `--to
 
 ## Commands don't show up
 
-If `/opsx:propose` (or your tool's equivalent) doesn't appear or doesn't do anything, work down this list. They're ordered fastest-to-check first.
+If `/opsx:workflow` (or your tool's equivalent) doesn't appear or doesn't do
+anything, work down this list. They're ordered fastest-to-check first.
 
-1. **You may be in the wrong place.** Slash commands go in your AI assistant's chat, not your terminal. If you typed `/opsx:propose` into your shell, that's the issue. See [How Commands Work](how-commands-work.md).
+1. **You may be in the wrong place.** Slash commands go in your AI assistant's chat, not your terminal. If you typed `/opsx:workflow` into your shell, that's the issue. See [How Commands Work](how-commands-work.md).
 
 2. **Regenerate the files.** From your project root:
 
@@ -59,7 +60,7 @@ If `/opsx:propose` (or your tool's equivalent) doesn't appear or doesn't do anyt
 
 5. **Check you initialized this project.** Skills are written per project. If you cloned a repo or switched folders, run `openspec init` (or `openspec update`) there.
 
-6. **Confirm your tool supports command files.** Codex, CodeArts, ForgeCode, Hermes, Kimi Code, Mistral Vibe, Zed Agent, and the shared `.agents` target don't get generated `opsx-*` command files; they use skill-based invocations instead, so `/opsx` will never autocomplete for them. Type `$openspec-propose` in Codex, `/skill:openspec-propose` in Kimi Code, and `/openspec-propose` in the rest. The shared `.agents` target is vendor-neutral, so `/openspec-propose` is the common form rather than a guaranteed one — if your assistant does not answer to it, check its own docs for how it invokes a skill. Amazon Q does get command files, but loads them into its prompt library rather than its slash menu — type `@opsx-propose` there, not `/opsx`. Every tool's form is listed in [How To Invoke](supported-tools.md#how-to-invoke).
+6. **Confirm your tool supports command files.** Some tools use generated command files and others use skills. On skills-only tools, use the public skill names `openspec-workflow`, `openspec-rebase-change`, and `openspec-archive-change` in the form listed in [How To Invoke](supported-tools.md#how-to-invoke). Amazon Q uses its prompt-library form. Every tool's form is listed in the same table.
 
 ## Working with changes
 
@@ -69,7 +70,7 @@ The command couldn't tell which change you meant. Name it explicitly, or check w
 
 ```bash
 openspec list                    # see active changes
-/opsx:apply add-dark-mode        # name the change in chat
+/opsx:workflow add-dark-mode      # name the change in chat
 ```
 
 Also confirm you're in the right project directory.
@@ -103,7 +104,7 @@ One message deserves its own note:
 MODIFIED "<requirement>" omits scenario(s) the current spec still has: "<scenario>"
 ```
 
-A `MODIFIED` requirement replaces the whole requirement block, so it has to carry every scenario that survives the change, not only the ones you edited. Copy the named scenarios from `openspec/specs/<capability-path>/spec.md` back into the delta, preserving any domain directories in the path. This often appears on an older change after someone else's change added a scenario to the same requirement — archive refuses that change either way, and validation now says so before you implement it.
+A `MODIFIED` requirement replaces the whole requirement block, so it has to carry every scenario that survives the Change, not only the ones you edited. Copy the named scenarios from `openspec/archive/specs/<capability-path>/spec.md` back into the delta, preserving any domain directories in the path. This often appears after another Change added a scenario to the same requirement — archive refuses that Change either way, and validation now says so before implementation.
 
 ### The AI created incomplete or wrong artifacts
 
@@ -111,12 +112,15 @@ The AI didn't have enough context. A few levers help:
 
 - Add project context in `openspec/config.yaml` so your stack and conventions are injected into every request. See [Customization](customization.md#project-configuration).
 - Add per-artifact `rules:` for guidance that only applies to, say, specs.
-- Give a more detailed description when you propose.
-- Use the expanded `/opsx:continue` to create one artifact at a time and review each, instead of `/opsx:ff` doing them all at once.
+- Give `/opsx:workflow` a more detailed description and constraints.
+- Ask Superpowers brainstorming or writing-plans for an incremental review when the Change is complex.
 
 ### Archive won't finish, or warns about incomplete tasks
 
-Archive won't *block* on incomplete tasks, but it warns you, because archiving usually means the work is done. If tasks remain on purpose (you're filing a partial change), proceed. Otherwise finish the tasks first. Archive will also offer to sync your delta specs into the main specs if you haven't synced yet; say yes unless you have a reason not to.
+Archive warns about incomplete tasks because archiving normally means the work
+is done. Finish the tasks and collect fresh verification evidence first. The
+archive transaction applies the delta to Current Specification; there is no
+separate public sync step.
 
 ### "User force closed the prompt with 0 null"
 

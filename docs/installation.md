@@ -68,10 +68,9 @@ order, and stop where a step tells you to stop.
    not a failure on its own. If init said nothing was generated, relay the fix
    it suggested instead of retrying. Finish by telling me how to invoke OpenSpec
    in my tool, and take the exact spelling from the files init created rather
-   than from its summary line: the punctuation differs per tool (/opsx:propose
-   in some, /opsx-propose in others, @opsx-propose in Amazon Q), and tools that
-   get skills instead of commands are invoked by skill name (/openspec-propose,
-   or $openspec-propose in Codex, or /skill:openspec-propose in Kimi Code).
+   than from its summary line. The public entries are workflow, rebase, and
+   archive. Tool-specific examples include /opsx:workflow, /opsx-workflow,
+   @opsx-workflow, $openspec-workflow, and /skill:openspec-workflow.
 ```
 
 Nothing in the prompt is vendor-specific: it's plain instructions plus the same commands documented on this page. It works on macOS, Linux, and Windows, and it deliberately stops rather than improvising when a step needs your permission. Your assistant does need to be able to run shell commands — a few IDE integrations can't.
@@ -188,7 +187,7 @@ npm uninstall -g @fission-ai/openspec   # or: pnpm rm -g / yarn global remove / 
 rm -rf openspec/
 ```
 
-Think before you do this: `openspec/specs/` and `openspec/changes/archive/` are your record of how the system behaves and why it changed. If you might want that history, keep the folder (or keep it in git) even after uninstalling.
+Think before you do this: `openspec/archive/specs/` and `openspec/archive/changes/` are your record of how the system behaves and why it changed. If you might want that history, keep the folder (or keep it in git) even after uninstalling.
 
 **3. Remove generated AI tool files (optional).** OpenSpec writes skill and command files into per-tool directories like `.claude/skills/openspec-*/`, `.cursor/commands/opsx-*`, and so on. Delete the `openspec-*` skills and `opsx-*` commands for whichever tools you configured. The exact paths per tool are listed in [Supported Tools](supported-tools.md).
 

@@ -11,19 +11,13 @@ For each selected tool, OpenSpec can install:
 
 Codex is skills-only: OpenSpec installs `.agents/skills/openspec-*/SKILL.md` for Codex even when delivery is set to `commands`, and it does not generate Codex custom prompt files. Existing OpenSpec-managed skills under the legacy `.codex/skills` path are reconciled after their replacements are written; custom and divergent files are preserved.
 
-By default, OpenSpec uses the `core` profile, which includes:
-- `propose`
-- `explore`
-- `apply`
-- `update`
-- `sync`
-- `archive`
-
-You can enable expanded workflows (`new`, `continue`, `ff`, `verify`, `bulk-archive`, `onboard`) via `openspec config profile`, then run `openspec update`.
+By default, OpenSpec uses the `core` profile, which installs three public
+entries: `workflow`, `rebase`, and `archive`. Core operations and engineering
+methods run inside those entries.
 
 ## How To Invoke
 
-These docs use `/opsx:propose` as the canonical name, but each tool spells it the
+These docs use `/opsx:workflow` as the canonical example, but each tool spells it the
 way it loads the file OpenSpec wrote. Find your tool's command path in the
 [Tool Directory Reference](#tool-directory-reference) below, then match its shape here.
 
@@ -37,8 +31,9 @@ way it loads the file OpenSpec wrote. Find your tool's command path in the
 | none — Kimi Code | `/skill:openspec-<skill>` | Kimi Code |
 | none — Codex CLI | `$openspec-<skill>` | Codex ([`/openspec-<skill>` is not recognized](https://github.com/openai/codex/issues/11817)) |
 
-So `/opsx:propose` is `/opsx-propose` in Cursor, `@opsx-propose` in Amazon Q, and
-`$openspec-propose` in Codex.
+So `/opsx:workflow` is `/opsx-workflow` in Cursor, `@opsx-workflow` in Amazon Q,
+and `$openspec-workflow` in Codex. The same tool-specific spelling applies to
+`rebase` and `archive`.
 
 Two things vary independently, which is why the rows do not collapse:
 
@@ -49,7 +44,7 @@ Two things vary independently, which is why the rows do not collapse:
   `@`. Skills-only tools generate no command files at all, so their last three
   rows use *skill* names — listed under
   [Generated Skill Names](#generated-skill-names) — which do not map one-to-one
-  onto command ids (`/opsx:apply` is the `openspec-apply-change` skill).
+onto the public entries (`/opsx:workflow` is the `openspec-workflow` skill).
 
 The command path patterns above are extension-neutral (`.*`) on purpose: the
 extension is the tool's (`.toml` for Gemini CLI, `.prompt` for Continue,
@@ -97,7 +92,7 @@ to read the hint.
 | Pi (`pi`) | `.pi/skills/openspec-*/SKILL.md` | `.pi/prompts/opsx-<id>.md` |
 | Qoder (`qoder`) | `.qoder/skills/openspec-*/SKILL.md` | `.qoder/commands/opsx/<id>.md` |
 | Qwen Code (`qwen`) | `.qwen/skills/openspec-*/SKILL.md` | `.qwen/commands/opsx-<id>.md` |
-| [Rovo Dev CLI](https://support.atlassian.com/rovo/docs/use-rovo-dev-cli/) (`rovodev`) | `.rovodev/skills/openspec-*/SKILL.md` | Not generated. Rovo has no slash-command surface — it matches skills automatically or by prompt (e.g. "use the openspec-propose skill"); `/skills` only manages them. Generated content references skills by name, never as `/openspec-*` commands. |
+| [Rovo Dev CLI](https://support.atlassian.com/rovo/docs/use-rovo-dev-cli/) (`rovodev`) | `.rovodev/skills/openspec-*/SKILL.md` | Not generated. Rovo has no slash-command surface. Ask it to use the `openspec-workflow` skill; `/skills` only manages skills. |
 | [Zoo Code](https://github.com/Zoo-Code-Org/Zoo-Code) (`roocode`) | `.roo/skills/openspec-*/SKILL.md` | `.roo/commands/opsx-<id>.md` |
 | Trae (`trae`) | `.trae/skills/openspec-*/SKILL.md` | `.trae/commands/opsx-<id>.md` |
 | [Zed Agent](https://zed.dev/docs/ai/skills) (`zed`) | `.agents/skills/openspec-*/SKILL.md` | Not generated (skills-only; use `/openspec-*` or `@openspec-*`) |
@@ -106,7 +101,7 @@ to read the hint.
 
 \*\* GitHub Copilot prompt files are recognized as custom slash commands in IDE extensions (VS Code, JetBrains, Visual Studio). Copilot CLI does not currently consume `.github/prompts/*.prompt.md` directly. Selecting `github-copilot` can also set up the GitHub-hosted **cloud coding agent** — see [GitHub Copilot cloud coding agent](#github-copilot-cloud-coding-agent) below.
 
-\*\*\* Hermes loads skills from `~/.hermes/skills/` by default. To use project-local OpenSpec skills, add the project `.hermes/skills/` directory to `skills.external_dirs` in `~/.hermes/config.yaml`; Hermes then exposes skills with user-facing slash invocations such as `/openspec-propose`.
+\*\*\* Hermes loads skills from `~/.hermes/skills/` by default. To use project-local OpenSpec skills, add the project `.hermes/skills/` directory to `skills.external_dirs` in `~/.hermes/config.yaml`; Hermes then exposes skills with user-facing slash invocations such as `/openspec-workflow`.
 
 \*\*\*\* Windsurf was [rebranded to Devin Desktop](https://docs.devin.ai/desktop/devin-desktop-faq) on June 2, 2026, and its config directory moved: `.devin/` is the preferred read + write location, `.windsurf/` a legacy read-only fallback. OpenSpec follows the rename — the tool id is `devin`, and `--tools windsurf` still resolves to it so existing setup scripts keep working. A project still holding OpenSpec files in `.windsurf/` is offered the move on the next `openspec update`; declining leaves them in place, and files you wrote yourself are never touched. Workflows are invoked by filename, so `.devin/workflows/opsx-apply.md` is `/opsx-apply`. The [Devin Local agent does not support workflows](https://docs.devin.ai/desktop/devin-local) — only skills, and it does not read `.windsurf/` at all — so whenever OpenSpec writes Devin skills it keeps their bodies, and the getting-started hint, on `/openspec-*` skill invocations, which work on both agents. Under commands-only delivery no skills are written and both fall back to `/opsx-*`.
 
@@ -162,7 +157,7 @@ Two things to know:
   written; with a commands-inclusive delivery mode `openspec init` lists `agents`
   among the tools it reports under `Commands skipped for: … (no adapter)`.
   Invoke the workflows by skill name —
-  most assistants that read `.agents/skills` spell that `/openspec-propose`, the form
+  most assistants that read `.agents/skills` spell that `/openspec-workflow`, the form
   OpenSpec's setup hint prints. The target is vendor-neutral, so check your
   assistant's own docs if it uses another form.
 - **No `AGENTS.md` is created or edited.** The target is the `.agents/` directory.
@@ -230,18 +225,9 @@ In other words, skill/command counts are profile-dependent and delivery-dependen
 
 When selected by profile/workflow config, OpenSpec generates these skills:
 
-- `openspec-propose`
-- `openspec-explore`
-- `openspec-new-change`
-- `openspec-continue-change`
-- `openspec-apply-change`
-- `openspec-update-change`
-- `openspec-ff-change`
-- `openspec-sync-specs`
+- `openspec-workflow`
+- `openspec-rebase-change`
 - `openspec-archive-change`
-- `openspec-bulk-archive-change`
-- `openspec-verify-change`
-- `openspec-onboard`
 
 See [Commands](commands.md) for command behavior and [CLI](cli.md) for `init`/`update` options.
 

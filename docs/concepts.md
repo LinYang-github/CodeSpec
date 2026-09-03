@@ -45,7 +45,7 @@ For canonical `code-spec` workspaces (`openspec/config.yaml` with `schema: code-
 
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 
-This separation is key. You can work on multiple changes in parallel without conflicts. You can review a change before it affects the main specs. And when you archive a change, its deltas merge cleanly into the source of truth.
+This separation is key. You can work on multiple Changes in parallel without conflicts. You can review a Change before it affects Current Specification. When you archive a Change, Core applies its delta transactionally to the source of truth.
 
 ## Specs
 
@@ -499,7 +499,7 @@ See [Customization](customization.md) for full details on creating and using cus
 
 ## Archive
 
-Archiving completes a change by merging its delta specs into the main specs and preserving the change for history.
+Archiving completes a Change by applying its delta to Current Specification and preserving the Change for history.
 
 ### What Happens When You Archive
 
@@ -541,7 +541,7 @@ openspec/
 
 1. **Merge deltas.** Each delta spec section (ADDED/MODIFIED/REMOVED) is applied to the corresponding main spec.
 
-2. **Move to archive.** The change folder moves to `changes/archive/` with a date prefix for chronological ordering.
+2. **Move to archive.** The Change folder moves to `openspec/archive/changes/` with a date prefix for chronological ordering.
 
 3. **Preserve context.** All artifacts remain intact in the archive. You can always look back to understand why a change was made.
 
@@ -560,33 +560,33 @@ openspec/
 │                              OPENSPEC FLOW                                   │
 │                                                                              │
 │   ┌────────────────┐                                                         │
-│   │  1. START      │  /opsx:propose (core) or /opsx:new (expanded)           │
+│   │  1. START      │  /opsx:workflow                                        │
 │   │     CHANGE     │                                                         │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │
 │           ▼                                                                  │
 │   ┌────────────────┐                                                         │
-│   │  2. CREATE     │  /opsx:ff or /opsx:continue (expanded workflow)         │
-│   │     ARTIFACTS  │  Creates proposal → specs → design → tasks              │
+│   │  2. CREATE     │  Core + Superpowers create the Change artifacts         │
+│   │     ARTIFACTS  │  proposal → spec → design → tasks                       │
 │   │                │  (based on schema dependencies)                         │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │
 │           ▼                                                                  │
 │   ┌────────────────┐                                                         │
-│   │  3. IMPLEMENT  │  /opsx:apply                                            │
+│   │  3. IMPLEMENT  │  /opsx:workflow + Superpowers                           │
 │   │     TASKS      │  Work through tasks, checking them off                  │
 │   │                │◄──── Update artifacts as you learn                      │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │
 │           ▼                                                                  │
 │   ┌────────────────┐                                                         │
-│   │  4. VERIFY     │  /opsx:verify (optional)                                │
+│   │  4. VERIFY     │  Superpowers verification + Core validation              │
 │   │     WORK       │  Check implementation matches specs                     │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │
 │           ▼                                                                  │
 │   ┌────────────────┐     ┌──────────────────────────────────────────────┐    │
-│   │  5. ARCHIVE    │────►│  Delta specs merge into main specs           │    │
+│   │  5. ARCHIVE    │────►│  Delta applies to Current Specification       │    │
 │   │     CHANGE     │     │  Change folder moves to archive/             │    │
 │   └────────────────┘     │  Specs are now the updated source of truth   │    │
 │                          └──────────────────────────────────────────────┘    │
@@ -608,7 +608,7 @@ openspec/
 | Term | Definition |
 |------|------------|
 | **Artifact** | A document within a change (proposal, design, tasks, or delta specs) |
-| **Archive** | The process of completing a change and merging its deltas into main specs |
+| **Archive** | The process of completing a Change and applying its delta to Current Specification |
 | **Change** | A proposed modification to the system, packaged as a folder with artifacts |
 | **Delta spec** | A spec that describes changes (ADDED/MODIFIED/REMOVED) relative to current specs |
 | **Domain** | A logical grouping for specs (e.g., `auth/`, `payments/`) |

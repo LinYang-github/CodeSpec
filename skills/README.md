@@ -6,9 +6,20 @@ Install the OpenSpec workflow skills into any [skills.sh](https://skills.sh)-com
 npx skills add Fission-AI/OpenSpec
 ```
 
-Each `openspec-*/SKILL.md` here is the same skill `openspec init` writes into a
-project. The skills drive the `openspec` CLI, so for the full setup (CLI +
-`openspec/` project scaffolding + slash commands) run:
+The three generated entries are the public OpenSpec surface that `openspec init`
+writes into a project:
+
+- `openspec-workflow`: the only normal development entry;
+- `openspec-rebase-change`: the only STALE, baseline-recovery, and multi-Change
+  conflict entry;
+- `openspec-archive-change`: the only Current Specification archive entry.
+
+OpenSpec Core owns Change, Requirement, Baseline, STALE, validation, delta,
+conflict, and archive transactions. Superpowers owns engineering method skills
+such as brainstorming, planning, TDD, debugging, verification, and review.
+
+The skills drive the `openspec` CLI, so for the full setup (CLI + `openspec/`
+project scaffolding + tool integration) run:
 
 ```bash
 npx openspec@latest init

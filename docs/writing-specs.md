@@ -1,6 +1,6 @@
 # Writing Good Specs
 
-You rarely write a spec from a blank page. You describe a change in plain language, `/opsx:propose` drafts the requirements and scenarios, and then you make them good. This page is about that last part — what "good" looks like, and how to steer the AI toward it.
+You rarely write a spec from a blank page. You describe a change in plain language, `/opsx:workflow` routes planning through Core and Superpowers, and then you review the requirements and scenarios.
 
 It's the companion to [Reviewing a Change](reviewing-changes.md): reviewing is catching the weak spots in a draft, writing is knowing what a strong one is made of.
 
@@ -56,9 +56,9 @@ A change describes its edits to the specs with three section types. Using the ri
 - **`## MODIFIED Requirements`** — behavior that already existed and is changing. Include the full new version; a short note on what changed helps a reviewer.
 - **`## REMOVED Requirements`** — behavior going away, with a line on why.
 
-On archive, ADDED gets appended to the main spec, MODIFIED replaces the old version, and REMOVED is dropped from it. Remove the last requirement a capability has and you retire it: rather than leave a spec with nothing in it, archive deletes `openspec/specs/<capability>/spec.md`. Because that is the one archive step that removes a file, it has to be asked for — add `retire_capabilities: true` to the change's `.openspec.yaml`, alongside the `schema:` that file already needs. Without it the archive aborts and tells you so. Retirement deletes the whole file, so it is also refused while the spec holds anything outside its title, `## Purpose`, and its requirement blocks — a `## Notes` section, a comment under a requirement. The abort names those lines; move them into `## Purpose` or a requirement, or delete the spec by hand. For a spec in the caller's checkout, the archive output also names the `git checkout` that restores a committed file; selected stores receive checkout-scoped recovery guidance instead. If you mark a real change as ADDED, you end up with two competing requirements; if you describe new behavior as MODIFIED, there's nothing to replace. When in doubt, open the current spec and see whether the requirement is already there.
+On archive, ADDED gets appended to Current Specification, MODIFIED replaces the old version, and REMOVED is dropped from it. Remove the last requirement a capability has and you retire it: rather than leave a spec with nothing in it, archive deletes `openspec/archive/specs/<capability>/spec.md`. Because that is the one archive step that removes a file, it has to be asked for — add `retire_capabilities: true` to the Change's `.openspec.yaml`, alongside the `schema:` that file already needs. Without it the archive aborts and tells you so. If you mark a real Change as ADDED, you end up with two competing requirements; if you describe new behavior as MODIFIED, there's nothing to replace. When in doubt, open the current spec and see whether the requirement is already there.
 
-One more section is worth knowing about. When your delta creates a capability that doesn't exist yet, open it with `## Purpose` — a sentence or two on what the capability is for. Archive uses it as the Purpose of the main spec it creates; skip it and you get a `TBD` placeholder to fill in by hand. An existing spec already has a Purpose, so a delta's is ignored there — edit `openspec/specs/<capability-path>/spec.md` directly to change one. Here, `<capability-path>` is the directory relative to `specs/`, such as `user-auth` in a flat project or `identity/user-auth` in a project organized by domain.
+One more section is worth knowing about. When your delta creates a capability that doesn't exist yet, open it with `## Purpose` — a sentence or two on what the capability is for. Archive uses it as the Purpose of the Current Specification it creates; skip it and you get a `TBD` placeholder to fill in by hand. An existing spec already has a Purpose, so a delta's is ignored there — edit `openspec/archive/specs/<capability-path>/spec.md` directly to change one. Here, `<capability-path>` is the directory relative to `archive/specs/`, such as `user-auth` in a flat project or `identity/user-auth` in a project organized by domain.
 
 ## Right-size the change
 
@@ -79,7 +79,7 @@ The opposite also happens: a one-line typo fix doesn't need three requirements a
 
 ## How to steer the AI toward a good draft
 
-Because `/opsx:propose` does the first draft, the quality of what you get back tracks the quality of what you give it. You don't have to write requirements by hand — you have to aim the AI well:
+Because `workflow` creates the first draft, the quality of what you get back tracks the quality of what you give it. You don't have to write requirements by hand. Give the workflow a concrete scope and review its output:
 
 - **State the intent and the boundary.** *"Add a dark-mode toggle that follows the OS setting on first load — don't touch the existing theme API."* The out-of-scope half matters as much as the in-scope half.
 - **Name the cases you care about.** *"Make sure there's a scenario for a user who already picked a theme manually."* The AI covers what you point at.

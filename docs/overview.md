@@ -36,7 +36,7 @@ You can revisit any of them at any time. They're enablers, not gates. (More on t
 │                          openspec/                              │
 │                                                                 │
 │   ┌──────────────────┐         ┌──────────────────────────┐    │
-│   │     specs/       │         │        changes/          │    │
+│   │ archive/specs/   │         │        changes/          │    │
 │   │                  │ ◄─────  │                          │    │
 │   │ source of truth  │  merge  │ one folder per change    │    │
 │   │ how things work  │  on     │ proposal · design ·      │    │
@@ -46,21 +46,23 @@ You can revisit any of them at any time. They're enablers, not gates. (More on t
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Two folders. `specs/` is what's true. `changes/` is what you're proposing. Archiving moves a proposal into truth.
+Two folders. `openspec/archive/specs/` is what's true. `changes/` is what
+you're proposing. Archiving applies a delta to the Current Specification.
 
 ## The loop you'll actually run
 
-In the default setup, your day looks like this. Optionally think it through first; then one command drafts the plan, you read it, the next builds it, and the last files it away.
+In the default setup, your day uses one development entry and two recovery or
+commit boundaries.
 
 ```text
-/opsx:explore                   →  (optional) think it through with the AI first
-/opsx:propose add-dark-mode     →  AI drafts proposal, specs, design, tasks
-        (you read and adjust the plan)
-/opsx:apply                     →  AI builds it, checking off tasks
-/opsx:archive                   →  specs updated, change archived
+/opsx:workflow add-dark-mode    →  Superpowers + Core draft and build the Change
+/opsx:rebase                    →  rebuild the baseline when STALE or conflicted
+/opsx:archive                   →  validate and update Current Specification
 ```
 
-**When in doubt, start by exploring.** `/opsx:explore` is a no-stakes thinking partner: it reads your code, lays out options, and turns a fuzzy idea into a concrete plan before any artifact exists. It's the best antidote to an AI that will otherwise build *something* from a vague prompt. Already know exactly what you want? Skip straight to `/opsx:propose`. Either way, explore ships in the default profile, so it's always there. See the [Explore guide](explore.md).
+**When in doubt, start with `/opsx:workflow`.** It delegates brainstorming and
+planning to Superpowers, then returns to the same entry for implementation and
+verification. OpenSpec Core remains responsible for domain governance.
 
 Those are slash commands, typed in your AI assistant's chat. Setup (`openspec init`) happens in your terminal. If that split is new to you, read [How Commands Work](how-commands-work.md) first; it's the most common point of confusion.
 

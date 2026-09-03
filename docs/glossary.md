@@ -6,9 +6,9 @@ Terms are grouped by topic, then alphabetized within each group.
 
 ## The core nouns
 
-**Spec.** A document describing how part of your system behaves. Specs live in `openspec/specs/`, are organized by domain, and are made of requirements and scenarios. The spec is the agreed-upon answer to "what does this software do?" See [Concepts](concepts.md#specs).
+**Spec.** A document describing how part of your system behaves. In the canonical CodeSpec layout, specs live in `openspec/archive/specs/`, are organized by domain, and are made of requirements and scenarios. The spec is the agreed-upon answer to "what does this software do?" See [Concepts](concepts.md#specs).
 
-**Source of truth.** The `openspec/specs/` directory as a whole. It holds the current, agreed-upon behavior of your system. Changes propose edits to it; archiving applies them.
+**Source of truth.** The `openspec/archive/specs/` directory as a whole. It holds the current, agreed-upon behavior of your system. Changes propose edits to it; archiving applies them.
 
 **Change.** One unit of work, packaged as a folder under `openspec/changes/<name>/`. A change holds everything about that work: its proposal, design, tasks, and the spec edits it introduces. One change, one feature or fix.
 
@@ -32,21 +32,21 @@ Terms are grouped by topic, then alphabetized within each group.
 
 **Design (`design.md`).** The *how*: technical approach, architecture decisions, and the files you expect to touch. Optional for simple changes.
 
-**Tasks (`tasks.md`).** The implementation checklist, with checkboxes. The AI works through it during `/opsx:apply` and checks items off as it goes.
+**Tasks (`tasks.md`).** The implementation checklist, with checkboxes. The AI works through it inside `workflow` and checks items off as it goes.
 
 ## The lifecycle
 
-**Archive.** The act of finishing a change. Its delta specs merge into the main specs, and the change folder moves to `openspec/changes/archive/YYYY-MM-DD-<name>/`. After archiving, your specs describe the new reality. See [Concepts](concepts.md#archive).
+**Archive.** The act of finishing a Change. Its delta merges into Current Specification, and the Change folder moves to `openspec/archive/changes/YYYY-MM-DD-<name>/`. After archiving, your specs describe the new reality. See [Concepts](concepts.md#archive).
 
-**Sync.** Merging a change's delta specs into the main specs *without* archiving the change. Usually automatic (archive offers to do it), but available on its own as `/opsx:sync` for long-running changes. See [Commands](commands.md#opsxsync).
+**Sync.** An internal Core operation that applies a Change's delta to Current Specification during the archive transaction. It is not a public AI entry.
 
 ## Workflow and commands
 
-**OPSX.** The current standard OpenSpec workflow, built around fluid actions instead of rigid phases. Its slash commands all start with `/opsx:`. See [OPSX Workflow](opsx.md).
+**OPSX.** The current standard OpenSpec workflow. Its three public entries are `workflow`, `rebase`, and `archive`; engineering methods are delegated to Superpowers. See [OPSX Workflow](opsx.md).
 
-**Slash command.** A command you type into your AI assistant's chat, like `/opsx:propose`. Slash commands drive the workflow. They are not terminal commands. See [How Commands Work](how-commands-work.md).
+**AI entry.** An instruction you type into your AI assistant's chat, such as `/opsx:workflow`. It is not a terminal command. See [AI entries](commands.md).
 
-**Explore (`/opsx:explore`).** The thinking-partner command. It reads your codebase, compares options, and clarifies a fuzzy idea into a concrete plan, creating no artifacts and writing no code. The recommended starting point whenever you have a problem but not yet a plan. See [Explore First](explore.md).
+**Workflow (`openspec-workflow`).** The only public development entry. It routes repository understanding, brainstorming, planning, implementation, and verification through Core and Superpowers.
 
 **CLI.** The `openspec` program you run in your terminal. It sets up projects, lists and validates changes, opens the dashboard, and archives. The terminal half of OpenSpec. See [CLI](cli.md).
 
@@ -54,7 +54,7 @@ Terms are grouped by topic, then alphabetized within each group.
 
 **Command file.** A per-tool slash command file (`.../commands/opsx-*`). The older delivery mechanism, still supported alongside skills. You rarely touch these directly.
 
-**Profile.** The set of slash commands installed in your project. **Core** (the default) is `propose`, `explore`, `apply`, `update`, `sync`, `archive`. The **expanded** set adds `new`, `continue`, `ff`, `verify`, `bulk-archive`, `onboard`. Change it with `openspec config profile`.
+**Profile.** The set of public entries installed in your project. **Core** (the default) is `workflow`, `rebase`, and `archive`. Legacy CLI workflow IDs may be accepted for migration but are normalized before generation. Change it with `openspec config profile`.
 
 **Delivery.** Whether OpenSpec installs skills, command files, or both for your tools. Configured globally and applied with `openspec update`.
 
