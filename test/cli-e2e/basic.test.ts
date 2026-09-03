@@ -4,8 +4,6 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { runCLI, cliProjectRoot } from '../helpers/run-cli.js';
 import { AI_TOOLS } from '../../src/core/config.js';
-import { getGlobalDataDir, registerStore } from '../../src/core/index.js';
-import { createOpenSpecRoot } from '../helpers/openspec-fixtures.js';
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -292,7 +290,7 @@ describe('openspec CLI e2e basics', () => {
     });
   });
 
-  describe('archive with no terminal to answer its prompts (#1479)', () => {
+  describe('archive requires interactive human confirmation', () => {
     // runCLI closes the child's stdin, which is exactly how an AI agent or a
     // CI script invokes the CLI.
     async function prepareChange(options: { tasksComplete?: boolean } = {}): Promise<string> {
@@ -316,141 +314,39 @@ describe('openspec CLI e2e basics', () => {
       return base;
     }
 
-    it('reports the flag to pass instead of a closed-prompt error', async () => {
+    it('rejects a non-interactive archive before any archive prompt', async () => {
       const projectDir = await prepareChange();
       const result = await runCLI(['archive', 'add-greeting'], { cwd: projectDir });
 
       const output = `${result.stdout}${result.stderr}`;
       expect(result.exitCode).toBe(1);
-      expect(output).not.toContain('force closed the prompt');
-      expect(output).toContain('no answer could be read from stdin');
-      expect(output).toContain('openspec archive add-greeting --yes');
+      expect(output).toContain('归档必须在交互式终端中由人工确认');
+      expect(output).not.toContain('no answer could be read from stdin');
 
       // The change is untouched: nothing was archived or merged.
       expect(await fileExists(path.join(projectDir, 'openspec', 'changes', 'add-greeting', 'proposal.md'))).toBe(true);
       expect(await fileExists(path.join(projectDir, 'openspec', 'specs', 'greeting', 'spec.md'))).toBe(false);
     });
 
-    it('reports the incomplete-task prompt the same way', async () => {
+    it('does not inspect incomplete tasks before confirmation', async () => {
       const projectDir = await prepareChange({ tasksComplete: false });
       const result = await runCLI(['archive', 'add-greeting'], { cwd: projectDir });
 
       const output = `${result.stdout}${result.stderr}`;
       expect(result.exitCode).toBe(1);
-      expect(output).not.toContain('force closed the prompt');
-      expect(output).toContain('1 incomplete task(s) found');
-      expect(output).toContain('openspec archive add-greeting --yes');
+      expect(output).toContain('归档必须在交互式终端中由人工确认');
+      expect(output).not.toContain('1 incomplete task(s) found');
     });
 
-    it('keeps the caller\'s own flags in the suggested rerun', async () => {
-      // Suggesting a bare --yes rerun here would merge the deltas that
-      // --skip-specs was passed to leave alone.
+    it('rejects --yes and --json instead of allowing an automated archive', async () => {
       const projectDir = await prepareChange({ tasksComplete: false });
-      const result = await runCLI(['archive', 'add-greeting', '--skip-specs'], { cwd: projectDir });
+      const result = await runCLI(['archive', 'add-greeting', '--json', '--yes'], { cwd: projectDir });
 
       const output = `${result.stdout}${result.stderr}`;
       expect(result.exitCode).toBe(1);
-      expect(output).toContain('openspec archive add-greeting --skip-specs --yes');
-    });
-
-    it('reports the skip-validation prompt the same way', async () => {
-      const projectDir = await prepareChange();
-      const result = await runCLI(['archive', 'add-greeting', '--no-validate'], { cwd: projectDir });
-
-      const output = `${result.stdout}${result.stderr}`;
-      expect(result.exitCode).toBe(1);
-      expect(output).not.toContain('force closed the prompt');
-      expect(output).toContain('Skipping validation requires confirmation');
-      expect(output).toContain('openspec archive add-greeting --no-validate --yes');
-    });
-
-    it('archives normally once that flag is passed', async () => {
-      const projectDir = await prepareChange();
-      const result = await runCLI(['archive', 'add-greeting', '--yes'], { cwd: projectDir });
-
-      expect(result.exitCode).toBe(0);
-      expect(await fileExists(path.join(projectDir, 'openspec', 'specs', 'greeting', 'spec.md'))).toBe(true);
-    });
-
-    it('asks for a change name instead of exiting 0 without archiving', async () => {
-      const projectDir = await prepareChange();
-      const result = await runCLI(['archive'], { cwd: projectDir });
-
-      const output = `${result.stdout}${result.stderr}`;
-      expect(result.exitCode).toBe(1);
-      expect(output).toContain('A change name is required');
+      expect(output).toContain('archive_confirmation_required');
+      expect(output).toContain('归档必须在交互式终端中由人工确认');
       expect(await fileExists(path.join(projectDir, 'openspec', 'changes', 'add-greeting', 'proposal.md'))).toBe(true);
-    });
-
-    it('keeps --store in the suggested rerun for a store-rooted change', async () => {
-      // The rerun has to name the same root the blocked run used, or pasting
-      // it archives from the wrong place - or from nowhere.
-      const base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-archive-store-e2e-'));
-      tempRoots.push(base);
-      const env = {
-        XDG_DATA_HOME: path.join(base, 'data'),
-        XDG_CONFIG_HOME: path.join(base, 'config'),
-      };
-      const storeRoot = path.join(base, 'team-store');
-      createOpenSpecRoot(storeRoot);
-      await registerStore({
-        id: 'team-store',
-        localPath: storeRoot,
-        globalDataDir: getGlobalDataDir({ env }),
-      });
-
-      const changeDir = path.join(storeRoot, 'openspec', 'changes', 'add-greeting');
-      await fs.mkdir(changeDir, { recursive: true });
-      await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] Task 1\n');
-
-      const scratch = path.join(base, 'no-root-here');
-      await fs.mkdir(scratch, { recursive: true });
-
-      const result = await runCLI(['archive', 'add-greeting', '--store', 'team-store'], {
-        cwd: scratch,
-        env,
-      });
-
-      const output = `${result.stdout}${result.stderr}`;
-      expect(result.exitCode).toBe(1);
-      expect(output).toContain('openspec archive add-greeting --yes --store team-store');
-    });
-
-    it('keeps --store in front of the `--` for a dash-leading change name', async () => {
-      // `rerunCommand` has two branches and the other tests only ever cover
-      // one at a time, so dropping the store flag from just this one went
-      // unnoticed. Both halves have to be right at once: the store flag stays
-      // an option (in front of `--`) while the name stays an argument
-      // (behind it).
-      const base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-archive-store-dash-e2e-'));
-      tempRoots.push(base);
-      const env = {
-        XDG_DATA_HOME: path.join(base, 'data'),
-        XDG_CONFIG_HOME: path.join(base, 'config'),
-      };
-      const storeRoot = path.join(base, 'team-store');
-      createOpenSpecRoot(storeRoot);
-      await registerStore({
-        id: 'team-store',
-        localPath: storeRoot,
-        globalDataDir: getGlobalDataDir({ env }),
-      });
-
-      const changeDir = path.join(storeRoot, 'openspec', 'changes', '--force');
-      await fs.mkdir(changeDir, { recursive: true });
-      await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] Task 1\n');
-
-      const scratch = path.join(base, 'no-root-here');
-      await fs.mkdir(scratch, { recursive: true });
-
-      const result = await runCLI(['archive', '--store', 'team-store', '--', '--force'], {
-        cwd: scratch,
-        env,
-      });
-
-      const output = `${result.stdout}${result.stderr}`;
-      expect(result.exitCode).toBe(1);
-      expect(output).toContain('openspec archive --yes --store team-store -- --force');
     });
   });
 });

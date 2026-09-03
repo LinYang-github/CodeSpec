@@ -214,7 +214,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       {
         name: 'yes',
         short: 'y',
-        description: '跳过确认提示',
+        description: '跳过后续警告确认（仍需人工确认归档）',
       },
       {
         name: 'skip-specs',

@@ -142,7 +142,9 @@ ${STORE_SELECTION_GUIDANCE}
 
 7. **Confirm batch operation**
 
-   Ask the user a single confirmation question:
+   Ask the user a single confirmation question in an interactive terminal:
+   this must be an explicit human confirmation. Never auto-archive, and never
+   replace it with \`--yes\`, \`--json\`, or another automated confirmation.
 
    - "Archive N changes?" with options based on status
    - Options might include:
@@ -318,7 +320,8 @@ No active changes found. Create a new change to get started.
 - When both changes are implemented, apply specs in chronological order
 - Skip spec sync only when implementation is missing (warn user)
 - Show clear per-change status before confirming
-- Use single confirmation for entire batch
+- Use a single interactive human confirmation for the entire batch
+- Never allow \`--yes\`, \`--json\`, or automation to bypass that confirmation
 - Never archive after the user cancels the confirmation — a cancelled batch archives nothing
 - Track and report all outcomes (success/skip/fail)
 - Preserve .openspec.yaml when moving to archive
@@ -482,7 +485,9 @@ ${STORE_SELECTION_GUIDANCE}
 
 7. **Confirm batch operation**
 
-   Ask the user a single confirmation question:
+   Ask the user a single confirmation question in an interactive terminal:
+   this must be an explicit human confirmation. Never auto-archive, and never
+   replace it with \`--yes\`, \`--json\`, or another automated confirmation.
 
    - "Archive N changes?" with options based on status
    - Options might include:
@@ -658,7 +663,8 @@ No active changes found. Create a new change to get started.
 - When both changes are implemented, apply specs in chronological order
 - Skip spec sync only when implementation is missing (warn user)
 - Show clear per-change status before confirming
-- Use single confirmation for entire batch
+- Use a single interactive human confirmation for the entire batch
+- Never allow \`--yes\`, \`--json\`, or automation to bypass that confirmation
 - Never archive after the user cancels the confirmation — a cancelled batch archives nothing
 - Track and report all outcomes (success/skip/fail)
 - Preserve .openspec.yaml when moving to archive

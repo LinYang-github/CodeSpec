@@ -3,6 +3,7 @@ import { Readable, Writable } from 'node:stream';
 import {
   confirmPrompt,
   isInteractive,
+  isInteractiveTerminal,
   isNonInteractivePromptError,
   resolveNoInteractive,
   InteractiveOptions,
@@ -135,6 +136,17 @@ describe('interactive utilities', () => {
     it('should return true when stdin is TTY and options are undefined', () => {
       Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
       expect(isInteractive(undefined)).toBe(true);
+    });
+  });
+
+  describe('isInteractiveTerminal', () => {
+    it('requires both stdin and stdout to be TTYs', () => {
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, writable: true, configurable: true });
+      Object.defineProperty(process.stdout, 'isTTY', { value: false, writable: true, configurable: true });
+      expect(isInteractiveTerminal()).toBe(false);
+
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, writable: true, configurable: true });
+      expect(isInteractiveTerminal()).toBe(true);
     });
   });
 

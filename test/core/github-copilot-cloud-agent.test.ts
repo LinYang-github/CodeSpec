@@ -183,8 +183,9 @@ describe('GitHub Copilot Cloud Agent', () => {
       expect(content).toContain('openspec new change <name>');
       expect(content).toContain('openspec status --change <name> --json');
       expect(content).toContain('openspec instructions [artifact] --change <name> --json');
-      expect(content).toContain('openspec archive <change> --json [--yes]');
-      expect(content).toContain('use `--yes` only after confirming all tasks are complete');
+      expect(content).toContain('openspec archive <change>');
+      expect(content).toContain('interactive human confirmation');
+      expect(content).not.toContain('use `--yes` only after confirming all tasks are complete');
       expect(content).toContain('run `openspec --version`');
       expect(content).not.toContain('pre-installed in the development environment');
       expect(content).not.toContain('Create the change directory under');
@@ -327,7 +328,7 @@ describe('GitHub Copilot Cloud Agent', () => {
           'You are a specialized agent for managing OpenSpec workflows. You have access to the `openspec` CLI through shell commands, pre-installed in the development environment via `copilot-setup-steps.yml`.'
         )
         .replace(
-          '| `openspec archive <change> --json [--yes]` | Archive a completed change; use `--yes` only after confirming all tasks are complete |',
+          '| `openspec archive <change>` | Archive a completed change after interactive human confirmation; JSON and automation are not supported |',
           '| `openspec archive <change>` | Archive a completed change |'
         );
       await fs.mkdir(path.dirname(agentPath), { recursive: true });

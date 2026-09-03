@@ -7,11 +7,14 @@ import {
 describe('openspec-archive-change template', () => {
   it('keeps Current Specification writes inside the Core archive transaction', () => {
     const instructions = getArchiveChangeSkillTemplate().instructions;
-    expect(instructions).toContain('openspec archive --change');
+    expect(instructions).toContain('openspec archive "<CHG-ID>"');
     expect(instructions).toContain('preflightArchive()');
     expect(instructions).toContain('prepareArchive()');
     expect(instructions).toContain('commitArchive()');
     expect(instructions).toContain('Current Specification');
+    expect(instructions).toContain('交互式终端');
+    expect(instructions).toContain('不得替用户调用归档');
+    expect(instructions).not.toContain('archive --yes');
     expect(instructions).not.toContain('openspec-sync-specs');
     expect(instructions).not.toContain('同步 Spec workflow');
   });

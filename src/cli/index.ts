@@ -60,7 +60,7 @@ import { parse as parseYaml } from 'yaml';
 import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
 import { maybeShowCompletionTip } from '../core/completion-tip.js';
 import { COMMON_FLAGS } from '../core/completions/shared-flags.js';
-import { isInteractive } from '../utils/interactive.js';
+import { confirmPrompt, isInteractive, isInteractiveTerminal } from '../utils/interactive.js';
 import { tryLoadCanonicalWorkspace } from '../commands/workflow/shared.js';
 
 const STORE_OPTION_DESCRIPTION = COMMON_FLAGS.store.description;
@@ -521,7 +521,7 @@ changeCmd
 program
   .command('archive [change-name]')
   .description('归档已完成的 Change 并更新主 Spec')
-  .option('-y, --yes', '跳过确认提示')
+  .option('-y, --yes', '跳过后续警告确认（仍需人工确认归档）')
   .option('--skip-specs', '跳过 Spec 更新（适用于基础设施、工具或仅文档变更）')
   .option('--no-validate', '跳过校验（不建议，且需要确认）')
   .option('--json', '以 JSON 输出（非交互模式）')
@@ -529,6 +529,30 @@ program
   .addOption(hiddenStorePathOption())
   .action(async (changeName?: string, options?: ArchiveOptions) => {
     try {
+      const archiveConfirmationError = new Error(
+        '归档必须在交互式终端中由人工确认；--json、无 TTY 或 --yes 不能绕过确认。'
+      );
+      if (options?.json) {
+        failWithError(archiveConfirmationError, {
+          enabled: true,
+          payload: { archive: null },
+          fallbackCode: 'archive_confirmation_required',
+        });
+        return;
+      }
+      if (!isInteractiveTerminal()) {
+        throw archiveConfirmationError;
+      }
+      const confirmed = await confirmPrompt({
+        message: changeName
+          ? `确认归档 Change "${changeName}"？`
+          : '确认进入归档流程并归档选定的 Change？',
+        default: false,
+      });
+      if (!confirmed) {
+        console.log('已取消归档。');
+        return;
+      }
       if (changeName && !/^CHG-\d{8}-\d{3}$/u.test(changeName)) {
         const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
         if (!root) return;

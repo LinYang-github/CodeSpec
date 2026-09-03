@@ -6,6 +6,7 @@ import { createCanonicalChange } from '../../src/core/openspec-workflow/change-m
 import { resolveChange } from '../../src/core/openspec-workflow/change-resolver.js';
 import { canTransition } from '../../src/core/openspec-workflow/state-machine.js';
 import { detectStaleChanges } from '../../src/core/openspec-workflow/stale.js';
+import { runCLI } from '../helpers/run-cli.js';
 
 describe('canonical OpenSpec workflow journeys', () => {
   it('creates a feature Change, resumes it through verification, and preserves one Change for revision', async () => {
@@ -56,6 +57,22 @@ describe('canonical OpenSpec workflow journeys', () => {
       const stale = await detectStaleChanges(fixture.workspace, ['MOD-001-REQ-001']);
       expect(stale).toContain(fixture.changeId);
       expect(path.basename(dir)).toMatch(/^CHG-/);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('rejects non-interactive canonical archive even when --yes is supplied', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const result = await runCLI(
+        ['archive', fixture.changeId, '--json', '--yes'],
+        { cwd: fixture.tempDir }
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('archive_confirmation_required');
+      await expect(fs.readdir(fixture.paths.archivedChanges)).resolves.toEqual([]);
     } finally {
       fixture.cleanup();
     }

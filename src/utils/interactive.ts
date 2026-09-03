@@ -31,6 +31,13 @@ export function isInteractive(value?: boolean | InteractiveOptions): boolean {
 }
 
 /**
+ * Archive confirmation requires a real terminal on both input and output.
+ */
+export function isInteractiveTerminal(value?: boolean | InteractiveOptions): boolean {
+  return isInteractive(value) && !!process.stdout.isTTY;
+}
+
+/**
  * True when a prompt failed because no answer could be read — an agent or a
  * script that ran the command with stdin closed, a CI job, or a shell whose
  * stdin is not a terminal. @inquirer rejects those with `User force closed
@@ -175,4 +182,3 @@ function readYesNo(
     });
   });
 }
-

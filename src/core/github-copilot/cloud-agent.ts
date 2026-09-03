@@ -112,7 +112,7 @@ OpenSpec is a structured change management system for codebases. It organizes wo
 | \`openspec instructions [artifact] [--change <name>] [--json]\` | Get next-step instructions for a change |
 | \`openspec templates [--json]\` | List available templates |
 | \`openspec schemas [--json]\` | List available workflow schemas |
-| \`openspec archive <change> --json [--yes]\` | Archive a completed change; use \`--yes\` only after confirming all tasks are complete |
+| \`openspec archive <change>\` | Archive a completed change after interactive human confirmation; JSON and automation are not supported |
 
 ### Interactive CLI Commands (use when prompted by the user)
 
@@ -166,7 +166,7 @@ function generatePreviousCopilotAgentFileBody(includeManagedMarker = false): str
   );
   content = replaceRequired(
     content,
-    '| `openspec archive <change> --json [--yes]` | Archive a completed change; use `--yes` only after confirming all tasks are complete |',
+    '| `openspec archive <change>` | Archive a completed change after interactive human confirmation; JSON and automation are not supported |',
     '| `openspec archive <change>` | Archive a completed change |',
     'previous archive command row'
   );

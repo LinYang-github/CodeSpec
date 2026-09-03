@@ -21,31 +21,6 @@ The system SHALL create bills.
 - **THEN** a bill is created
 `;
 
-const INVALID_DELTA_SPEC = `## ADDED Requirements
-
-### Requirement: Billing SHALL work
-The system SHALL create bills.
-`;
-
-// Targets a spec that does not exist yet: REMOVED deltas are ignored with a
-// human-mode warning, which must never leak into JSON stdout.
-const REMOVED_ONLY_DELTA_SPEC = `## REMOVED Requirements
-
-### Requirement: Old billing SHALL go away
-`;
-
-// MODIFIED deltas against a spec that does not exist make buildUpdatedSpec
-// throw during the prepare pass.
-const MODIFIED_ONLY_DELTA_SPEC = `## MODIFIED Requirements
-
-### Requirement: Billing SHALL work
-The system SHALL create bills differently.
-
-#### Scenario: Creates bills
-- **WHEN** a billing period ends
-- **THEN** a bill is created
-`;
-
 describe('store root selection for normal commands', () => {
   let tempDir: string;
   let appRepo: string;
@@ -346,32 +321,19 @@ operations:
       expect(json.root.store_id).toBe('team-context');
     });
 
-    it('archives a change into the store archive with JSON output', async () => {
+    it('requires interactive human confirmation before archiving a selected store change', async () => {
       createChange(storeRoot, 'store-change');
 
       const result = await runCLI(
         ['archive', 'store-change', '--store', 'team-context', '--json', '--yes'],
         { cwd: appRepo, env }
       );
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim().startsWith('{')).toBe(true);
-
-      const json = parseJson(result);
-      expect(json.archive.change).toBe('store-change');
-      expect(json.archive.archivedAs).toMatch(/^\d{4}-\d{2}-\d{2}-store-change$/);
-      expect(json.archive.path).toBe(
-        path.join(storeRoot, 'openspec', 'changes', 'archive', json.archive.archivedAs)
-      );
-      expect(json.archive.specsUpdated).toBe(true);
-      expect(json.root.store_id).toBe('team-context');
-
-      expect(fs.existsSync(json.archive.path)).toBe(true);
+      expect(result.exitCode).toBe(1);
+      expect(parseJson(result).status[0].code).toBe('archive_confirmation_required');
       expect(
         fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'store-change'))
-      ).toBe(false);
-      expect(
-        fs.existsSync(path.join(storeRoot, 'openspec', 'specs', 'billing', 'spec.md'))
       ).toBe(true);
+      expect(fs.readdirSync(path.join(storeRoot, 'openspec', 'changes', 'archive'))).toEqual([]);
       expectNoLocalOpenSpec();
     });
   });
@@ -722,155 +684,20 @@ operations:
     });
   });
 
-  describe('archive --json is non-interactive', () => {
-    it('fails without a change name instead of opening a picker', async () => {
+  describe('archive requires interactive human confirmation', () => {
+    it('rejects JSON and --yes before resolving archive details', async () => {
       createChange(storeRoot, 'store-change');
 
-      const result = await runCLI(['archive', '--store', 'team-context', '--json'], {
-        cwd: appRepo,
-        env,
-      });
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout.trim().startsWith('{')).toBe(true);
-      const json = parseJson(result);
-      expect(json.archive).toBeNull();
-      expect(json.status[0].code).toBe('archive_change_name_required');
-    });
-
-    it('reports no active changes for a selected empty store without init guidance', async () => {
-      const blankStoreRoot = path.join(tempDir, 'stores', 'archive-blank-context');
-      fs.mkdirSync(path.join(blankStoreRoot, 'openspec'), { recursive: true });
-      fs.writeFileSync(
-        path.join(blankStoreRoot, 'openspec', 'config.yaml'),
-        'schema: spec-driven\n'
-      );
-      await writeStoreMetadataState(blankStoreRoot, {
-        version: 1,
-        id: 'archive-blank-context',
-      });
-      const registered = await runCLI(
-        ['store', 'register', blankStoreRoot, '--json'],
-        { cwd: appRepo, env }
-      );
-      expect(registered.exitCode).toBe(0);
-
       const result = await runCLI(
-        ['archive', 'missing-change', '--store', 'archive-blank-context', '--json', '--yes'],
-        { cwd: appRepo, env }
-      );
-
-      expect(result.exitCode).toBe(1);
-      const json = parseJson(result);
-      expect(json.archive).toBeNull();
-      expect(json.status[0]).toEqual(expect.objectContaining({
-        code: 'archive_change_not_found',
-        message: "未找到 Change 'missing-change'。此根目录没有活动 Change。",
-      }));
-    });
-
-    it('reports validation failures as diagnostics without stdout prose', async () => {
-      createChange(storeRoot, 'bad-change', { deltaSpec: INVALID_DELTA_SPEC });
-
-      const result = await runCLI(
-        ['archive', 'bad-change', '--store', 'team-context', '--json', '--yes'],
+        ['archive', 'store-change', '--store', 'team-context', '--json', '--yes'],
         { cwd: appRepo, env }
       );
       expect(result.exitCode).toBe(1);
-      expect(result.stdout.trim().startsWith('{')).toBe(true);
-      const json = parseJson(result);
-      expect(json.archive).toBeNull();
-      expect(json.status[0].code).toBe('archive_validation_failed');
-      // The change was not archived.
+      expect(parseJson(result).status[0].code).toBe('archive_confirmation_required');
       expect(
-        fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'bad-change'))
+        fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'store-change'))
       ).toBe(true);
-    });
-
-    it('keeps stdout pure when REMOVED deltas target a new spec', async () => {
-      createChange(storeRoot, 'removed-change', { deltaSpec: REMOVED_ONLY_DELTA_SPEC });
-
-      const result = await runCLI(
-        ['archive', 'removed-change', '--store', 'team-context', '--json', '--yes', '--no-validate'],
-        { cwd: appRepo, env }
-      );
-      expect(result.exitCode).toBe(0);
-      // The "REMOVED requirement(s) ignored for new spec" warning must not
-      // precede or pollute the JSON payload.
-      expect(result.stdout.trim().startsWith('{')).toBe(true);
-      const json = parseJson(result);
-      expect(json.archive.change).toBe('removed-change');
-    });
-
-    it('writes no spec when any rebuilt spec fails validation', async () => {
-      // Two delta specs in one change: 'aaa-good' targets a new spec and
-      // rebuilds cleanly; 'zzz-bad' targets an existing spec whose current
-      // requirement has no scenarios, so its rebuilt content fails the
-      // validator only at the late rebuilt-validation pass (the prepare-time
-      // structure check does not catch missing scenarios).
-      const changeDir = createChange(storeRoot, 'two-spec-change', { deltaSpec: null });
-      for (const capability of ['aaa-good', 'zzz-bad']) {
-        const specDir = path.join(changeDir, 'specs', capability);
-        fs.mkdirSync(specDir, { recursive: true });
-        fs.writeFileSync(path.join(specDir, 'spec.md'), VALID_DELTA_SPEC);
-      }
-      const badTargetDir = path.join(storeRoot, 'openspec', 'specs', 'zzz-bad');
-      fs.mkdirSync(badTargetDir, { recursive: true });
-      const badTargetContent =
-        '# zzz-bad\n\n## Purpose\nLegacy.\n\n## Requirements\n\n### Requirement: Old rule SHALL hold\nThe system SHALL hold.\n';
-      fs.writeFileSync(path.join(badTargetDir, 'spec.md'), badTargetContent);
-
-      const result = await runCLI(
-        ['archive', 'two-spec-change', '--store', 'team-context', '--json', '--yes'],
-        { cwd: appRepo, env }
-      );
-      expect(result.exitCode).toBe(1);
-      const json = parseJson(result);
-      expect(json.archive).toBeNull();
-      expect(json.status[0].code).toBe('archive_spec_validation_failed');
-
-      // "No files were changed" must be true: the good spec was not created
-      // and the bad target is byte-identical.
-      expect(
-        fs.existsSync(path.join(storeRoot, 'openspec', 'specs', 'aaa-good', 'spec.md'))
-      ).toBe(false);
-      expect(fs.readFileSync(path.join(badTargetDir, 'spec.md'), 'utf-8')).toBe(
-        badTargetContent
-      );
-      expect(
-        fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'two-spec-change'))
-      ).toBe(true);
-    });
-
-    it('reports spec-update failures as diagnostics without stdout prose', async () => {
-      createChange(storeRoot, 'modified-change', { deltaSpec: MODIFIED_ONLY_DELTA_SPEC });
-
-      const result = await runCLI(
-        ['archive', 'modified-change', '--store', 'team-context', '--json', '--yes', '--no-validate'],
-        { cwd: appRepo, env }
-      );
-      expect(result.exitCode).toBe(1);
-      expect(result.stdout.trim().startsWith('{')).toBe(true);
-      const json = parseJson(result);
-      expect(json.archive).toBeNull();
-      expect(json.status[0].code).toBe('archive_spec_update_failed');
-      expect(
-        fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'modified-change'))
-      ).toBe(true);
-    });
-
-    it('refuses incomplete tasks without --yes', async () => {
-      createChange(storeRoot, 'wip-change', { tasksDone: false });
-
-      const result = await runCLI(
-        ['archive', 'wip-change', '--store', 'team-context', '--json'],
-        { cwd: appRepo, env }
-      );
-      expect(result.exitCode).toBe(1);
-      const json = parseJson(result);
-      expect(json.status[0].code).toMatch(/archive_tasks_incomplete|archive_confirmation_required/);
-      expect(
-        fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'wip-change'))
-      ).toBe(true);
+      expect(fs.readdirSync(path.join(storeRoot, 'openspec', 'changes', 'archive'))).toEqual([]);
     });
   });
 

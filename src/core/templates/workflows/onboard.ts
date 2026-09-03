@@ -446,10 +446,7 @@ When a change is complete, we archive it. The archive path is derived from \`pla
 Archived changes become your project's decision history—you can always find them later to understand why something was built a certain way.
 \`\`\`
 
-**DO:** Archive the change (\`--yes\` answers the confirmation prompts, which you cannot answer from a tool call):
-\`\`\`bash
-openspec archive "<name>" --yes
-\`\`\`
+**DO:** Stop and ask the user to archive the change manually in an interactive terminal. Do not invoke \`openspec archive\` from the workflow or use \`--yes\`/\`--json\` to bypass the human confirmation.
 
 **SHOW:**
 \`\`\`

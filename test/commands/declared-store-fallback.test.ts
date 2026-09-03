@@ -116,9 +116,14 @@ describe('declared store fallback (3.2)', () => {
       cwd: pointerRepo,
       env,
     });
-    expect(archive.exitCode).toBe(0);
-    const archived = fs.readdirSync(path.join(storeRoot, 'openspec', 'changes', 'archive'));
-    expect(archived.some((name) => name.endsWith('billing-rework'))).toBe(true);
+    expect(archive.exitCode).toBe(1);
+    expect(parseJson(archive).status[0].code).toBe('archive_confirmation_required');
+    expect(
+      fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'billing-rework'))
+    ).toBe(true);
+    expect(
+      fs.readdirSync(path.join(storeRoot, 'openspec', 'changes', 'archive'))
+    ).toEqual([]);
 
     // The pointer repo is byte-identical: no specs/, no changes/, nothing.
     expect(snapshot(pointerRepo)).toEqual(pointerBefore);
