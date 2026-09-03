@@ -52,6 +52,8 @@ export function transformCommandInvocations(
  * src/core/profile-sync-drift.ts (exported) and src/core/init.ts (local copy).
  */
 const COMMAND_TO_SKILL_NAME: Record<string, string> = {
+  'workflow': 'openspec-workflow',
+  'rebase': 'openspec-rebase-change',
   'explore': 'openspec-explore',
   'new': 'openspec-new-change',
   'continue': 'openspec-continue-change',

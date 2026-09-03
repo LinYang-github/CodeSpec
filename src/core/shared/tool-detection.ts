@@ -6,11 +6,16 @@
 
 import path from 'path';
 import * as fs from 'fs';
-import { AI_TOOLS, OPENSPEC_SKILL_NAMES } from '../config.js';
+import { AI_TOOLS, LEGACY_OPENSPEC_SKILL_NAMES, OPENSPEC_SKILL_NAMES } from '../config.js';
 import { CommandAdapterRegistry, generateCommands } from '../command-generation/index.js';
 import { getCommandContents } from './skill-generation.js';
 import { getGlobalConfig } from '../global-config.js';
-import { getProfileWorkflows, ALL_WORKFLOWS } from '../profiles.js';
+import {
+  getPublicProfileWorkflows,
+  ALL_WORKFLOWS,
+  normalizeWorkflowId,
+  PUBLIC_WORKFLOWS,
+} from '../profiles.js';
 import {
   isSharedSkillTargetActive,
   hasLegacySkills,
@@ -39,6 +44,15 @@ export type SkillName = (typeof SKILL_NAMES)[number];
  * IDs of command templates created by openspec init.
  */
 export const COMMAND_IDS = [
+  'workflow',
+  'rebase',
+  'archive',
+] as const;
+
+export type CommandId = (typeof COMMAND_IDS)[number];
+
+/** Legacy command ids are detected for migration, never generated. */
+export const LEGACY_COMMAND_IDS = [
   'explore',
   'new',
   'continue',
@@ -53,7 +67,7 @@ export const COMMAND_IDS = [
   'propose',
 ] as const;
 
-export type CommandId = (typeof COMMAND_IDS)[number];
+const DETECTABLE_SKILL_NAMES = [...OPENSPEC_SKILL_NAMES, ...LEGACY_OPENSPEC_SKILL_NAMES] as const;
 
 /**
  * Status of skill configuration for a tool.
@@ -102,7 +116,12 @@ export function getToolSkillStatus(projectRoot: string, toolId: string): ToolSki
   if (!tool || !toolSupportsSkills(tool)) {
     return { configured: false, fullyConfigured: false, skillCount: 0 };
   }
-  if (tool.skillsDir && !isSharedSkillTargetActive(projectRoot, toolId)) {
+  const hasLegacySkill = (tool.legacySkillsDirs ?? []).some((root) =>
+    DETECTABLE_SKILL_NAMES.some((skillName) =>
+      fs.existsSync(path.join(projectRoot, root, 'skills', skillName, 'SKILL.md'))
+    )
+  );
+  if (tool.skillsDir && !isSharedSkillTargetActive(projectRoot, toolId) && !hasLegacySkill) {
     return { configured: false, fullyConfigured: false, skillCount: 0 };
   }
 
@@ -114,7 +133,7 @@ export function getToolSkillStatus(projectRoot: string, toolId: string): ToolSki
   ];
   let skillCount = 0;
 
-  for (const skillName of SKILL_NAMES) {
+  for (const skillName of DETECTABLE_SKILL_NAMES) {
     if (skillsDirs.some((skillsDir) =>
       fs.existsSync(path.join(skillsDir, skillName, 'SKILL.md'))
     )) {
@@ -124,7 +143,9 @@ export function getToolSkillStatus(projectRoot: string, toolId: string): ToolSki
 
   return {
     configured: skillCount > 0,
-    fullyConfigured: skillCount === SKILL_NAMES.length,
+    fullyConfigured: OPENSPEC_SKILL_NAMES.every((skillName) =>
+      skillsDirs.some((skillsDir) => fs.existsSync(path.join(skillsDir, skillName, 'SKILL.md')))
+    ),
     skillCount,
   };
 }
@@ -136,7 +157,7 @@ export function toolHasAnyConfiguredCommand(projectPath: string, toolId: string)
   const adapter = CommandAdapterRegistry.get(toolId);
   if (!adapter) return false;
 
-  for (const commandId of COMMAND_IDS) {
+  for (const commandId of [...COMMAND_IDS, ...LEGACY_COMMAND_IDS]) {
     const cmdPath = adapter.getFilePath(commandId);
     const fullPath = path.isAbsolute(cmdPath) ? cmdPath : path.join(projectPath, cmdPath);
     if (fs.existsSync(fullPath)) {
@@ -179,15 +200,17 @@ export function areCommandFilesUpToDate(
     try {
       const globalCfg = getGlobalConfig();
       const profile = globalCfg.profile ?? 'core';
-      workflows = getProfileWorkflows(profile, globalCfg.workflows);
+      workflows = getPublicProfileWorkflows(profile, globalCfg.workflows);
     } catch {
       workflows = ALL_WORKFLOWS;
     }
   }
 
-  const knownWorkflows = workflows.filter((w): w is (typeof ALL_WORKFLOWS)[number] =>
-    (ALL_WORKFLOWS as readonly string[]).includes(w)
-  );
+  const knownWorkflows = [...new Set(
+    workflows
+      .map((workflow) => normalizeWorkflowId(workflow))
+      .filter((workflow): workflow is (typeof PUBLIC_WORKFLOWS)[number] => workflow !== null)
+  )];
 
   const commandContents = getCommandContents(knownWorkflows);
   const generatedCommands = generateCommands(commandContents, adapter);
@@ -213,8 +236,12 @@ export function areCommandFilesUpToDate(
 
   // Also check no extra command files exist for deselected workflows
   const desiredWorkflowSet = new Set(knownWorkflows);
-  for (const workflow of ALL_WORKFLOWS) {
-    if (desiredWorkflowSet.has(workflow)) continue;
+  for (const workflow of new Set([...PUBLIC_WORKFLOWS, ...ALL_WORKFLOWS])) {
+    const publicWorkflow = normalizeWorkflowId(workflow);
+    // A public ID is satisfied by the generated public file. Legacy IDs are
+    // always checked so retired phase-level files cannot mask migration drift.
+    if ((PUBLIC_WORKFLOWS as readonly string[]).includes(workflow) &&
+      publicWorkflow && desiredWorkflowSet.has(publicWorkflow)) continue;
     const cmdPath = adapter.getFilePath(workflow);
     const fullPath = path.isAbsolute(cmdPath) ? cmdPath : path.join(projectRoot, cmdPath);
     if (fs.existsSync(fullPath)) {
@@ -326,7 +353,7 @@ export function getToolVersionStatus(
   let foundSkill = false;
 
   // 1. Find the first skill file that exists and read its version
-  for (const skillName of SKILL_NAMES) {
+  for (const skillName of DETECTABLE_SKILL_NAMES) {
     for (const skillsDir of skillsDirs) {
       const skillFile = path.join(skillsDir, skillName, 'SKILL.md');
       if (fs.existsSync(skillFile)) {

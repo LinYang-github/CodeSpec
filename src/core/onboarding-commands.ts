@@ -10,10 +10,10 @@
  * src/utils/command-references.ts at the call site.
  */
 
-import type { WorkflowId } from './profiles.js';
+import { normalizeWorkflowId, type PublicWorkflowId } from './profiles.js';
 
 export type OnboardingCommand = {
-  workflow: WorkflowId;
+  workflow: PublicWorkflowId;
   command: string;
   description: string;
 };
@@ -27,24 +27,27 @@ export type OnboardingCommand = {
 export const DESCRIPTION_BUDGET = 17;
 
 /**
- * Ordered onboarding hints. Each entry is shown only when its workflow is
- * installed, so the list follows the change lifecycle: start, then build,
- * then implement.
+ * Ordered onboarding hints. The public surface has one development entry,
+ * one recovery entry, and one archive entry. Phase-level commands are not
+ * advertised here; they are internal Core routing or Superpowers guidance.
  */
 const ONBOARDING_COMMANDS: readonly OnboardingCommand[] = [
-  { workflow: 'propose', command: '/opsx:propose', description: '开始一个 Change' },
-  { workflow: 'new', command: '/opsx:new', description: '创建 Change' },
-  { workflow: 'continue', command: '/opsx:continue', description: '继续下一个产物' },
-  { workflow: 'apply', command: '/opsx:apply', description: '实现任务' },
+  { workflow: 'workflow', command: '/opsx:workflow', description: '开始或继续开发' },
+  { workflow: 'rebase', command: '/opsx:rebase', description: '恢复 STALE Change' },
+  { workflow: 'archive', command: '/opsx:archive', description: '提交并归档 Change' },
 ];
 
 /**
  * Returns the onboarding hints for the installed workflows, in lifecycle order.
- * Returns an empty array when none of the onboarding workflows are installed.
+ * Returns an empty array when none of the public entries are installed.
  */
 export function getOnboardingCommands(
   workflows: readonly string[]
 ): OnboardingCommand[] {
-  const installed = new Set(workflows);
+  const installed = new Set(
+    workflows
+      .map((workflow) => normalizeWorkflowId(workflow))
+      .filter((workflow): workflow is PublicWorkflowId => workflow !== null)
+  );
   return ONBOARDING_COMMANDS.filter((entry) => installed.has(entry.workflow));
 }

@@ -44,7 +44,7 @@ import {
 } from './legacy-cleanup.js';
 import { isInteractive } from '../utils/interactive.js';
 import { getGlobalConfig, type Delivery, type Profile } from './global-config.js';
-import { getProfileWorkflows, ALL_WORKFLOWS, CORE_WORKFLOWS } from './profiles.js';
+import { getProfileWorkflows, getPublicProfileWorkflows, normalizeWorkflowId, PUBLIC_WORKFLOWS, ALL_WORKFLOWS, CORE_WORKFLOWS } from './profiles.js';
 import { getOnboardingCommands } from './onboarding-commands.js';
 import { getAvailableTools } from './available-tools.js';
 import {
@@ -160,6 +160,7 @@ export class UpdateCommand {
     const profile = globalConfig.profile ?? 'core';
     const delivery: Delivery = globalConfig.delivery ?? 'both';
     const profileWorkflows = getProfileWorkflows(profile, globalConfig.workflows);
+    const publicProfileWorkflows = getPublicProfileWorkflows(profile, globalConfig.workflows);
     const desiredWorkflows = profileWorkflows.filter((workflow): workflow is (typeof ALL_WORKFLOWS)[number] =>
       (ALL_WORKFLOWS as readonly string[]).includes(workflow)
     );
@@ -211,7 +212,9 @@ export class UpdateCommand {
     //    fingerprinted against commands it was never given.
     const toolStatuses = configuredTools.map((toolId) =>
       getToolVersionStatus(resolvedProjectPath, toolId, OPENSPEC_VERSION, {
-        workflows: legacyWorkflowOverrides[toolId] ?? desiredWorkflows,
+        workflows: legacyWorkflowOverrides[toolId]
+          ? getPublicProfileWorkflows('custom', legacyWorkflowOverrides[toolId])
+          : publicProfileWorkflows,
       })
     );
     const statusByTool = new Map(toolStatuses.map((status) => [status.toolId, status] as const));
@@ -229,7 +232,7 @@ export class UpdateCommand {
       .map((s) => s.toolId);
     const toolsNeedingConfigSync = getToolsNeedingProfileSync(
       resolvedProjectPath,
-      desiredWorkflows,
+      publicProfileWorkflows,
       delivery,
       configuredTools
     );
@@ -249,8 +252,8 @@ export class UpdateCommand {
 
       // Still check for new tool directories and extra workflows
       this.detectNewTools(resolvedProjectPath, configuredTools);
-      this.displayExtraWorkflowsNote(resolvedProjectPath, configuredTools, desiredWorkflows);
-      this.displayMissingCoreWorkflowsNote(profile, desiredWorkflows);
+      this.displayExtraWorkflowsNote(resolvedProjectPath, configuredTools, publicProfileWorkflows);
+      this.displayMissingCoreWorkflowsNote(profile, publicProfileWorkflows);
       this.displaySetupNotes(configuredTools);
       return;
     }
@@ -297,7 +300,9 @@ export class UpdateCommand {
         const shouldGenerateSkills = shouldGenerateSkillsForTool(tool.value, delivery);
         const shouldGenerateCommands = shouldGenerateCommandsForTool(tool.value, delivery);
         const writesSkills = !tool.skillsDir || sharedSkillWriters.has(tool.value);
-        const toolWorkflows = legacyWorkflowOverrides[tool.value] ?? desiredWorkflows;
+        const toolWorkflows = legacyWorkflowOverrides[tool.value]
+          ? getPublicProfileWorkflows('custom', legacyWorkflowOverrides[tool.value])
+          : publicProfileWorkflows;
         const skillTemplates = getSkillTemplates(toolWorkflows);
         const commandContents = getCommandContents(toolWorkflows);
 
@@ -489,8 +494,8 @@ export class UpdateCommand {
     this.detectNewTools(resolvedProjectPath, configuredAndNewTools);
 
     // 14. Display note about extra workflows not in profile
-    this.displayExtraWorkflowsNote(resolvedProjectPath, configuredAndNewTools, desiredWorkflows);
-    this.displayMissingCoreWorkflowsNote(profile, desiredWorkflows);
+    this.displayExtraWorkflowsNote(resolvedProjectPath, configuredAndNewTools, publicProfileWorkflows);
+    this.displayMissingCoreWorkflowsNote(profile, publicProfileWorkflows);
     this.displaySetupNotes(configuredAndNewTools);
 
     // 15. List affected tools
@@ -671,8 +676,8 @@ export class UpdateCommand {
       return;
     }
 
-    const workflowSet = new Set(workflows);
-    const missing = CORE_WORKFLOWS.filter((workflow) => !workflowSet.has(workflow));
+    const workflowSet = new Set(workflows.map((workflow) => normalizeWorkflowId(workflow) ?? workflow));
+    const missing = PUBLIC_WORKFLOWS.filter((workflow) => !workflowSet.has(workflow));
 
     if (missing.length === 0) {
       return;
@@ -690,8 +695,11 @@ export class UpdateCommand {
   private async removeSkillDirs(skillsRoot: string, skillsDir: string): Promise<number> {
     let removed = 0;
 
-    for (const workflow of ALL_WORKFLOWS) {
-      const dirName = WORKFLOW_TO_SKILL_DIR[workflow];
+    const dirNames = new Set([
+      ...PUBLIC_WORKFLOWS.map((workflow) => `openspec-${workflow === 'workflow' ? 'workflow' : workflow + '-change'}`),
+      ...ALL_WORKFLOWS.map((workflow) => WORKFLOW_TO_SKILL_DIR[workflow]),
+    ]);
+    for (const dirName of dirNames) {
       if (!dirName) continue;
 
       const skillDir = path.join(skillsDir, dirName);
@@ -715,15 +723,42 @@ export class UpdateCommand {
   private async removeUnselectedSkillDirs(
     skillsRoot: string,
     skillsDir: string,
-    desiredWorkflows: readonly (typeof ALL_WORKFLOWS)[number][]
+    desiredWorkflows: readonly string[]
   ): Promise<number> {
-    const desiredSet = new Set(desiredWorkflows);
+    const desiredPublicSet = new Set(
+      desiredWorkflows
+        .map((workflow) => normalizeWorkflowId(workflow))
+        .filter((workflow): workflow is (typeof PUBLIC_WORKFLOWS)[number] => workflow !== null)
+    );
     let removed = 0;
 
+    const publicDirByWorkflow = {
+      workflow: 'openspec-workflow',
+      rebase: 'openspec-rebase-change',
+      archive: 'openspec-archive-change',
+    } as const;
+    for (const workflow of PUBLIC_WORKFLOWS) {
+      if (desiredPublicSet.has(workflow)) continue;
+      const skillDir = path.join(skillsDir, publicDirByWorkflow[workflow]);
+      if (!fs.existsSync(skillDir)) continue;
+      FileSystemUtils.assertPathWithin(skillsRoot, skillDir);
+      try {
+        await fs.promises.rm(skillDir, { recursive: true, force: true });
+        removed++;
+      } catch {
+        // Ignore errors
+      }
+    }
+
     for (const workflow of ALL_WORKFLOWS) {
-      if (desiredSet.has(workflow)) continue;
       const dirName = WORKFLOW_TO_SKILL_DIR[workflow];
       if (!dirName) continue;
+      const publicWorkflow = normalizeWorkflowId(workflow);
+      if (
+        publicWorkflow &&
+        desiredPublicSet.has(publicWorkflow) &&
+        publicDirByWorkflow[publicWorkflow] === dirName
+      ) continue;
 
       const skillDir = path.join(skillsDir, dirName);
       if (!fs.existsSync(skillDir)) continue;
@@ -752,7 +787,7 @@ export class UpdateCommand {
     const adapter = CommandAdapterRegistry.get(toolId);
     if (!adapter) return 0;
 
-    for (const workflow of ALL_WORKFLOWS) {
+    for (const workflow of [...PUBLIC_WORKFLOWS, ...ALL_WORKFLOWS]) {
       const cmdPath = adapter.getFilePath(workflow);
       const fullPath = FileSystemUtils.resolveProjectArtifactPath(projectPath, cmdPath);
 
@@ -776,18 +811,43 @@ export class UpdateCommand {
   private async removeUnselectedCommandFiles(
     projectPath: string,
     toolId: string,
-    desiredWorkflows: readonly (typeof ALL_WORKFLOWS)[number][]
+    desiredWorkflows: readonly string[]
   ): Promise<number> {
     let removed = 0;
 
     const adapter = CommandAdapterRegistry.get(toolId);
     if (!adapter) return 0;
 
-    const desiredSet = new Set(desiredWorkflows);
+    const desiredPublicSet = new Set(
+      desiredWorkflows
+        .map((workflow) => normalizeWorkflowId(workflow))
+        .filter((workflow): workflow is (typeof PUBLIC_WORKFLOWS)[number] => workflow !== null)
+    );
+    const publicPaths = new Map(
+      PUBLIC_WORKFLOWS.map((workflow) => [workflow, adapter.getFilePath(workflow)])
+    );
+
+    for (const workflow of PUBLIC_WORKFLOWS) {
+      if (desiredPublicSet.has(workflow)) continue;
+      const fullPath = FileSystemUtils.resolveProjectArtifactPath(projectPath, publicPaths.get(workflow)!);
+      try {
+        if (fs.existsSync(fullPath)) {
+          await fs.promises.unlink(fullPath);
+          removed++;
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
 
     for (const workflow of ALL_WORKFLOWS) {
-      if (desiredSet.has(workflow)) continue;
       const cmdPath = adapter.getFilePath(workflow);
+      const publicWorkflow = normalizeWorkflowId(workflow);
+      if (
+        publicWorkflow &&
+        desiredPublicSet.has(publicWorkflow) &&
+        publicPaths.get(publicWorkflow) === cmdPath
+      ) continue;
       const fullPath = FileSystemUtils.resolveProjectArtifactPath(projectPath, cmdPath);
 
       try {
@@ -1059,6 +1119,11 @@ export class UpdateCommand {
     desiredWorkflows: readonly (typeof ALL_WORKFLOWS)[number][],
     delivery: Delivery
   ): Promise<LegacyUpgradeResult> {
+    const globalConfig = getGlobalConfig();
+    const publicProfileWorkflows = getPublicProfileWorkflows(
+      globalConfig.profile ?? 'core',
+      globalConfig.workflows
+    );
     // Get tools that had legacy artifacts
     const legacyTools = getToolsFromLegacyArtifacts(detection);
 
@@ -1157,8 +1222,8 @@ export class UpdateCommand {
         const writesSkills = !tool.skillsDir || sharedSkillWriters.has(tool.value);
         const toolWorkflows = (
           tool.value === 'codex' && inferredCodexWorkflows.length > 0
-            ? inferredCodexWorkflows
-            : desiredWorkflows
+            ? getPublicProfileWorkflows('custom', inferredCodexWorkflows)
+            : publicProfileWorkflows
         );
         if (tool.value === 'codex' && inferredCodexWorkflows.length > 0) {
           workflowOverrides[tool.value] = inferredCodexWorkflows;

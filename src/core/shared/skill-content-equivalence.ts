@@ -1,8 +1,11 @@
-import { OPENSPEC_SKILL_NAMES } from '../config.js';
+import { LEGACY_OPENSPEC_SKILL_NAMES, OPENSPEC_SKILL_NAMES } from '../config.js';
 
 const GENERATED_VERSION =
   /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
-const OPENSPEC_SKILL_NAME_SET = new Set<string>(OPENSPEC_SKILL_NAMES);
+const OPENSPEC_SKILL_NAME_SET = new Set<string>([
+  ...OPENSPEC_SKILL_NAMES,
+  ...LEGACY_OPENSPEC_SKILL_NAMES,
+]);
 
 /**
  * Normalizes checkout line endings and a valid generated version inside the

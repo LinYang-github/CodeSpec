@@ -86,6 +86,14 @@ describe('InitCommand', () => {
       expect(await directoryExists(path.join(openspecPath, 'archive', 'changes'))).toBe(true);
     });
 
+    it('should not print repository links after init', async () => {
+      await new InitCommand({ tools: 'none', force: true }).execute(testDir);
+
+      const output = getConsoleOutput();
+      expect(output).not.toContain('了解更多：https://github.com/Fission-AI/OpenSpec');
+      expect(output).not.toContain('反馈：https://github.com/Fission-AI/OpenSpec/issues');
+    });
+
     it('should create config.yaml with the canonical code-spec schema', async () => {
       const initCommand = new InitCommand({ tools: 'claude', force: true });
 
@@ -1963,6 +1971,28 @@ describe('InitCommand - profile and detection features', () => {
     // Non-selected skills should NOT be created
     const proposeSkill = path.join(testDir, '.claude', 'skills', 'openspec-propose', 'SKILL.md');
     expect(await fileExists(proposeSkill)).toBe(false);
+  });
+
+  it('should upgrade the legacy default core profile to all three public Codex skills', async () => {
+    saveGlobalConfig({
+      featureFlags: {},
+      profile: 'custom',
+      delivery: 'skills',
+      workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+    });
+
+    const initCommand = new InitCommand({ tools: 'codex', force: true });
+    await initCommand.execute(testDir);
+
+    for (const skillName of [
+      'openspec-workflow',
+      'openspec-rebase-change',
+      'openspec-archive-change',
+    ]) {
+      await expect(
+        fs.access(path.join(testDir, '.agents', 'skills', skillName, 'SKILL.md'))
+      ).resolves.toBeUndefined();
+    }
   });
 
   it('should migrate commands-only extend mode to custom profile without injecting propose', async () => {

@@ -8,6 +8,7 @@ export {
   SKILL_NAMES,
   type SkillName,
   COMMAND_IDS,
+  LEGACY_COMMAND_IDS,
   type CommandId,
   type ToolSkillStatus,
   type ToolVersionStatus,

@@ -64,7 +64,7 @@ import {
   type ToolSkillStatus,
 } from './shared/index.js';
 import { getGlobalConfig, type Delivery, type Profile } from './global-config.js';
-import { getProfileWorkflows, CORE_WORKFLOWS, ALL_WORKFLOWS } from './profiles.js';
+import { getPublicProfileWorkflows, PUBLIC_WORKFLOWS, CORE_WORKFLOWS, ALL_WORKFLOWS } from './profiles.js';
 import { getAvailableTools } from './available-tools.js';
 import {
   resolveSharedSkillWriters,
@@ -546,7 +546,7 @@ export class InitCommand {
   private getActiveWorkflows(): string[] {
     const globalCfg = getGlobalConfig();
     const activeProfile: Profile = this.resolveProfileOverride() ?? globalCfg.profile ?? 'core';
-    return [...getProfileWorkflows(activeProfile, globalCfg.workflows)];
+    return [...getPublicProfileWorkflows(activeProfile, globalCfg.workflows)];
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1002,7 +1002,7 @@ export class InitCommand {
     const globalConfig = getGlobalConfig();
     const profile: Profile = this.resolveProfileOverride() ?? globalConfig.profile ?? 'core';
     const delivery: Delivery = globalConfig.delivery ?? 'both';
-    const workflows = getProfileWorkflows(profile, globalConfig.workflows);
+    const workflows = getPublicProfileWorkflows(profile, globalConfig.workflows);
 
     // Get skill and command templates filtered by profile workflows
     const deliveryIncludesCommands = delivery !== 'skills';
@@ -1293,7 +1293,7 @@ export class InitCommand {
       const globalConfig = getGlobalConfig();
       const profile: Profile = (this.profileOverride as Profile) ?? globalConfig.profile ?? 'core';
       const delivery: Delivery = globalConfig.delivery ?? 'both';
-      const workflows = getProfileWorkflows(profile, globalConfig.workflows);
+      const workflows = getPublicProfileWorkflows(profile, globalConfig.workflows);
       const usesGlobalSkillTarget = successfulTools.some((tool) => tool.isGlobalSkillTarget);
 
       if (!usesGlobalSkillTarget) {
@@ -1426,7 +1426,7 @@ export class InitCommand {
       console.log(chalk.dim('配置：已跳过（非交互模式）'));
     }
 
-    // Getting started (task 7.6: show propose if in profile)
+    // Getting started: advertise only the single public development entry.
     const activeWorkflows = this.getActiveWorkflows();
     // When no tool got /opsx:* commands, point at the skill instead of a
     // command that does not exist.
@@ -1457,7 +1457,7 @@ export class InitCommand {
         } else if (shouldGenerateSkillsForTool(tool.value, activeDelivery)) {
           const skillReference = getSkillReferenceTransformer(tool.value)(command);
           // Tools with no slash surface (e.g. Rovo Dev) reference skills as
-          // prose ("the openspec-propose skill"); phrase the hint so it reads
+          // prose ("the openspec-workflow skill"); phrase the hint so it reads
           // as an instruction rather than a dead command with an argument.
           hint = usesNaturalLanguageSkillReferences(tool.value)
             ? `开始第一个变更：请让 ${tool.name} 使用 ${skillReference} 处理“你的想法”`
@@ -1505,18 +1505,11 @@ export class InitCommand {
     if (successfulTools.length > 0 && !commandsGenerated && !skillsGenerated) {
       // Nothing was generated for any tool: the correction above is the
       // whole story, so don't advertise an invocation that doesn't exist.
-    } else if (activeWorkflows.includes('propose')) {
-      printStartHints('/opsx:propose');
-    } else if (activeWorkflows.includes('new')) {
-      printStartHints('/opsx:new');
+    } else if (activeWorkflows.includes('workflow')) {
+      printStartHints('/opsx:workflow');
     } else {
       console.log("完成。运行 'openspec config profile' 配置工作流。");
     }
-
-    // Links
-    console.log();
-    console.log(`了解更多：${chalk.cyan('https://github.com/Fission-AI/OpenSpec')}`);
-    console.log(`反馈：${chalk.cyan('https://github.com/Fission-AI/OpenSpec/issues')}`);
 
     // Restart instruction only when at least one IDE/editor-resident tool
     // actually received a generated surface. Two conditions, coupled to the SAME
@@ -1566,7 +1559,7 @@ export class InitCommand {
   private async removeSkillDirs(skillsRoot: string, skillsDir: string): Promise<number> {
     let removed = 0;
 
-    for (const workflow of ALL_WORKFLOWS) {
+    for (const workflow of [...PUBLIC_WORKFLOWS, ...ALL_WORKFLOWS]) {
       const dirName = WORKFLOW_TO_SKILL_DIR[workflow];
       if (!dirName) continue;
 
@@ -1589,7 +1582,7 @@ export class InitCommand {
     const adapter = CommandAdapterRegistry.get(toolId);
     if (!adapter) return 0;
 
-    for (const workflow of ALL_WORKFLOWS) {
+    for (const workflow of [...PUBLIC_WORKFLOWS, ...ALL_WORKFLOWS]) {
       const cmdPath = adapter.getFilePath(workflow);
       const fullPath = FileSystemUtils.resolveProjectArtifactPath(projectPath, cmdPath);
 

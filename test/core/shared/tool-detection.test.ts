@@ -4,6 +4,7 @@ import path from 'path';
 import os from 'os';
 import {
   SKILL_NAMES,
+  COMMAND_IDS,
   getToolsWithSkillsDir,
   getToolSkillStatus,
   getToolStates,
@@ -29,20 +30,18 @@ describe('tool-detection', () => {
   });
 
   describe('SKILL_NAMES', () => {
-    it('should contain all skill names matching COMMAND_IDS', () => {
-      expect(SKILL_NAMES).toHaveLength(13);
-      expect(SKILL_NAMES).toContain('openspec-explore');
-      expect(SKILL_NAMES).toContain('openspec-new-change');
-      expect(SKILL_NAMES).toContain('openspec-continue-change');
-      expect(SKILL_NAMES).toContain('openspec-apply-change');
-      expect(SKILL_NAMES).toContain('openspec-update-change');
-      expect(SKILL_NAMES).toContain('openspec-ff-change');
-      expect(SKILL_NAMES).toContain('openspec-sync-specs');
-      expect(SKILL_NAMES).toContain('openspec-archive-change');
-      expect(SKILL_NAMES).toContain('openspec-bulk-archive-change');
-      expect(SKILL_NAMES).toContain('openspec-verify-change');
-      expect(SKILL_NAMES).toContain('openspec-onboard');
-      expect(SKILL_NAMES).toContain('openspec-propose');
+    it('should contain exactly the three public skill names', () => {
+      expect(SKILL_NAMES).toEqual([
+        'openspec-workflow',
+        'openspec-rebase-change',
+        'openspec-archive-change',
+      ]);
+    });
+  });
+
+  describe('COMMAND_IDS', () => {
+    it('should contain exactly the three public command ids', () => {
+      expect(COMMAND_IDS).toEqual(['workflow', 'rebase', 'archive']);
     });
   });
 
@@ -370,7 +369,7 @@ Content here
 
       const { version } = await import('../../../package.json');
       const status = getToolVersionStatus(testDir, 'claude', version, {
-        workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+        workflows: ['workflow', 'rebase', 'archive'],
       });
 
       expect(status.configured).toBe(true);
@@ -382,9 +381,9 @@ Content here
     // per-tool extension (gemini writes TOML), a flat opsx-* file, and — for
     // cline — a directory that is not the tool's skillsDir at all.
     it.each([
-      ['gemini', path.join('.gemini', 'commands', 'opsx', 'explore.toml')],
-      ['cursor', path.join('.cursor', 'commands', 'opsx-explore.md')],
-      ['cline', path.join('.clinerules', 'workflows', 'opsx-explore.md')],
+      ['gemini', path.join('.gemini', 'commands', 'opsx', 'workflow.toml')],
+      ['cursor', path.join('.cursor', 'commands', 'opsx-workflow.md')],
+      ['cline', path.join('.clinerules', 'workflows', 'opsx-workflow.md')],
     ])('should fingerprint commands-only %s installs', async (toolId, explorePath) => {
       const { InitCommand } = await import('../../../src/core/init.js');
       const { saveGlobalConfig } = await import('../../../src/core/global-config.js');
@@ -394,7 +393,7 @@ Content here
       await initCommand.execute(testDir);
 
       const { version } = await import('../../../package.json');
-      const coreWorkflows = ['propose', 'explore', 'apply', 'update', 'sync', 'archive'];
+      const coreWorkflows = ['workflow', 'rebase', 'archive'];
 
       // cline's commands live outside its skillsDir (.cline), so a commands-only
       // install leaves that directory absent entirely.
@@ -438,7 +437,7 @@ Content here
       // The core set is a superset of this profile, so comparing against it must
       // report drift — the fingerprint has to use the workflows actually selected.
       const againstCore = getToolVersionStatus(testDir, 'claude', version, {
-        workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+        workflows: ['workflow', 'rebase', 'archive'],
       });
       expect(againstCore.needsUpdate).toBe(true);
     });
@@ -462,7 +461,7 @@ Content here
 
       const { version } = await import('../../../package.json');
       const status = getToolVersionStatus(testDir, 'claude', version, {
-        workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+        workflows: ['workflow', 'rebase', 'archive'],
       });
 
       expect(status.generatedByVersion).toBe(version);
@@ -483,7 +482,7 @@ Content here
 
       const { version } = await import('../../../package.json');
       const status = getToolVersionStatus(testDir, 'claude', version, {
-        workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+        workflows: ['workflow', 'rebase', 'archive'],
       });
 
       expect(status.configured).toBe(true);
@@ -501,12 +500,12 @@ Content here
 
       // Corrupt a skill file so its generatedBy version can no longer be read,
       // while every command file still matches the current generated content.
-      const skillFile = path.join(testDir, '.claude', 'skills', 'openspec-explore', 'SKILL.md');
+      const skillFile = path.join(testDir, '.claude', 'skills', 'openspec-workflow', 'SKILL.md');
       await fs.writeFile(skillFile, 'truncated skill file');
 
       const { version } = await import('../../../package.json');
       const status = getToolVersionStatus(testDir, 'claude', version, {
-        workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+        workflows: ['workflow', 'rebase', 'archive'],
       });
 
       expect(status.configured).toBe(true);
@@ -523,12 +522,12 @@ Content here
       await initCommand.execute(testDir);
 
       // Modify one command file
-      const cmdFile = path.join(testDir, '.claude', 'commands', 'opsx', 'explore.md');
+      const cmdFile = path.join(testDir, '.claude', 'commands', 'opsx', 'workflow.md');
       await fs.writeFile(cmdFile, 'outdated content');
 
       const { version } = await import('../../../package.json');
       const status = getToolVersionStatus(testDir, 'claude', version, {
-        workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'],
+        workflows: ['workflow', 'rebase', 'archive'],
       });
 
       expect(status.configured).toBe(true);

@@ -14,8 +14,8 @@ import {
   shouldGenerateCommandsForTool,
 } from './command-surface.js';
 import { WORKFLOW_TO_SKILL_DIR } from './profile-sync-drift.js';
-import { COMMAND_IDS } from './shared/tool-detection.js';
-import { ALL_WORKFLOWS } from './profiles.js';
+import { COMMAND_IDS, LEGACY_COMMAND_IDS } from './shared/tool-detection.js';
+import { ALL_WORKFLOWS, normalizeWorkflowId, PUBLIC_WORKFLOWS } from './profiles.js';
 import { getSkillReferenceTransformer, getTransformerForTool } from '../utils/command-references.js';
 import { FileSystemUtils } from '../utils/file-system.js';
 import { isSharedSkillTargetActive } from './shared-skill-target.js';
@@ -246,8 +246,12 @@ function migrateSkillDirs(
   let moved = 0;
   let kept = 0;
 
-  for (const workflowId of ALL_WORKFLOWS) {
-    const dirName = WORKFLOW_TO_SKILL_DIR[workflowId];
+  const skillDirNames = new Set([
+    ...ALL_WORKFLOWS.map((workflowId) => WORKFLOW_TO_SKILL_DIR[workflowId]),
+    'openspec-workflow',
+    'openspec-rebase-change',
+  ]);
+  for (const dirName of skillDirNames) {
     const source = path.join(legacySkillsDir, dirName);
     const sourceSkill = path.join(source, 'SKILL.md');
     if (!fs.existsSync(sourceSkill)) continue;
@@ -307,7 +311,7 @@ function migrateCommandFiles(
   let moved = 0;
   let kept = 0;
 
-  for (const commandId of COMMAND_IDS) {
+  for (const commandId of new Set([...COMMAND_IDS, ...LEGACY_COMMAND_IDS])) {
     const currentPath = adapter.getFilePath(commandId);
     const legacyPath = legacyCommandPath(currentPath, tool.skillsDir, legacyRoot);
     if (!legacyPath) continue;
@@ -470,7 +474,7 @@ function scanInstalledWorkflowArtifacts(
     const skillsDirs: string[] = [];
     if (tool.globalSkillsDir) {
       skillsDirs.push(resolveToolSkillsDir(projectPath, tool));
-    } else if (isSharedSkillTargetActive(projectPath, tool.value)) {
+    } else if (tool.skillsDir && (includeLegacyRoots || isSharedSkillTargetActive(projectPath, tool.value))) {
       skillsDirs.push(resolveToolSkillsDir(projectPath, tool));
       if (includeLegacyRoots) {
         skillsDirs.push(
@@ -482,11 +486,23 @@ function scanInstalledWorkflowArtifacts(
     }
 
     for (const skillsDir of skillsDirs) {
+      for (const workflowId of PUBLIC_WORKFLOWS) {
+        const skillDirName =
+          workflowId === 'workflow'
+            ? 'openspec-workflow'
+            : `openspec-${workflowId}-change`;
+        const skillFile = path.join(skillsDir, skillDirName, 'SKILL.md');
+        if (fs.existsSync(skillFile)) {
+          installed.add(workflowId);
+          hasSkills = true;
+        }
+      }
       for (const workflowId of ALL_WORKFLOWS) {
         const skillDirName = WORKFLOW_TO_SKILL_DIR[workflowId];
         const skillFile = path.join(skillsDir, skillDirName, 'SKILL.md');
         if (fs.existsSync(skillFile)) {
-          installed.add(workflowId);
+          const publicWorkflow = normalizeWorkflowId(workflowId);
+          if (publicWorkflow) installed.add(publicWorkflow);
           hasSkills = true;
         }
       }
@@ -503,7 +519,7 @@ function scanInstalledWorkflowArtifacts(
       ? (LEGACY_TOOL_ROOTS[tool.value] ?? []).map((legacy) => legacy.root)
       : [];
 
-    for (const workflowId of ALL_WORKFLOWS) {
+    for (const workflowId of new Set([...COMMAND_IDS, ...LEGACY_COMMAND_IDS])) {
       const commandPath = adapter.getFilePath(workflowId);
       const candidates = [commandPath];
       if (tool.skillsDir) {
@@ -517,7 +533,8 @@ function scanInstalledWorkflowArtifacts(
           ? candidate
           : path.join(projectPath, candidate);
         if (fs.existsSync(fullPath)) {
-          installed.add(workflowId);
+          const publicWorkflow = normalizeWorkflowId(workflowId);
+          if (publicWorkflow) installed.add(publicWorkflow);
           hasCommands = true;
           break;
         }
@@ -526,7 +543,7 @@ function scanInstalledWorkflowArtifacts(
   }
 
   return {
-    workflows: ALL_WORKFLOWS.filter((workflowId) => installed.has(workflowId)),
+    workflows: PUBLIC_WORKFLOWS.filter((workflowId) => installed.has(workflowId)),
     hasSkills,
     hasCommands,
   };
@@ -597,15 +614,15 @@ export function migrateIfNeeded(projectPath: string, tools: AIToolOption[]): voi
   saveGlobalConfig(config);
 
   console.log(`已迁移：自定义 Profile，包含 ${installedWorkflows.length} 个 workflow`);
-  // Each detected tool resolves to a propose reference for its surface: the
+  // Each detected tool resolves to a workflow reference for its surface: the
   // command name its generated files answer to when commands will exist for it
-  // under the effective delivery (/opsx:propose when namespaced under opsx/,
-  // /opsx-propose when the filename is the command), its documented skill
+  // under the effective delivery (/opsx:workflow when namespaced under opsx/,
+  // /opsx-workflow when the filename is the command), its documented skill
   // invocation otherwise. When the tools disagree — including command tools
   // mixed with skill-only tools — stay syntax-neutral rather than advertise a
   // form that is wrong for one of them.
   const effectiveDelivery: Delivery = config.delivery ?? 'both';
-  const proposeReferences = new Set(
+  const workflowReferences = new Set(
     tools.map((tool) => {
       if (shouldGenerateCommandsForTool(tool.value, effectiveDelivery)) {
         const transformer = getTransformerForTool(
@@ -614,12 +631,12 @@ export function migrateIfNeeded(projectPath: string, tools: AIToolOption[]): voi
           resolveCommandSurfaceCapability(tool.value),
           resolveCommandInvocation(tool.value)
         );
-        return transformer ? transformer('/opsx:propose') : '/opsx:propose';
+        return transformer ? transformer('/opsx:workflow') : '/opsx:workflow';
       }
-      return getSkillReferenceTransformer(tool.value)('/opsx:propose');
+      return getSkillReferenceTransformer(tool.value)('/opsx:workflow');
     })
   );
-  const proposeReference =
-    proposeReferences.size === 1 ? [...proposeReferences][0] : 'the openspec-propose skill';
-  console.log(`此版本新增：${proposeReference}。运行 'openspec config profile core' 使用精简工作流。`);
+  const workflowReference =
+    workflowReferences.size === 1 ? [...workflowReferences][0] : 'the openspec-workflow skill';
+  console.log(`此版本新增：${workflowReference}。运行 'openspec config profile core' 使用精简工作流。`);
 }

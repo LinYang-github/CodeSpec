@@ -2,7 +2,7 @@ import path from 'path';
 import * as fs from 'fs';
 import { AI_TOOLS } from './config.js';
 import type { Delivery } from './global-config.js';
-import { ALL_WORKFLOWS } from './profiles.js';
+import { ALL_WORKFLOWS, normalizeWorkflowId, PUBLIC_WORKFLOWS } from './profiles.js';
 import { CommandAdapterRegistry } from './command-generation/index.js';
 import { getConfiguredTools } from './shared/index.js';
 import {
@@ -21,6 +21,16 @@ import {
 } from './shared/skill-paths.js';
 
 type WorkflowId = (typeof ALL_WORKFLOWS)[number];
+
+const PUBLIC_WORKFLOW_TO_SKILL_DIR = {
+  workflow: 'openspec-workflow',
+  rebase: 'openspec-rebase-change',
+  archive: 'openspec-archive-change',
+} as const;
+
+function usesPublicWorkflowSurface(workflows: readonly string[]): boolean {
+  return workflows.some((workflow) => workflow === 'workflow' || workflow === 'rebase');
+}
 
 /**
  * Maps workflow IDs to their skill directory names.
@@ -73,6 +83,11 @@ export function hasToolProfileOrDeliveryDrift(
 
   const knownDesiredWorkflows = toKnownWorkflows(desiredWorkflows);
   const desiredWorkflowSet = new Set<WorkflowId>(knownDesiredWorkflows);
+  const publicSurface = usesPublicWorkflowSurface(desiredWorkflows);
+  const desiredPublicWorkflows = desiredWorkflows
+    .map((workflow) => normalizeWorkflowId(workflow))
+    .filter((workflow): workflow is (typeof PUBLIC_WORKFLOWS)[number] => workflow !== null);
+  const desiredPublicSet = new Set(desiredPublicWorkflows);
   const skillsDir = resolveToolSkillsDir(projectPath, tool);
   const adapter = CommandAdapterRegistry.get(toolId);
   const shouldGenerateSkills = shouldGenerateSkillsForTool(toolId, delivery);
@@ -117,6 +132,21 @@ export function hasToolProfileOrDeliveryDrift(
   }
 
   if (shouldGenerateSkills) {
+    if (publicSurface) {
+      for (const workflow of desiredPublicWorkflows) {
+        const skillFile = path.join(
+          skillsDir,
+          PUBLIC_WORKFLOW_TO_SKILL_DIR[workflow],
+          'SKILL.md'
+        );
+        if (!fs.existsSync(skillFile)) return true;
+      }
+      for (const workflow of PUBLIC_WORKFLOWS) {
+        if (desiredPublicSet.has(workflow)) continue;
+        const skillDir = path.join(skillsDir, PUBLIC_WORKFLOW_TO_SKILL_DIR[workflow]);
+        if (fs.existsSync(skillDir)) return true;
+      }
+    }
     for (const workflow of knownDesiredWorkflows) {
       const dirName = WORKFLOW_TO_SKILL_DIR[workflow];
       const skillFile = path.join(skillsDir, dirName, 'SKILL.md');
@@ -145,6 +175,19 @@ export function hasToolProfileOrDeliveryDrift(
   }
 
   if (shouldGenerateCommands && adapter) {
+    if (publicSurface) {
+      for (const workflow of desiredPublicWorkflows) {
+        const cmdPath = adapter.getFilePath(workflow);
+        const fullPath = path.isAbsolute(cmdPath) ? cmdPath : path.join(projectPath, cmdPath);
+        if (!fs.existsSync(fullPath)) return true;
+      }
+      for (const workflow of PUBLIC_WORKFLOWS) {
+        if (desiredPublicSet.has(workflow)) continue;
+        const cmdPath = adapter.getFilePath(workflow);
+        const fullPath = path.isAbsolute(cmdPath) ? cmdPath : path.join(projectPath, cmdPath);
+        if (fs.existsSync(fullPath)) return true;
+      }
+    }
     for (const workflow of knownDesiredWorkflows) {
       const cmdPath = adapter.getFilePath(workflow);
       const fullPath = path.isAbsolute(cmdPath) ? cmdPath : path.join(projectPath, cmdPath);

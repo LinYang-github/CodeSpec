@@ -7,7 +7,7 @@ import {
   hasToolProfileOrDeliveryDrift,
   WORKFLOW_TO_SKILL_DIR,
 } from '../../src/core/profile-sync-drift.js';
-import { CORE_WORKFLOWS } from '../../src/core/profiles.js';
+import { CORE_WORKFLOWS, PUBLIC_WORKFLOWS } from '../../src/core/profiles.js';
 import { CommandAdapterRegistry } from '../../src/core/command-generation/index.js';
 
 function writeSkill(projectDir: string, workflowId: string): void {
@@ -63,6 +63,22 @@ describe('profile sync drift detection', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('accepts public entries and detects a missing public entry', () => {
+    for (const workflow of PUBLIC_WORKFLOWS) {
+      const skillName = workflow === 'workflow'
+        ? 'openspec-workflow'
+        : `openspec-${workflow}-change`;
+      const skillPath = path.join(tempDir, '.claude', 'skills', skillName, 'SKILL.md');
+      fs.mkdirSync(path.dirname(skillPath), { recursive: true });
+      fs.writeFileSync(skillPath, `name: ${skillName}\n`);
+      writeCommand(tempDir, workflow);
+    }
+
+    expect(hasProjectConfigDrift(tempDir, PUBLIC_WORKFLOWS, 'both')).toBe(false);
+    fs.rmSync(path.join(tempDir, '.claude', 'skills', 'openspec-rebase-change'), { recursive: true });
+    expect(hasProjectConfigDrift(tempDir, ['workflow', 'archive'], 'both')).toBe(true);
   });
 
   it('detects drift for skills-only delivery when commands still exist', () => {

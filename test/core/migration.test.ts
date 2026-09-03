@@ -94,7 +94,7 @@ describe('migration', () => {
     const config = readRawConfig();
     expect(config.profile).toBe('custom');
     expect(config.delivery).toBe('skills');
-    expect(config.workflows).toEqual(['explore', 'apply']);
+    expect(config.workflows).toEqual(['workflow']);
   });
 
   it('keeps dry-run legacy results aligned with migration timing', async () => {
@@ -121,7 +121,7 @@ describe('migration', () => {
     const config = readRawConfig();
     expect(config.profile).toBe('custom');
     expect(config.delivery).toBe('commands');
-    expect(config.workflows).toEqual(['explore', 'archive']);
+    expect(config.workflows).toEqual(['workflow', 'archive']);
   });
 
   it('migrates to custom both delivery when managed skills and commands are detected', async () => {
@@ -133,7 +133,7 @@ describe('migration', () => {
     const config = readRawConfig();
     expect(config.profile).toBe('custom');
     expect(config.delivery).toBe('both');
-    expect(config.workflows).toEqual(['explore', 'apply']);
+    expect(config.workflows).toEqual(['workflow']);
   });
 
   it('does not migrate when profile is already explicitly configured', async () => {
@@ -165,7 +165,7 @@ describe('migration', () => {
     const config = readRawConfig();
     expect(config.profile).toBe('custom');
     expect(config.delivery).toBe('both');
-    expect(config.workflows).toEqual(['explore']);
+    expect(config.workflows).toEqual(['workflow']);
   });
 
   it('does not migrate when no managed workflow artifacts are detected', async () => {
@@ -174,110 +174,110 @@ describe('migration', () => {
     expect(fs.existsSync(getGlobalConfigPath())).toBe(false);
   });
 
-  it('prints the $-prefixed propose reference when migrating a codex-only project', async () => {
+  it('prints the $-prefixed workflow reference when migrating a codex-only project', async () => {
     // Codex is skills-invocable with no slash surface: it invokes skills as
     // Migration hints target the selected tool, so keep Codex's $<name> form.
-    await writeSkill(projectDir, 'openspec-propose', '.codex');
+    await writeSkill(projectDir, 'openspec-workflow', '.codex');
 
     const message = captureMigrationLogs(projectDir, [requireTool('codex')]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
     expect(message).toBeTruthy();
-    expect(message).toContain('$openspec-propose');
-    expect(message).not.toContain('/openspec-propose');
-    expect(message).not.toContain('/opsx:propose');
+    expect(message).toContain('$openspec-workflow');
+    expect(message).not.toContain('/openspec-workflow');
+    expect(message).not.toContain('/opsx:workflow');
   });
 
-  it('prints the hyphen propose reference when migrating a qwen-only project', async () => {
+  it('prints the hyphen workflow reference when migrating a qwen-only project', async () => {
     // Qwen invokes commands by filename (.qwen/commands/opsx-propose.md ->
     // /opsx-propose), so the upgrade message must not advertise the colon form
     // its palette never registers.
-    await writeManagedCommand(projectDir, 'apply', 'qwen');
+    await writeManagedCommand(projectDir, 'workflow', 'qwen');
 
     const message = captureMigrationLogs(projectDir, [requireTool('qwen')]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('/opsx-propose');
-    expect(message).not.toContain('/opsx:propose');
+    expect(message).toContain('/opsx-workflow');
+    expect(message).not.toContain('/opsx:workflow');
   });
 
-  it('prints the @ propose reference when migrating an amazon-q-only project', async () => {
+  it('prints the @ workflow reference when migrating an amazon-q-only project', async () => {
     // Amazon Q's generated files land in its prompt library, invoked as
     // @opsx-propose. It registers no slash command, so the upgrade message
     // must advertise neither the colon nor the plain hyphen form.
-    await writeManagedCommand(projectDir, 'apply', 'amazon-q');
+    await writeManagedCommand(projectDir, 'workflow', 'amazon-q');
 
     const message = captureMigrationLogs(projectDir, [requireTool('amazon-q')]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('@opsx-propose');
-    expect(message).not.toContain('/opsx:propose');
-    expect(message).not.toContain('/opsx-propose');
+    expect(message).toContain('@opsx-workflow');
+    expect(message).not.toContain('/opsx:workflow');
+    expect(message).not.toContain('/opsx-workflow');
   });
 
   it('falls back to the skill name when amazon-q and a slash tool disagree', async () => {
     // @opsx-propose and /opsx-propose are both "flat", so a style-only model
     // would wrongly treat these as agreeing and advertise one form to both.
-    await writeManagedCommand(projectDir, 'apply', 'amazon-q');
-    await writeManagedCommand(projectDir, 'apply', 'qwen');
+    await writeManagedCommand(projectDir, 'workflow', 'amazon-q');
+    await writeManagedCommand(projectDir, 'workflow', 'qwen');
 
     const message = captureMigrationLogs(projectDir, [
       requireTool('amazon-q'),
       requireTool('qwen'),
-    ]).find((entry) => entry.includes('New in this version'));
-    expect(message).toContain('the openspec-propose skill');
-    expect(message).not.toContain('@opsx-propose');
-    expect(message).not.toContain('/opsx-propose');
+    ]).find((entry) => entry.includes('此版本新增'));
+    expect(message).toContain('the openspec-workflow skill');
+    expect(message).not.toContain('@opsx-workflow');
+    expect(message).not.toContain('/opsx-workflow');
   });
 
   it('falls back to the skill name when a namespaced and a flat tool disagree', async () => {
     // Claude registers /opsx:propose, Qwen registers /opsx-propose: no single
     // slash form is right for both, so neither may be advertised.
-    await writeManagedCommand(projectDir, 'apply', 'claude');
-    await writeManagedCommand(projectDir, 'apply', 'qwen');
+    await writeManagedCommand(projectDir, 'workflow', 'claude');
+    await writeManagedCommand(projectDir, 'workflow', 'qwen');
 
     const message = captureMigrationLogs(projectDir, [
       requireTool('claude'),
       requireTool('qwen'),
-    ]).find((entry) => entry.includes('New in this version'));
-    expect(message).toContain('the openspec-propose skill');
-    expect(message).not.toContain('/opsx:propose');
-    expect(message).not.toContain('/opsx-propose');
+    ]).find((entry) => entry.includes('此版本新增'));
+    expect(message).toContain('the openspec-workflow skill');
+    expect(message).not.toContain('/opsx:workflow');
+    expect(message).not.toContain('/opsx-workflow');
   });
 
-  it('prints the documented /skill: propose reference when migrating a kimi-only project', async () => {
-    await writeSkill(projectDir, 'openspec-propose', '.kimi-code');
+  it('prints the documented /skill: workflow reference when migrating a kimi-only project', async () => {
+    await writeSkill(projectDir, 'openspec-workflow', '.kimi-code');
 
     const message = captureMigrationLogs(projectDir, [requireTool('kimi')]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('/skill:openspec-propose');
-    expect(message).not.toContain('/opsx:propose');
+    expect(message).toContain('/skill:openspec-workflow');
+    expect(message).not.toContain('/opsx:workflow');
   });
 
   it('falls back to a syntax-neutral reference when detected tools disagree (codex+kimi)', async () => {
-    await writeSkill(projectDir, 'openspec-propose', '.codex');
-    await writeSkill(projectDir, 'openspec-propose', '.kimi-code');
+    await writeSkill(projectDir, 'openspec-workflow', '.codex');
+    await writeSkill(projectDir, 'openspec-workflow', '.kimi-code');
 
     const message = captureMigrationLogs(projectDir, [requireTool('codex'), requireTool('kimi')]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('the openspec-propose skill');
+    expect(message).toContain('the openspec-workflow skill');
     expect(message).not.toContain('/skill:');
-    expect(message).not.toContain('/opsx:propose');
+    expect(message).not.toContain('/opsx:workflow');
   });
 
   it('falls back to a syntax-neutral reference when command and skill-only tools mix (claude+kimi)', async () => {
     // Claude will get /opsx:* commands but Kimi cannot invoke them; the one
     // shared message must not advertise a form that is wrong for either tool
     await writeManagedCommand(projectDir, 'propose');
-    await writeSkill(projectDir, 'openspec-propose', '.kimi-code');
+    await writeSkill(projectDir, 'openspec-workflow', '.kimi-code');
 
     const message = captureMigrationLogs(projectDir, [ensureClaudeTool(), requireTool('kimi')]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('the openspec-propose skill');
-    expect(message).not.toContain('/opsx:propose');
+    expect(message).toContain('the openspec-workflow skill');
+    expect(message).not.toContain('/opsx:workflow');
     expect(message).not.toContain('/skill:');
   });
 
@@ -288,22 +288,22 @@ describe('migration', () => {
       featureFlags: {},
       delivery: 'skills',
     });
-    await writeSkill(projectDir, 'openspec-propose');
+    await writeSkill(projectDir, 'openspec-workflow');
 
     const message = captureMigrationLogs(projectDir, [ensureClaudeTool()]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('/openspec-propose');
-    expect(message).not.toContain('/opsx:propose');
+    expect(message).toContain('/openspec-workflow');
+    expect(message).not.toContain('/opsx:workflow');
   });
 
   it('advertises /opsx:propose when commands are installed for an adapter-backed tool', async () => {
-    await writeManagedCommand(projectDir, 'propose');
+    await writeManagedCommand(projectDir, 'workflow');
 
     const message = captureMigrationLogs(projectDir, [ensureClaudeTool()]).find((entry) =>
-      entry.includes('New in this version')
+      entry.includes('此版本新增')
     );
-    expect(message).toContain('/opsx:propose');
+    expect(message).toContain('/opsx:workflow');
   });
 
   it('ignores unknown custom skill and command files when scanning workflows', async () => {
@@ -328,7 +328,7 @@ describe('migration', () => {
     );
 
     expect(scanInstalledWorkflows(projectDir, [requireTool('codex')])).toEqual([]);
-    expect(scanInstalledWorkflows(projectDir, [requireTool('agents')])).toEqual(['explore']);
+    expect(scanInstalledWorkflows(projectDir, [requireTool('agents')])).toEqual(['workflow']);
   });
   describe('Antigravity .agent -> .agents', () => {
     it('moves managed skills and commands once the replacement exists', async () => {

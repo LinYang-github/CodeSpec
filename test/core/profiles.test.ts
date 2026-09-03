@@ -3,10 +3,41 @@ import { describe, it, expect } from 'vitest';
 import {
   CORE_WORKFLOWS,
   ALL_WORKFLOWS,
+  PUBLIC_WORKFLOWS,
+  getPublicProfileWorkflows,
+  normalizeWorkflowId,
   getProfileWorkflows,
 } from '../../src/core/profiles.js';
 
 describe('profiles', () => {
+  describe('public workflow surface', () => {
+    it('should expose exactly the three public entry points', () => {
+      expect(PUBLIC_WORKFLOWS).toEqual(['workflow', 'rebase', 'archive']);
+    });
+
+    it('should normalize legacy workflow ids to public entry points', () => {
+      expect(normalizeWorkflowId('propose')).toBe('workflow');
+      expect(normalizeWorkflowId('apply')).toBe('workflow');
+      expect(normalizeWorkflowId('sync')).toBe('archive');
+      expect(normalizeWorkflowId('bulk-archive')).toBe('archive');
+      expect(normalizeWorkflowId('rebase')).toBe('rebase');
+      expect(normalizeWorkflowId('unknown')).toBeNull();
+    });
+
+    it('should return three public entries for the core profile', () => {
+      expect(getPublicProfileWorkflows('core')).toEqual(PUBLIC_WORKFLOWS);
+    });
+
+    it('should normalize and deduplicate custom legacy selections', () => {
+      expect(getPublicProfileWorkflows('custom', ['propose', 'apply', 'sync', 'archive']))
+        .toEqual(['workflow', 'archive']);
+    });
+
+    it('should upgrade the legacy default core selection to all public entries', () => {
+      expect(getPublicProfileWorkflows('custom', [...CORE_WORKFLOWS])).toEqual(PUBLIC_WORKFLOWS);
+    });
+  });
+
   describe('CORE_WORKFLOWS', () => {
     it('should contain the default core workflows', () => {
       expect(CORE_WORKFLOWS).toEqual(['propose', 'explore', 'apply', 'update', 'sync', 'archive']);
@@ -62,6 +93,11 @@ describe('profiles', () => {
     it('should include sync when a custom profile selects bulk archive', () => {
       const result = getProfileWorkflows('custom', ['explore', 'bulk-archive']);
       expect(result).toEqual(['explore', 'sync', 'bulk-archive']);
+    });
+
+    it('should preserve a canonical public custom selection', () => {
+      const workflows = ['workflow', 'archive'];
+      expect(getProfileWorkflows('custom', workflows)).toEqual(workflows);
     });
 
     it('should not duplicate or reorder an existing sync dependency', () => {

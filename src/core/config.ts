@@ -2,6 +2,12 @@ export const OPENSPEC_DIR_NAME = 'openspec';
 
 export const OPENSPEC_SKILL_NAMES = [
   'openspec-workflow',
+  'openspec-rebase-change',
+  'openspec-archive-change',
+] as const;
+
+/** Legacy generated skill directories used only by migration and cleanup. */
+export const LEGACY_OPENSPEC_SKILL_NAMES = [
   'openspec-explore',
   'openspec-new-change',
   'openspec-continue-change',
@@ -9,7 +15,6 @@ export const OPENSPEC_SKILL_NAMES = [
   'openspec-update-change',
   'openspec-ff-change',
   'openspec-sync-specs',
-  'openspec-archive-change',
   'openspec-bulk-archive-change',
   'openspec-verify-change',
   'openspec-onboard',
