@@ -7,6 +7,7 @@ import { archiveChange } from '../../../src/core/openspec-workflow/archive-trans
 import { renderVerificationMarkdown } from '../../../src/core/openspec-workflow/verification.js';
 import { createWorkflowFixture } from '../../helpers/openspec-workflow.js';
 import type { ChangeMetadata } from '../../../src/core/openspec-workflow/types.js';
+import { parseCurrentSpec } from '../../../src/core/openspec-workflow/current-spec-parser.js';
 
 const ready = (fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, modules = ['MOD-002']): ChangeMetadata => {
   const metadata = fixture.metadataAt('ARCHIVE');
@@ -39,13 +40,16 @@ describe('transactional OpenSpec archive', () => {
       const metadata = ready(fixture); metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
       await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
       await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '# Current\n');
-      await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n');
+      await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** z-error\n');
       await fs.writeFile(path.join(fixture.paths.archive, 'README.md'), '# Existing archive\nKeep this chapter.\n');
       await fs.writeFile(path.join(fixture.paths.archive, 'history.yaml'), stringify({ version: 1, records: [{ change: 'CHG-20260831-001', status: 'ARCHIVED', archived_at: '2026-08-31T00:00:00.000Z' }] }));
       await archiveChange(fixture.workspace, fixture.changeId);
       await expect(fs.readFile(path.join(fixture.paths.archive, 'README.md'), 'utf8')).resolves.toContain('Keep this chapter.');
       const history = await fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8');
       expect(history).toContain('CHG-20260831-001'); expect(history).toContain(fixture.changeId);
+      const current = await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8');
+      expect(current).toContain('- **ERROR** z-error');
+      expect(parseCurrentSpec(current).requirements[0].scenarios[0].error).toEqual(['z-error']);
     } finally { fixture.cleanup(); }
   });
 
@@ -55,7 +59,7 @@ describe('transactional OpenSpec archive', () => {
       await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
       await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '### MOD-002-REQ-006 title\nB\n');
       const metadata = ready(fixture); metadata.requirements.modified = [{ id: 'MOD-002-REQ-006', module: 'MOD-002' }];
-      await setup(fixture, metadata, '## MODIFIED\n### MOD-002-REQ-006 title\n**Previous**\nA\n**New**\nC\n#### Scenario: SCN-006 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**Reason**\nfix\n');
+      await setup(fixture, metadata, '## MODIFIED\n### MOD-002-REQ-006 title\n**Previous**\nA\n**New**\nC\n#### Scenario: SCN-006 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** z-error\n**Reason**\nfix\n');
       await expect(archiveChange(fixture.workspace, fixture.changeId)).rejects.toThrow(/ARCHIVE CONFLICT/i);
       await expect(fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8')).resolves.toContain('B');
     } finally { fixture.cleanup(); }
@@ -67,9 +71,51 @@ describe('transactional OpenSpec archive', () => {
       const metadata = ready(fixture, ['MOD-001', 'MOD-002']); metadata.requirements.added = [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }, { id: 'MOD-002-REQ-001', module: 'MOD-002' }];
       await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-001'), { recursive: true }); await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
       await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md'), 'base'); await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'base');
-      await setup(fixture, metadata, '## ADDED\n### MOD-001-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n\n## MODIFIED\n### MOD-002-REQ-001 title\n**Previous**\nbad\n**New**\nnew\n#### Scenario: SCN-002 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**Reason**\nx\n');
+      await setup(fixture, metadata, '## ADDED\n### MOD-001-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** z-error\n\n## MODIFIED\n### MOD-002-REQ-001 title\n**Previous**\nbad\n**New**\nnew\n#### Scenario: SCN-002 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** z-error\n**Reason**\nx\n');
       await expect(archiveChange(fixture.workspace, fixture.changeId)).rejects.toThrow(/conflict/i);
       await expect(fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md'), 'utf8')).resolves.toBe('base');
+    } finally { fixture.cleanup(); }
+  });
+
+  it('rejects a Current Specification Scenario whose ERROR line is missing', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const metadata = ready(fixture);
+      metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
+      await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
+      await fs.writeFile(
+        path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'),
+        '### MOD-002-REQ-009 existing\n\n#### Scenario: SCN-009 old behavior\n- **GIVEN** old\n- **WHEN** old\n- **THEN** old\n'
+      );
+      await setup(
+        fixture,
+        metadata,
+        '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** recorded\n'
+      );
+
+      await expect(archiveChange(fixture.workspace, fixture.changeId)).rejects.toThrow(
+        /MOD-002-REQ-009.*SCN-009.*ERROR/i
+      );
+      await expect(
+        fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8')
+      ).resolves.toContain('SCN-009 old behavior');
+    } finally { fixture.cleanup(); }
+  });
+
+  it('rejects a Change whose Delta Scenario ERROR is empty', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const metadata = ready(fixture);
+      metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
+      await setup(
+        fixture,
+        metadata,
+        '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR**\n'
+      );
+
+      await expect(archiveChange(fixture.workspace, fixture.changeId)).rejects.toThrow(
+        /MOD-002-REQ-001.*SCN-001.*ERROR.*人工补写/i
+      );
     } finally { fixture.cleanup(); }
   });
 });

@@ -36,6 +36,7 @@ import { findTaskNumberingIssues } from './task-numbering.js';
 import { findPurposePlaceholderIssue } from './purpose-placeholder.js';
 import { getPackageSchemasDir, getSchemaDir } from '../artifact-graph/index.js';
 import { parseDeltaSpec as parseCanonicalDeltaSpec } from '../openspec-workflow/delta-parser.js';
+import { collectEmptyScenarioErrorIssues } from '../openspec-workflow/scenario-parser.js';
 
 export class Validator {
   private strictMode: boolean;
@@ -52,6 +53,9 @@ export class Validator {
       for (const entry of parsed.entries) {
         if ((entry.action === 'ADDED' || entry.action === 'MODIFIED') && entry.scenarios.length === 0) {
           issues.push({ level: 'ERROR', path: entry.id, message: `${entry.action} ${entry.id} requires at least one scenario` });
+        }
+        for (const message of collectEmptyScenarioErrorIssues(entry.id, entry.scenarios)) {
+          issues.push({ level: 'ERROR', path: entry.id, message });
         }
       }
       return this.createReport(issues);

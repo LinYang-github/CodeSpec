@@ -43,6 +43,8 @@ OpenSpec organizes your work into two main areas:
 
 For canonical `code-spec` workspaces (`openspec/config.yaml` with `schema: code-spec`), `openspec/archive/specs/` is the source of truth and `openspec/changes/CHG-YYYYMMDD-NNN/` contains proposed modifications. The `openspec/specs/` source-of-truth model and generic archive paths below apply only to generic `spec-driven` workspaces.
 
+Canonical Scenarios use four protocol tokens: `GIVEN`, `WHEN`, `THEN`, and `ERROR`. `ERROR` describes how the system handles an exception. An explicit empty `ERROR` row is allowed only as an analysis placeholder; Core rejects it during Verification and archive until a human fills it in.
+
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 
 This separation is key. You can work on multiple Changes in parallel without conflicts. You can review a Change before it affects Current Specification. When you archive a Change, Core applies its delta transactionally to the source of truth.

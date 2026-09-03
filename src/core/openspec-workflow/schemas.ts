@@ -72,6 +72,7 @@ const scenarioSchema = z
     given: z.array(nonEmptyString),
     when: z.array(nonEmptyString),
     then: z.array(nonEmptyString),
+    error: z.array(nonEmptyString),
   })
   .strict();
 

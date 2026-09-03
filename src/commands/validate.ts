@@ -19,6 +19,8 @@ import { FileSystemUtils } from '../utils/file-system.js';
 import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
 import { loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
 import { validateExitGate } from '../core/openspec-workflow/gates.js';
+import { validateCurrentSpec } from '../core/openspec-workflow/current-spec-parser.js';
+import { discoverSpecFiles, type DiscoveredSpec } from '../utils/spec-discovery.js';
 
 type ItemType = 'change' | 'spec';
 
@@ -114,6 +116,19 @@ export class ValidateCommand {
     return ids.sort();
   }
 
+  private async validateCanonicalSpecFile(file: string): Promise<{ valid: boolean; issues: { level: 'ERROR'; path: string; message: string }[] }> {
+    let messages: string[];
+    try {
+      messages = validateCurrentSpec(await fs.readFile(file, 'utf8'));
+    } catch (error) {
+      messages = [error instanceof Error ? error.message : String(error)];
+    }
+    return {
+      valid: messages.length === 0,
+      issues: messages.map((message) => ({ level: 'ERROR' as const, path: file, message })),
+    };
+  }
+
   private async runInteractiveSelector(root: ResolvedOpenSpecRoot, opts: { strict: boolean; json: boolean; concurrency?: string }): Promise<void> {
     const { select } = await import('@inquirer/prompts');
     const choice = await select({
@@ -131,7 +146,13 @@ export class ValidateCommand {
     if (choice === 'specs') return this.runBulkValidation(root, { changes: false, specs: true }, opts);
 
     // one
-    const [changes, specs] = await Promise.all([this.listChangeIds(root), getSpecIds(root.path)]);
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
+    const [changes, specs] = await Promise.all([
+      this.listChangeIds(root),
+      canonicalWorkspace
+        ? (await discoverSpecFiles(canonicalWorkspace.paths.currentSpecs)).map((item) => item.id)
+        : getSpecIds(root.path),
+    ]);
     const items: { name: string; value: { type: ItemType; id: string } }[] = [];
     items.push(...changes.map(id => ({ name: `change/${id}`, value: { type: 'change' as const, id } })));
     items.push(...specs.map(id => ({ name: `spec/${id}`, value: { type: 'spec' as const, id } })));
@@ -154,7 +175,12 @@ export class ValidateCommand {
   }
 
   private async validateDirectItem(root: ResolvedOpenSpecRoot, itemName: string, opts: { typeOverride?: ItemType; strict: boolean; json: boolean }): Promise<void> {
-    const [changes, specs] = await Promise.all([this.listChangeIds(root), getSpecIds(root.path)]);
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
+    const [changes, specFiles] = await Promise.all([
+      this.listChangeIds(root),
+      canonicalWorkspace ? discoverSpecFiles(canonicalWorkspace.paths.currentSpecs) : discoverSpecFiles(root.specsDir),
+    ]);
+    const specs = specFiles.map((item) => item.id);
     const isChange = changes.includes(itemName);
     const isSpec = specs.includes(itemName);
 
@@ -217,8 +243,8 @@ export class ValidateCommand {
 
   private async validateByType(root: ResolvedOpenSpecRoot, type: ItemType, id: string, opts: { strict: boolean; json: boolean }): Promise<void> {
     const validator = new Validator(opts.strict);
+    const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
     if (type === 'change') {
-      const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
       if (canonicalWorkspace) {
         if (!/^CHG-\d{8}-\d{3}$/u.test(id)) throw new Error(`Canonical code-spec Changes require IDs matching CHG-YYYYMMDD-NNN; '${id}' is unsupported.`);
         const start = Date.now();
@@ -241,9 +267,13 @@ export class ValidateCommand {
       process.exitCode = report.valid ? 0 : 1;
       return;
     }
-    const file = path.join(root.specsDir, id, 'spec.md');
+    const specFiles = canonicalWorkspace
+      ? await discoverSpecFiles(canonicalWorkspace.paths.currentSpecs)
+      : await discoverSpecFiles(root.specsDir);
+    const specFile = specFiles.find((item) => item.id === id);
+    const file = specFile?.specFile ?? path.join(root.specsDir, ...id.split('/'), 'spec.md');
     const start = Date.now();
-    const report = await validator.validateSpec(file);
+    const report = canonicalWorkspace ? await this.validateCanonicalSpecFile(file) : await validator.validateSpec(file);
     const durationMs = Date.now() - start;
     this.printReport('spec', id, report, durationMs, opts.json, root);
     process.exitCode = report.valid ? 0 : 1;
@@ -301,17 +331,21 @@ export class ValidateCommand {
 
   private async runBulkValidation(root: ResolvedOpenSpecRoot, scope: { changes: boolean; specs: boolean }, opts: { strict: boolean; json: boolean; concurrency?: string; noInteractive?: boolean }): Promise<void> {
     const spinner = !opts.json && !opts.noInteractive ? ora('正在校验……').start() : undefined;
-    const [changeIds, specIds] = await Promise.all([
-      scope.changes ? this.listChangeIds(root) : Promise.resolve<string[]>([]),
-      scope.specs ? getSpecIds(root.path) : Promise.resolve<string[]>([]),
-    ]);
-
     const DEFAULT_CONCURRENCY = 6;
     const maxSuggestions = 5; // used by nearestMatches
     const concurrency = normalizeConcurrency(opts.concurrency) ?? normalizeConcurrency(process.env.OPENSPEC_CONCURRENCY) ?? DEFAULT_CONCURRENCY;
     const validator = new Validator(opts.strict);
     const queue: Array<() => Promise<BulkItemResult>> = [];
     const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
+    const [changeIds, specFiles] = await Promise.all([
+      scope.changes ? this.listChangeIds(root) : Promise.resolve<string[]>([]),
+      scope.specs
+        ? canonicalWorkspace
+          ? discoverSpecFiles(canonicalWorkspace.paths.currentSpecs)
+          : discoverSpecFiles(root.specsDir)
+        : Promise.resolve<DiscoveredSpec[]>([]),
+    ]);
+    const specIds = specFiles.map((item) => item.id);
 
     for (const id of changeIds) {
       queue.push(async () => {
@@ -333,8 +367,9 @@ export class ValidateCommand {
     for (const id of specIds) {
       queue.push(async () => {
         const start = Date.now();
-        const file = path.join(root.specsDir, id, 'spec.md');
-        const report = await validator.validateSpec(file);
+        const specFile = specFiles.find((item) => item.id === id);
+        const file = specFile?.specFile ?? path.join(root.specsDir, ...id.split('/'), 'spec.md');
+        const report = canonicalWorkspace ? await this.validateCanonicalSpecFile(file) : await validator.validateSpec(file);
         const durationMs = Date.now() - start;
         return { id, type: 'spec' as const, valid: report.valid, issues: report.issues, durationMs };
       });

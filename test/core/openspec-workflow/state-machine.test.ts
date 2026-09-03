@@ -74,6 +74,26 @@ describe('openspec workflow state machine', () => {
     expect(result.errors.join('\n')).toMatch(/summary|module|analyze/i);
   });
 
+  it('rejects an empty canonical Scenario ERROR at the lifecycle gate with full context', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, {
+      metadata: { change: { status: 'VERIFY' } },
+      spec: '## ADDED\n### MOD-001-REQ-001 Login\n**New**\nThe system SHALL reject failed login.\n#### Scenario: SCN-001 failure\n- **GIVEN** a user\n- **WHEN** login fails\n- **THEN** access is denied\n- **ERROR**\n',
+    });
+
+    const workspace = await loadWorkspace(fixture.openspecDir);
+    const artifacts = await import('../../../src/core/openspec-workflow/artifacts.js').then((m) =>
+      m.loadChangeArtifacts(workspace.paths, fixture.changeId)
+    );
+    const result = validateExitGate(workspace, artifacts);
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toMatch(
+      /CHG-20260901-001.*MOD-001-REQ-001.*SCN-001.*ERROR.*人工补写/
+    );
+  });
+
   it('requires fresh verification evidence before entering ARCHIVE', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
@@ -138,7 +158,7 @@ describe('openspec workflow state machine', () => {
         },
       },
       design: `# Design\n\n${requirementId}\n`,
-      spec: `## ADDED\n### ${requirementId} Login\n**New**\nThe system SHALL support login.\n#### Scenario: SCN-001 succeeds\n- **GIVEN** a user\n- **WHEN** the user logs in\n- **THEN** access is granted\n`,
+      spec: `## ADDED\n### ${requirementId} Login\n**New**\nThe system SHALL support login.\n#### Scenario: SCN-001 succeeds\n- **GIVEN** a user\n- **WHEN** the user logs in\n- **THEN** access is granted\n- **ERROR** access is denied with a retry message\n`,
       tasks: `# Tasks\n\n- [x] SP-01 ${requirementId} SCN-001 test\n`,
       verification: '# Verification\n\nstatus: PASS\n',
     });
@@ -279,6 +299,7 @@ describe('openspec workflow state machine', () => {
 - **GIVEN** 条件
 - **WHEN** 动作
 - **THEN** 结果
+- **ERROR** 错误处理
 `,
       tasks: '# Tasks\n\n- [ ] SP-01 implementation without traceability IDs\n',
     });

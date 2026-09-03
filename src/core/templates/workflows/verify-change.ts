@@ -93,9 +93,13 @@ ${STORE_SELECTION_GUIDANCE}
    - For each scenario in delta specs (marked with "#### Scenario:"):
      - Check if conditions are handled in code
      - Check if tests exist covering the scenario
+     - Require an explicit **ERROR** line and verify that its exception handling is non-empty
      - If scenario appears uncovered:
        - Add WARNING: "Scenario not covered: <scenario name>"
        - Recommendation: "Add test or implementation for scenario: <description>"
+     - If **ERROR** is missing or empty:
+       - Add CRITICAL issue: "Scenario ERROR is missing or empty: <scenario name>"
+       - Recommendation: "Ask a human to fill in the system's exception handling before verification or archive"
 
 7. **Verify Coherence**
 
@@ -268,9 +272,13 @@ ${STORE_SELECTION_GUIDANCE}
    - For each scenario in delta specs (marked with "#### Scenario:"):
      - Check if conditions are handled in code
      - Check if tests exist covering the scenario
+     - Require an explicit **ERROR** line and verify that its exception handling is non-empty
      - If scenario appears uncovered:
        - Add WARNING: "Scenario not covered: <scenario name>"
        - Recommendation: "Add test or implementation for scenario: <description>"
+     - If **ERROR** is missing or empty:
+       - Add CRITICAL issue: "Scenario ERROR is missing or empty: <scenario name>"
+       - Recommendation: "Ask a human to fill in the system's exception handling before verification or archive"
 
 7. **Verify Coherence**
 

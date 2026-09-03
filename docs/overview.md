@@ -2,7 +2,7 @@
 
 ## 当前 code-spec 协议
 
-代码变更使用 `openspec/changes/CHG-YYYYMMDD-NNN/metadata.yaml` 作为状态权威；当前规格位于 `openspec/archive/specs`。同一 workspace 支持多个 active Change。需求使用稳定的 Requirement ID，完成后须在 `verification.md` 写入 fresh 证据，并显式执行 archive。
+代码变更使用 `openspec/changes/CHG-YYYYMMDD-NNN/metadata.yaml` 作为状态权威；当前规格位于 `openspec/archive/specs`。同一 workspace 支持多个 active Change。需求使用稳定的 Requirement ID，每个 Scenario 都必须包含 `ERROR` 异常处理；完成后须在 `verification.md` 写入 fresh 证据，并显式执行 archive。
 
 **OpenSpec is a lightweight agreement layer between you and your AI.** You write down what a change should do, the AI drafts the details, you both look at the same plan, and only then does code get written. This page is the whole mental model on one screen. When you want the long version, [Concepts](concepts.md) has it.
 
@@ -12,7 +12,7 @@ Here's the entire idea in five words: **agree first, then build confidently.**
 
 Everything in OpenSpec is built from five concepts. Learn these and the rest is detail.
 
-**1. Specs are the truth.** A code-spec spec describes how your system behaves *right now*. It lives in `openspec/archive/specs/`, organized by stable module IDs. Specs are made of Requirement IDs and scenarios (concrete GIVEN/WHEN/THEN examples). Think of specs as the single agreed-upon answer to "what does this software do?"
+**1. Specs are the truth.** A code-spec spec describes how your system behaves *right now*. It lives in `openspec/archive/specs/`, organized by stable module IDs. Specs are made of Requirement IDs and scenarios (concrete GIVEN/WHEN/THEN examples with explicit ERROR handling). Think of specs as the single agreed-upon answer to "what does this software do?"
 
 **2. A change is one unit of work.** In canonical code-spec, create `openspec/changes/CHG-YYYYMMDD-NNN/` with `metadata.yaml`, proposal, design, delta spec, tasks, and verification. Generic `spec-driven` workspaces may retain the older slug-based `openspec/changes/<slug>/` layout.
 

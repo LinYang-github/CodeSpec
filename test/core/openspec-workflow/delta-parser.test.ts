@@ -7,7 +7,8 @@ import { parseDeltaSpec } from '../../../src/core/openspec-workflow/delta-parser
 const scenario = (id: string, name: string) => `#### Scenario: ${id} ${name}
 - **GIVEN** 已有前置条件
 - **WHEN** 执行业务动作
-- **THEN** 产生可观察结果`;
+- **THEN** 产生可观察结果
+- **ERROR** 系统记录异常并允许重试`;
 
 describe('canonical delta parser', () => {
   it('parses every Requirement under every action into complete snapshots', () => {
@@ -84,13 +85,13 @@ ${scenario('SCN-008', '旧事件发送')}
       previous: expect.stringContaining('系统 SHALL 使用旧规则。'),
       next: expect.stringContaining('系统 SHALL 使用新规则。'),
       reason: '业务规则变化。',
-      scenarios: [{ id: 'SCN-004', name: '新取消规则' }],
+      scenarios: [{ id: 'SCN-004', name: '新取消规则', error: ['系统记录异常并允许重试'] }],
     });
     expect(parsed.entries[4]).toMatchObject({
       action: 'REMOVED',
       previous: expect.stringContaining('### MOD-002-REQ-008 旧接口'),
       reason: '旧接口已下线。',
-      scenarios: [{ id: 'SCN-007', name: '旧接口调用' }],
+      scenarios: [{ id: 'SCN-007', name: '旧接口调用', error: ['系统记录异常并允许重试'] }],
     });
   });
 
@@ -194,5 +195,66 @@ ${scenario('SCN-004', '新规则')}`)
 - **GIVEN** 已下单
 - **WHEN** 支付`)
     ).toThrow(/THEN/i);
+  });
+
+  it('accepts an explicit empty ERROR line for human completion', () => {
+    const parsed = parseDeltaSpec(`## ADDED
+### MOD-002-REQ-020 登录
+**New**
+系统 SHALL 支持登录。
+#### Scenario: SCN-044 登录异常待分析
+- **GIVEN** 用户已提交登录
+- **WHEN** 登录服务返回未知错误
+- **THEN** 系统显示失败提示
+- **ERROR**`);
+
+    expect(parsed.entries[0].scenarios[0].error).toEqual([]);
+  });
+
+  it('requires ERROR in every scenario branch and preserves multiple ERROR lines', () => {
+    const complete = `## MODIFIED
+### MOD-002-REQ-021 支付
+**Previous**
+旧规则
+#### Scenario: SCN-045 旧支付
+- **GIVEN** 旧状态
+- **WHEN** 支付
+- **THEN** 旧结果
+- **ERROR** 旧错误记录
+**New**
+新规则
+#### Scenario: SCN-046 新支付
+- **GIVEN** 新状态
+- **WHEN** 支付
+- **THEN** 新结果
+- **ERROR** 新错误记录一
+- **ERROR** 新错误记录二
+**Reason**
+业务变化`;
+
+    const parsed = parseDeltaSpec(complete);
+    expect(parsed.entries[0].scenarios[0].error).toEqual(['新错误记录一', '新错误记录二']);
+
+    for (const branch of ['Previous', 'New'] as const) {
+      const missing = branch === 'Previous'
+        ? complete.replace('- **ERROR** 旧错误记录', '')
+        : complete.replace('- **ERROR** 新错误记录一\n- **ERROR** 新错误记录二', '');
+      expect(() => parseDeltaSpec(missing)).toThrow(/MOD-002-REQ-021.*SCN-04[56].*ERROR/i);
+    }
+  });
+
+  it('renders ERROR after THEN when exposing parsed snapshots', () => {
+    const parsed = parseDeltaSpec(`## ADDED
+### MOD-002-REQ-022 查询
+**New**
+系统 SHALL 查询。
+#### Scenario: SCN-047 查询异常
+- **GIVEN** 数据服务不可用
+- **WHEN** 用户发起查询
+- **THEN** 系统显示失败
+- **ERROR** 记录服务异常
+- **ERROR** 提供重试入口`);
+
+    expect(parsed.entries[0].next).toMatch(/- \*\*THEN\*\* 系统显示失败\n- \*\*ERROR\*\* 记录服务异常\n- \*\*ERROR\*\* 提供重试入口/);
   });
 });

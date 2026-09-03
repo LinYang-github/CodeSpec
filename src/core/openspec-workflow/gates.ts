@@ -2,12 +2,24 @@ import type { ChangeArtifacts } from './artifacts.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ChangeStatus } from './types.js';
 import { validateChangeTraceability } from './traceability.js';
+import { parseDeltaSpec } from './delta-parser.js';
+import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 
 export interface GateResult { ok: boolean; errors: string[]; warnings: string[] }
 const result = (errors: string[]): GateResult => ({ ok: errors.length === 0, errors, warnings: [] });
 
+function validateDeltaScenarioErrors(spec: string, changeId?: string): string[] {
+  if (!/^##\s+(?:ADDED|MODIFIED|REMOVED)\b/mu.test(spec)) return [];
+  try {
+    return parseDeltaSpec(spec).entries.flatMap((entry) => collectEmptyScenarioErrorIssues(entry.id, entry.scenarios, changeId));
+  } catch (error) {
+    return [error instanceof Error ? error.message : String(error)];
+  }
+}
+
 function validateState(workspace: WorkspaceContext, artifacts: ChangeArtifacts, state: ChangeStatus): GateResult {
   const m = artifacts.metadata; const errors: string[] = [];
+  errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
     if (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal)) errors.push('proposal 必须包含 summary、goals 和 scope 部分');
     if (!m.impact.summary.trim()) errors.push('必须填写 proposal summary');

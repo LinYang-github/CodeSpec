@@ -46,6 +46,8 @@ Scenarios are where a requirement earns its keep. Each one is a concrete GIVEN /
 - **Cover the cases that matter, not just the happy path.** The valid login is easy. The empty input, the expired token, the second click, the thing that goes wrong — those are where bugs live, and where a scenario is worth the most.
 - **Name the case in the title.** "Scenario: Rejects an expired token" tells a reviewer what's covered at a glance; "Scenario: Test 2" doesn't.
 
+For canonical `code-spec` Changes, add an explicit `- **ERROR**` line to every Scenario. It may be empty while the exception path is still being analyzed, but do not infer its content from `THEN`; a human must describe the system handling before Verification or archive. Multiple `ERROR` lines are allowed when one failure path has several observable handling steps.
+
 A useful habit: before approving, ask *what's the one case I'd be upset to see broken?* — and make sure a scenario names it.
 
 ## Pick the right kind of delta

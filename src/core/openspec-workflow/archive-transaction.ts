@@ -10,6 +10,8 @@ import { detectStaleChanges } from './stale.js';
 import { validateRelations } from './relations.js';
 import { validateChangeTraceability } from './traceability.js';
 import { parseVerificationDocument } from './verification.js';
+import { validateCurrentSpec } from './current-spec-parser.js';
+import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import type { ArchivePlan as ContractArchivePlan, ChangeMetadata, RequirementDelta } from './types.js';
 
 export interface ArchivePlan extends ContractArchivePlan {
@@ -76,7 +78,10 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   let evidence: any;
   try { evidence = parseVerificationDocument(artifacts.verification); } catch (error) { throw new Error(error instanceof Error ? error.message : `Verification 证据无效：${String(error)}`); }
   const expectedIds = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed].map((r) => r.id).sort();
-  const expectedScenarios = (() => { try { return parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)); } catch { return []; } })();
+  const parsedDelta = parseDeltaSpec(artifacts.spec);
+  const deltaErrorIssues = parsedDelta.entries.flatMap((entry) => collectEmptyScenarioErrorIssues(entry.id, entry.scenarios, m.change.id));
+  if (deltaErrorIssues.length) throw new Error(deltaErrorIssues.join('; '));
+  const expectedScenarios = parsedDelta.entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id));
   const validCommands = Array.isArray(evidence?.commands) && evidence.commands.length > 0 && evidence.commands.every((command: any) => command && typeof command.command === 'string' && command.command.trim() && command.exit_code === 0 && typeof command.started_at === 'string' && typeof command.finished_at === 'string' && !Number.isNaN(Date.parse(command.started_at)) && !Number.isNaN(Date.parse(command.finished_at)) && Date.parse(command.finished_at) >= Date.parse(command.started_at));
   if (evidence?.schema_version !== 1 || evidence.change_id !== m.change.id || evidence.status !== 'PASS' || evidence.revision !== m.change.revision || evidence.baseline_identity !== digest(m.baseline) || typeof evidence.receipt !== 'string' || !validCommands || !expectedIds.every((id) => evidence.requirement_ids?.includes(id)) || !expectedScenarios.every((id) => evidence.scenario_ids?.includes(id))) throw new Error('归档要求当前修订、baseline、Requirements 和 Scenarios 对应的最新 Verification 证据');
   if (evidence.receipt !== digest({ ...evidence, receipt: undefined }) || m.verification.evidence_receipt !== evidence.receipt || m.verification.baseline_identity !== evidence.baseline_identity) throw new Error('归档要求绑定到元数据且真实有效的 Verification 证据');
@@ -107,6 +112,10 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
       else throw error;
     }
   }
+  for (const [module, content] of current) {
+    const issues = validateCurrentSpec(content, module);
+    if (issues.length) throw new Error(`Current Specification ${module} 校验失败：${issues.join('; ')}`);
+  }
   for (const delta of deltas) {
     if (!current.has(delta.module)) current.set(delta.module, '');
     if (delta.action !== 'ADDED' && !requirementBlock(current.get(delta.module)!, delta.id)) throw new Error(`ARCHIVE CONFLICT: missing ${delta.id}`);
@@ -130,7 +139,11 @@ function validatePreparedCurrentSpec(module: string, spec: string): void {
 export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive> {
   const specs = new Map(plan.current);
   for (const delta of plan.deltas) specs.set(delta.module, applyDelta(specs.get(delta.module) ?? '', delta));
-  for (const [module, spec] of specs) validatePreparedCurrentSpec(module, spec);
+  for (const [module, spec] of specs) {
+    validatePreparedCurrentSpec(module, spec);
+    const issues = validateCurrentSpec(spec, module);
+    if (issues.length) throw new Error(`Archive validation failed: Current Specification ${module}：${issues.join('; ')}`);
+  }
   const archivedMetadata = structuredClone(plan.artifacts.metadata);
   archivedMetadata.change.status = 'ARCHIVED';
   archivedMetadata.archive.archived_at = new Date().toISOString();

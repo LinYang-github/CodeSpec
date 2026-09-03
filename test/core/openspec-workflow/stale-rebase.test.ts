@@ -35,7 +35,7 @@ describe('stale changes and rebase', () => {
     await fs.writeFile(path.join(dir, 'design.md'), '# Design\nMOD-002-REQ-006\n');
     await fs.writeFile(path.join(dir, 'tasks.md'), '# Tasks\n- [x] SP-01 MOD-002-REQ-006 SCN-002 test\n');
     await fs.writeFile(path.join(dir, 'verification.md'), '# Verification\n');
-    await fs.writeFile(path.join(dir, 'spec.md'), '## MODIFIED\n### MOD-002-REQ-006 payment\n**Previous**\nOld\n#### Scenario: SCN-001 old\n- **GIVEN** old\n- **WHEN** pay\n- **THEN** old\n**New**\nNew\n#### Scenario: SCN-002 new\n- **GIVEN** new\n- **WHEN** pay\n- **THEN** new\n**Reason**\nchange\n');
+    await fs.writeFile(path.join(dir, 'spec.md'), '## MODIFIED\n### MOD-002-REQ-006 payment\n**Previous**\nOld\n#### Scenario: SCN-001 old\n- **GIVEN** old\n- **WHEN** pay\n- **THEN** old\n- **ERROR** old-error\n**New**\nNew\n#### Scenario: SCN-002 new\n- **GIVEN** new\n- **WHEN** pay\n- **THEN** new\n- **ERROR** new-error-one\n- **ERROR** new-error-two\n**Reason**\nchange\n');
     await fs.writeFile(path.join(dir, 'metadata.yaml'), stringifyYaml(metadata));
     await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
     await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '### MOD-002-REQ-006 payment\nOld\n');
@@ -68,12 +68,13 @@ describe('stale changes and rebase', () => {
     const dir = path.join(fixture.paths.changes, fixture.changeId); await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, 'metadata.yaml'), stringifyYaml(metadata));
     await Promise.all(['proposal.md', 'design.md', 'tasks.md', 'verification.md'].map((name) => fs.writeFile(path.join(dir, name), '# artifact\n')));
-    await fs.writeFile(path.join(dir, 'spec.md'), '## MODIFIED\n### MOD-002-REQ-006 payment\n**Previous**\nOld\n#### Scenario: SCN-001 old\n- **GIVEN** old\n- **WHEN** pay\n- **THEN** old\n**New**\nNew\n#### Scenario: SCN-002 new\n- **GIVEN** new\n- **WHEN** pay\n- **THEN** new\n**Reason**\nchange\n');
+    await fs.writeFile(path.join(dir, 'spec.md'), '## MODIFIED\n### MOD-002-REQ-006 payment\n**Previous**\nOld\n#### Scenario: SCN-001 old\n- **GIVEN** old\n- **WHEN** pay\n- **THEN** old\n- **ERROR** old-error\n**New**\nNew\n#### Scenario: SCN-002 new\n- **GIVEN** new\n- **WHEN** pay\n- **THEN** new\n- **ERROR** new-error-one\n- **ERROR** new-error-two\n**Reason**\nchange\n');
     await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
     await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '### MOD-002-REQ-006\nCurrent\n');
     const result = await rebaseChange(fixture.workspace, fixture.changeId, ['### MOD-002-REQ-006\nMerged\n']);
     const merged = await fs.readFile(path.join(dir, 'spec.md'), 'utf8');
     expect(merged).toContain('Merged');
+    expect(merged).toMatch(/- \*\*ERROR\*\* new-error-one\n- \*\*ERROR\*\* new-error-two/);
     expect(result.baseline.modules['MOD-002'].spec_hash).toBe(createHash('sha256').update('### MOD-002-REQ-006\nMerged\n').digest('hex'));
     expect(result.baseline.modules['MOD-002'].requirements['MOD-002-REQ-006']).toBe(createHash('sha256').update('### MOD-002-REQ-006\nMerged').digest('hex'));
   });

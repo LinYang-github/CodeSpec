@@ -6,6 +6,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { WorkspaceContext } from './loaders.js';
 import { loadChangeArtifacts } from './loaders.js';
 import { parseDeltaSpec } from './delta-parser.js';
+import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 
 export type VerificationKind = 'requirements' | 'test' | 'build' | 'lint' | 'other';
 export interface VerificationCommand {
@@ -147,6 +148,8 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
   if (!['VERIFY', 'ARCHIVE'].includes(metadata.change.status)) throw new Error('验证证据要求 Change 处于 VERIFY 或 ARCHIVE 状态。');
   const expectedRequirements = requirementIds(metadata);
   const parsed = parseDeltaSpec(artifacts.spec);
+  const errorIssues = parsed.entries.flatMap((entry) => collectEmptyScenarioErrorIssues(entry.id, entry.scenarios, changeId));
+  if (errorIssues.length) throw new Error(errorIssues.join('; '));
   const expectedScenarios = [...new Set(parsed.entries.flatMap((entry) => entry.scenarios.map((scenario) => scenario.id)))].sort();
   const baselineIdentity = hash(metadata.baseline);
   const evidence: VerificationEvidence = {

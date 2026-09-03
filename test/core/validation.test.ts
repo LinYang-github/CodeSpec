@@ -11,6 +11,23 @@ import {
 } from '../../src/core/schemas/index.js';
 
 describe('Validation Schemas', () => {
+  it('rejects an empty canonical Scenario ERROR before final validation', () => {
+    const report = new Validator().validateCanonicalDelta(`## ADDED
+### MOD-002-REQ-001 登录
+**New**
+系统 SHALL 支持登录。
+#### Scenario: SCN-001 登录失败
+- **GIVEN** 用户已提交登录
+- **WHEN** 登录服务异常
+- **THEN** 系统显示失败
+- **ERROR**`);
+
+    expect(report.valid).toBe(false);
+    expect(report.issues.map((issue) => issue.message).join(' ')).toMatch(
+      /MOD-002-REQ-001.*SCN-001.*ERROR.*人工补写/i
+    );
+  });
+
   describe('ScenarioSchema', () => {
     it('should validate a valid scenario', () => {
       const scenario = {

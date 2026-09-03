@@ -40,6 +40,10 @@ export const OPENSPEC_WORKFLOW_GUIDANCE = `
 
 原样复用 Superpowers 方法论：brainstorming、writing-plans、TDD RED → GREEN、systematic debugging、fresh verification、code review 和 branch finishing。baseline 过期时，继续之前先通过 semantic rebase。
 
+### Scenario 的 ERROR 规则
+
+canonical spec.md 和 Current Specification 的每个 Scenario 都必须包含 ERROR 行；一个 Scenario 可以有多条 ERROR，按原顺序保留。分析阶段如果暂时无法确定异常处理，可以保留空的 - **ERROR** 行，表示待人工补写，不得从 THEN 或上下文自动推断。进入 VERIFY 前，Core 必须检查 Delta 和 Current Specification 中的所有 Scenario：ERROR 缺失或为空都必须失败，并要求人工补写；在此之前 Verification 不得通过，Change 不得归档。Verification 证据记录 Requirement/Scenario ID 和命令结果，不替代 ERROR 正文。
+
 `;
 
 export function withOpenSpecWorkflowGuidance(instructions: string): string {

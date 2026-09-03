@@ -67,6 +67,7 @@ export interface Scenario {
   given: string[];
   when: string[];
   then: string[];
+  error: string[];
 }
 
 export interface RequirementDelta extends RequirementRef {

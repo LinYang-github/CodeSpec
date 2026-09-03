@@ -38,7 +38,7 @@ Use `archive` after all implementation tasks and verification pass.
 /opsx:archive
 ```
 
-Core validates requirement deltas, traceability, canonical specs, and archive conflicts. It then prepares and commits the archive transaction. Current Specification is writable only inside this transaction.
+Core validates requirement deltas, traceability, canonical specs, every Scenario's non-empty ERROR handling, and archive conflicts. If ERROR is missing or still empty, the human must fill it in before Verification can pass. It then prepares and commits the archive transaction after interactive confirmation. Current Specification is writable only inside this transaction.
 
 ## Internal capabilities
 

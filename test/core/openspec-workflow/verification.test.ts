@@ -42,12 +42,14 @@ async function setupVerifiableChange(
 - **GIVEN** 旧状态
 - **WHEN** 支付
 - **THEN** 旧结果
+- **ERROR** 旧错误处理
 **New**
 新规则
 #### Scenario: SCN-002 新支付
 - **GIVEN** 新状态
 - **WHEN** 支付
 - **THEN** 新结果
+- **ERROR** 新错误处理
 **Reason**
 业务变化
 `
@@ -143,6 +145,24 @@ describe('fresh verification', () => {
         { kind: 'lint', command: passCommand },
       ])
     ).rejects.toThrow(/Scenario.*SCN-002|coverage/i);
+  });
+
+  it('rejects an empty Scenario ERROR before publishing PASS evidence', async () => {
+    const fixture = await createWorkflowFixture();
+    cleanups.push(fixture.cleanup);
+    await setupVerifiableChange(fixture);
+    const specPath = path.join(fixture.paths.changes, fixture.changeId, 'spec.md');
+    const spec = await fs.readFile(specPath, 'utf8');
+    await fs.writeFile(specPath, spec.replace('- **ERROR** 新错误处理', '- **ERROR**'));
+
+    await expect(
+      recordFreshVerification(fixture.workspace, fixture.changeId, [
+        { kind: 'requirements', command: passCommand, requirementIds: ['MOD-002-REQ-006'], scenarioIds: ['SCN-002'] },
+        { kind: 'test', command: passCommand },
+        { kind: 'build', command: passCommand },
+        { kind: 'lint', command: passCommand },
+      ])
+    ).rejects.toThrow(/MOD-002-REQ-006.*SCN-002.*ERROR.*人工补写/i);
   });
 
   it('records a failed real command without granting PASS metadata gates', async () => {

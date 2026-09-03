@@ -23,6 +23,8 @@
 | --- |
 | `SCN-001` |
 
+每个 Scenario 都必须有已填写且可验证的 `ERROR` 处理结果。`ERROR` 缺失或为空时，必须人工补写；Verification 不得通过，Change 不得归档。
+
 ## 命令记录
 
 | 命令 | 类型 | Exit status | 结果摘要 | 时间 |
@@ -35,6 +37,8 @@
 - ✅ tests passed
 - ✅ build passed
 - ✅ lint passed
+- ✅ 每个 Scenario 的 ERROR 必须已填写
+- ❌ 任一 ERROR 缺失或为空：必须人工补写，Verification 不得通过，Change 不得归档
 - 明确执行 archive，不自动归档
 
 ## 机器校验数据

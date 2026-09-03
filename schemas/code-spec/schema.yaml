@@ -1,7 +1,9 @@
 name: code-spec
 version: 1
 description: 用于管理代码变更的 OpenSpec 工作流
-# Protocol tokens: ADDED MODIFIED REMOVED Previous New Reason GIVEN WHEN THEN
+# Protocol tokens: ADDED MODIFIED REMOVED Previous New Reason GIVEN WHEN THEN ERROR
+# Every canonical Scenario requires an ERROR row. It may be blank while being analyzed,
+# but VERIFY and archive must reject it until a human fills in the exception handling.
 # Canonical paths: archive/specs and archive/changes
 artifacts:
   - id: metadata

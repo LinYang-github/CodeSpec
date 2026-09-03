@@ -1,6 +1,7 @@
 # 需求增量
 <!-- 中文业务内容；协议 token 保持英文。 -->
 <!-- Requirement ID 与 stable scenario ID 必须保持一致。 -->
+<!-- ERROR 可以暂时留空，表示异常处理尚未分析；提交 VERIFY 或归档前必须由人工补写，禁止依赖推断。 -->
 ## ADDED
 ### MOD-###-REQ-### 中文需求名称
 **New**
@@ -9,6 +10,7 @@
 - **GIVEN** 中文前置条件
 - **WHEN** 中文触发动作
 - **THEN** 中文可观察结果
+- **ERROR** 中文异常条件及系统处理方式
 ## MODIFIED
 ### MOD-###-REQ-### 中文需求名称
 **Previous**
@@ -19,6 +21,7 @@
 - **GIVEN** 中文前置条件
 - **WHEN** 中文触发动作
 - **THEN** 中文可观察结果
+- **ERROR** 中文异常条件及系统处理方式
 ## REMOVED
 ### MOD-###-REQ-### 中文需求名称
 **Previous**

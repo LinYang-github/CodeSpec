@@ -1,5 +1,6 @@
 import { parseRequirementDelta } from './schemas.js';
 import type { RequirementDelta, Scenario } from './types.js';
+import { parseCanonicalScenario, renderCanonicalScenario } from './scenario-parser.js';
 
 export interface ParsedDeltaSpec { entries: RequirementDelta[] }
 
@@ -11,19 +12,7 @@ const CONTROL = /^\*\*(Previous|New|Reason)\*\*\s*$/u;
 function text(lines: string[]): string { return lines.join('\n').trim(); }
 
 function parseScenario(lines: string[], requirementId: string): Scenario {
-  const header = lines[0]?.match(SCENARIO);
-  if (!header) throw new Error(`Malformed Scenario in Requirement ${requirementId}`);
-  const bodyLines = lines.slice(1).filter((line) => line.trim() && !/^<!--.*-->$/u.test(line.trim()));
-  if (bodyLines.some((line) => !/^\s*[-*]?\s*\*\*(?:GIVEN|WHEN|THEN)\*\*\s+.+$/u.test(line))) {
-    throw new Error(`Unconsumed content in Scenario ${header[1]}`);
-  }
-  const read = (token: 'GIVEN' | 'WHEN' | 'THEN') => lines
-    .filter((line) => new RegExp(`^\\s*[-*]?\\s*\\*\\*${token}\\*\\*\\s+`, 'u').test(line))
-    .map((line) => line.replace(/^\s*[-*]?\s*\*\*[^*]+\*\*\s+/u, '').trim())
-    .filter(Boolean);
-  const given = read('GIVEN'); const when = read('WHEN'); const then = read('THEN');
-  if (!given.length || !when.length || !then.length) throw new Error(`Scenario ${header[1]} requires GIVEN, WHEN, and THEN`);
-  return { id: header[1] as `SCN-${string}`, name: header[2].trim(), given, when, then };
+  return parseCanonicalScenario(lines, requirementId as `MOD-${string}-REQ-${string}`);
 }
 
 function parseRequirement(action: RequirementDelta['action'], lines: string[]): RequirementDelta {
@@ -72,10 +61,7 @@ function parseRequirement(action: RequirementDelta['action'], lines: string[]): 
   if (!requiredScenarios.length) throw new Error(`${action} ${id} requires at least one scenario in its ${action === 'REMOVED' ? 'Previous' : 'New'} section`);
   const render = (value: string | undefined, renderScenarios: Scenario[]) => {
     if (!value) return undefined;
-    const renderedScenarios = renderScenarios.map((item) => [
-      `#### Scenario: ${item.id} ${item.name ?? ''}`.trimEnd(),
-      ...item.given.map((part) => `- **GIVEN** ${part}`), ...item.when.map((part) => `- **WHEN** ${part}`), ...item.then.map((part) => `- **THEN** ${part}`),
-    ].join('\n')).join('\n');
+    const renderedScenarios = renderScenarios.map(renderCanonicalScenario).join('\n');
     return [`### ${id} ${header[2].trim()}`, value, renderedScenarios].filter(Boolean).join('\n').trim();
   };
   return parseRequirementDelta({ id, module, title: header[2].trim(), action, previous: render(previous, previousScenarios), next: render(next, nextScenarios), reason, scenarios: requiredScenarios });

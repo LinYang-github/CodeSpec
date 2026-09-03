@@ -270,6 +270,7 @@ describe('openspec workflow contracts', () => {
             given: ['a user exists'],
             when: ['the user signs in'],
             then: ['access is granted'],
+            error: ['access is denied with a retry message'],
           },
         ],
       })
