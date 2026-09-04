@@ -1,0 +1,94 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { buildUiIndex, findUiDocument, searchUiIndex } from '../../src/core/ui-content-index.js';
+
+describe('buildUiIndex', () => {
+  const tempRoots: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
+  });
+
+  it('indexes only OpenSpec content and Superpowers plans', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    tempRoots.push(root);
+
+    await fs.mkdir(path.join(root, 'openspec', 'changes', 'CHG-001'), { recursive: true });
+    await fs.mkdir(path.join(root, 'docs', 'superpowers', 'plans'), { recursive: true });
+    await fs.mkdir(path.join(root, 'docs'), { recursive: true });
+    await fs.writeFile(path.join(root, 'openspec', 'business.md'), '# 业务说明\n\n核心业务内容。');
+    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-001', 'proposal.md'), '# 发布计划\n\n变更内容。');
+    await fs.writeFile(path.join(root, 'docs', 'superpowers', 'plans', 'release.md'), '# 发布实施计划\n\n执行步骤。');
+    await fs.writeFile(path.join(root, 'docs', 'other.md'), '# 不应显示\n\n范围外内容。');
+
+    const index = await buildUiIndex(root);
+
+    expect(index.documents.map((document) => document.relativePath)).toEqual([
+      'docs/superpowers/plans/release.md',
+      'openspec/business.md',
+      'openspec/changes/CHG-001/proposal.md',
+    ]);
+    expect(index.documents.find((document) => document.relativePath === 'openspec/business.md')).toMatchObject({
+      source: 'openspec',
+      category: '业务说明',
+      contentType: 'markdown',
+      title: '业务说明',
+      labels: [],
+    });
+  });
+
+  it('ranks title matches before body matches and extracts YAML metadata labels', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    tempRoots.push(root);
+
+    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'openspec', 'body.md'), '# 概览\n\n发布准备事项。');
+    await fs.writeFile(path.join(root, 'openspec', 'title.md'), '# 发布计划\n\n其他内容。');
+    await fs.writeFile(
+      path.join(root, 'openspec', 'metadata.yaml'),
+      'id: CHG-001\nstatus: PLAN\nupdated_at: 2026-09-04\n'
+    );
+
+    const index = await buildUiIndex(root);
+    const results = searchUiIndex(index, '发布');
+    const metadata = index.documents.find((document) => document.relativePath === 'openspec/metadata.yaml');
+
+    expect(results.map((document) => document.relativePath)).toEqual([
+      'openspec/title.md',
+      'openspec/body.md',
+    ]);
+    expect(metadata).toMatchObject({
+      contentType: 'yaml',
+      labels: ['CHG-001', 'PLAN', '2026-09-04'],
+    });
+  });
+
+  it('skips unsafe files while resolving indexed documents by opaque ID', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-outside-'));
+    tempRoots.push(root, outsideRoot);
+
+    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'openspec', 'safe.md'), '# 安全文档');
+    await fs.writeFile(path.join(root, 'openspec', 'binary.md'), Buffer.from([0x61, 0x00, 0x62]));
+    await fs.writeFile(path.join(root, 'openspec', 'large.md'), 'a'.repeat(1_048_577));
+    await fs.writeFile(path.join(outsideRoot, 'outside.md'), '# 范围外');
+    await fs.symlink(path.join(outsideRoot, 'outside.md'), path.join(root, 'openspec', 'outside.md'));
+
+    const index = await buildUiIndex(root);
+    const safeDocument = index.documents.find((document) => document.relativePath === 'openspec/safe.md');
+
+    expect(index.documents.map((document) => document.relativePath)).toEqual(['openspec/safe.md']);
+    expect(index.skipped).toEqual([
+      { relativePath: 'openspec/binary.md', reason: 'binary' },
+      { relativePath: 'openspec/large.md', reason: 'too_large' },
+      { relativePath: 'openspec/outside.md', reason: 'outside_root' },
+    ]);
+    expect(safeDocument).toBeDefined();
+    expect(findUiDocument(index, safeDocument!.id)).toEqual(safeDocument);
+    expect(findUiDocument(index, '../../etc/passwd')).toBeUndefined();
+  });
+});
