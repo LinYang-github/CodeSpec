@@ -8,7 +8,7 @@
 
 项目以一个全新的、破坏性不兼容的 CodeSpec 1.0 发布：只支持 `codespec` 名称、`codespec/` 工作区和 `@hrhy-ai/codespec@1.0.0`。不提供 `openspec` CLI、目录、Skill、环境变量、npm 包、兼容层或迁移逻辑。
 
-此次迁移同时实现归档影响分析：每个默认 `code-spec` Change 在设计阶段都必须声明是否影响既有 Current Specification；有影响时必须关联被修订或替代的 Requirement / Scenario、证明归档回归验证，并在人工归档确认前展示映射。历史 Change 不可变，Current Specification 仅通过 `codespec archive` 的事务式 delta 演进。
+此次迁移同时实现归档影响分析，并建立 BDD + SDD + TDD 的最小研发闭环：每个默认 `code-spec` Change 在设计阶段都必须声明是否影响既有 Current Specification；有影响时必须关联被修订或替代的 Requirement / Scenario、证明归档回归验证，并在人工归档确认前展示映射。历史 Change 不可变，Current Specification 仅通过 `codespec archive` 的事务式 delta 演进。
 
 ## 命名规范
 
@@ -29,6 +29,8 @@
 - `codespec init` 只创建并解析 `codespec/` 工作区。
 - 清除旧公开身份：不生成、不识别、不发布 `openspec` 相关接口。
 - 在默认 `code-spec` schema 中强制记录归档影响分析。
+- 以 BDD Scenario 定义关键业务验收行为，以 TDD 测试证明实现满足规格。
+- 按 SDD Level 调整 Change 过程的文档与验证颗粒度，而不降低最终归档质量。
 - 让新增需求、部分修订、完全替代和纯 bugfix 都以明确、可验证的方式演进 Current Specification。
 - 保持归档事务的唯一写入边界、冲突检测、原子回滚和人工确认。
 
@@ -86,6 +88,89 @@ codespec/
 - `codespec-archive-change`：Current Specification 更新与归档。
 
 所有生成的 AI 命令、提示、安装说明和 examples 都引用 `codespec` CLI 与 `codespec/` 路径。
+
+## BDD + SDD + TDD 研发闭环
+
+CodeSpec 的最小完整闭环为：
+
+```text
+Business Goal
+→ Requirement
+→ BDD Scenario / Acceptance Criteria
+→ Spec
+→ Design
+→ Task
+→ TDD Test
+→ Verification
+→ Current Specification
+→ Archive
+```
+
+不创建割裂的 `bdd/`、`sdd/`、`tdd/` 目录。默认 `code-spec` 的 `spec.md` 中，Requirement 下的 GIVEN / WHEN / THEN / ERROR Scenario 同时承担 BDD 验收场景职责。每个关键 Requirement 至少有一个 Scenario；每个 Scenario 至少覆盖正常路径和失败/异常路径。涉及权限、边界、并发、恢复或兼容性时，设计必须明确该维度是否适用；适用时补充对应场景。
+
+TDD 在任务实施时执行 Red → Green → Refactor。每个 Task 必须能回答“哪一个 Requirement / Scenario 证明该任务有必要”，每个测试必须能回答“它证明哪个 Scenario”。
+
+## SDD 分级
+
+`metadata.yaml` 是分级的机器权威，使用：
+
+```yaml
+change:
+  sdd_level: 1 # 1 | 2 | 3
+
+impact:
+  affected_areas:
+    - auth/login
+```
+
+`design.md` 必须含“SDD 分级依据”章节，解释所选等级、影响因素和未升级到更高等级的理由。Core 根据 Change 模式、模块数、API/数据影响、迁移、安全、架构与发布风险提出最低建议等级；人工只能维持或上调，不能低于 Core 的最低建议。
+
+| 等级 | 适用范围 | 过程产物与验证 |
+| --- | --- | --- |
+| Level 1 | 单模块、低风险小 bugfix 或小行为修改 | Requirement、BDD Scenario、Spec、Task、TDD 证据、Verification；设计说明可内联在 `spec.md`。 |
+| Level 2 | 默认等级；普通 feature、多文件或接口/数据模型修改 | `proposal.md`、`design.md`、`spec.md`、`tasks.md`、`verification.md` 全部必需。 |
+| Level 3 | 架构、安全、数据迁移、跨系统、breaking change、高可靠或高并发变更 | 在 `design.md` 中额外要求架构决策、接口/数据契约、迁移、rollback、rollout、风险与相应验证。 |
+
+Level 只改变 Change 过程中的文档和验证颗粒度。所有 Level 最终都必须产生同样可信、可验证的 Current Specification，并接受相同的归档原子性、冲突检测和历史不可变门禁。
+
+## 追踪、质量门禁与变更控制
+
+### 追踪矩阵
+
+`verification.md` 包含结构化追踪矩阵：
+
+```text
+Requirement → BDD Scenario → Task → Test → Evidence
+```
+
+关键代码路径可以作为可选字段记录文件路径或符号名；Level 3 的关键接口和实现映射为必填。Core 校验 Requirement、Scenario、Task、Test 与 Evidence 的完整关联，不依赖 AI Skill 的自然语言提示判断完成状态。
+
+### 生命周期门禁
+
+- **Requirement Gate：**目标、非目标、可验证 Requirement、关键 Scenario、风险、affected area 和并行 Change 冲突均已明确。
+- **Design Gate：**SDD Level 和分级依据已确认；设计覆盖关键路径；Task、归档影响分析与适用的 API、数据、迁移、兼容性风险已完成。
+- **Verification Gate：**Requirement 与关键 Scenario 均有测试和证据；test、build、lint、typecheck 和必要回归检查通过。
+- **Archive Gate：**追踪矩阵完整，Current Specification delta 可安全应用；归档影响映射及 `archive-regression` 证据齐全。
+
+`codespec validate`、`codespec status`、生命周期转换与 archive preflight 使用同一套 Core 校验。归档仍是单一原子事务：Current Specification 与 archive history 同时提交或同时保持旧状态，而不是拆成两个可部分失败的写入步骤。
+
+### Bugfix、重构与范围变化
+
+bugfix 必须先有稳定复现目标行为的失败测试；如果修复改变既有 Requirement 语义，必须升级为 `MODIFIED` 或 `REMOVED` + `ADDED` 的需求演进，不得以“修复”绕过规格更新。
+
+纯 refactor 必须声明行为不变并通过既有回归；若行为变化，按业务 Change 处理。开发中发现新增范围时，若仍属于原目标，必须同步更新 Requirement、Scenario、Spec、Design、Task 和 Verification；若可独立交付，必须创建新的 Change 并声明依赖关系。
+
+每个 Change 记录 `impact.affected_areas`。多 Change 并行时，Core 结合 Requirement 重叠和 affected area 将关系判断为 independent、dependent 或 conflicting；未裁决冲突不能归档。
+
+### 非功能需求与分级 CI
+
+性能、安全、可靠性、可观测性、合规与可访问性以普通 Requirement 记录，并映射到 benchmark、scan、演练或人工证据。只有 Change 声明相关约束时才增加对应检查。
+
+CI 执行与风险相称的门禁：
+
+- **Level 1：**修复一个单模块小 bug 时，运行关联单元测试、完整测试、build、typecheck、lint 和最小追踪检查；不强制性能压测或数据迁移验证。
+- **Level 2：**例如新增“连续输错五次后锁定账号”，除 Level 1 外，运行 BDD/acceptance 场景与相关回归，证明新增行为不会破坏已有登录行为。
+- **Level 3：**例如迁移至第三方统一认证并搬迁用户数据，除 Level 2 外，按适用性执行数据迁移一致性、接口兼容、安全扫描、性能指标、rollback、灰度发布和监控告警验证。
 
 ## 归档影响分析
 
