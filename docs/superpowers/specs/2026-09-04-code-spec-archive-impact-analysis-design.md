@@ -19,6 +19,7 @@
 - 让归档相关 Change 追踪到既有归档 Requirement / Scenario。
 - 将归档影响的验证要求写入任务和验证证据，并在归档前检查。
 - 保持其他 schema、现有归档事务语义及人工确认行为不变。
+- 让新增需求与既有需求冲突时，能够明确演进 Current Specification 而不改写历史归档。
 
 ## 非目标
 
@@ -26,6 +27,7 @@
 - 不改变 Current Specification 的唯一写入边界。
 - 不替代既有的归档预检、冲突检测、锁、回滚或人工确认。
 - 不为非 `code-spec` schema 新增该章节或校验。
+- 不允许直接编辑或删除已归档 Change 中的 Requirement、Scenario 或验证证据。
 
 ## 设计
 
@@ -59,6 +61,24 @@
 
 若结论为无影响，则只需保留检查记录，不额外增加归档测试负担；现有归档事务预检仍照常执行。
 
+### 已归档需求的演进
+
+归档的 Change 是不可变历史；已归档内容被人工判定失效，或新需求与其冲突时，必须创建新的 `code-spec` Change，不能回写旧 Change。新 Change 的设计必须关联旧 Requirement / Scenario，说明失效或冲突原因，并选择明确处置方式。
+
+| 情况 | 对既有 Requirement / Scenario 的处置 | 对 Current Specification 的结果 |
+| --- | --- | --- |
+| 新增需求且与既有需求兼容 | 保持满足 | 以 `ADDED` 加入新 Requirement / Scenario。 |
+| 新增需求导致既有需求部分失效 | 修订 | 以 `MODIFIED` 替换既有 Requirement 块为收窄后的行为，并以 `ADDED` 加入新 Requirement / Scenario。 |
+| 新增需求完全取代既有需求 | 替换 / 废止 | 以 `REMOVED` 移除已失效的 Current Specification Requirement，或以 `MODIFIED` 将其改写为明确的废止状态；新 Requirement / Scenario 以 `ADDED` 加入。 |
+| `bugfix` 且既有需求意图不变 | 保持满足 | 不修改 Requirement / Scenario，只记录关联、修复任务与验证证据。 |
+| `bugfix` 发现既有需求语义错误或含混 | 修订或替换 | 不再按纯 bugfix 处理，升级为上面的修订或替换路径。 |
+
+对于部分失效或完全替代，新 Change 必须记录旧新映射、处置类型和原因，例如 `REQ-A / SCN-A → REQ-B / SCN-B (superseded)`。归档摘要在人工确认前展示该映射。
+
+默认 `code-spec` workspace 的 Current Specification 位于 `openspec/specs/<模块编号>/spec.md`。归档事务先读取该文件，再对新 Change 的 delta 执行 `ADDED`、`MODIFIED` 或 `REMOVED`，并以事务方式安装整个更新后的模块文件。`MODIFIED` 和 `REMOVED` 必须携带与当前 Requirement 块完全匹配的 `previous` 内容；若不匹配，归档以 `ARCHIVE CONFLICT` 失败，不会覆盖现有内容。
+
+旧 Change 的快照始终保留在 `openspec/archive/changes/<CHG-ID>/`。因此，Current Specification 反映当前有效规则，归档 Change 则保留每一版规则为何存在、何时被替代及其验证证据。
+
 ## 错误处理
 
 - 无法读取或解析既有归档 Requirement / Scenario：停止设计校验，提示补齐可追溯关联。
@@ -73,6 +93,8 @@
 - 验证触及归档范围却未关联既有归档 Requirement / Scenario 时失败。
 - 验证“无影响”且未触及归档范围的 Change 可通过。
 - 验证“有影响”时，缺失归档回归证据不可归档；补齐关联和证据后可归档。
+- 验证兼容新增、部分修订、完全替代和纯 bugfix 的 Requirement delta 分别产生预期的 Current Specification。
+- 验证 `MODIFIED` 或 `REMOVED` 的 `previous` 不匹配时，归档以冲突失败，原 Current Specification 与历史 Change 均保持不变。
 - 保留并运行既有归档事务、冲突检测及人工确认回归测试，确认原有保障不变。
 
 ## 受影响范围
