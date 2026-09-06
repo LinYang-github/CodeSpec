@@ -77,7 +77,7 @@
   <text x="80" y="230" class="section-copy">初始化一次；每次开发从 workflow 开始；完成后人工确认 archive。</text>
 
   <rect x="80" y="252" width="310" height="38" rx="6" fill="#0b1325" stroke="#3b82f6"/>
-  <text x="100" y="277" class="code-small">$ openspec init --tools codex</text>
+  <text x="100" y="277" class="code-small">$ codespec init --tools codex</text>
   <text x="405" y="277" class="body-muted">安装并生成项目级入口</text>
 
   <!-- primary edges behind nodes -->
@@ -99,7 +99,7 @@
     <circle cx="501" cy="343" r="18" fill="#7c3aed"/>
     <text x="501" y="350" text-anchor="middle" class="step-number">2</text>
     <text x="535" y="345" class="step-title">进入 workflow</text>
-    <text x="495" y="378" class="code-small">/opsx:workflow &lt;what-you-want&gt;</text>
+    <text x="495" y="378" class="code-small">/codespec:workflow &lt;what-you-want&gt;</text>
     <text x="495" y="401" class="body-muted">创建或继续一个 CHG-YYYYMMDD-NNN</text>
   </g>
 
@@ -117,7 +117,7 @@
     <circle cx="1351" cy="343" r="18" fill="#059669"/>
     <text x="1351" y="350" text-anchor="middle" class="step-number">4</text>
     <text x="1385" y="345" class="step-title">人工确认后 archive</text>
-    <text x="1345" y="378" class="code-small">/opsx:archive</text>
+    <text x="1345" y="378" class="code-small">/codespec:archive</text>
     <text x="1345" y="401" class="body-muted">Delta 合并为 Current Specification，Change 归档</text>
   </g>
 
@@ -137,7 +137,7 @@
 
   <g data-graph-role="node" data-node-id="workflow-skill">
     <rect x="80" y="660" width="535" height="108" rx="8" fill="url(#purple-card)" stroke="#a855f7" stroke-width="1.5"/>
-    <text x="105" y="690" class="card-title">openspec-workflow</text>
+    <text x="105" y="690" class="card-title">codespec-workflow</text>
     <text x="105" y="715" class="body">正常开发唯一入口</text>
     <text x="105" y="739" class="body-muted">分析 · 规划 · 实现 · 验证 · 查询状态</text>
     <text x="105" y="759" class="code-small">产出：一个可审阅、可追踪的 Change</text>
@@ -145,7 +145,7 @@
 
   <g data-graph-role="node" data-node-id="rebase-skill">
     <rect x="650" y="660" width="535" height="108" rx="8" fill="url(#orange-card)" stroke="#f97316" stroke-width="1.5"/>
-    <text x="675" y="690" class="card-title">openspec-rebase-change</text>
+    <text x="675" y="690" class="card-title">codespec-rebase-change</text>
     <text x="675" y="715" class="body">只在 STALE（基线过期）/ 冲突时使用</text>
     <text x="675" y="739" class="body-muted">重建 Baseline（基线快照），保留冲突，回到 workflow</text>
     <text x="675" y="759" class="code-small">产出：新的基线与可继续的规划状态</text>
@@ -153,14 +153,14 @@
 
   <g data-graph-role="node" data-node-id="archive-skill">
     <rect x="1220" y="660" width="550" height="108" rx="8" fill="url(#green-card)" stroke="#10b981" stroke-width="1.5"/>
-    <text x="1245" y="690" class="card-title">openspec-archive-change</text>
+    <text x="1245" y="690" class="card-title">codespec-archive-change</text>
     <text x="1245" y="715" class="body">完成并人工确认后使用</text>
     <text x="1245" y="739" class="body-muted">校验门禁，apply Delta（应用变更规格），移动历史</text>
     <text x="1245" y="759" class="code-small">唯一 Current Specification（当前规格）写入边界</text>
   </g>
 
   <rect x="80" y="788" width="820" height="76" rx="7" fill="#101d35" stroke="#3b82f6"/>
-  <text x="105" y="814" class="card-title">OpenSpec Core（领域核心）</text>
+  <text x="105" y="814" class="card-title">CodeSpec Core（领域核心）</text>
   <text x="105" y="837" class="body-muted">Change（变更）· Requirement（需求）· Baseline（基线）· STALE（基线过期）</text>
   <text x="105" y="856" class="body-muted">Traceability（需求追踪）· archive transaction（归档事务）</text>
   <rect x="930" y="788" width="840" height="76" rx="7" fill="#21163d" stroke="#a855f7"/>
@@ -228,7 +228,7 @@
   <text x="240" y="1088" class="table-copy">proposal + specs/**</text><text x="240" y="1103" class="table-copy">+ design + tasks</text>
   <text x="515" y="1088" class="table-copy">metadata + proposal/design</text><text x="515" y="1103" class="table-copy">+ spec + tasks + verification</text>
   <text x="95" y="1146" class="table-label">状态与 ID</text>
-  <text x="240" y="1144" class="table-copy">旧模型：slug +</text><text x="240" y="1159" class="table-copy">.openspec.yaml</text>
+  <text x="240" y="1144" class="table-copy">旧模型：slug +</text><text x="240" y="1159" class="table-copy">legacy metadata</text>
   <text x="515" y="1144" class="table-copy">CHG-YYYYMMDD-NNN +</text><text x="515" y="1159" class="table-copy">metadata.yaml（状态权威）</text>
   <text x="95" y="1202" class="table-label">验证</text>
   <text x="240" y="1200" class="table-copy">由 Schema 与团队约定</text><text x="240" y="1215" class="table-copy">决定验证结构</text>
@@ -250,7 +250,7 @@
   <text x="870" y="930" class="section-copy">每份文件都回答一个问题；六份产物共同形成可审阅、可追溯的工作单元。</text>
 
   <rect x="870" y="955" width="950" height="38" rx="6" fill="#0b1325" stroke="#7c3aed"/>
-  <text x="895" y="980" class="code">openspec/changes/CHG-YYYYMMDD-NNN/</text>
+  <text x="895" y="980" class="code">codespec/changes/CHG-YYYYMMDD-NNN/</text>
   <text x="1320" y="980" class="tree-note">一次开发的工作单元</text>
 
   <text x="895" y="1021" class="tree">├── metadata.yaml</text>
@@ -270,7 +270,7 @@
   <text x="1370" y="1238" class="tree-note">archive transaction（归档事务）后</text>
   <g data-graph-role="node" data-node-id="current-spec">
     <rect x="870" y="1260" width="620" height="225" rx="8" fill="url(#green-card)" stroke="#10b981" stroke-width="1.5"/>
-    <text x="895" y="1288" class="code-small">openspec/archive/specs/</text>
+    <text x="895" y="1288" class="code-small">codespec/specs/</text>
     <text x="895" y="1313" class="card-title">Current Specification（当前生效规格）</text>
     <text x="895" y="1338" class="body-muted">按业务模块保存归档后的 Requirement（需求）与 Scenario（场景）。</text>
     <text x="895" y="1370" class="tree">├── MOD-101-user-account.md</text><text x="1170" y="1370" class="tree-note">示例：用户账户</text>
@@ -282,7 +282,7 @@
   </g>
   <g data-graph-role="node" data-node-id="archive-history">
     <rect x="1520" y="1260" width="300" height="200" rx="8" fill="#0b2530" stroke="#0f766e" stroke-width="1.5"/>
-    <text x="1545" y="1288" class="code-small">openspec/archive/</text>
+    <text x="1545" y="1288" class="code-small">codespec/archive/</text>
     <text x="1545" y="1308" class="code-small">changes/CHG-.../</text>
     <text x="1545" y="1340" class="card-title">immutable history</text>
     <text x="1545" y="1362" class="body">（不可变历史）</text>

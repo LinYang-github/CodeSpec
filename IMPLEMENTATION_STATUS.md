@@ -19,8 +19,8 @@
 - 归档安装阶段注入失败时，当前规范、活动 Change 和历史记录恢复原状。
 - 已恢复误受全局替换影响的已批准设计和实施计划原文。
 - metadata 中的 SDD Level 是唯一权威；Core 会按变更类型、模块范围和 affected_areas 给出不可下调的最低等级。Level 1 必须在 spec.md 内联设计与分级依据，Level 3 必须覆盖架构、接口契约、迁移、回滚和发布。
-- init 的动画和静态回退使用纯 ASCII HRHY 字标；README 的旧 OpenSpec 位图已替换为 HRHY CodeSpec SVG，旧 Dashboard 截图已删除。
-- 已审计并恢复 `codespec/changes/archive/` 的历史字节内容；由机械替换生成的 14 个 `metadata.yaml` 已移除，历史 `.openspec.yaml` 仅作为不可读取的归档记录保留。
+- init 的动画和静态回退使用纯 ASCII HRHY 字标；README 的旧位图已替换为 HRHY CodeSpec SVG，旧 Dashboard 截图已删除。
+- 已审计并恢复 `codespec/changes/archive/` 的历史字节内容；由机械替换生成的 14 个 `metadata.yaml` 已移除，历史旧格式元数据仅作为不可读取的归档记录保留。
 - Verification 已按 SDD Level 强制受控类别：Level 1 为 `unit/typecheck/build/lint`，Level 2 增加 `bdd/integration`，Level 3 仅按安全、迁移和性能 affected area 追加 NFR 检查；受影响归档继续要求 `archive-regression`。
 - Level 3 Trace Row 现在必须带仓库内相对 `code_reference`；Core 校验路径不越界、不经过软链接且目标文件存在。
 - 遥测在 HRHY 自有端点和密钥被正式配置前完全禁用：不创建 ID、不写配置、不发送网络请求；旧配置迁移已移除。

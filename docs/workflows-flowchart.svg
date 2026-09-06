@@ -30,7 +30,7 @@
 
   <rect data-graph-role="background" width="1360" height="1320" fill="#ffffff"/>
   <text x="680" y="54" text-anchor="middle" class="title">CodeSpec 开发工作流</text>
-  <text x="680" y="82" text-anchor="middle" class="subtitle">OpenSpec Core 管理状态与门禁 · Superpowers 管理工程方法</text>
+  <text x="680" y="82" text-anchor="middle" class="subtitle">CodeSpec Core 管理状态与门禁 · Superpowers 管理工程方法</text>
 
   <g id="main-flow" data-graph-role="container" data-graph-bounds="360,112,760,1252">
     <rect data-graph-role="decoration" x="360" y="112" width="400" height="1140" rx="14" fill="#f8fafc" fill-opacity="0.72"

@@ -2,21 +2,21 @@
 
 > 面向研发人员的 PPT 大纲。每页包含投屏要点、讲解提示和建议视觉。产品事实以当前 `code-spec` 实现为准。
 
-## 1. 封面：从 OpenSpec 到 CodeSpec
+## 1. 封面：CodeSpec 与 Superpowers
 
 **投屏要点**
 
-- 主题：用 OpenSpec 管理研发对象，用 Superpowers 承担工程方法。
+- 主题：用 CodeSpec 管理研发对象，用 Superpowers 承担工程方法。
 - 目标：让研发人员只面对少量稳定入口，而不是记忆一组阶段命令。
-- 结论：OpenSpec 管对象，Superpowers 管方法，自定义 Workflow 管流程。
+- 结论：CodeSpec 管对象，Superpowers 管方法，自定义 Workflow 管流程。
 
 **讲解提示**
 
-这不是重新发明一套研发框架。CodeSpec 保留 OpenSpec 的 Change、Artifact、Spec、Archive 和生命周期，再把入口和工程方法重新分工。
+这不是重新发明一套研发框架。CodeSpec 提供 Change、Artifact、Spec、Archive 和生命周期治理，再把入口和工程方法重新分工。
 
 **建议视觉**
 
-`研发请求 → Workflow → OpenSpec Core + Superpowers → 代码与可追溯记录`
+`研发请求 → Workflow → CodeSpec Core + Superpowers → 代码与可追溯记录`
 
 ---
 
@@ -39,11 +39,11 @@
 
 ---
 
-## 3. 为什么选择 OpenSpec 作为流程骨架
+## 3. 为什么选择 CodeSpec 作为流程骨架
 
 **投屏要点**
 
-| OpenSpec 对象 | 在 CodeSpec 中的作用 |
+| CodeSpec 对象 | 在 CodeSpec 中的作用 |
 | --- | --- |
 | **Change** | 一次可识别、可追踪的研发变更，使用 `CHG-YYYYMMDD-NNN`。 |
 | **Artifact** | 把每个阶段的结论留成文件，而不是只留在对话上下文。 |
@@ -53,7 +53,7 @@
 
 **讲解提示**
 
-OpenSpec 的价值是把研发对象落到稳定结构中。它并不替研发人员决定设计方案或如何调试，而是让这些工程活动有明确的输入、输出和可追溯关系。
+CodeSpec 的价值是把研发对象落到稳定结构中。它并不替研发人员决定设计方案或如何调试，而是让这些工程活动有明确的输入、输出和可追溯关系。
 
 **建议视觉**
 
@@ -66,7 +66,7 @@ OpenSpec 的价值是把研发对象落到稳定结构中。它并不替研发�
 **投屏要点**
 
 ```text
-保持稳定：OpenSpec Core
+保持稳定：CodeSpec Core
   Change / Requirement / Baseline / 状态机 / 校验 / 归档事务
 
 重点调整：执行层
@@ -75,7 +75,7 @@ OpenSpec 的价值是把研发对象落到稳定结构中。它并不替研发�
 
 - Core 仍是路径、ID、状态、验证和事务规则的唯一来源。
 - Skill 只负责理解请求、组织上下文、路由能力。
-- 通用工程方法不在 OpenSpec 中重复实现。
+- 通用工程方法不在 CodeSpec 中重复实现。
 
 **讲解提示**
 
@@ -132,7 +132,7 @@ OpenSpec 的价值是把研发对象落到稳定结构中。它并不替研发�
 
 | 历史入口 | 现在的处理方式 | 当前能力承载方 |
 | --- | --- | --- |
-| `workflow` | 保留为正常开发唯一入口。 | `openspec-workflow` |
+| `workflow` | 保留为正常开发唯一入口。 | `codespec-workflow` |
 | `new-change` | 合并。 | Core `createChange()` + Workflow |
 | `continue-change` | 合并。 | Core `resolveChange()`、`status` + Workflow |
 | `apply-change` | 合并。 | Workflow + Superpowers TDD |
@@ -144,7 +144,7 @@ OpenSpec 的价值是把研发对象落到稳定结构中。它并不替研发�
 | `sync-specs` | 收回为内部能力。 | Core archive transaction |
 | `bulk-archive-change` | 不再作为并列入口。 | 单 Change 人工确认归档 |
 | `onboard` | 移出日常研发入口。 | 文档和培训材料 |
-| `archive-change` | 保留为唯一提交入口。 | `openspec-archive-change` |
+| `archive-change` | 保留为唯一提交入口。 | `codespec-archive-change` |
 
 **讲解提示**
 
@@ -158,9 +158,9 @@ OpenSpec 的价值是把研发对象落到稳定结构中。它并不替研发�
 
 | Skill | 何时使用 | 负责什么 | 不负责什么 |
 | --- | --- | --- | --- |
-| `openspec-workflow` | 所有正常开发请求。 | 创建或解析 Change，注入上下文，编排分析、计划、实现和验证。 | 不直接写 Current Specification。 |
-| `openspec-rebase-change` | Core 报告 `STALE`、Baseline 漂移或多 Change 冲突。 | 重建 Baseline，恢复到可开发状态。 | 不实现代码，不验证，不归档。 |
-| `openspec-archive-change` | 实现和验证完成后。 | 执行归档预检，要求人工确认，提交事务。 | 不绕过人工确认，不直接编辑归档目录。 |
+| `codespec-workflow` | 所有正常开发请求。 | 创建或解析 Change，注入上下文，编排分析、计划、实现和验证。 | 不直接写 Current Specification。 |
+| `codespec-rebase-change` | Core 报告 `STALE`、Baseline 漂移或多 Change 冲突。 | 重建 Baseline，恢复到可开发状态。 | 不实现代码，不验证，不归档。 |
+| `codespec-archive-change` | 实现和验证完成后。 | 执行归档预检，要求人工确认，提交事务。 | 不绕过人工确认，不直接编辑归档目录。 |
 
 **讲解提示**
 
@@ -194,7 +194,7 @@ CodeSpec 不再实现第二套“如何设计、如何写测试、如何调试�
 | 自建一套工程 Skill | 复用 Superpowers |
 | --- | --- |
 | 与现有工程方法重复。 | 直接复用已有分析、计划、TDD、调试和验证方法。 |
-| 需要持续维护 Prompt、边界和升级。 | OpenSpec 只维护领域数据和流程契约。 |
+| 需要持续维护 Prompt、边界和升级。 | CodeSpec 只维护领域数据和流程契约。 |
 | 模型面对更多近似入口。 | 方法入口由 Workflow 按阶段注入。 |
 | 容易把业务状态规则混入工程方法。 | Core 规则与工程方法各自独立演进。 |
 
@@ -214,7 +214,7 @@ CodeSpec 不再实现第二套“如何设计、如何写测试、如何调试�
                               │
                ┌──────────────┴──────────────┐
                ▼                             ▼
-         OpenSpec Core                    Superpowers
+         CodeSpec Core                    Superpowers
  Change / Requirement / Baseline      分析 / 计划 / TDD
  Artifact / 状态机 / Archive          调试 / 验证 / 审查
                │                             │
@@ -225,7 +225,7 @@ CodeSpec 不再实现第二套“如何设计、如何写测试、如何调试�
 
 **讲解提示**
 
-OpenSpec 管“这次研发改变什么”。Superpowers 管“如何把它做好”。Workflow 管“现在处于什么阶段、该调用什么能力、什么证据才能进入下一阶段”。
+CodeSpec 管“这次研发改变什么”。Superpowers 管“如何把它做好”。Workflow 管“现在处于什么阶段、该调用什么能力、什么证据才能进入下一阶段”。
 
 ---
 
@@ -239,7 +239,7 @@ OpenSpec 管“这次研发改变什么”。Superpowers 管“如何把它做�
 解析 context + status，确定唯一 Change
   ↓
 Core 检查模块、Requirement、Baseline、状态和冲突
-  ├─ STALE / 冲突 → openspec-rebase-change → 回到 Workflow
+  ├─ STALE / 冲突 → codespec-rebase-change → 回到 Workflow
   └─ 正常 → 按 Change mode 调用 Superpowers
                    ↓
         Artifact / Code / Verification evidence
@@ -295,8 +295,8 @@ tasks.md ─── SP-## 实施追踪投影
 Code + tests + verification.md ─── 实现结果与新鲜证据
   ↓
 archive transaction
-  ├─ openspec/archive/specs/<MODULE>/spec.md     Current Specification
-  └─ openspec/archive/changes/<CHG-ID>/          不可变 Change 历史
+  ├─ codespec/specs/<MODULE>/spec.md     Current Specification
+  └─ codespec/archive/changes/<CHG-ID>/          不可变 Change 历史
 ```
 
 **讲解提示**
@@ -341,11 +341,11 @@ archive transaction
 
 | 维度 | 7 → 13 的阶段入口模式 | 3 个公开入口的 CodeSpec 模式 |
 | --- | --- | --- |
-| 研发起点 | 先判断该用哪个阶段或快捷入口。 | 正常请求统一从 `openspec-workflow` 开始。 |
-| 工程方法 | OpenSpec 提示与工程方法容易交叠。 | Workflow 在合适阶段调用 Superpowers。 |
+| 研发起点 | 先判断该用哪个阶段或快捷入口。 | 正常请求统一从 `codespec-workflow` 开始。 |
+| 工程方法 | CodeSpec 提示与工程方法容易交叠。 | Workflow 在合适阶段调用 Superpowers。 |
 | Change 规则 | 容易散落在多个入口的指令中。 | Core 统一管理 ID、Baseline、状态和 Traceability。 |
-| `STALE` | 可能与正常开发动作混在一起。 | 只转入 `openspec-rebase-change`，完成后回到 Workflow。 |
-| 主 Spec 更新 | 曾存在独立 sync 的理解路径。 | 只能经 `openspec-archive-change` 的事务提交。 |
+| `STALE` | 可能与正常开发动作混在一起。 | 只转入 `codespec-rebase-change`，完成后回到 Workflow。 |
+| 主 Spec 更新 | 曾存在独立 sync 的理解路径。 | 只能经 `codespec-archive-change` 的事务提交。 |
 | 归档 | 容易被视为普通收尾步骤。 | 人工确认、验证证据、冲突检查都是 Gate。 |
 
 **讲解提示**
@@ -366,14 +366,14 @@ archive transaction
 
 **结束语**
 
-研发人员只需从 `openspec-workflow` 开始。系统在正确阶段使用正确的方法，并把每次 Change 留为可以复查、恢复和演进的记录。
+研发人员只需从 `codespec-workflow` 开始。系统在正确阶段使用正确的方法，并把每次 Change 留为可以复查、恢复和演进的记录。
 
 ## 讲稿事实索引
 
 - 公开 Skill 生成集合：`src/core/shared/skill-generation.ts`。
-- 三个 Skill 的运行指令：`src/core/templates/workflows/openspec-workflow.ts`、`rebase-change.ts`、`archive-change.ts`。
-- canonical 路径与 Artifact 顺序：`openspec/config.yaml`、`schemas/code-spec/schema.yaml`。
+- 三个 Skill 的运行指令：`src/core/templates/workflows/codespec-workflow.ts`、`rebase-change.ts`、`archive-change.ts`。
+- canonical 路径与 Artifact 顺序：`codespec/config.yaml`、`schemas/code-spec/schema.yaml`。
 - 生命周期、Core 与 Superpowers 边界：`docs/workflows.md`。
-- 三 Skill 收敛回归：`test/core/templates/openspec-workflow.test.ts`。
-- canonical 运行时旅程和归档人工确认：`test/cli-e2e/openspec-workflow-journeys.test.ts`。
-- 真实业务案例：`/Users/wanglinan/Documents/01_工作/02_AI/01_project/aegis-auth/web/openspec/archive/changes/CHG-20260903-001/`。
+- 三 Skill 收敛回归：`test/core/templates/codespec-workflow.test.ts`。
+- canonical 运行时旅程和归档人工确认：`test/cli-e2e/codespec-workflow-journeys.test.ts`。
+- 真实业务案例：`/Users/wanglinan/Documents/01_工作/02_AI/01_project/aegis-auth/web/codespec/archive/changes/CHG-20260903-001/`。
