@@ -17,12 +17,12 @@ describe('printInstructionsText for skip_specs changes', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-test-'));
-    const changeDir = path.join(tempDir, 'openspec', 'changes', 'my-change');
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-test-'));
+    const changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
     fs.mkdirSync(changeDir, { recursive: true });
     fs.writeFileSync(path.join(changeDir, 'proposal.md'), '# Proposal');
     fs.writeFileSync(
-      path.join(changeDir, '.openspec.yaml'),
+      path.join(changeDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
   });
@@ -60,7 +60,7 @@ describe('printInstructionsText for skip_specs changes', () => {
     const output = capture('design');
 
     expect(output).toContain('<task>');
-    expect(output).toContain('Create the design artifact for change "my-change".');
+    expect(output).toContain('为 Change "my-change" 创建 design 产物。');
     expect(output).not.toContain('this artifact is skipped');
   });
 
@@ -80,7 +80,7 @@ describe('printInstructionsText for skip_specs changes', () => {
 
     const output = capture('tasks');
     expect(output).toContain('<dependency id="specs" status="skipped">');
-    expect(output).toContain('no files to read');
+    expect(output).toContain('没有需要读取的文件');
     // The skipped dependency must not point the agent at spec file paths.
     expect(output).not.toContain('specs/**/*.md</path>');
   });
@@ -95,8 +95,8 @@ describe('printInstructionsText for skip_specs changes', () => {
     vi.restoreAllMocks();
     const output = lines.join('\n');
 
-    expect(output).toContain('Progress: 1/3 artifacts complete (1 skipped)');
-    expect(output).toContain('[~] specs (skipped: change declares skip_specs)');
+    expect(output).toContain('进度：1/3 个产物已完成（已跳过 1 个）');
+    expect(output).toContain('[~] specs（已跳过：Change 声明了 skip_specs）');
     expect(output).toContain('[x] proposal');
   });
 });
@@ -105,7 +105,7 @@ describe('generateApplyInstructions for skip_specs changes', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-test-'));
   });
 
   afterEach(() => {
@@ -115,7 +115,7 @@ describe('generateApplyInstructions for skip_specs changes', () => {
   it('does not block apply on a skipped artifact when the schema requires all artifacts', async () => {
     // A schema with no apply block falls back to requiring every artifact,
     // including the specs-producing one - the skip must count as present.
-    const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'mini');
+    const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'mini');
     fs.mkdirSync(schemaDir, { recursive: true });
     fs.writeFileSync(
       path.join(schemaDir, 'schema.yaml'),
@@ -140,12 +140,12 @@ describe('generateApplyInstructions for skip_specs changes', () => {
         '',
       ].join('\n')
     );
-    const changeDir = path.join(tempDir, 'openspec', 'changes', 'my-change');
+    const changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
     fs.mkdirSync(changeDir, { recursive: true });
     fs.writeFileSync(path.join(changeDir, 'proposal.md'), '# Proposal');
     fs.writeFileSync(path.join(changeDir, 'tasks.md'), '## 1. W\n\n- [ ] 1.1 Do\n');
     fs.writeFileSync(
-      path.join(changeDir, '.openspec.yaml'),
+      path.join(changeDir, '.codespec.yaml'),
       'schema: mini\nskip_specs: true\n'
     );
 

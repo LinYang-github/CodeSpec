@@ -13,12 +13,12 @@ ${STORE_SELECTION_GUIDANCE}
 
 1. **选择 Change**
 
-   用户提供了明确的 \`CHG-YYYYMMDD-NNN\` 时使用该 ID；否则从对话上下文推断。若只有一个活动 Change 可自动选择；如仍有歧义，运行 \`openspec list --json\`，按最近修改时间展示 3–4 个候选，让用户选择。候选展示 Change ID、schema、状态和最后修改时间；将最近修改项标为“推荐”。明确说明：“正在使用 Change：<id>”，并提示可用 \`/opsx:continue <CHG-ID>\` 覆盖。
+   用户提供了明确的 \`CHG-YYYYMMDD-NNN\` 时使用该 ID；否则从对话上下文推断。若只有一个活动 Change 可自动选择；如仍有歧义，运行 \`codespec list --json\`，按最近修改时间展示 3–4 个候选，让用户选择。候选展示 Change ID、schema、状态和最后修改时间；将最近修改项标为“推荐”。明确说明：“正在使用 Change：<id>”，并提示可用 \`/codespec:continue <CHG-ID>\` 覆盖。
 
 2. **检查 canonical 状态**
 
    \`\`\`bash
-   openspec status --change "<CHG-ID>" --json
+   codespec status --change "<CHG-ID>" --json
    \`\`\`
 
    读取 \`schemaName\`、\`artifacts\`、\`isPlanningComplete\`、\`planningHome\`、\`changeRoot\`、\`artifactPaths\` 与 \`actionContext\`。使用返回的路径，不得假设仓库内路径。
@@ -29,7 +29,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    否则选择 status 中第一个 \`status: "ready"\` 的工件，运行：
    \`\`\`bash
-   openspec instructions <artifact-id> --change "<CHG-ID>" --json
+   codespec instructions <artifact-id> --change "<CHG-ID>" --json
    \`\`\`
 
    \`instruction\` 是权威指导，\`template\` 是文件结构，\`context\` 与 \`rules\` 仅是约束，绝不能复制到产物。始终从磁盘重新读取 \`dependencies\`；若说明委派给特定 skill 或命令，调用它完成工件并验证 \`resolvedOutputPath\` 存在。否则按 \`template\` 写入 \`resolvedOutputPath\`；路径为 glob 时按 \`instruction\` 选择具体路径。展示已创建的工件和新解锁项，然后停止。
@@ -39,12 +39,12 @@ ${STORE_SELECTION_GUIDANCE}
 4. **展示进度**
 
    \`\`\`bash
-   openspec status --change "<CHG-ID>"
+   codespec status --change "<CHG-ID>"
    \`\`\`
 
 **输出**
 
-每次调用说明创建了哪个工件、当前 schema、N/M 完成进度、已解锁工件，并提示：“需要继续时，运行 \`/opsx:continue\` 或直接告诉我下一步。”
+每次调用说明创建了哪个工件、当前 schema、N/M 完成进度、已解锁工件，并提示：“需要继续时，运行 \`/codespec:continue\` 或直接告诉我下一步。”
 
 **护栏**
 
@@ -57,21 +57,21 @@ ${STORE_SELECTION_GUIDANCE}
 
 export function getContinueChangeSkillTemplate(): SkillTemplate {
   return {
-    name: 'openspec-continue-change',
-    description: '继续处理 OpenSpec Change，并创建下一个工件。',
+    name: 'codespec-continue-change',
+    description: '继续处理 CodeSpec Change，并创建下一个工件。',
     instructions: renderContinueWorkflow('可选地提供 Change ID；省略时从上下文解析或要求选择。'),
     license: 'MIT',
-    compatibility: '需要 openspec CLI。',
-    metadata: { author: 'openspec', version: '1.0' },
+    compatibility: '需要 codespec CLI。',
+    metadata: { author: 'codespec', version: '1.0' },
   };
 }
 
-export function getOpsxContinueCommandTemplate(): CommandTemplate {
+export function getCodespecContinueCommandTemplate(): CommandTemplate {
   return {
-    name: 'OPSX: 继续',
+    name: 'CODESPEC: 继续',
     description: '继续处理 Change 并创建下一个工件',
     category: 'Workflow',
     tags: ['workflow', 'artifacts', 'experimental'],
-    content: renderContinueWorkflow('紧随 \'/opsx:continue\' 的参数可选地指定 Change ID（例如 \`/opsx:continue CHG-20260902-001\`）。'),
+    content: renderContinueWorkflow('紧随 \'/codespec:continue\' 的参数可选地指定 Change ID（例如 \`/codespec:continue CHG-20260902-001\`）。'),
   };
 }

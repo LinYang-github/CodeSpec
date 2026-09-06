@@ -354,7 +354,7 @@ export async function buildUpdatedSpec(
       // Measured on the parsed overview, which is what the validator reads.
       warn(
         `${specName} - carried Purpose is under ${MIN_PURPOSE_LENGTH} characters; ` +
-          `openspec validate --strict reports it as too brief.`
+          `codespec validate --strict reports it as too brief.`
       );
     }
   }
@@ -770,7 +770,7 @@ function countOccurrences(haystack: string, needle: string): number {
  * there was nothing to delete.
  *
  * Gated by the caller on the change's `retire_capabilities` marker, so the one
- * archive action that removes a file from `openspec/specs/` is always something
+ * archive action that removes a file from `codespec/specs/` is always something
  * the author asked for rather than something inferred from a delta's shape. The
  * file is recoverable from git, which the report names; applying REMOVED already
  * deletes requirement content from a main spec, so deleting the spec once
@@ -843,7 +843,7 @@ export async function retireSpec(
   try {
     await options.beforeMutate?.();
     if (options.verifyDisplaced) {
-      const displaced = `${update.target}.openspec-retire-${randomUUID()}`;
+      const displaced = `${update.target}.codespec-retire-${randomUUID()}`;
       displacedPath = displaced;
       await fs.rename(update.target, displaced);
       try {
@@ -887,7 +887,7 @@ export async function retireSpec(
     await pruneEmptyDirs(path.dirname(update.target), mainSpecsDir);
   }
 
-  const nominal = options.displayPath ?? `openspec/specs/${update.id}/spec.md`;
+  const nominal = options.displayPath ?? `codespec/specs/${update.id}/spec.md`;
   if (!options.silent) {
     console.log(`Retiring ${nominal}: all requirements removed.`);
   }
@@ -933,7 +933,7 @@ async function isInsideRealDir(realPath: string, dir: string): Promise<boolean> 
  * Not race-free: an attacker who can swap an ancestor between the check and the
  * `rmdir` could get an empty directory outside the root removed. Closing that
  * needs fd-relative syscalls Node does not expose, and it requires local write
- * access to `openspec/specs` during an archive.
+ * access to `codespec/specs` during an archive.
  */
 async function pruneEmptyDirs(startDir: string, boundaryDir: string): Promise<void> {
   let boundary: string;
@@ -997,7 +997,7 @@ export async function writeUpdatedSpec(
   if (options.silent) return;
 
   const specName = update.id;
-  console.log(`Applying changes to ${options.displayPath ?? `openspec/specs/${specName}/spec.md`}:`);
+  console.log(`Applying changes to ${options.displayPath ?? `codespec/specs/${specName}/spec.md`}:`);
   if (counts.added) console.log(`  + ${counts.added} added`);
   if (counts.modified) console.log(`  ~ ${counts.modified} modified`);
   if (counts.removed) console.log(`  - ${counts.removed} removed`);

@@ -3,7 +3,7 @@
  *
  * Command Code reads custom slash commands from `.commandcode/commands/`. The
  * command name is the markdown filename without its `.md` extension, so
- * `opsx-<id>.md` registers `/opsx-<id>` — the same flat naming Cursor and
+ * `codespec-<id>.md` registers `/codespec-<id>` — the same flat naming Cursor and
  * OpenCode use. See https://commandcode.ai/docs/reference/slash-commands.
  */
 
@@ -25,7 +25,7 @@ function injectCommandCodeArgs(body: string): string {
 
 /**
  * Command Code adapter for command generation.
- * File path: .commandcode/commands/opsx-<id>.md
+ * File path: .commandcode/commands/codespec-<id>.md
  * Format: plain Markdown with $ARGUMENTS injected after the input contract
  *
  * Command Code executes the full trimmed file body and substitutes invocation
@@ -35,7 +35,7 @@ export const commandCodeAdapter: ToolCommandAdapter = {
   toolId: 'command-code',
 
   getFilePath(commandId: string): string {
-    return path.join('.commandcode', 'commands', `opsx-${commandId}.md`);
+    return path.join('.commandcode', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

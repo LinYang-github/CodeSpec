@@ -6,7 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import {
-  DEFAULT_OPENSPEC_SCHEMA,
+  DEFAULT_CODESPEC_SCHEMA,
   getGlobalDataDir,
   getStoresDir,
   getStoreMetadataPath,
@@ -16,7 +16,7 @@ import {
   writeStoreRegistryState,
 } from '../../src/core/index.js';
 import { runCLI, type RunCLIResult } from '../helpers/run-cli.js';
-import { createHealthyOpenSpecRoot } from '../helpers/store-git.js';
+import { createHealthyCodeSpecRoot } from '../helpers/store-git.js';
 
 vi.mock('@inquirer/prompts', () => ({
   input: vi.fn(),
@@ -27,7 +27,7 @@ async function runStoreCommand(args: string[]): Promise<void> {
   const { registerStoreCommand } = await import('../../src/commands/store.js');
   const program = new Command();
   registerStoreCommand(program);
-  await program.parseAsync(['node', 'openspec', 'store', ...args]);
+  await program.parseAsync(['node', 'codespec', 'store', ...args]);
 }
 
 async function getPromptMocks(): Promise<{
@@ -57,14 +57,14 @@ describe('store command', () => {
   beforeEach(() => {
     vi.resetModules();
 
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-store-command-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-store-command-'));
     dataHome = path.join(tempDir, 'data');
     configHome = path.join(tempDir, 'config');
     env = {
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: configHome,
       OPEN_SPEC_INTERACTIVE: '0',
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     globalDataDir = getGlobalDataDir({ env });
 
@@ -96,17 +96,17 @@ describe('store command', () => {
     return fs.realpathSync.native(existingPath);
   }
 
-  function expectHealthyOpenSpecRoot(root: string): void {
-    expect(fs.existsSync(path.join(root, 'openspec', 'config.yaml')) || fs.existsSync(path.join(root, 'openspec', 'config.yml'))).toBe(true);
-    expect(fs.existsSync(path.join(root, 'openspec', 'specs'))).toBe(true);
-    expect(fs.existsSync(path.join(root, 'openspec', 'changes'))).toBe(true);
-    expect(fs.existsSync(path.join(root, 'openspec', 'changes', 'archive'))).toBe(true);
+  function expectHealthyCodeSpecRoot(root: string): void {
+    expect(fs.existsSync(path.join(root, 'codespec', 'config.yaml')) || fs.existsSync(path.join(root, 'codespec', 'config.yml'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'codespec', 'specs'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'codespec', 'changes'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'codespec', 'changes', 'archive'))).toBe(true);
   }
 
   function expectNoGeneratedAgentOrBetaArtifacts(root: string): void {
     for (const artifact of [
       'initiatives',
-      '.openspec-workspace',
+      '.codespec-workspace',
       'workspace.yaml',
       'AGENTS.md',
       '.codex',
@@ -153,19 +153,19 @@ describe('store command', () => {
       already_registered: false,
     });
     expect(payload.created_files).toEqual([
-      'openspec/',
-      'openspec/specs/',
-      'openspec/changes/',
-      'openspec/changes/archive/',
-      'openspec/config.yaml',
-      'openspec/specs/.gitkeep',
-      'openspec/changes/archive/.gitkeep',
-      '.openspec-store/store.yaml',
+      'codespec/',
+      'codespec/specs/',
+      'codespec/changes/',
+      'codespec/changes/archive/',
+      'codespec/config.yaml',
+      'codespec/specs/.gitkeep',
+      'codespec/changes/archive/.gitkeep',
+      '.codespec-store/store.yaml',
     ]);
     expect(payload.status).toEqual([]);
-    expectHealthyOpenSpecRoot(storeRoot);
-    expect(fs.readFileSync(path.join(storeRoot, 'openspec', 'config.yaml'), 'utf-8')).toContain(
-      `schema: ${DEFAULT_OPENSPEC_SCHEMA}`
+    expectHealthyCodeSpecRoot(storeRoot);
+    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'config.yaml'), 'utf-8')).toContain(
+      `schema: ${DEFAULT_CODESPEC_SCHEMA}`
     );
     expectNoGeneratedAgentOrBetaArtifacts(storeRoot);
     await expect(readStoreMetadataState(storeRoot)).resolves.toEqual({
@@ -191,7 +191,7 @@ describe('store command', () => {
       ...process.env,
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: configHome,
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     delete process.env.OPEN_SPEC_INTERACTIVE;
     delete process.env.CI;
@@ -216,7 +216,7 @@ describe('store command', () => {
     // The suggested location is a visible user path, never the XDG data dir.
     expect(input).toHaveBeenCalledWith(expect.objectContaining({
       message: 'Store 存放在哪里？',
-      default: '~/openspec/guided-context',
+      default: '~/codespec/guided-context',
     }));
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(confirm).toHaveBeenNthCalledWith(1, {
@@ -224,7 +224,7 @@ describe('store command', () => {
       default: true,
     });
     expect(fs.existsSync(getStoreMetadataPath(storeRoot))).toBe(true);
-    expectHealthyOpenSpecRoot(storeRoot);
+    expectHealthyCodeSpecRoot(storeRoot);
     expect(fs.existsSync(path.join(storeRoot, '.git'))).toBe(false);
     expect(process.exitCode).toBeUndefined();
   });
@@ -267,7 +267,7 @@ describe('store command', () => {
 
     expect(result.exitCode).toBe(0);
     expect(parseJson(result).store.root).toBe(expectedExistingPath(storeRoot));
-    expectHealthyOpenSpecRoot(storeRoot);
+    expectHealthyCodeSpecRoot(storeRoot);
   });
 
   it('accepts an existing Git-only setup directory', async () => {
@@ -287,23 +287,24 @@ describe('store command', () => {
       committed: false,
     });
     expect(payload.created_files).toEqual([
-      'openspec/',
-      'openspec/specs/',
-      'openspec/changes/',
-      'openspec/changes/archive/',
-      'openspec/config.yaml',
-      'openspec/specs/.gitkeep',
-      'openspec/changes/archive/.gitkeep',
-      '.openspec-store/store.yaml',
+      'codespec/',
+      'codespec/specs/',
+      'codespec/changes/',
+      'codespec/changes/archive/',
+      'codespec/config.yaml',
+      'codespec/specs/.gitkeep',
+      'codespec/changes/archive/.gitkeep',
+      '.codespec-store/store.yaml',
     ]);
     expect(fs.existsSync(path.join(storeRoot, '.git'))).toBe(true);
-    expectHealthyOpenSpecRoot(storeRoot);
+    expectHealthyCodeSpecRoot(storeRoot);
   });
 
-  it('preserves an existing healthy OpenSpec root during setup', async () => {
+  it('preserves an existing healthy CodeSpec root during setup', async () => {
     const storeRoot = mkdir('team-context');
-    createHealthyOpenSpecRoot(storeRoot, 'config.yml');
-    fs.writeFileSync(path.join(storeRoot, 'openspec', 'specs', 'note.md'), 'keep\n');
+    createHealthyCodeSpecRoot(storeRoot, 'config.yml');
+    fs.mkdirSync(path.join(storeRoot, 'codespec', 'specs'), { recursive: true });
+    fs.writeFileSync(path.join(storeRoot, 'codespec', 'specs', 'note.md'), 'keep\n');
 
     const result = await runCLI(
       ['store', 'setup', 'team-context', '--path', storeRoot, '--no-init-git', '--json'],
@@ -313,21 +314,22 @@ describe('store command', () => {
     expect(result.exitCode).toBe(0);
     const payload = parseJson(result);
     // First-time accept of an existing root anchors its empty directories
-    // (specs/ has user content here, so only archive/ gets an anchor).
+    // The canonical code-spec root stores current specs under specs/.
     expect(payload.created_files).toEqual([
-      'openspec/changes/archive/.gitkeep',
-      '.openspec-store/store.yaml',
+      'codespec/changes/archive/',
+      'codespec/changes/archive/.gitkeep',
+      '.codespec-store/store.yaml',
     ]);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec', 'config.yaml'))).toBe(false);
-    expect(fs.readFileSync(path.join(storeRoot, 'openspec', 'config.yml'), 'utf-8')).toBe(
-      `schema: ${DEFAULT_OPENSPEC_SCHEMA}\n`
+    expect(fs.existsSync(path.join(storeRoot, 'codespec', 'config.yaml'))).toBe(false);
+    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'config.yml'), 'utf-8')).toContain(
+      `schema: ${DEFAULT_CODESPEC_SCHEMA}`
     );
-    expect(fs.readFileSync(path.join(storeRoot, 'openspec', 'specs', 'note.md'), 'utf-8')).toBe('keep\n');
+    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'specs', 'note.md'), 'utf-8')).toBe('keep\n');
   });
 
   it('ignores old beta files inside an otherwise healthy root', async () => {
     const storeRoot = mkdir('team-context');
-    createHealthyOpenSpecRoot(storeRoot);
+    createHealthyCodeSpecRoot(storeRoot);
     fs.mkdirSync(path.join(storeRoot, 'initiatives'), { recursive: true });
     fs.mkdirSync(path.join(storeRoot, '.codex'), { recursive: true });
     fs.writeFileSync(path.join(storeRoot, 'workspace.yaml'), 'old: beta\n');
@@ -372,8 +374,8 @@ describe('store command', () => {
 
   it('refuses to convert a config-only store pointer repo into a store', async () => {
     const pointerRoot = mkdir('app-repo');
-    fs.mkdirSync(path.join(pointerRoot, 'openspec'), { recursive: true });
-    fs.writeFileSync(path.join(pointerRoot, 'openspec', 'config.yaml'), 'store: team-context\n');
+    fs.mkdirSync(path.join(pointerRoot, 'codespec'), { recursive: true });
+    fs.writeFileSync(path.join(pointerRoot, 'codespec', 'config.yaml'), 'store: team-context\n');
 
     const setup = await runCLI(
       ['store', 'setup', 'app-context', '--path', pointerRoot, '--no-init-git', '--json'],
@@ -392,15 +394,15 @@ describe('store command', () => {
     expect(parseJson(register).status[0]).toEqual(expect.objectContaining({
       code: 'store_root_pointer_declared',
     }));
-    expect(fs.existsSync(path.join(pointerRoot, 'openspec', 'specs'))).toBe(false);
-    expect(fs.existsSync(path.join(pointerRoot, 'openspec', 'changes'))).toBe(false);
+    expect(fs.existsSync(path.join(pointerRoot, 'codespec', 'specs'))).toBe(false);
+    expect(fs.existsSync(path.join(pointerRoot, 'codespec', 'changes'))).toBe(false);
     expect(fs.existsSync(getStoreMetadataPath(pointerRoot))).toBe(false);
   });
 
   it('refuses malformed config-only store pointer repos before registering', async () => {
     const pointerRoot = mkdir('bad-app-repo');
-    fs.mkdirSync(path.join(pointerRoot, 'openspec'), { recursive: true });
-    fs.writeFileSync(path.join(pointerRoot, 'openspec', 'config.yaml'), 'store: [team-context]\n');
+    fs.mkdirSync(path.join(pointerRoot, 'codespec'), { recursive: true });
+    fs.writeFileSync(path.join(pointerRoot, 'codespec', 'config.yaml'), 'store: [team-context]\n');
 
     const result = await runCLI(
       ['store', 'register', pointerRoot, '--yes', '--json'],
@@ -431,7 +433,7 @@ describe('store command', () => {
       })
     );
     expect(fs.existsSync(getStoreMetadataPath(storeRoot))).toBe(false);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec'))).toBe(false);
   });
 
   it('rejects setup paths inside git-like parents when git cannot resolve the repo', async () => {
@@ -458,7 +460,7 @@ describe('store command', () => {
       ...process.env,
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: configHome,
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     delete process.env.OPEN_SPEC_INTERACTIVE;
     delete process.env.CI;
@@ -476,7 +478,7 @@ describe('store command', () => {
 
     expect(confirm).not.toHaveBeenCalled();
     expect(fs.existsSync(getStoreMetadataPath(storeRoot))).toBe(false);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec'))).toBe(false);
     expect(process.exitCode).toBe(1);
   });
 
@@ -503,7 +505,7 @@ describe('store command', () => {
       ...process.env,
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: configHome,
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     delete process.env.OPEN_SPEC_INTERACTIVE;
     delete process.env.CI;
@@ -542,8 +544,8 @@ describe('store command', () => {
 
   it('registers a cloned healthy store without rewriting planning files', async () => {
     const storeRoot = mkdir('team-context');
-    createHealthyOpenSpecRoot(storeRoot);
-    fs.writeFileSync(path.join(storeRoot, 'openspec', 'specs', 'note.md'), 'keep\n');
+    createHealthyCodeSpecRoot(storeRoot);
+    fs.writeFileSync(path.join(storeRoot, 'codespec', 'archive', 'specs', 'note.md'), 'keep\n');
     await writeStoreMetadataState(storeRoot, { version: 1, id: 'team-context' });
 
     const result = await runCLI(
@@ -556,15 +558,15 @@ describe('store command', () => {
     expect(payload.store.id).toBe('team-context');
     expect(payload.registry.registered).toBe(true);
     expect(payload.created_files).toEqual([]);
-    expect(fs.readFileSync(path.join(storeRoot, 'openspec', 'specs', 'note.md'), 'utf-8')).toBe('keep\n');
+    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'archive', 'specs', 'note.md'), 'utf-8')).toBe('keep\n');
   });
 
   it('registers a team store before any changes exist', async () => {
     const storeRoot = mkdir('team-context');
-    fs.mkdirSync(path.join(storeRoot, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(storeRoot, 'codespec'), { recursive: true });
     fs.writeFileSync(
-      path.join(storeRoot, 'openspec', 'config.yaml'),
-      `schema: ${DEFAULT_OPENSPEC_SCHEMA}\n`
+      path.join(storeRoot, 'codespec', 'config.yaml'),
+      `schema: ${DEFAULT_CODESPEC_SCHEMA}\n`
     );
     await writeStoreMetadataState(storeRoot, { version: 1, id: 'team-context' });
 
@@ -577,21 +579,21 @@ describe('store command', () => {
     const payload = parseJson(result);
     expect(payload.store.id).toBe('team-context');
     expect(payload.created_files).toEqual([]);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec', 'changes'))).toBe(false);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec', 'specs'))).toBe(false);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'archive'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec', 'changes'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec', 'specs'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec', 'changes', 'archive'))).toBe(false);
   });
 
   it('registers a store with active changes before specs or archive exist', async () => {
     const storeRoot = mkdir('team-context');
-    fs.mkdirSync(path.join(storeRoot, 'openspec', 'changes', 'add-widget'), { recursive: true });
+    fs.mkdirSync(path.join(storeRoot, 'codespec', 'changes', 'add-widget'), { recursive: true });
     fs.writeFileSync(
-      path.join(storeRoot, 'openspec', 'changes', 'add-widget', 'proposal.md'),
+      path.join(storeRoot, 'codespec', 'changes', 'add-widget', 'proposal.md'),
       '# Proposal\n'
     );
     fs.writeFileSync(
-      path.join(storeRoot, 'openspec', 'config.yaml'),
-      `schema: ${DEFAULT_OPENSPEC_SCHEMA}\n`
+      path.join(storeRoot, 'codespec', 'config.yaml'),
+      `schema: ${DEFAULT_CODESPEC_SCHEMA}\n`
     );
     await writeStoreMetadataState(storeRoot, { version: 1, id: 'team-context' });
 
@@ -604,13 +606,13 @@ describe('store command', () => {
     const payload = parseJson(result);
     expect(payload.store.id).toBe('team-context');
     expect(payload.created_files).toEqual([]);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec', 'specs'))).toBe(false);
-    expect(fs.existsSync(path.join(storeRoot, 'openspec', 'changes', 'archive'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec', 'specs'))).toBe(false);
+    expect(fs.existsSync(path.join(storeRoot, 'codespec', 'changes', 'archive'))).toBe(false);
   });
 
   it('requires confirmation before registering a healthy root without identity', async () => {
     const storeRoot = mkdir('team-context');
-    createHealthyOpenSpecRoot(storeRoot);
+    createHealthyCodeSpecRoot(storeRoot);
 
     const refused = await runCLI(
       ['store', 'register', storeRoot, '--json'],
@@ -631,7 +633,7 @@ describe('store command', () => {
     );
 
     expect(confirmed.exitCode).toBe(0);
-    expect(parseJson(confirmed).created_files).toEqual(['.openspec-store/store.yaml']);
+    expect(parseJson(confirmed).created_files).toEqual(['.codespec-store/store.yaml']);
     await expect(readStoreMetadataState(storeRoot)).resolves.toEqual({
       version: 1,
       id: 'team-context',
@@ -643,7 +645,7 @@ describe('store command', () => {
       ...process.env,
       XDG_DATA_HOME: dataHome,
       XDG_CONFIG_HOME: configHome,
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     delete process.env.OPEN_SPEC_INTERACTIVE;
     delete process.env.CI;
@@ -654,12 +656,12 @@ describe('store command', () => {
     const { confirm } = await getPromptMocks();
     confirm.mockResolvedValue(false);
     const storeRoot = mkdir('team-context');
-    createHealthyOpenSpecRoot(storeRoot);
+    createHealthyCodeSpecRoot(storeRoot);
 
     await runStoreCommand(['register', storeRoot]);
 
     expect(confirm).toHaveBeenCalledWith({
-      message: "将此 OpenSpec 根目录转换为 Store 'team-context'？",
+      message: "将此 CodeSpec 根目录转换为 Store 'team-context'？",
       default: false,
     });
     expect(fs.existsSync(getStoreMetadataPath(storeRoot))).toBe(false);
@@ -669,8 +671,8 @@ describe('store command', () => {
 
   it('reports repeated setup and register as no-op success', async () => {
     const storeRoot = mkdir('team-context');
-    createHealthyOpenSpecRoot(storeRoot);
-    fs.writeFileSync(path.join(storeRoot, 'openspec', 'config.yaml'), 'schema: spec-driven\n# user edit\n');
+    createHealthyCodeSpecRoot(storeRoot);
+    fs.writeFileSync(path.join(storeRoot, 'codespec', 'config.yaml'), 'schema: spec-driven\n# user edit\n');
 
     const firstSetup = await runCLI(
       ['store', 'setup', 'team-context', '--path', storeRoot, '--no-init-git', '--json'],
@@ -719,7 +721,7 @@ describe('store command', () => {
         code: 'store_already_registered',
       })
     );
-    expect(fs.readFileSync(path.join(storeRoot, 'openspec', 'config.yaml'), 'utf-8')).toBe(
+    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'config.yaml'), 'utf-8')).toBe(
       'schema: spec-driven\n# user edit\n'
     );
     await expect(readStoreRegistryState({ globalDataDir })).resolves.toEqual({
@@ -739,8 +741,8 @@ describe('store command', () => {
     const firstRoot = mkdir('first/team-context');
     const secondRoot = mkdir('second/team-context');
     const aliasRoot = path.join(tempDir, 'alias-team-context');
-    createHealthyOpenSpecRoot(firstRoot);
-    createHealthyOpenSpecRoot(secondRoot);
+    createHealthyCodeSpecRoot(firstRoot);
+    createHealthyCodeSpecRoot(secondRoot);
     await writeStoreMetadataState(firstRoot, { version: 1, id: 'team-context' });
     await writeStoreMetadataState(secondRoot, { version: 1, id: 'team-context' });
     await writeStoreRegistryState(
@@ -769,7 +771,7 @@ describe('store command', () => {
       })
     );
 
-    fs.rmSync(path.join(firstRoot, '.openspec-store'), { recursive: true, force: true });
+    fs.rmSync(path.join(firstRoot, '.codespec-store'), { recursive: true, force: true });
     await writeStoreMetadataState(firstRoot, { version: 1, id: 'other-context' });
     fs.symlinkSync(firstRoot, aliasRoot, process.platform === 'win32' ? 'junction' : 'dir');
     const samePath = await runCLI(
@@ -1004,8 +1006,8 @@ describe('store command', () => {
     const healthyRoot = mkdir('healthy-context');
     const mismatchRoot = mkdir('mismatch-context');
     execFileSync('git', ['init'], { cwd: healthyRoot, stdio: 'ignore' });
-    createHealthyOpenSpecRoot(healthyRoot);
-    createHealthyOpenSpecRoot(mismatchRoot);
+    createHealthyCodeSpecRoot(healthyRoot);
+    createHealthyCodeSpecRoot(mismatchRoot);
     await writeStoreMetadataState(healthyRoot, { version: 1, id: 'healthy-context' });
     await writeStoreMetadataState(mismatchRoot, { version: 1, id: 'other-context' });
     await writeStoreRegistryState(
@@ -1047,7 +1049,7 @@ describe('store command', () => {
         code: 'store_git_no_commits',
       }),
     ]);
-    expect(byId['healthy-context'].openspec_root.healthy).toBe(true);
+    expect(byId['healthy-context'].codespec_root.healthy).toBe(true);
     expect(byId['healthy-context'].git).toEqual({
       is_repository: true,
       has_commits: false,
@@ -1060,7 +1062,7 @@ describe('store command', () => {
         code: 'store_root_missing',
       })
     );
-    expect(byId['missing-context'].openspec_root.present).toBeNull();
+    expect(byId['missing-context'].codespec_root.present).toBeNull();
     expect(byId['mismatch-context'].status[0]).toEqual(
       expect.objectContaining({
         code: 'store_metadata_id_mismatch',
@@ -1068,12 +1070,12 @@ describe('store command', () => {
     );
   });
 
-  it('reports OpenSpec root health separately without repairing it', async () => {
+  it('reports CodeSpec root health separately without repairing it', async () => {
     const storeRoot = mkdir('team-context');
-    fs.mkdirSync(path.join(storeRoot, 'openspec', 'specs'), { recursive: true });
-    fs.mkdirSync(path.join(storeRoot, 'openspec', 'changes'), { recursive: true });
-    fs.writeFileSync(path.join(storeRoot, 'openspec', 'changes', 'archive'), 'not a dir\n');
-    fs.writeFileSync(path.join(storeRoot, 'openspec', 'config.yaml'), `schema: ${DEFAULT_OPENSPEC_SCHEMA}\n`);
+    fs.mkdirSync(path.join(storeRoot, 'codespec', 'specs'), { recursive: true });
+    fs.mkdirSync(path.join(storeRoot, 'codespec', 'changes'), { recursive: true });
+    fs.writeFileSync(path.join(storeRoot, 'codespec', 'changes', 'archive'), 'not a dir\n');
+    fs.writeFileSync(path.join(storeRoot, 'codespec', 'config.yaml'), `schema: ${DEFAULT_CODESPEC_SCHEMA}\n`);
     await writeStoreMetadataState(storeRoot, { version: 1, id: 'team-context' });
     await writeStoreRegistryState(
       {
@@ -1097,19 +1099,19 @@ describe('store command', () => {
 
     expect(result.exitCode).toBe(0);
     const store = parseJson(result).stores[0];
-    expect(store.openspec_root.archive.present).toBe(false);
-    expect(store.openspec_root.status[0]).toEqual(
+    expect(store.codespec_root.archive.present).toBe(false);
+    expect(store.codespec_root.status[0]).toEqual(
       expect.objectContaining({
-        code: 'openspec_archive_not_directory',
+        code: 'codespec_archive_not_directory',
       })
     );
-    expect(fs.readFileSync(path.join(storeRoot, 'openspec', 'changes', 'archive'), 'utf-8')).toBe('not a dir\n');
+    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'changes', 'archive'), 'utf-8')).toBe('not a dir\n');
   });
 
   it('register errors are terminal: one-checkout rule, no circular fix texts', async () => {
     // Register the original checkout.
     const original = mkdir('team-context');
-    createHealthyOpenSpecRoot(original);
+    createHealthyCodeSpecRoot(original);
     await writeStoreMetadataState(original, { version: 1, id: 'team-context' });
     const first = await runCLI(['store', 'register', original, '--json'], {
       cwd: tempDir,
@@ -1121,7 +1123,7 @@ describe('store command', () => {
     // one-checkout rule and the unregister escape — never "choose a
     // different id".
     const secondCheckout = mkdir('elsewhere/team-context');
-    createHealthyOpenSpecRoot(secondCheckout);
+    createHealthyCodeSpecRoot(secondCheckout);
     await writeStoreMetadataState(secondCheckout, { version: 1, id: 'team-context' });
     const conflict = await runCLI(['store', 'register', secondCheckout, '--json'], {
       cwd: tempDir,
@@ -1132,7 +1134,7 @@ describe('store command', () => {
     expect(conflictStatus.code).toBe('store_id_conflict');
     expect(conflictStatus.message).toContain('One checkout per store id');
     expect(conflictStatus.message).toContain(expectedExistingPath(original));
-    expect(conflictStatus.fix).toContain('openspec store unregister team-context');
+    expect(conflictStatus.fix).toContain('codespec store unregister team-context');
     expect(conflictStatus.fix).not.toContain('different store id');
 
     // Mismatched --id when the metadata id is already registered elsewhere:
@@ -1151,7 +1153,7 @@ describe('store command', () => {
 
     // Mismatched --id when the metadata id is free: the plain fix applies.
     const freeRoot = mkdir('free-context');
-    createHealthyOpenSpecRoot(freeRoot);
+    createHealthyCodeSpecRoot(freeRoot);
     await writeStoreMetadataState(freeRoot, { version: 1, id: 'free-context' });
     const mismatchFree = await runCLI(
       ['store', 'register', freeRoot, '--id', 'wrong-id', '--json'],
@@ -1177,7 +1179,7 @@ describe('store command', () => {
       );
 
       expect(result.exitCode).toBe(0);
-      expect(fs.existsSync(path.join(storeRoot, '.openspec-store', 'store.yaml'))).toBe(true);
+      expect(fs.existsSync(path.join(storeRoot, '.codespec-store', 'store.yaml'))).toBe(true);
       expect(fs.existsSync(path.join(getStoresDir({ globalDataDir }), 'registry.yaml'))).toBe(
         true
       );
@@ -1189,8 +1191,8 @@ describe('store command', () => {
       // the exact pre-rename bytes inline (not via the current writer), so
       // this fails if the on-disk contract ever drifts.
       const storeRoot = mkdir('pre-rename-context');
-      createHealthyOpenSpecRoot(storeRoot);
-      const metadataDir = path.join(storeRoot, '.openspec-store');
+      createHealthyCodeSpecRoot(storeRoot);
+      const metadataDir = path.join(storeRoot, '.codespec-store');
       fs.mkdirSync(metadataDir, { recursive: true });
       fs.writeFileSync(
         path.join(metadataDir, 'store.yaml'),
@@ -1239,11 +1241,11 @@ describe('store command', () => {
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('"openspec store" 中的未知命令 \'new\'');
+      expect(result.stderr).toContain('"codespec store" 中的未知命令 \'new\'');
       expect(result.stderr).toContain(
         'setup, register, unregister, remove, list (ls), doctor'
       );
-      expect(result.stderr).toContain('openspec new change billing-rework --store <id>');
+      expect(result.stderr).toContain('codespec new change billing-rework --store <id>');
     });
 
     it('never suggests an invalid command for partial new invocations', async () => {
@@ -1251,8 +1253,8 @@ describe('store command', () => {
 
       expect(result.exitCode).toBe(1);
       // 'new my-change' would be invalid; the hint falls back to the full form.
-      expect(result.stderr).toContain('openspec new change <change-id> --store <id>');
-      expect(result.stderr).not.toContain('openspec new my-change');
+      expect(result.stderr).toContain('codespec new change <change-id> --store <id>');
+      expect(result.stderr).not.toContain('codespec new my-change');
     });
 
     it('falls back to the generic example when flags interleave operands', async () => {
@@ -1262,7 +1264,7 @@ describe('store command', () => {
       );
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('openspec new change <change-id> --store <id>');
+      expect(result.stderr).toContain('codespec new change <change-id> --store <id>');
       expect(result.stderr).not.toContain('core');
     });
 

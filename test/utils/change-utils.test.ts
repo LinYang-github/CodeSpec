@@ -79,7 +79,7 @@ describe('validateChangeName', () => {
     it('should reject name with spaces', () => {
       const result = validateChangeName('add auth');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('spaces');
+      expect(result.error).toContain('不能包含空格');
     });
   });
 
@@ -87,7 +87,7 @@ describe('validateChangeName', () => {
     it('should reject name with underscores', () => {
       const result = validateChangeName('add_auth');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('underscores');
+      expect(result.error).toContain('不能包含下划线');
     });
   });
 
@@ -109,13 +109,13 @@ describe('validateChangeName', () => {
     it('should reject name with leading hyphen', () => {
       const result = validateChangeName('-add-auth');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('start with a hyphen');
+      expect(result.error).toContain('不能以连字符开头');
     });
 
     it('should reject name with trailing hyphen', () => {
       const result = validateChangeName('add-auth-');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('end with a hyphen');
+      expect(result.error).toContain('不能以连字符结尾');
     });
   });
 
@@ -123,7 +123,7 @@ describe('validateChangeName', () => {
     it('should reject name with double hyphens', () => {
       const result = validateChangeName('add--auth');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('consecutive hyphens');
+      expect(result.error).toContain('不能包含连续连字符');
     });
   });
 
@@ -131,7 +131,7 @@ describe('validateChangeName', () => {
     it('should reject empty string', () => {
       const result = validateChangeName('');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('empty');
+      expect(result.error).toContain('不能为空');
     });
   });
 });
@@ -141,7 +141,7 @@ describe('createChange', () => {
   const originalTimeZone = process.env.TZ;
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-test-'));
   });
 
   afterEach(async () => {
@@ -158,7 +158,7 @@ describe('createChange', () => {
     it('should create change directory', async () => {
       await createChange(testDir, 'add-auth');
 
-      const changeDir = path.join(testDir, 'openspec', 'changes', 'add-auth');
+      const changeDir = path.join(testDir, 'codespec', 'changes', 'add-auth');
       const stats = await fs.stat(changeDir);
       expect(stats.isDirectory()).toBe(true);
     });
@@ -166,15 +166,15 @@ describe('createChange', () => {
     it('should create a numeric-prefixed change directory (#850, #1169)', async () => {
       await createChange(testDir, '100-add-feature');
 
-      const changeDir = path.join(testDir, 'openspec', 'changes', '100-add-feature');
+      const changeDir = path.join(testDir, 'codespec', 'changes', '100-add-feature');
       const stats = await fs.stat(changeDir);
       expect(stats.isDirectory()).toBe(true);
     });
 
-    it('should create .openspec.yaml metadata file with default schema', async () => {
+    it('should create .codespec.yaml metadata file with default schema', async () => {
       await createChange(testDir, 'add-auth');
 
-      const metaPath = path.join(testDir, 'openspec', 'changes', 'add-auth', '.openspec.yaml');
+      const metaPath = path.join(testDir, 'codespec', 'changes', 'add-auth', '.codespec.yaml');
       const content = await fs.readFile(metaPath, 'utf-8');
       expect(content).toContain('schema: spec-driven');
       expect(content).toMatch(/created: \d{4}-\d{2}-\d{2}/);
@@ -187,7 +187,7 @@ describe('createChange', () => {
 
       await createChange(testDir, 'local-date-change');
 
-      const metaPath = path.join(testDir, 'openspec', 'changes', 'local-date-change', '.openspec.yaml');
+      const metaPath = path.join(testDir, 'codespec', 'changes', 'local-date-change', '.codespec.yaml');
       const content = await fs.readFile(metaPath, 'utf-8');
       expect(content).toContain('created: 2026-07-15');
     });
@@ -199,15 +199,15 @@ describe('createChange', () => {
 
       await createChange(testDir, 'same-date-change');
 
-      const metaPath = path.join(testDir, 'openspec', 'changes', 'same-date-change', '.openspec.yaml');
+      const metaPath = path.join(testDir, 'codespec', 'changes', 'same-date-change', '.codespec.yaml');
       const content = await fs.readFile(metaPath, 'utf-8');
       expect(content).toContain('created: 2026-01-05');
     });
 
-    it('should create .openspec.yaml with custom schema', async () => {
+    it('should create .codespec.yaml with custom schema', async () => {
       await createChange(testDir, 'add-auth', { schema: 'spec-driven' });
 
-      const metaPath = path.join(testDir, 'openspec', 'changes', 'add-auth', '.openspec.yaml');
+      const metaPath = path.join(testDir, 'codespec', 'changes', 'add-auth', '.codespec.yaml');
       const content = await fs.readFile(metaPath, 'utf-8');
       expect(content).toContain('schema: spec-driven');
     });
@@ -216,7 +216,7 @@ describe('createChange', () => {
   describe('schema validation', () => {
     it('should throw error for unknown schema', async () => {
       await expect(createChange(testDir, 'add-auth', { schema: 'unknown-schema' })).rejects.toThrow(
-        /Unknown schema/
+        /未知 Schema/
       );
     });
   });
@@ -240,26 +240,26 @@ describe('createChange', () => {
 
     it('should throw error for name with spaces', async () => {
       await expect(createChange(testDir, 'add auth')).rejects.toThrow(
-        /spaces/
+        /不能包含空格/
       );
     });
 
     it('should throw error for empty name', async () => {
       await expect(createChange(testDir, '')).rejects.toThrow(
-        /empty/
+        /不能为空/
       );
     });
   });
 
   describe('creates parent directories if needed', () => {
-    it('should create openspec/changes/ directories if they do not exist', async () => {
+    it('should create codespec/changes/ directories if they do not exist', async () => {
       const newProjectDir = path.join(testDir, 'new-project');
       await fs.mkdir(newProjectDir);
 
-      // openspec/changes/ does not exist yet
+      // codespec/changes/ does not exist yet
       await createChange(newProjectDir, 'add-auth');
 
-      const changeDir = path.join(newProjectDir, 'openspec', 'changes', 'add-auth');
+      const changeDir = path.join(newProjectDir, 'codespec', 'changes', 'add-auth');
       const stats = await fs.stat(changeDir);
       expect(stats.isDirectory()).toBe(true);
     });

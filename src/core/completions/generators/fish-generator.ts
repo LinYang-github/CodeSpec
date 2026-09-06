@@ -2,7 +2,7 @@ import { CompletionGenerator, CommandDefinition, FlagDefinition } from '../types
 import { FISH_STATIC_HELPERS, FISH_DYNAMIC_HELPERS } from '../templates/fish-templates.js';
 
 /**
- * Generates Fish completion scripts for the OpenSpec CLI.
+ * Generates Fish completion scripts for the CodeSpec CLI.
  * Follows Fish completion conventions using the complete command.
  */
 export class FishGenerator implements CompletionGenerator {
@@ -19,7 +19,7 @@ export class FishGenerator implements CompletionGenerator {
     for (const cmd of commands) {
       topLevelLines.push(`# ${cmd.name} command`);
       topLevelLines.push(
-        `complete -c openspec -n '__fish_openspec_no_subcommand' -f -a '${cmd.name}' -d '${this.escapeDescription(cmd.description)}'`
+        `complete -c codespec -n '__fish_codespec_no_subcommand' -f -a '${cmd.name}' -d '${this.escapeDescription(cmd.description)}'`
       );
     }
     const topLevelCommands = topLevelLines.join('\n');
@@ -34,12 +34,12 @@ export class FishGenerator implements CompletionGenerator {
     const helperFunctions = FISH_STATIC_HELPERS;
     const dynamicHelpers = FISH_DYNAMIC_HELPERS;
 
-    return `# Fish completion script for OpenSpec CLI
+    return `# Fish completion script for CodeSpec CLI
 # Auto-generated - do not edit manually
 
 ${helperFunctions}
 ${dynamicHelpers}
-complete -c openspec -l no-color -f -d 'Disable color output'
+complete -c codespec -l no-color -f -d 'Disable color output'
 ${topLevelCommands}
 
 ${commandCompletions}`;
@@ -59,7 +59,7 @@ ${commandCompletions}`;
         .join('; and ');
       for (const subcmd of cmd.subcommands) {
         lines.push(
-          `complete -c openspec -n '${commandCondition}; and ${noSubcommandCondition}' -f -a '${subcmd.name}' -d '${this.escapeDescription(subcmd.description)}'`
+          `complete -c codespec -n '${commandCondition}; and ${noSubcommandCondition}' -f -a '${subcmd.name}' -d '${this.escapeDescription(subcmd.description)}'`
         );
       }
       lines.push('');
@@ -71,7 +71,7 @@ ${commandCompletions}`;
       for (const subcmd of cmd.subcommands) {
         const subcommandCondition = this.commandPathCondition([cmd.name, subcmd.name], parentValueFlags);
         lines.push(`# ${cmd.name} ${subcmd.name} flags`);
-        lines.push(`complete -c openspec -n '${subcommandCondition}' -f`);
+        lines.push(`complete -c codespec -n '${subcommandCondition}' -f`);
         for (const flag of subcmd.flags) {
           lines.push(...this.generateFlagCompletion(flag, subcommandCondition));
         }
@@ -96,22 +96,22 @@ ${commandCompletions}`;
       }
     } else {
       lines.push(`# ${cmd.name} flags`);
-      lines.push(`complete -c openspec -n '__fish_openspec_using_command_path ${cmd.name}' -f`);
+      lines.push(`complete -c codespec -n '__fish_codespec_using_command_path ${cmd.name}' -f`);
       for (const flag of cmd.flags) {
-        lines.push(...this.generateFlagCompletion(flag, `__fish_openspec_using_command_path ${cmd.name}`));
+        lines.push(...this.generateFlagCompletion(flag, `__fish_codespec_using_command_path ${cmd.name}`));
       }
 
       if (cmd.positionals?.length) {
         lines.push(
           ...this.generateIndexedPositionalCompletions(
             cmd.positionals,
-            `__fish_openspec_using_command_path ${cmd.name}`,
+            `__fish_codespec_using_command_path ${cmd.name}`,
             this.collectValueFlags(cmd.flags),
             1
           )
         );
       } else if (cmd.acceptsPositional) {
-        lines.push(...this.generatePositionalCompletion(cmd.positionalType, `__fish_openspec_using_command_path ${cmd.name}`));
+        lines.push(...this.generatePositionalCompletion(cmd.positionalType, `__fish_codespec_using_command_path ${cmd.name}`));
       }
     }
 
@@ -130,24 +130,24 @@ ${commandCompletions}`;
     if (flag.takesValue && flag.values) {
       for (const value of flag.values) {
         lines.push(
-          `complete -c openspec -n '${condition}' ${flagOptions} -r -f -a '${value}' -d '${description}'`
+          `complete -c codespec -n '${condition}' ${flagOptions} -r -f -a '${value}' -d '${description}'`
         );
       }
     } else if (flag.takesValue) {
-      lines.push(`complete -c openspec -n '${condition}' ${flagOptions} -r -f -d '${description}'`);
+      lines.push(`complete -c codespec -n '${condition}' ${flagOptions} -r -f -d '${description}'`);
       if (flag.completionType === 'path') {
         const optionNames = [`--${flag.name}`, ...(flag.short ? [`-${flag.short}`] : [])];
         lines.push(
-          `complete -c openspec -n '${condition}; and __fish_openspec_completing_option_value ${optionNames.join(' ')}' ${flagOptions} -r -F -d '${description}'`
+          `complete -c codespec -n '${condition}; and __fish_codespec_completing_option_value ${optionNames.join(' ')}' ${flagOptions} -r -F -d '${description}'`
         );
         if (flag.short) {
           lines.push(
-            `complete -c openspec -n '${condition}' ${flagOptions} -r -f -a '(__fish_openspec_complete_attached_short_path -${flag.short})' -d '${description}'`
+            `complete -c codespec -n '${condition}' ${flagOptions} -r -f -a '(__fish_codespec_complete_attached_short_path -${flag.short})' -d '${description}'`
           );
         }
       }
     } else {
-      lines.push(`complete -c openspec -n '${condition}' ${flagOptions} -f -d '${description}'`);
+      lines.push(`complete -c codespec -n '${condition}' ${flagOptions} -f -d '${description}'`);
     }
 
     return lines;
@@ -161,27 +161,27 @@ ${commandCompletions}`;
 
     switch (positionalType) {
       case 'change-id':
-        lines.push(`complete -c openspec -n '${condition}' -a '(__fish_openspec_changes)' -f`);
+        lines.push(`complete -c codespec -n '${condition}' -a '(__fish_codespec_changes)' -f`);
         break;
       case 'spec-id':
-        lines.push(`complete -c openspec -n '${condition}' -a '(__fish_openspec_specs)' -f`);
+        lines.push(`complete -c codespec -n '${condition}' -a '(__fish_codespec_specs)' -f`);
         break;
       case 'change-or-spec-id':
-        lines.push(`complete -c openspec -n '${condition}' -a '(__fish_openspec_items)' -f`);
+        lines.push(`complete -c codespec -n '${condition}' -a '(__fish_codespec_items)' -f`);
         break;
       case 'schema-name':
-        lines.push(`complete -c openspec -n '${condition}' -a '(__fish_openspec_schemas)' -f`);
+        lines.push(`complete -c codespec -n '${condition}' -a '(__fish_codespec_schemas)' -f`);
         break;
       case 'shell':
-        lines.push(`complete -c openspec -n '${condition}' -a 'zsh bash fish powershell' -f`);
+        lines.push(`complete -c codespec -n '${condition}' -a 'zsh bash fish powershell' -f`);
         break;
       case 'path':
         // -F re-enables filesystem completion: sibling rules in the same
         // context carry -f, and Fish never restores files without --force-files.
-        lines.push(`complete -c openspec -n '${condition}' -F`);
+        lines.push(`complete -c codespec -n '${condition}' -F`);
         break;
       default:
-        lines.push(`complete -c openspec -n '${condition}' -f`);
+        lines.push(`complete -c codespec -n '${condition}' -f`);
         break;
     }
 
@@ -200,7 +200,7 @@ ${commandCompletions}`;
     const lines: string[] = [];
 
     for (const [index, positional] of positionals.entries()) {
-      const indexCondition = `${condition}; and __fish_openspec_positional_index ${index} ${depth}${valueFlags.length ? ` ${valueFlags.join(' ')}` : ''}`;
+      const indexCondition = `${condition}; and __fish_codespec_positional_index ${index} ${depth}${valueFlags.length ? ` ${valueFlags.join(' ')}` : ''}`;
       lines.push(...this.generatePositionalCompletion(positional.type, indexCondition));
     }
 
@@ -234,7 +234,7 @@ ${commandCompletions}`;
    */
   private commandPathCondition(path: string[], valueFlags: string[] = []): string {
     const valueFlagArguments = valueFlags.length ? ` -- ${valueFlags.join(' ')}` : '';
-    return `__fish_openspec_using_command_path ${path.join(' ')}${valueFlagArguments}`;
+    return `__fish_codespec_using_command_path ${path.join(' ')}${valueFlagArguments}`;
   }
 
   /**

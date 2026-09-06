@@ -1,10 +1,10 @@
 # Project configuration (config.yaml)
 
-> Every field of openspec/config.yaml: the schema, context, and rules this project plans with.
+> Every field of codespec/config.yaml: the schema, context, and rules this project plans with.
 
 ## Location
 
-Each OpenSpec project keeps its config file at `openspec/config.yaml`, in the project root.
+Each CodeSpec project keeps its config file at `codespec/config.yaml`, in the project root.
 
 ## Fields
 
@@ -14,7 +14,7 @@ Each OpenSpec project keeps its config file at `openspec/config.yaml`, in the pr
 | `context` | string | No | Injected into every artifact's instructions |
 | `rules` | map: artifact ID → list of strings | No | Extra rules added to one artifact's built-in guidance |
 | `operations` | map: operation → guidance list | No | Advisory guidance for apply and archive work |
-| `store` | string | No | Fallback OpenSpec root when this openspec/ is config-only |
+| `store` | string | No | Fallback CodeSpec root when this codespec/ is config-only |
 | `references` | list | No | Stores whose specs are indexed into instructions |
 
 Invalid fields never fail a command. Each field is validated on its own, and a bad value is dropped with a warning.
@@ -56,7 +56,7 @@ Only `apply` and `archive` are read.
 
 ### store
 
-A store id used as the OpenSpec root, consulted only when this openspec/ directory is config-only (no specs/ or changes/). It is a fallback, never an override. The full ladder is [Root resolution](stores.md#root-resolution).
+A store id used as the CodeSpec root, consulted only when this codespec/ directory is config-only (no specs/ or changes/). It is a fallback, never an override. The full ladder is [Root resolution](stores.md#root-resolution).
 
 ### references
 
@@ -99,4 +99,4 @@ operations:
 
 ## Legacy names
 
-`openspec/config.yml` is read as an alias when `config.yaml` does not exist. When both files exist, `config.yaml` wins and `config.yml` is ignored. `openspec init` creates `config.yaml`.
+`codespec/config.yml` is read as an alias when `config.yaml` does not exist. When both files exist, `config.yaml` wins and `config.yml` is ignored. `codespec init` creates `config.yaml`.

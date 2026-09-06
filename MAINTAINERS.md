@@ -1,6 +1,6 @@
 # Maintainers
 
-People who maintain and guide OpenSpec.
+People who maintain and guide CodeSpec.
 
 ## Core Maintainers
 
@@ -13,7 +13,7 @@ People who maintain and guide OpenSpec.
 
 | Name | GitHub | Role |
 |------|--------|------|
-| Alfred | [@alfred-openspec](https://github.com/alfred-openspec) | Automation maintainer |
+| Alfred | [@alfred-codespec](https://github.com/alfred-codespec) | Automation maintainer |
 
 ## Advisors
 

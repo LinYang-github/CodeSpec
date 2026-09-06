@@ -10,12 +10,12 @@
 import { makeStoreDiagnostic, type StoreDiagnostic } from './store/errors.js';
 import { sanitizeInline, type ReferenceIndexEntry } from './references.js';
 import { storePointerProblem } from './project-config.js';
-import { toRootOutput, type ResolvedOpenSpecRoot } from './root-selection.js';
+import { toRootOutput, type ResolvedCodeSpecRoot } from './root-selection.js';
 
 export interface RelationshipHealth {
   root: {
     path: string;
-    source: ResolvedOpenSpecRoot['source'];
+    source: ResolvedCodeSpecRoot['source'];
     store_id?: string;
     healthy: boolean;
     status: StoreDiagnostic[];
@@ -32,7 +32,7 @@ export interface RelationshipHealth {
 }
 
 export interface InspectRelationshipsInput {
-  root: ResolvedOpenSpecRoot;
+  root: ResolvedCodeSpecRoot;
   rootHealthy: boolean;
   rootStatus?: StoreDiagnostic[];
   /** Store facts for store-backed roots (explicit or declared). */
@@ -66,7 +66,7 @@ export function inspectRelationships(input: InspectRelationshipsInput): Relation
       warning(
         'relationship_registry_unreadable',
         'The store registry is unreadable; reference health cannot be checked.',
-        'Run: openspec store doctor'
+        'Run: codespec store doctor'
       )
     );
   }
@@ -75,7 +75,7 @@ export function inspectRelationships(input: InspectRelationshipsInput): Relation
     status.push(
       warning(
         'root_pointer_ignored',
-        `${input.bothShapesPointer.filePath} declares store '${input.bothShapesPointer.value}', but this directory is a real OpenSpec root; the declaration is ignored.`,
+        `${input.bothShapesPointer.filePath} declares store '${input.bothShapesPointer.value}', but this directory is a real CodeSpec root; the declaration is ignored.`,
         `Remove the store: line from ${input.bothShapesPointer.filePath}, or move the planning files into the store.`
       )
     );
@@ -96,7 +96,7 @@ export function inspectRelationships(input: InspectRelationshipsInput): Relation
       warning(
         'pointer_declarations_inert',
         `${input.inertPointerDeclarations.filePath} declares ${input.inertPointerDeclarations.fields.join(' and ')}, but commands read the resolved store's config — these declarations are inert.`,
-        `Move the ${input.inertPointerDeclarations.fields.join('/')} declarations into the store's openspec/config.yaml.`
+        `Move the ${input.inertPointerDeclarations.fields.join('/')} declarations into the store's codespec/config.yaml.`
       )
     );
   }
@@ -120,10 +120,10 @@ export function inspectRelationships(input: InspectRelationshipsInput): Relation
       );
     }
     // Checkout behind its upstream tracking ref: a read-only staleness
-    // signal, not a version pin — OpenSpec never syncs stores, so this
+    // signal, not a version pin — CodeSpec never syncs stores, so this
     // compares against the local upstream ref, not the live remote.
     // Behind means teammates on newer commits may resolve different specs.
-    // Ahead-only is normal (OpenSpec never pushes stores), so it stays quiet.
+    // Ahead-only is normal (CodeSpec never pushes stores), so it stays quiet.
     const drift = input.storeFacts.drift;
     if (drift && drift.behind > 0) {
       const behindCommits = `${drift.behind} commit${drift.behind === 1 ? '' : 's'}`;

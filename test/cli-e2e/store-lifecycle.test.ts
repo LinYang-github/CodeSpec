@@ -6,6 +6,7 @@ import { tmpdir } from 'os';
 import { promisify } from 'util';
 import { runCLI } from '../helpers/run-cli.js';
 import { cleanupTempPath } from '../helpers/temp-cleanup.js';
+import { ArchiveCommand } from '../../src/core/archive.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -38,7 +39,7 @@ function machineEnv(home: string, gitConfigGlobal: string): NodeJS.ProcessEnv {
     XDG_DATA_HOME: path.join(home, 'data'),
     XDG_STATE_HOME: path.join(home, 'state'),
     XDG_CACHE_HOME: path.join(home, 'cache'),
-    OPENSPEC_TELEMETRY: '0',
+    CODESPEC_TELEMETRY: '0',
     GIT_CONFIG_GLOBAL: gitConfigGlobal,
     GIT_CONFIG_SYSTEM: emptyGitConfig,
     GIT_AUTHOR_NAME: 'Journey Tester',
@@ -51,6 +52,27 @@ function machineEnv(home: string, gitConfigGlobal: string): NodeJS.ProcessEnv {
 // Same canonicalization the product uses (expands Windows 8.3 short names).
 function canonical(target: string): string {
   return realpathSync.native(target);
+}
+
+async function executeArchiveInStore(
+  changeName: string,
+  storeId: string,
+  storeEnv: NodeJS.ProcessEnv
+): Promise<void> {
+  const previous = new Map<string, string | undefined>();
+  for (const key of ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME']) {
+    previous.set(key, process.env[key]);
+    if (storeEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = storeEnv[key];
+  }
+  try {
+    await new ArchiveCommand().execute(changeName, { store: storeId, yes: true });
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 }
 
 async function git(cwd: string, env: NodeJS.ProcessEnv, args: string[]): Promise<string> {
@@ -174,7 +196,7 @@ async function writeCompletedChangeArtifacts(
 }
 
 beforeAll(async () => {
-  base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-store-lifecycle-'));
+  base = await fs.mkdtemp(path.join(tmpdir(), 'codespec-store-lifecycle-'));
   storeRoot = path.join(base, 'machine-a', 'team-context');
   cloneRoot = path.join(base, 'machine-b', 'team-context');
   projectDir = path.join(base, 'machine-a', 'app-repo');
@@ -210,16 +232,23 @@ describe('standalone store lifecycle journey', () => {
     });
     expect(payload.created_files).toEqual(
       expect.arrayContaining([
-        'openspec/config.yaml',
-        'openspec/specs/.gitkeep',
-        'openspec/changes/archive/.gitkeep',
-        '.openspec-store/store.yaml',
+        'codespec/config.yaml',
+        'codespec/specs/.gitkeep',
+        'codespec/changes/archive/.gitkeep',
+        '.codespec-store/store.yaml',
       ])
     );
 
+    // This journey exercises the legacy spec-driven schema in a standalone
+    // store.  Store setup intentionally creates the canonical root shape;
+    // make the fixture's schema choice explicit before sharing it.
+    await fs.writeFile(path.join(storeRoot, 'codespec', 'config.yaml'), 'schema: spec-driven\n', 'utf-8');
+    await git(storeRoot, machineA, ['add', 'codespec/config.yaml']);
+    await git(storeRoot, machineA, ['commit', '--amend', '--no-edit']);
+
     const log = await git(storeRoot, machineA, ['log', '--format=%s']);
     expect(log.trim().split('\n')).toHaveLength(1);
-    expect(log).toContain(`Initialize OpenSpec store ${STORE_ID}`);
+    expect(log).toContain(`Initialize CodeSpec store ${STORE_ID}`);
 
     const committedFiles = await git(storeRoot, machineA, [
       'show',
@@ -227,9 +256,9 @@ describe('standalone store lifecycle journey', () => {
       '--format=',
       'HEAD',
     ]);
-    expect(committedFiles).toContain('.openspec-store/store.yaml');
-    expect(committedFiles).toContain('openspec/specs/.gitkeep');
-    expect(committedFiles).toContain('openspec/changes/archive/.gitkeep');
+    expect(committedFiles).toContain('.codespec-store/store.yaml');
+    expect(committedFiles).toContain('codespec/specs/.gitkeep');
+    expect(committedFiles).toContain('codespec/changes/archive/.gitkeep');
 
     const status = await git(storeRoot, machineA, ['status', '--porcelain']);
     expect(status.trim()).toBe('');
@@ -245,7 +274,7 @@ describe('standalone store lifecycle journey', () => {
     });
     expect(doctor.exitCode).toBe(0);
     const store = JSON.parse(doctor.stdout).stores[0];
-    expect(store.openspec_root.healthy).toBe(true);
+    expect(store.codespec_root.healthy).toBe(true);
     expect(store.git).toEqual({
       is_repository: true,
       has_commits: true,
@@ -259,7 +288,7 @@ describe('standalone store lifecycle journey', () => {
     const humanDoctor = await runCLI(['store', 'doctor', STORE_ID], { env: machineA });
     expect(humanDoctor.exitCode).toBe(0);
     expect(humanDoctor.stdout).toContain(
-      'Git: repository detected (commits: yes, uncommitted changes: no, remote: none)'
+      'Git：已检测到仓库（commits：有，未提交变更：无，remote：无）'
     );
   });
 
@@ -267,7 +296,7 @@ describe('standalone store lifecycle journey', () => {
     const changeId = 'add-billing';
 
     const created = await runCLI(
-      ['new', 'change', changeId, '--store', STORE_ID, '--json'],
+      ['new', 'change', changeId, '--store', STORE_ID, '--schema', 'spec-driven', '--json'],
       { env: machineA, cwd: projectDir }
     );
     expect(created.exitCode).toBe(0);
@@ -284,7 +313,7 @@ describe('standalone store lifecycle journey', () => {
       { env: machineA, cwd: projectDir }
     );
     expect(status.exitCode).toBe(0);
-    expect(status.stderr).toContain(`使用 OpenSpec 根目录：${STORE_ID}`);
+    expect(status.stderr).toContain(`使用 CodeSpec 根目录：${STORE_ID}`);
     expect(status.stdout).not.toContain('Planning home');
 
     const instructions = await runCLI(
@@ -293,11 +322,11 @@ describe('standalone store lifecycle journey', () => {
     );
     expect(instructions.exitCode).toBe(0);
     expect(instructions.stdout).toContain(
-      path.join(canonical(storeRoot), 'openspec', 'changes', changeId, 'proposal.md')
+      path.join(canonical(storeRoot), 'codespec', 'changes', changeId, 'proposal.md')
     );
 
     // The test acts as the agent and writes the artifacts.
-    const changeDir = path.join(storeRoot, 'openspec', 'changes', changeId);
+    const changeDir = path.join(storeRoot, 'codespec', 'changes', changeId);
     await writeCompletedChangeArtifacts(changeDir, 'billing');
 
     const validated = await runCLI(
@@ -305,7 +334,7 @@ describe('standalone store lifecycle journey', () => {
       { env: machineA, cwd: projectDir }
     );
     expect(validated.exitCode).toBe(0);
-    expect(validated.stdout).toContain('is valid');
+    expect(validated.stdout).toContain('校验通过');
 
     const listed = await runCLI(
       ['list', '--store', STORE_ID, '--json'],
@@ -327,16 +356,18 @@ describe('standalone store lifecycle journey', () => {
       ['archive', changeId, '--store', STORE_ID, '--yes', '--json'],
       { env: machineA, cwd: projectDir }
     );
-    expect(archived.exitCode).toBe(0);
-    const archivePayload = JSON.parse(archived.stdout);
-    expect(archivePayload.archive.change).toBe(changeId);
-    expect(archivePayload.root.store_id).toBe(STORE_ID);
+    expect(archived.exitCode).toBe(1);
+    expect(JSON.parse(archived.stdout).status[0].code).toBe('archive_confirmation_required');
 
-    const specPath = path.join(storeRoot, 'openspec', 'specs', 'billing', 'spec.md');
+    // The CLI deliberately refuses non-interactive archive.  Exercise the
+    // underlying legacy archive flow directly after asserting that guard.
+    await executeArchiveInStore(changeId, STORE_ID, machineA);
+
+    const specPath = path.join(storeRoot, 'codespec', 'specs', 'billing', 'spec.md');
     await expect(fs.readFile(specPath, 'utf-8')).resolves.toContain('billing SHALL work');
 
     const archiveEntries = await fs.readdir(
-      path.join(storeRoot, 'openspec', 'changes', 'archive')
+      path.join(storeRoot, 'codespec', 'changes', 'archive')
     );
     expect(archiveEntries.some((entry) => entry.endsWith(`-${changeId}`))).toBe(true);
   }, JOURNEY_TIMEOUT_MS);
@@ -376,7 +407,7 @@ describe('standalone store lifecycle journey', () => {
       env: machineB,
     });
     expect(doctor.exitCode).toBe(0);
-    expect(JSON.parse(doctor.stdout).stores[0].openspec_root.healthy).toBe(true);
+    expect(JSON.parse(doctor.stdout).stores[0].codespec_root.healthy).toBe(true);
 
     const specs = await runCLI(
       ['list', '--specs', '--store', STORE_ID, '--json'],
@@ -399,11 +430,11 @@ describe('standalone store lifecycle journey', () => {
     const changeId = 'add-invoicing';
 
     const created = await runCLI(
-      ['new', 'change', changeId, '--store', STORE_ID],
+      ['new', 'change', changeId, '--store', STORE_ID, '--schema', 'spec-driven'],
       { env: machineB, cwd: base }
     );
     expect(created.exitCode).toBe(0);
-    expect(created.stderr).toContain(`使用 OpenSpec 根目录：${STORE_ID}`);
+    expect(created.stderr).toContain(`使用 CodeSpec 根目录：${STORE_ID}`);
     expect(created.stdout).toContain(`--store ${STORE_ID}`);
 
     const instructions = await runCLI(
@@ -412,10 +443,10 @@ describe('standalone store lifecycle journey', () => {
     );
     expect(instructions.exitCode).toBe(0);
     expect(instructions.stdout).toContain(
-      path.join(canonical(cloneRoot), 'openspec', 'changes', changeId, 'proposal.md')
+      path.join(canonical(cloneRoot), 'codespec', 'changes', changeId, 'proposal.md')
     );
 
-    const changeDir = path.join(cloneRoot, 'openspec', 'changes', changeId);
+    const changeDir = path.join(cloneRoot, 'codespec', 'changes', changeId);
     await writeCompletedChangeArtifacts(changeDir, 'invoicing');
 
     const status = await runCLI(
@@ -423,7 +454,7 @@ describe('standalone store lifecycle journey', () => {
       { env: machineB, cwd: base }
     );
     expect(status.exitCode).toBe(0);
-    expect(status.stdout).toContain('All planning artifacts complete!');
+    expect(status.stdout).toContain('全部规划产物已完成');
 
     const statusJson = await runCLI(
       ['status', '--change', changeId, '--store', STORE_ID, '--json'],
@@ -437,16 +468,17 @@ describe('standalone store lifecycle journey', () => {
       { env: machineB, cwd: base }
     );
     expect(validated.exitCode).toBe(0);
-    expect(validated.stdout).toContain('is valid');
+    expect(validated.stdout).toContain('校验通过');
 
     const archived = await runCLI(
       ['archive', changeId, '--store', STORE_ID, '--yes', '--json'],
       { env: machineB, cwd: base }
     );
-    expect(archived.exitCode).toBe(0);
-    expect(JSON.parse(archived.stdout).archive.change).toBe(changeId);
+    expect(archived.exitCode).toBe(1);
+    expect(JSON.parse(archived.stdout).status[0].code).toBe('archive_confirmation_required');
+    await executeArchiveInStore(changeId, STORE_ID, machineB);
 
-    const specPath = path.join(cloneRoot, 'openspec', 'specs', 'invoicing', 'spec.md');
+    const specPath = path.join(cloneRoot, 'codespec', 'specs', 'invoicing', 'spec.md');
     await expect(fs.readFile(specPath, 'utf-8')).resolves.toContain('invoicing SHALL work');
 
     // Post-resolution failures keep the banner, and the hint keeps the store:
@@ -457,27 +489,27 @@ describe('standalone store lifecycle journey', () => {
       { env: machineB, cwd: base }
     );
     expect(failedApply.exitCode).not.toBe(0);
-    expect(failedApply.stderr).toContain(`使用 OpenSpec 根目录：${STORE_ID}`);
-    expect(failedApply.stderr).toContain(`openspec new change <name> --store ${STORE_ID}`);
+    expect(failedApply.stderr).toContain(`使用 CodeSpec 根目录：${STORE_ID}`);
+    expect(failedApply.stderr).toContain(`codespec new change <name> --store ${STORE_ID}`);
   }, JOURNEY_TIMEOUT_MS);
 
-  it('end state is just normal OpenSpec files in both checkouts', async () => {
+  it('end state is just normal CodeSpec files in both checkouts', async () => {
     for (const root of [storeRoot, cloneRoot]) {
       const entries = await listRelativeEntries(root, new Set(['.git']));
 
       for (const entry of entries) {
-        expect(entry).toMatch(/^(\.openspec-store(\/|\/store\.yaml)?|openspec(\/.*)?)$/);
+        expect(entry).toMatch(/^(\.codespec-store(\/|\/store\.yaml)?|codespec(\/.*)?)$/);
         expect(entry).not.toMatch(/initiative|workspace/i);
       }
 
-      expect(entries).toContain('.openspec-store/store.yaml');
-      expect(entries).toContain('openspec/config.yaml');
+      expect(entries).toContain('.codespec-store/store.yaml');
+      expect(entries).toContain('codespec/config.yaml');
     }
 
     // Global state holds only registry/config metadata, no planning files.
     for (const env of [machineA, machineB]) {
       const dataEntries = await listRelativeEntries(
-        path.join(env.XDG_DATA_HOME as string, 'openspec'),
+        path.join(env.XDG_DATA_HOME as string, 'codespec'),
         new Set()
       );
       expect(dataEntries).toEqual(['stores/', 'stores/registry.yaml']);

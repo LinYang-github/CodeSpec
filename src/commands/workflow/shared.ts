@@ -10,12 +10,12 @@ import path from 'path';
 import * as fs from 'fs';
 import { parse as parseYaml } from 'yaml';
 import { getSchemaDir, listSchemas } from '../../core/artifact-graph/index.js';
-import { loadWorkspace } from '../../core/openspec-workflow/loaders.js';
-import { listActiveChanges, resolveChange } from '../../core/openspec-workflow/change-resolver.js';
+import { loadWorkspace } from '../../core/codespec-workflow/loaders.js';
+import { listActiveChanges, resolveChange } from '../../core/codespec-workflow/change-resolver.js';
 import type { ReferenceIndexEntry } from '../../core/references.js';
 import { isRootSelectionError } from '../../core/root-selection.js';
-import type { WorkspaceContext } from '../../core/openspec-workflow/loaders.js';
-import { CANONICAL_SCHEMA } from '../../core/openspec-workflow/default-config.js';
+import type { WorkspaceContext } from '../../core/codespec-workflow/loaders.js';
+import { CANONICAL_SCHEMA } from '../../core/codespec-workflow/default-config.js';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -72,8 +72,8 @@ export interface ArchiveInstructions {
 export const DEFAULT_SCHEMA = CANONICAL_SCHEMA;
 
 export async function tryLoadCanonicalWorkspace(projectRoot: string): Promise<WorkspaceContext | null> {
-  const openspecDir = path.join(projectRoot, 'openspec');
-  const configPath = path.join(openspecDir, 'config.yaml');
+  const codespecDir = path.join(projectRoot, 'codespec');
+  const configPath = path.join(codespecDir, 'config.yaml');
 
   try {
     await fs.promises.access(configPath);
@@ -105,7 +105,7 @@ export async function tryLoadCanonicalWorkspace(projectRoot: string): Promise<Wo
     }
     return null;
   }
-  return loadWorkspace(openspecDir);
+  return loadWorkspace(codespecDir);
 }
 
 // -----------------------------------------------------------------------------
@@ -172,12 +172,12 @@ export function getStatusIndicator(status: 'done' | 'skipped' | 'ready' | 'block
 }
 
 /**
- * Returns the list of available change directory names under openspec/changes/.
+ * Returns the list of available change directory names under codespec/changes/.
  * Excludes the archive directory and hidden directories.
  */
 export async function getAvailableChanges(
   projectRoot: string,
-  changesDir = path.join(projectRoot, 'openspec', 'changes')
+  changesDir = path.join(projectRoot, 'codespec', 'changes')
 ): Promise<string[]> {
   const workspace = await tryLoadCanonicalWorkspace(projectRoot);
   if (workspace && workspace.paths.changes === changesDir) {
@@ -232,12 +232,12 @@ function validateChangeLookupName(changeName: string): string | undefined {
 export async function validateChangeExists(
   changeName: string | undefined,
   projectRoot: string,
-  changesDir = path.join(projectRoot, 'openspec', 'changes'),
+  changesDir = path.join(projectRoot, 'codespec', 'changes'),
   hints: { newChangeHint?: string } = {}
 ): Promise<string> {
   // Hints must stay pasteable: callers with a selected store pass a
   // store-carrying hint so following it lands in the same root.
-  const newChangeHint = hints.newChangeHint ?? 'openspec new change <name>';
+  const newChangeHint = hints.newChangeHint ?? 'codespec new change <name>';
 
   const workspace = await tryLoadCanonicalWorkspace(projectRoot);
   if (workspace && workspace.paths.changes === changesDir) {

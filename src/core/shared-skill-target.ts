@@ -1,10 +1,10 @@
 import path from 'path';
 import * as fs from 'fs';
-import { AI_TOOLS, OPENSPEC_SKILL_NAMES, type AIToolOption } from './config.js';
+import { AI_TOOLS, CODESPEC_SKILL_NAMES, type AIToolOption } from './config.js';
 import { FileSystemUtils } from '../utils/file-system.js';
 import { resolveCommandSurfaceCapability } from './command-surface.js';
 
-const TARGET_MARKER = '.openspec-target';
+const TARGET_MARKER = '.codespec-target';
 
 /** Returns the ownership-marker path for one shared skills root. */
 function markerPath(projectPath: string, skillsDir: string): string {
@@ -29,7 +29,7 @@ export function readSharedSkillTarget(
 export function hasLegacySkills(projectPath: string, tool: AIToolOption): boolean {
   return (tool.legacySkillsDirs ?? []).some((root) => {
     const skillsDir = path.join(projectPath, root, 'skills');
-    return OPENSPEC_SKILL_NAMES.some((skillName) => {
+    return CODESPEC_SKILL_NAMES.some((skillName) => {
       try {
         const skillFile = path.join(skillsDir, skillName, 'SKILL.md');
         FileSystemUtils.assertProjectArtifactPath(projectPath, skillFile);
@@ -48,13 +48,13 @@ export function hasLegacySkills(projectPath: string, tool: AIToolOption): boolea
 function inferSharedSkillTarget(projectPath: string, skillsDir: string): string | undefined {
   let foundGenericReference = false;
 
-  for (const skillName of OPENSPEC_SKILL_NAMES) {
+  for (const skillName of CODESPEC_SKILL_NAMES) {
     const skillFile = path.join(projectPath, skillsDir, 'skills', skillName, 'SKILL.md');
     try {
       FileSystemUtils.assertProjectArtifactPath(projectPath, skillFile);
       const content = fs.readFileSync(skillFile, 'utf-8');
-      if (content.includes('$openspec-')) return 'codex';
-      if (content.includes('/openspec-')) foundGenericReference = true;
+      if (content.includes('$codespec-')) return 'codex';
+      if (content.includes('/codespec-')) foundGenericReference = true;
     } catch {
       // Missing, unreadable, or out-of-project files provide no ownership signal.
     }
@@ -63,9 +63,9 @@ function inferSharedSkillTarget(projectPath: string, skillsDir: string): string 
   return foundGenericReference ? 'agents' : undefined;
 }
 
-/** Whether the canonical shared root already contains an OpenSpec skill. */
+/** Whether the canonical shared root already contains an CodeSpec skill. */
 function hasCurrentSkills(projectPath: string, skillsDir: string): boolean {
-  return OPENSPEC_SKILL_NAMES.some((skillName) => {
+  return CODESPEC_SKILL_NAMES.some((skillName) => {
     const skillFile = path.join(projectPath, skillsDir, 'skills', skillName, 'SKILL.md');
     try {
       FileSystemUtils.assertProjectArtifactPath(projectPath, skillFile);

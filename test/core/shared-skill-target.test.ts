@@ -20,20 +20,20 @@ describe('sharedSkillRootOwnedByOther', () => {
 
   const writeAgentsSkill = async (marker?: string) => {
     const skillsRoot = path.join(projectPath, '.agents', 'skills');
-    const skillDir = path.join(skillsRoot, 'openspec-propose');
+    const skillDir = path.join(skillsRoot, 'codespec-rebase-change');
     await fs.mkdir(skillDir, { recursive: true });
-    // Generic invocation syntax => inferred owner is `agents` (not `$openspec-`).
+    // Generic invocation syntax => inferred owner is `agents` (not `$codespec-`).
     await fs.writeFile(
       path.join(skillDir, 'SKILL.md'),
-      '# openspec-propose\n\nRun /openspec-propose to start.\n'
+      '# codespec-rebase-change\n\nRun /codespec-rebase-change to start.\n'
     );
     if (marker !== undefined) {
-      await fs.writeFile(path.join(skillsRoot, '.openspec-target'), `${marker}\n`);
+      await fs.writeFile(path.join(skillsRoot, '.codespec-target'), `${marker}\n`);
     }
   };
 
   beforeEach(async () => {
-    projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-shared-target-'));
+    projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-shared-target-'));
   });
 
   afterEach(async () => {
@@ -49,7 +49,7 @@ describe('sharedSkillRootOwnedByOther', () => {
   });
 
   it('infers agents ownership from a generic tree even without a marker', async () => {
-    await writeAgentsSkill(); // no marker; content is generic `/openspec-`
+    await writeAgentsSkill(); // no marker; content is generic `/codespec-`
     expect(sharedSkillRootOwnedByOther(projectPath, 'codex')).toBe(true);
   });
 
@@ -71,12 +71,12 @@ describe('sharedSkillRootOwnedByOther', () => {
   });
 
   it('treats an existing tree with no marker and no inferable syntax as agents-owned', async () => {
-    // Neither `$openspec-` nor `/openspec-` in the content and no marker:
+    // Neither `$codespec-` nor `/codespec-` in the content and no marker:
     // ownership can't be inferred, so reconciliation keeps the established
     // `agents` target rather than letting Codex claim the existing tree.
-    const skillDir = path.join(projectPath, '.agents', 'skills', 'openspec-propose');
+    const skillDir = path.join(projectPath, '.agents', 'skills', 'codespec-rebase-change');
     await fs.mkdir(skillDir, { recursive: true });
-    await fs.writeFile(path.join(skillDir, 'SKILL.md'), '# openspec-propose\n\nNo invocation syntax here.\n');
+    await fs.writeFile(path.join(skillDir, 'SKILL.md'), '# codespec-rebase-change\n\nNo invocation syntax here.\n');
     expect(sharedSkillRootOwnedByOther(projectPath, 'codex')).toBe(true);
     // The established `agents` target is the resolved owner of the ambiguous tree.
     expect(sharedSkillRootOwner(projectPath, 'codex')).toBe('agents');
@@ -104,11 +104,11 @@ describe('resolveSharedSkillWriters', () => {
   });
 
   it('prefers an existing generic owner over an adapter-backed writer', async () => {
-    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-shared-writer-'));
+    const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-shared-writer-'));
     try {
       const skillsRoot = path.join(projectPath, '.agents', 'skills');
       await fs.mkdir(skillsRoot, { recursive: true });
-      await fs.writeFile(path.join(skillsRoot, '.openspec-target'), 'agents\n');
+      await fs.writeFile(path.join(skillsRoot, '.codespec-target'), 'agents\n');
       expect(resolveSharedSkillWriters(projectPath, tools('antigravity', 'agents'))).toEqual(
         new Set(['agents'])
       );

@@ -4,7 +4,7 @@
 
 **Goal:** 让 canonical `code-spec` 的每个 Scenario 正式支持必需的 `ERROR` 行，并把异常处理信息从 Delta Spec 贯穿到 Current Specification、Verification、rebase 和归档门禁；允许空 `ERROR` 作为人工待补内容，但不允许它通过最终校验、Verification 或归档。
 
-**Architecture:** `src/core/openspec-workflow/delta-parser.ts` 负责 Change Delta 的结构化 Scenario 解析；新增的 Current Specification parser 负责解析 `archive/specs/` 中的 canonical Requirement/Scenario。两套 parser 共享 `Scenario` 数据结构和 `GIVEN → WHEN → THEN → ERROR` 行规则，但不改变 `spec-driven` 的 `MarkdownParser` raw Scenario 行为。生命周期 Gate、Verification 和 archive transaction 都对解析结果执行非空 `ERROR` 门禁；归档前重新解析 Delta 与准备写入的 Current Specification，确保 Verification 之后被修改的内容不能绕过检查。
+**Architecture:** `src/core/codespec-workflow/delta-parser.ts` 负责 Change Delta 的结构化 Scenario 解析；新增的 Current Specification parser 负责解析 `archive/specs/` 中的 canonical Requirement/Scenario。两套 parser 共享 `Scenario` 数据结构和 `GIVEN → WHEN → THEN → ERROR` 行规则，但不改变 `spec-driven` 的 `MarkdownParser` raw Scenario 行为。生命周期 Gate、Verification 和 archive transaction 都对解析结果执行非空 `ERROR` 门禁；归档前重新解析 Delta 与准备写入的 Current Specification，确保 Verification 之后被修改的内容不能绕过检查。
 
 **Tech Stack:** Node.js 20、TypeScript、Zod、Vitest、pnpm、ESLint、YAML。
 
@@ -29,34 +29,34 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `src/core/openspec-workflow/types.ts` | canonical `Scenario.error` 类型字段。 |
-| `src/core/openspec-workflow/schemas.ts` | canonical Scenario Zod 结构校验。 |
-| `src/core/openspec-workflow/delta-parser.ts` | Delta 的 `ERROR` 识别、空值表示、缺失报错和重渲染。 |
-| `src/core/openspec-workflow/current-spec-parser.ts` | Current Specification 的 Requirement/Scenario 解析与 `ERROR` 规则校验。 |
-| `src/core/openspec-workflow/gates.ts` | 生命周期出口门禁中的 Delta `ERROR` 完整性检查。 |
-| `src/core/openspec-workflow/verification.ts` | 生成 PASS 证据前的非空 `ERROR` 检查。 |
-| `src/core/openspec-workflow/archive-transaction.ts` | 归档 preflight/prepare 对 Delta 和写入后 Current Specification 的独立检查。 |
-| `src/core/openspec-workflow/rebase.ts` | rebase 重渲染中保留 `ERROR`。 |
+| `src/core/codespec-workflow/types.ts` | canonical `Scenario.error` 类型字段。 |
+| `src/core/codespec-workflow/schemas.ts` | canonical Scenario Zod 结构校验。 |
+| `src/core/codespec-workflow/delta-parser.ts` | Delta 的 `ERROR` 识别、空值表示、缺失报错和重渲染。 |
+| `src/core/codespec-workflow/current-spec-parser.ts` | Current Specification 的 Requirement/Scenario 解析与 `ERROR` 规则校验。 |
+| `src/core/codespec-workflow/gates.ts` | 生命周期出口门禁中的 Delta `ERROR` 完整性检查。 |
+| `src/core/codespec-workflow/verification.ts` | 生成 PASS 证据前的非空 `ERROR` 检查。 |
+| `src/core/codespec-workflow/archive-transaction.ts` | 归档 preflight/prepare 对 Delta 和写入后 Current Specification 的独立检查。 |
+| `src/core/codespec-workflow/rebase.ts` | rebase 重渲染中保留 `ERROR`。 |
 | `src/commands/validate.ts` | canonical Current Specification 校验命令路径。 |
-| `src/core/templates/workflows/verify-change.ts`、`src/core/templates/workflows/openspec-workflow.ts` | Superpowers 工作流提示中对 `ERROR` 的职责、空值和最终门禁说明。 |
+| `src/core/templates/workflows/verify-change.ts`、`src/core/templates/workflows/codespec-workflow.ts` | Superpowers 工作流提示中对 `ERROR` 的职责、空值和最终门禁说明。 |
 | `schemas/code-spec/templates/spec.md`、`schemas/code-spec/templates/verification.md`、`schemas/code-spec/schema.yaml` | canonical 工件模板和协议说明。 |
 | `docs/workflows.md`、`docs/writing-specs.md`、`docs/concepts.md`、`docs/overview.md` | 用户文档中的 Scenario `ERROR` 规则和门禁说明。 |
-| `test/core/openspec-workflow/delta-parser.test.ts` | Delta parser 的非空、空值、缺失、分支和重渲染测试。 |
-| `test/core/openspec-workflow/current-spec-parser.test.ts` | Current Specification 解析、缺失/空值/多行 ERROR 测试。 |
-| `test/core/openspec-workflow/state-machine.test.ts`、`test/core/validation.test.ts` | `validate`/状态转换对空 ERROR 的拒绝测试。 |
-| `test/core/openspec-workflow/verification.test.ts` | Verification PASS 对空 ERROR 的拒绝及证据不重复文本测试。 |
-| `test/core/openspec-workflow/archive-transaction.test.ts` | preflight、prepare、事务失败保护和归档后 Current Specification 保留 ERROR 测试。 |
-| `test/core/openspec-workflow/stale-rebase.test.ts`、`state-machine.test.ts`、`templates.test.ts`、`traceability.test.ts` | canonical fixture、rebase、生命周期和模板回归。 |
+| `test/core/codespec-workflow/delta-parser.test.ts` | Delta parser 的非空、空值、缺失、分支和重渲染测试。 |
+| `test/core/codespec-workflow/current-spec-parser.test.ts` | Current Specification 解析、缺失/空值/多行 ERROR 测试。 |
+| `test/core/codespec-workflow/state-machine.test.ts`、`test/core/validation.test.ts` | `validate`/状态转换对空 ERROR 的拒绝测试。 |
+| `test/core/codespec-workflow/verification.test.ts` | Verification PASS 对空 ERROR 的拒绝及证据不重复文本测试。 |
+| `test/core/codespec-workflow/archive-transaction.test.ts` | preflight、prepare、事务失败保护和归档后 Current Specification 保留 ERROR 测试。 |
+| `test/core/codespec-workflow/stale-rebase.test.ts`、`state-machine.test.ts`、`templates.test.ts`、`traceability.test.ts` | canonical fixture、rebase、生命周期和模板回归。 |
 | `test/commands/validate.test.ts`、`test/schemas/code-spec-template.test.ts` | CLI 校验输出和模板协议回归。 |
 
 ### Task 1: 扩展 canonical Scenario 数据结构并让 Delta parser 正确解析 ERROR
 
 **Files:**
 
-- Modify: `src/core/openspec-workflow/types.ts`
-- Modify: `src/core/openspec-workflow/schemas.ts`
-- Modify: `src/core/openspec-workflow/delta-parser.ts`
-- Modify: `test/core/openspec-workflow/delta-parser.test.ts`
+- Modify: `src/core/codespec-workflow/types.ts`
+- Modify: `src/core/codespec-workflow/schemas.ts`
+- Modify: `src/core/codespec-workflow/delta-parser.ts`
+- Modify: `test/core/codespec-workflow/delta-parser.test.ts`
 
 **Interfaces:**
 
@@ -81,7 +81,7 @@ expect(() => parseDeltaSpec(inputWithoutError)).toThrow(/MOD-002-REQ-006.*SCN-00
 - [ ] **Step 2: 运行 parser 定向测试确认 RED。**
 
 ```bash
-pnpm vitest run test/core/openspec-workflow/delta-parser.test.ts
+pnpm vitest run test/core/codespec-workflow/delta-parser.test.ts
 ```
 
 预期：新增断言失败，现实现会把 ERROR 判定为 `Unconsumed content`，且 `Scenario` 对象没有 `error` 字段。
@@ -95,7 +95,7 @@ pnpm vitest run test/core/openspec-workflow/delta-parser.test.ts
 - [ ] **Step 4: 运行 parser、类型和 lint 检查。**
 
 ```bash
-pnpm vitest run test/core/openspec-workflow/delta-parser.test.ts
+pnpm vitest run test/core/codespec-workflow/delta-parser.test.ts
 pnpm exec tsc --noEmit
 pnpm lint
 ```
@@ -106,11 +106,11 @@ pnpm lint
 
 **Files:**
 
-- Create: `src/core/openspec-workflow/current-spec-parser.ts`
-- Modify: `src/core/openspec-workflow/archive-transaction.ts`
+- Create: `src/core/codespec-workflow/current-spec-parser.ts`
+- Modify: `src/core/codespec-workflow/archive-transaction.ts`
 - Modify: `src/commands/validate.ts`
-- Modify: `test/core/openspec-workflow/current-spec-parser.test.ts`
-- Modify: `test/core/openspec-workflow/archive-transaction.test.ts`
+- Modify: `test/core/codespec-workflow/current-spec-parser.test.ts`
+- Modify: `test/core/codespec-workflow/archive-transaction.test.ts`
 - Modify: `test/commands/validate.test.ts`
 
 **Interfaces:**
@@ -139,7 +139,7 @@ pnpm lint
 - [ ] **Step 2: 运行新 parser 测试确认 RED。**
 
 ```bash
-pnpm vitest run test/core/openspec-workflow/current-spec-parser.test.ts
+pnpm vitest run test/core/codespec-workflow/current-spec-parser.test.ts
 ```
 
 预期：模块尚不存在，测试失败。
@@ -150,7 +150,7 @@ pnpm vitest run test/core/openspec-workflow/current-spec-parser.test.ts
 
 - [ ] **Step 4: 接入 canonical Spec 校验和 archive prepared output 校验。**
 
-在 `validate.ts` 的 canonical workspace 分支中，枚举 `workspace.paths.currentSpecs` 下的 spec 文件并调用 `validateCurrentSpec`；`openspec validate --specs`、`--all` 和直接 Spec 校验都要报告缺失/空 ERROR。保留 spec-driven 的 `Validator.validateSpec()` 路径。
+在 `validate.ts` 的 canonical workspace 分支中，枚举 `workspace.paths.currentSpecs` 下的 spec 文件并调用 `validateCurrentSpec`；`codespec validate --specs`、`--all` 和直接 Spec 校验都要报告缺失/空 ERROR。保留 spec-driven 的 `Validator.validateSpec()` 路径。
 
 在 `archive-transaction.ts` 的 `preflightArchive()` 中对参与事务的现有 Current Specification 先运行格式检查；在 `prepareArchive()` 应用所有 Delta 后，对每个准备写入的完整 Current Specification 再运行 `validateCurrentSpec`，使未被本次 Change 修改的历史 Scenario 也不能继续带缺失 ERROR 的 Current Specification。
 
@@ -158,8 +158,8 @@ pnpm vitest run test/core/openspec-workflow/current-spec-parser.test.ts
 
 ```bash
 pnpm vitest run \
-  test/core/openspec-workflow/current-spec-parser.test.ts \
-  test/core/openspec-workflow/archive-transaction.test.ts \
+  test/core/codespec-workflow/current-spec-parser.test.ts \
+  test/core/codespec-workflow/archive-transaction.test.ts \
   test/commands/validate.test.ts
 pnpm exec tsc --noEmit
 ```
@@ -170,12 +170,12 @@ pnpm exec tsc --noEmit
 
 **Files:**
 
-- Modify: `src/core/openspec-workflow/gates.ts`
+- Modify: `src/core/codespec-workflow/gates.ts`
 - Modify: `src/core/validation/validator.ts`
-- Modify: `src/core/openspec-workflow/verification.ts`
-- Modify: `src/core/openspec-workflow/archive-transaction.ts`
-- Modify: `test/core/openspec-workflow/verification.test.ts`
-- Modify: `test/core/openspec-workflow/archive-transaction.test.ts`
+- Modify: `src/core/codespec-workflow/verification.ts`
+- Modify: `src/core/codespec-workflow/archive-transaction.ts`
+- Modify: `test/core/codespec-workflow/verification.test.ts`
+- Modify: `test/core/codespec-workflow/archive-transaction.test.ts`
 - Modify: lifecycle/validation tests covering `validateExitGate` and `validateCanonicalDelta`
 
 **Interfaces:**
@@ -196,9 +196,9 @@ pnpm exec tsc --noEmit
 
 ```bash
 pnpm vitest run \
-  test/core/openspec-workflow/verification.test.ts \
-  test/core/openspec-workflow/archive-transaction.test.ts \
-  test/core/openspec-workflow/state-machine.test.ts \
+  test/core/codespec-workflow/verification.test.ts \
+  test/core/codespec-workflow/archive-transaction.test.ts \
+  test/core/codespec-workflow/state-machine.test.ts \
   test/core/validation.test.ts
 ```
 
@@ -218,9 +218,9 @@ pnpm vitest run \
 
 ```bash
 pnpm vitest run \
-  test/core/openspec-workflow/verification.test.ts \
-  test/core/openspec-workflow/archive-transaction.test.ts \
-  test/core/openspec-workflow/state-machine.test.ts \
+  test/core/codespec-workflow/verification.test.ts \
+  test/core/codespec-workflow/archive-transaction.test.ts \
+  test/core/codespec-workflow/state-machine.test.ts \
   test/core/validation.test.ts
 pnpm exec tsc --noEmit
 ```
@@ -231,12 +231,12 @@ pnpm exec tsc --noEmit
 
 **Files:**
 
-- Modify: `src/core/openspec-workflow/rebase.ts`
-- Modify: `src/core/openspec-workflow/archive-transaction.ts`
-- Modify: `src/core/openspec-workflow/delta-parser.ts`
-- Modify: `test/core/openspec-workflow/stale-rebase.test.ts`
-- Modify: `test/core/openspec-workflow/archive-transaction.test.ts`
-- Modify: `test/core/openspec-workflow/traceability.test.ts`
+- Modify: `src/core/codespec-workflow/rebase.ts`
+- Modify: `src/core/codespec-workflow/archive-transaction.ts`
+- Modify: `src/core/codespec-workflow/delta-parser.ts`
+- Modify: `test/core/codespec-workflow/stale-rebase.test.ts`
+- Modify: `test/core/codespec-workflow/archive-transaction.test.ts`
+- Modify: `test/core/codespec-workflow/traceability.test.ts`
 
 **Interfaces:**
 
@@ -253,7 +253,7 @@ pnpm exec tsc --noEmit
 运行：
 
 ```bash
-rg -n "given|when|then|Scenario|GIVEN|WHEN|THEN" src/core/openspec-workflow src/core/templates
+rg -n "given|when|then|Scenario|GIVEN|WHEN|THEN" src/core/codespec-workflow src/core/templates
 ```
 
 对结果逐一确认：凡是构造 canonical `Scenario` 或输出 canonical `spec.md` 的路径都输出 ERROR；只处理 canonical workflow renderer，不修改 generic `spec-driven` 文档示例和 raw parser。
@@ -264,16 +264,16 @@ rg -n "given|when|then|Scenario|GIVEN|WHEN|THEN" src/core/openspec-workflow src/
 
 ```bash
 pnpm vitest run \
-  test/core/openspec-workflow/stale-rebase.test.ts \
-  test/core/openspec-workflow/archive-transaction.test.ts \
-  test/core/openspec-workflow/traceability.test.ts
+  test/core/codespec-workflow/stale-rebase.test.ts \
+  test/core/codespec-workflow/archive-transaction.test.ts \
+  test/core/codespec-workflow/traceability.test.ts
 ```
 
 ### Task 5: 更新 Superpowers 工作流提示、schema/template 和用户文档
 
 **Files:**
 
-- Modify: `src/core/templates/workflows/openspec-workflow.ts`
+- Modify: `src/core/templates/workflows/codespec-workflow.ts`
 - Modify: `src/core/templates/workflows/verify-change.ts`
 - Modify: `schemas/code-spec/schema.yaml`
 - Modify: `schemas/code-spec/templates/spec.md`
@@ -282,14 +282,14 @@ pnpm vitest run \
 - Modify: `docs/writing-specs.md`
 - Modify: `docs/concepts.md`
 - Modify: `docs/overview.md`
-- Modify: `test/core/openspec-workflow/templates.test.ts`
+- Modify: `test/core/codespec-workflow/templates.test.ts`
 - Modify: `test/schemas/code-spec-template.test.ts`
-- Modify: `test/core/openspec-workflow/templates.test.ts`
+- Modify: `test/core/codespec-workflow/templates.test.ts`
 
 **Interfaces:**
 
 - canonical spec template 的每个 Scenario 都明确包含 `- **ERROR**`，并说明它可暂时为空但必须由人工补写。
-- `openspec-workflow` 的 Superpowers 路由说明 `brainstorming`、`writing-plans`、TDD、systematic debugging、verification、code review 的职责，同时明确：Superpowers 负责工程方法，OpenSpec Core 负责 Scenario ERROR 结构校验、Verification 和 archive 门禁。
+- `codespec-workflow` 的 Superpowers 路由说明 `brainstorming`、`writing-plans`、TDD、systematic debugging、verification、code review 的职责，同时明确：Superpowers 负责工程方法，CodeSpec Core 负责 Scenario ERROR 结构校验、Verification 和 archive 门禁。
 - `verify-change` 的 Scenario Coverage 检查包含 ERROR 完整性；Verification 表仍只列 Scenario ID，不重复 ERROR 文本。
 - 文档明确缺失 ERROR 是格式错误，空 ERROR 是待补内容但不能 validate/Verification/archive；并保留 archive 需要交互式人工确认的规则。
 
@@ -305,7 +305,7 @@ pnpm vitest run \
 
 ```bash
 pnpm vitest run \
-  test/core/openspec-workflow/templates.test.ts \
+  test/core/codespec-workflow/templates.test.ts \
   test/schemas/code-spec-template.test.ts \
   test/core/templates/archive-change.test.ts
 ```
@@ -314,8 +314,8 @@ pnpm vitest run \
 
 **Files:**
 
-- Modify only canonical fixtures in `test/core/openspec-workflow/{archive-transaction,delta-parser,stale-rebase,state-machine,traceability,verification,templates}.test.ts` and `test/helpers/openspec-workflow.ts`.
-- Modify canonical CLI assertions in `test/cli-e2e/openspec-workflow-journeys.test.ts` and `test/cli-e2e/basic.test.ts` only when their fixture is canonical.
+- Modify only canonical fixtures in `test/core/codespec-workflow/{archive-transaction,delta-parser,stale-rebase,state-machine,traceability,verification,templates}.test.ts` and `test/helpers/codespec-workflow.ts`.
+- Modify canonical CLI assertions in `test/cli-e2e/codespec-workflow-journeys.test.ts` and `test/cli-e2e/basic.test.ts` only when their fixture is canonical.
 - Do not modify `test/core/parsers/markdown-parser.test.ts`, generic `test/core/parsers/requirement-blocks.test.ts`, or other `spec-driven` fixtures merely to add ERROR.
 
 - [ ] **Step 1: 用搜索找出遗漏的 canonical GWT fixture。**
@@ -326,17 +326,17 @@ rg -n --glob '*.ts' --glob '*.md' \
   src test schemas docs
 ```
 
-逐个判断 schema 归属。所有 canonical `openspec-workflow` fixture 必须加入 ERROR；generic `spec-driven` fixture 不添加，以证明边界未被破坏。
+逐个判断 schema 归属。所有 canonical `codespec-workflow` fixture 必须加入 ERROR；generic `spec-driven` fixture 不添加，以证明边界未被破坏。
 
 - [ ] **Step 2: 运行定向完整回归。**
 
 ```bash
 pnpm vitest run \
-  test/core/openspec-workflow \
+  test/core/codespec-workflow \
   test/core/validation.test.ts \
   test/core/validation.scenario-loss.test.ts \
   test/commands/validate.test.ts \
-  test/cli-e2e/openspec-workflow-journeys.test.ts \
+  test/cli-e2e/codespec-workflow-journeys.test.ts \
   test/schemas/code-spec-template.test.ts
 pnpm build
 pnpm lint
@@ -358,7 +358,7 @@ VITEST_MAX_WORKERS=1 pnpm test
 ```bash
 git status --short
 git diff --stat
-git diff -- src/core/openspec-workflow src/core/validation src/commands/validate.ts schemas/code-spec docs test/core/openspec-workflow test/schemas
+git diff -- src/core/codespec-workflow src/core/validation src/commands/validate.ts schemas/code-spec docs test/core/codespec-workflow test/schemas
 ```
 
 确认：`Scenario.error` 在所有 canonical 构造路径存在；缺 ERROR 与空 ERROR 行为不同；Current Specification 读回保留 ERROR；Verification 不复制 ERROR 文本；archive 仍必须交互式人工确认；没有自动迁移、THEN 推断或 silent archive。

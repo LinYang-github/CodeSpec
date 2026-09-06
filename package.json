@@ -1,21 +1,16 @@
 {
-  "name": "@fission-ai/openspec",
-  "version": "1.11.0",
+  "name": "@hrhy-ai/codespec",
+  "version": "1.0.0",
   "description": "AI-native system for spec-driven development",
   "keywords": [
-    "openspec",
+    "codespec",
     "specs",
     "cli",
     "ai",
     "development"
   ],
-  "homepage": "https://github.com/Fission-AI/OpenSpec",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Fission-AI/OpenSpec"
-  },
   "license": "MIT",
-  "author": "OpenSpec Contributors",
+  "author": "HRHY Contributors",
   "type": "module",
   "packageManager": "pnpm@9.15.9",
   "publishConfig": {
@@ -28,7 +23,7 @@
     }
   },
   "bin": {
-    "openspec": "./bin/openspec.js"
+    "codespec": "./bin/codespec.js"
   },
   "files": [
     "dist",
@@ -44,7 +39,8 @@
     "generate:skills": "node scripts/generate-skillssh.mjs",
     "regen:parity-hashes": "node scripts/regen-parity-hashes.mjs",
     "dev": "tsc --watch",
-    "dev:cli": "pnpm build && node bin/openspec.js",
+    "dev:cli": "pnpm build && node bin/codespec.js",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

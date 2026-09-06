@@ -14,7 +14,7 @@
 
 - Existing schemas that omit `phase`, `skipSpecs`, `archive.materials`, or `apply: false` retain current behavior.
 - `spec-driven` remains the default schema and keeps `skip_specs: true` support.
-- Canonical material targets are fixed below `<planningHome.root>/openspec/materials/`; schemas cannot choose another target root.
+- Canonical material targets are fixed below `<planningHome.root>/codespec/materials/`; schemas cannot choose another target root.
 - Archive never invokes a language model and never concatenates natural-language material.
 - All manifest paths are POSIX relative paths; absolute, traversal, NUL, duplicate, overlapping, and symlink-traversing paths fail before mutation.
 - Spec updates, material updates, and moving the change into archive form one recoverable transaction.
@@ -225,7 +225,7 @@ expect(tasksDoneImpactMissing.postApplyArtifacts).toEqual(['documentation-impact
 expect(tasksDoneImpactPresent.state).toBe('all_done');
 ```
 
-Assert `openspec instructions documentation-impact` fails while the artifact is deferred and names the remaining tracked-task count.
+Assert `codespec instructions documentation-impact` fails while the artifact is deferred and names the remaining tracked-task count.
 
 - [ ] **Step 6: Implement apply and artifact instruction guards**
 
@@ -346,7 +346,7 @@ git commit -m "feat(archive): prepare canonical material mutations"
 Create a project-local schema declaring `archive.materials`, a completed change with delta specs, checked tasks, `documentation-impact.yaml`, and a change-local material file. Assert one archive run:
 
 ```ts
-expect(await fs.readFile(path.join(root, 'openspec/materials/auth/material.md'), 'utf8'))
+expect(await fs.readFile(path.join(root, 'codespec/materials/auth/material.md'), 'utf8'))
   .toBe('# Current auth material\n');
 expect(await fs.stat(activeChange)).rejects.toMatchObject({ code: 'ENOENT' });
 expect(json.archive.materialsUpdated).toBe(true);
@@ -443,7 +443,7 @@ git commit -m "feat(archive): publish canonical materials atomically"
 
 - [ ] **Step 1: Write failing forbidden-skip tests**
 
-Create a change with `.openspec.yaml` containing `schema: forward-docs` and `skip_specs: true`. Assert status, instructions, validate, and archive fail with guidance to remove the marker or select `spec-driven`.
+Create a change with `.codespec.yaml` containing `schema: forward-docs` and `skip_specs: true`. Assert status, instructions, validate, and archive fail with guidance to remove the marker or select `spec-driven`.
 
 - [ ] **Step 2: Run tests and verify failure**
 
@@ -472,7 +472,7 @@ Set:
 ```yaml
 skipSpecs: forbidden
 artifacts:
-  # proposal/specs/design/tasks unchanged except openspec-cn → openspec
+  # proposal/specs/design/tasks unchanged except codespec-cn → codespec
   - id: documentation-impact
     phase: post-apply
     generates: documentation-impact.yaml
@@ -541,7 +541,7 @@ Exercise the published CLI flow in a temporary project:
 6. archive and assert the canonical material exists;
 7. create a `reverse-docs` change and assert apply reports `disabled`.
 
-Assert `openspec schemas --json` reports the final artifact names and package source.
+Assert `codespec schemas --json` reports the final artifact names and package source.
 
 - [ ] **Step 2: Run end-to-end tests and verify failure**
 
@@ -555,7 +555,7 @@ Document exact YAML examples and constraints. Replace every `document-materials`
 
 - [ ] **Step 4: Update CLI examples and navigation**
 
-Update human and JSON `openspec schemas` samples, status/apply state descriptions, archive material preview/result fields, and built-in schema tables. Preserve unrelated wording already changed in the working tree.
+Update human and JSON `codespec schemas` samples, status/apply state descriptions, archive material preview/result fields, and built-in schema tables. Preserve unrelated wording already changed in the working tree.
 
 - [ ] **Step 5: Add package coverage**
 

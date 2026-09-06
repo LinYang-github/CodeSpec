@@ -26,7 +26,7 @@ function injectOpenCodeArgs(body: string): string {
 
 /**
  * OpenCode adapter for command generation.
- * File path: .opencode/commands/opsx-<id>.md
+ * File path: .opencode/commands/codespec-<id>.md
  * Frontmatter: description. $ARGUMENTS is injected after the complete input
  * contract because OpenCode only passes arguments through explicit placeholders.
  */
@@ -34,7 +34,7 @@ export const opencodeAdapter: ToolCommandAdapter = {
   toolId: 'opencode',
 
   getFilePath(commandId: string): string {
-    return path.join('.opencode', 'commands', `opsx-${commandId}.md`);
+    return path.join('.opencode', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

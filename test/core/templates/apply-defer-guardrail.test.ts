@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getApplyInstructions,
   getApplyChangeSkillTemplate,
-  getOpsxApplyCommandTemplate,
+  getCodespecApplyCommandTemplate,
 } from '../../../src/core/templates/workflows/apply-change.js';
 
 // #1529: agents were silently simplifying or deferring work mid-apply and
@@ -31,6 +31,6 @@ describe('apply instructions surface deferred scope (#1529)', () => {
   it('carries the same guidance on both the skill and command surfaces', () => {
     const needle = 'surface the added scope';
     expect(getApplyChangeSkillTemplate().instructions).toContain(needle);
-    expect(getOpsxApplyCommandTemplate().content).toContain(needle);
+    expect(getCodespecApplyCommandTemplate().content).toContain(needle);
   });
 });

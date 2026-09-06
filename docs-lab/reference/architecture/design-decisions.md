@@ -1,6 +1,6 @@
 # Design decisions
 
-> Why OPSX works the way it does.
+> Why CodeSpec works the way it does.
 
 <!-- WIP, on the todo list: this page is not written yet and is held back from the
 site (its entry is commented out in website/docs.sync.config.mjs, 2026-08-21). The file

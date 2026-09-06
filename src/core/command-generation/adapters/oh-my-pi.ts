@@ -25,20 +25,20 @@ function injectOmpArgs(body: string): string {
 
 /**
  * Oh My Pi adapter for command generation.
- * File path: .omp/commands/opsx-<id>.md
+ * File path: .omp/commands/codespec-<id>.md
  * Frontmatter: description
  *
  * OMP uses the filename (minus .md) as the slash command name, so
- * opsx-propose.md → /opsx-propose. generateCommand rewrites the body's
+ * codespec-propose.md → /codespec-propose. generateCommand rewrites the body's
  * command references to that form before this adapter formats it, and
  * $@ is injected after **Input**: headings so user-supplied arguments
- * (e.g. /opsx-propose my-feature) are visible to the agent.
+ * (e.g. /codespec-propose my-feature) are visible to the agent.
  */
 export const ohMyPiAdapter: ToolCommandAdapter = {
   toolId: 'oh-my-pi',
 
   getFilePath(commandId: string): string {
-    return path.join('.omp', 'commands', `opsx-${commandId}.md`);
+    return path.join('.omp', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

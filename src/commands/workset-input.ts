@@ -159,8 +159,8 @@ export function toolUnavailableError(
       target: 'workset.tool',
       fix:
         alternative !== null
-          ? `安装 '${opener.command}'，或运行：openspec workset open ${worksetName} --tool ${alternative}`
-          : `安装 '${opener.command}'，然后重新运行：openspec workset open ${worksetName}`,
+          ? `安装 '${opener.command}'，或运行：codespec workset open ${worksetName} --tool ${alternative}`
+          : `安装 '${opener.command}'，然后重新运行：codespec workset open ${worksetName}`,
     }
   );
 }
@@ -179,7 +179,7 @@ export function noToolInstalledError(
     'workset_tool_unavailable',
     {
       target: 'workset.tool',
-      fix: `Install one of: ${commands}. Then rerun: openspec workset open ${worksetName}`,
+      fix: `Install one of: ${commands}. Then rerun: codespec workset open ${worksetName}`,
     }
   );
 }

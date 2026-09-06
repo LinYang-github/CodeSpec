@@ -10,14 +10,14 @@ import type { CommandContent, ToolCommandAdapter } from '../types.js';
 
 /**
  * Zoo Code adapter for command generation.
- * File path: .roo/commands/opsx-<id>.md
+ * File path: .roo/commands/codespec-<id>.md
  * Format: Markdown header with description
  */
 export const roocodeAdapter: ToolCommandAdapter = {
   toolId: 'roocode',
 
   getFilePath(commandId: string): string {
-    return path.join('.roo', 'commands', `opsx-${commandId}.md`);
+    return path.join('.roo', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

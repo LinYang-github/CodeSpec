@@ -21,9 +21,9 @@ describe('public skill template parity', () => {
   it('pins the three public template factories to the generated registry', () => {
     const templates = getSkillTemplates();
     expect(templates.map(({ dirName }) => dirName)).toEqual([
-      'openspec-workflow',
-      'openspec-rebase-change',
-      'openspec-archive-change',
+      'codespec-workflow',
+      'codespec-rebase-change',
+      'codespec-archive-change',
     ]);
     expect(templates.every(({ template }) => template.instructions.length > 0)).toBe(true);
   });
@@ -59,11 +59,11 @@ describe('public skill template parity', () => {
     for (const { template, dirName } of getSkillTemplates()) {
       const content = generateSkillContent(template, 'PARITY-BASELINE');
       expect(content, dirName).toContain(STORE_SELECTION_GUIDANCE);
-      expect(content, dirName).toContain('allowed-tools: Bash(openspec:*)');
+      expect(content, dirName).toContain('allowed-tools: Bash(codespec:*)');
     }
     for (const command of getCommandContents()) {
       expect(command.body, command.id).toContain(STORE_SELECTION_GUIDANCE);
-      expect(command.body, command.id).toContain('openspec-workflow');
+      expect(command.body, command.id).toContain('codespec-workflow');
     }
   });
 
@@ -72,8 +72,8 @@ describe('public skill template parity', () => {
       ...getSkillTemplates().map(({ template }) => template.instructions),
       ...getCommandContents().map((command) => command.body),
     ].join('\n');
-    expect(allContent).not.toContain('openspec-sync-specs');
-    expect(allContent).not.toContain('openspec-apply-change');
-    expect(allContent).not.toContain('openspec-propose');
+    expect(allContent).not.toContain('codespec-sync-specs');
+    expect(allContent).not.toContain('codespec-apply-change');
+    expect(allContent).not.toContain('codespec-propose');
   });
 });

@@ -5,7 +5,7 @@ import * as path from 'node:path';
 
 import { getGlobalDataDir, registerStore } from '../../src/core/index.js';
 import { runCLI, type RunCLIResult } from '../helpers/run-cli.js';
-import { createOpenSpecRoot } from '../helpers/openspec-fixtures.js';
+import { createCodeSpecRoot } from '../helpers/codespec-fixtures.js';
 
 describe('global defaultStore fallback (#1359)', () => {
   let tempDir: string;
@@ -16,18 +16,18 @@ describe('global defaultStore fallback (#1359)', () => {
 
   beforeEach(async () => {
     tempDir = fs.realpathSync.native(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-global-default-'))
+      fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-global-default-'))
     );
     env = {
       XDG_DATA_HOME: path.join(tempDir, 'data'),
       XDG_CONFIG_HOME: path.join(tempDir, 'config'),
       OPEN_SPEC_INTERACTIVE: '0',
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     globalDataDir = getGlobalDataDir({ env });
 
     storeRoot = path.join(tempDir, 'team-context');
-    createOpenSpecRoot(storeRoot);
+    createCodeSpecRoot(storeRoot);
     await registerStore({ id: 'team-context', localPath: storeRoot, globalDataDir });
 
     scratch = path.join(tempDir, 'no-root-here');
@@ -43,9 +43,9 @@ describe('global defaultStore fallback (#1359)', () => {
   }
 
   function setDefaultStore(id: string): void {
-    fs.mkdirSync(path.join(tempDir, 'config', 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'config', 'codespec'), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, 'config', 'openspec', 'config.json'),
+      path.join(tempDir, 'config', 'codespec', 'config.json'),
       JSON.stringify({ defaultStore: id }) + '\n'
     );
   }
@@ -63,7 +63,7 @@ describe('global defaultStore fallback (#1359)', () => {
 
     const human = await runCLI(['status'], { cwd: scratch, env });
     expect(human.exitCode).toBe(0);
-    expect(human.stderr).toContain('使用 OpenSpec 根目录：team-context');
+    expect(human.stderr).toContain('使用 CodeSpec 根目录：team-context');
   }, 30_000);
 
   it('reports a stale default in the JSON failure payload with the clearing fix', async () => {
@@ -74,6 +74,6 @@ describe('global defaultStore fallback (#1359)', () => {
     const [diagnostic] = parseJson(status).status;
     expect(diagnostic.code).toBe('unknown_store');
     expect(diagnostic.message).toContain("Global defaultStore 'ghost-plans'");
-    expect(diagnostic.fix).toContain('openspec config unset defaultStore');
+    expect(diagnostic.fix).toContain('codespec config unset defaultStore');
   }, 30_000);
 });

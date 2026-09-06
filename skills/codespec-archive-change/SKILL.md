@@ -1,0 +1,48 @@
+---
+name: codespec-archive-change
+description: 校验完成的 Change 并归档。
+allowed-tools: Bash(codespec:*)
+license: MIT
+compatibility: Requires codespec CLI.
+metadata:
+  author: codespec
+  version: "1.0"
+---
+
+## 中文用户体验约定
+
+所有面向用户的解释、提问、进度、总结和生成产物正文使用中文。命令名、选项名、路径、YAML/JSON key、schema 名称、稳定 ID、状态枚举和 DSL Token 保持英文，确保协议可以执行和解析。状态展示使用中文标签并在括号中保留英文协议值，例如“状态：分析（ANALYZE）”。
+
+
+## Canonical CodeSpec 工作流
+
+将 code-spec 工作通过 `codespec-workflow` 适配器路由。解析或创建匹配 `CHG-YYYYMMDD-NNN` 的 canonical Change ID；不要使用 slug Change 或旧版 `.codespec.yaml` 元数据。Change 目录为 `codespec/changes/<CHG-ID>/`，状态以 `metadata.yaml` 为准。
+
+在每次提示和命令中传递 Change ID、生命周期 status、baseline、Requirement ID（`MOD-###-REQ-###`）、Scenario、Task ID（`SP-##`）和元数据产物路径。`tasks.md` 只作为简洁的 `SP-##` 状态投影，不要在其中重复详细的 Superpowers 计划。在验证产物中记录必需的 Requirement/test/build/lint 命令及证据。
+
+### 执行前解析并注入上下文
+
+运行 `codespec context --json` 解析 canonical workspace。通过明确的 `CHG-YYYYMMDD-NNN` ID 或绑定上下文解析 Change，然后运行 `codespec status --change "<CHG-ID>" --json` 并加载 `codespec/changes/<CHG-ID>/metadata.yaml` 及其声明的产物路径。将实际 Change ID、status、baseline、受影响 Requirement ID 和 Scenario ID、Task ID、已有证据以及 canonical proposal/design/spec/tasks/verification 路径注入每个 Superpowers 提示。上下文缺失、元数据缺失或解析有歧义时，明确失败并停止；不要猜测，也不要回退到 slug/旧版元数据。
+
+在规划、实现、验证或归档前，重新解析 status 和产物，并将结果上下文传给对应的 Superpowers skill。每次有实质动作后刷新状态，并将追踪关系/证据写回 canonical 产物。必需命令必须从解析出的 workspace 执行，并逐字记录命令及结果。
+
+原样复用 Superpowers 方法论：brainstorming、writing-plans、TDD RED → GREEN、systematic debugging、fresh verification、code review 和 branch finishing。baseline 过期时，继续之前先通过 semantic rebase。
+
+### Scenario 的 ERROR 规则
+
+canonical spec.md 和 Current Specification 的每个 Scenario 都必须包含 ERROR 行；一个 Scenario 可以有多条 ERROR，按原顺序保留。分析阶段如果暂时无法确定异常处理，可以保留空的 - **ERROR** 行，表示待人工补写，不得从 THEN 或上下文自动推断。进入 VERIFY 前，Core 必须检查 Delta 和 Current Specification 中的所有 Scenario：ERROR 缺失或为空都必须失败，并要求人工补写；在此之前 Verification 不得通过，Change 不得归档。Verification 证据记录 Requirement/Scenario ID 和命令结果，不替代 ERROR 正文。
+
+
+
+归档一个已经完成并验证通过的 CodeSpec Change。
+
+**Store 选择：** 如果用户指定了 store（store 是本机注册的独立 CodeSpec 仓库），或当前工作位于 store 中，请运行 `codespec store list --json` 查找已注册的 store ID，然后在读写 Spec 和 Change 的命令中传入 `--store <id>`（包括 `new change`、`change new`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`、`schemas`、`view`、`rebase`、`transition`、`abandon`、`detect-stale`、`allocate-requirements`）。选择后，在本次工作流的后续步骤中持续使用 `--store <id>`。下面未带范围的命令示例都只是简写：执行前要追加该选项。例如运行 `codespec status --change "<name>" --json --store "<id>"`，不要直接运行未带选项的形式。其他命令不接受该选项。命令打印的后续提示已经带有该选项，继续使用即可。没有 store 时，命令作用于最近的本地 `codespec/` 根目录。
+
+1. 运行 codespec context --json 和 codespec status --change "<CHG-ID>" --json，解析唯一 Change、schema、planningHome、changeRoot、artifactPaths、status、baseline 和验证证据。没有明确 Change、metadata 或路径存在歧义时停止，不得猜测。
+2. Core 必须确认 Change 已完成、没有 STALE 或未裁决冲突，且 Requirement、Scenario、Task 与 verification 具备可追溯关系。未满足时返回 codespec-workflow 或 codespec-rebase-change，不得归档。
+3. 如果存在 delta Spec，只能由 Core 的 archive 事务读取并校验；不得调用或推荐独立的同步入口。Core 在事务内部执行 validateRequirementDelta()、validateTraceability()、validateCanonicalSpec()、applyDelta() 和 detectArchiveConflict()。
+4. 展示待归档摘要后停止，要求用户在交互式终端运行 `codespec archive "<CHG-ID>"` 并亲自确认。不得替用户调用归档，也不得使用 `--yes`、`--json` 或其他自动化方式绕过确认。确认后 Core 才按 preflightArchive()、prepareArchive()、commitArchive() 和 archiveTransaction() 的顺序执行。
+5. 事务失败时不得保留半完成的 Current Specification 或半移动的 Change；输出失败原因和恢复动作，保留原始 Change 供再次处理。
+6. 成功后重新运行 status，汇总 Change、schema、archive path、Current Specification 变化、验证证据和任何已确认的警告。
+
+**唯一写入边界**：Current Specification 只能由 Core archive transaction 写入。Skill 不直接编辑 Spec、Change metadata 或 archive 目录。

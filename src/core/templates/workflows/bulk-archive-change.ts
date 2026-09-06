@@ -9,7 +9,7 @@ import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 
 export function getBulkArchiveChangeSkillTemplate(): SkillTemplate {
   return {
-    name: 'openspec-bulk-archive-change',
+    name: 'codespec-bulk-archive-change',
     description: 'Archive multiple completed changes at once. Use when archiving several parallel changes.',
     instructions: `Archive multiple completed changes in a single operation.
 
@@ -25,7 +25,7 @@ ${STORE_SELECTION_GUIDANCE}
 
 1. **Get active changes**
 
-   Run \`openspec list --json\` to get all active changes.
+   Run \`codespec list --json\` to get all active changes.
 
    If no active changes exist, inform user and stop.
 
@@ -41,7 +41,7 @@ ${STORE_SELECTION_GUIDANCE}
    **Load current archive inputs once for the selected root before batch validation:**
 
    Choose one selected change from this root and run
-   \`openspec instructions archive --change "<selected-change>" --json\` with the
+   \`codespec instructions archive --change "<selected-change>" --json\` with the
    same selected-root flags. This lookup is advisory and optional: it only supplies
    extra prompt inputs, so it must never block the batch. If it fails or returns
    invalid JSON — for example on an older CLI that does not support this command
@@ -67,7 +67,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    For each selected change, collect:
 
-   a. **Artifact status** - Run \`openspec status --change "<name>" --json\`
+   a. **Artifact status** - Run \`codespec status --change "<name>" --json\`
       - Parse \`schemaName\`, \`artifacts\`, \`planningHome\`, \`changeRoot\`, \`artifactPaths\`, and \`actionContext\`
       - Note which artifacts are \`done\` vs other states
 
@@ -164,7 +164,7 @@ ${STORE_SELECTION_GUIDANCE}
    Before step 8 writes the first main spec or moves any change, fetch every
    required specs-rule snapshot for the confirmed batch. For each change that will
    sync concrete \`artifactPaths.specs.existingOutputPaths\`, run
-   \`openspec instructions specs --change "<name>" --json\` exactly once with the
+   \`codespec instructions specs --change "<name>" --json\` exactly once with the
    same selected-root flags. Obtain all snapshots before the first write or move.
    If any lookup exits non-zero or returns invalid artifact-instruction JSON,
    identify the affected change, report the error, and stop the whole batch before
@@ -181,7 +181,7 @@ ${STORE_SELECTION_GUIDANCE}
    Process changes in the determined order (respecting conflict resolution):
 
    a. **Sync included delta specs**:
-      - Run the \`openspec-sync-specs\` workflow inline (agent-driven intelligent merge) only for changes with entries in \`includedDeltas\`, passing only the included delta paths and explicitly instructing it to ignore that change's \`excludedDeltas\`. Wait for it to finish.
+      - Run the \`codespec-sync-specs\` workflow inline (agent-driven intelligent merge) only for changes with entries in \`includedDeltas\`, passing only the included delta paths and explicitly instructing it to ignore that change's \`excludedDeltas\`. Wait for it to finish.
       - For conflicts, apply in resolved order.
       - Pass that change's fetched specs-rule snapshot into inline sync; inline
         sync must reuse it without fetching instructions again
@@ -192,7 +192,7 @@ ${STORE_SELECTION_GUIDANCE}
       - If a change has no included delta specs, do not run the sync workflow for it.
 
    b. **Verify included delta specs before moving changeRoot**:
-      - Re-run the comparison only for delta specs in \`includedDeltas\` against main spec at \`<planningHome.root>/openspec/specs/<capability-path>/spec.md\` (use the store-aware \`planningHome.root\` from step 3 status JSON, not a hardcoded repo path).
+      - Re-run the comparison only for delta specs in \`includedDeltas\` against main spec at \`<planningHome.root>/codespec/specs/<capability-path>/spec.md\` (use the store-aware \`planningHome.root\` from step 3 status JSON, not a hardcoded repo path).
       - Verify that main specs are updated:
         - ADDED requirements present
         - MODIFIED requirements carrying scenario and description changes named in the delta, with their other scenarios intact
@@ -203,7 +203,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    c. **Perform the archive**:
 
-      Target name: use the change name as-is when it already starts with a \`YYYY-MM-DD-\` prefix; otherwise prepend the current date as \`YYYY-MM-DD-<name>\` (same rule as \`openspec archive\`).
+      Target name: use the change name as-is when it already starts with a \`YYYY-MM-DD-\` prefix; otherwise prepend the current date as \`YYYY-MM-DD-<name>\` (same rule as \`codespec archive\`).
 
       \`\`\`bash
       mkdir -p "<planningHome.changesDir>/archive"
@@ -247,7 +247,7 @@ ${STORE_SELECTION_GUIDANCE}
 
 Example 1: Only one implemented
 \`\`\`text
-Conflict: <planningHome.root>/openspec/specs/auth/spec.md touched by [add-oauth, add-jwt]
+Conflict: <planningHome.root>/codespec/specs/auth/spec.md touched by [add-oauth, add-jwt]
 
 Checking add-oauth:
 - Delta adds "OAuth Provider Integration" requirement
@@ -262,7 +262,7 @@ Resolution: Only add-oauth is implemented. Will sync add-oauth specs only.
 
 Example 2: Both implemented
 \`\`\`text
-Conflict: <planningHome.root>/openspec/specs/api/spec.md touched by [add-rest-api, add-graphql]
+Conflict: <planningHome.root>/codespec/specs/api/spec.md touched by [add-rest-api, add-graphql]
 
 Checking add-rest-api (created 2026-01-10):
 - Delta adds "REST Endpoints" requirement
@@ -324,13 +324,13 @@ No active changes found. Create a new change to get started.
 - Never allow \`--yes\`, \`--json\`, or automation to bypass that confirmation
 - Never archive after the user cancels the confirmation — a cancelled batch archives nothing
 - Track and report all outcomes (success/skip/fail)
-- Preserve .openspec.yaml when moving to archive
+- Preserve .codespec.yaml when moving to archive
 - Archive directory target uses current date: YYYY-MM-DD-<name>; a name that already starts with a \`YYYY-MM-DD-\` prefix is used as-is (never stack a second date)
 - If archive target exists, fail that change but continue with others
-- If sync is requested, run the \`openspec-sync-specs\` workflow inline (agent-driven) for each change with included delta specs
+- If sync is requested, run the \`codespec-sync-specs\` workflow inline (agent-driven) for each change with included delta specs
 - Carry the per-delta \`includedDeltas\` and \`excludedDeltas\` decisions into execution; sync and verify only included deltas
 - Report every excluded delta as \`sync skipped\` without treating the archive itself as skipped
-- Never archive a change while a spec sync is still in flight — run the sync inline and verify main specs at \`<planningHome.root>/openspec/specs/<capability-path>/spec.md\` before moving \`changeRoot\`
+- Never archive a change while a spec sync is still in flight — run the sync inline and verify main specs at \`<planningHome.root>/codespec/specs/<capability-path>/spec.md\` before moving \`changeRoot\`
 - Fetch archive inputs once per selected root before spec inspection or moves
 - Fetch all required specs-rule snapshots before the batch's first main-spec write or move
 - A failed archive-inputs lookup never blocks the batch; it proceeds with no context or guidance
@@ -342,14 +342,14 @@ No active changes found. Create a new change to get started.
 - Artifact rules constrain only written specs
 - Never copy runtime input or artifact-rule text verbatim into output files`,
     license: 'MIT',
-    compatibility: 'Requires openspec CLI.',
-    metadata: { author: 'openspec', version: '1.0' },
+    compatibility: 'Requires codespec CLI.',
+    metadata: { author: 'codespec', version: '1.0' },
   };
 }
 
-export function getOpsxBulkArchiveCommandTemplate(): CommandTemplate {
+export function getCodespecBulkArchiveCommandTemplate(): CommandTemplate {
   return {
-    name: 'OPSX: Bulk Archive',
+    name: 'CODESPEC: Bulk Archive',
     description: 'Archive multiple completed changes at once',
     category: 'Workflow',
     tags: ['workflow', 'archive', 'experimental', 'bulk'],
@@ -367,7 +367,7 @@ ${STORE_SELECTION_GUIDANCE}
 
 1. **Get active changes**
 
-   Run \`openspec list --json\` to get all active changes.
+   Run \`codespec list --json\` to get all active changes.
 
    If no active changes exist, inform user and stop.
 
@@ -383,7 +383,7 @@ ${STORE_SELECTION_GUIDANCE}
    **Load current archive inputs once for the selected root before batch validation:**
 
    Choose one selected change from this root and run
-   \`openspec instructions archive --change "<selected-change>" --json\` with the
+   \`codespec instructions archive --change "<selected-change>" --json\` with the
    same selected-root flags. This lookup is advisory and optional: it only supplies
    extra prompt inputs, so it must never block the batch. If it fails or returns
    invalid JSON — for example on an older CLI that does not support this command
@@ -409,7 +409,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    For each selected change, collect:
 
-   a. **Artifact status** - Run \`openspec status --change "<name>" --json\`
+   a. **Artifact status** - Run \`codespec status --change "<name>" --json\`
       - Parse \`schemaName\`, \`artifacts\`, \`planningHome\`, \`changeRoot\`, \`artifactPaths\`, and \`actionContext\`
       - Note which artifacts are \`done\` vs other states
 
@@ -507,7 +507,7 @@ ${STORE_SELECTION_GUIDANCE}
    Before step 8 writes the first main spec or moves any change, fetch every
    required specs-rule snapshot for the confirmed batch. For each change that will
    sync concrete \`artifactPaths.specs.existingOutputPaths\`, run
-   \`openspec instructions specs --change "<name>" --json\` exactly once with the
+   \`codespec instructions specs --change "<name>" --json\` exactly once with the
    same selected-root flags. Obtain all snapshots before the first write or move.
    If any lookup exits non-zero or returns invalid artifact-instruction JSON,
    identify the affected change, report the error, and stop the whole batch before
@@ -524,7 +524,7 @@ ${STORE_SELECTION_GUIDANCE}
    Process changes in the determined order (respecting conflict resolution):
 
    a. **Sync included delta specs**:
-      - Run the \`/opsx:sync\` workflow inline (agent-driven intelligent merge) only for changes with entries in \`includedDeltas\`, passing only the included delta paths and explicitly instructing it to ignore that change's \`excludedDeltas\`. Wait for it to finish.
+      - Run the \`/codespec:sync\` workflow inline (agent-driven intelligent merge) only for changes with entries in \`includedDeltas\`, passing only the included delta paths and explicitly instructing it to ignore that change's \`excludedDeltas\`. Wait for it to finish.
       - For conflicts, apply in resolved order.
       - Pass that change's fetched specs-rule snapshot into inline sync; inline
         sync must reuse it without fetching instructions again
@@ -535,7 +535,7 @@ ${STORE_SELECTION_GUIDANCE}
       - If a change has no included delta specs, do not run the sync workflow for it.
 
    b. **Verify included delta specs before moving changeRoot**:
-      - Re-run the comparison only for delta specs in \`includedDeltas\` against main spec at \`<planningHome.root>/openspec/specs/<capability-path>/spec.md\` (use the store-aware \`planningHome.root\` from step 3 status JSON, not a hardcoded repo path).
+      - Re-run the comparison only for delta specs in \`includedDeltas\` against main spec at \`<planningHome.root>/codespec/specs/<capability-path>/spec.md\` (use the store-aware \`planningHome.root\` from step 3 status JSON, not a hardcoded repo path).
       - Verify that main specs are updated:
         - ADDED requirements present
         - MODIFIED requirements carrying scenario and description changes named in the delta, with their other scenarios intact
@@ -546,7 +546,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    c. **Perform the archive**:
 
-      Target name: use the change name as-is when it already starts with a \`YYYY-MM-DD-\` prefix; otherwise prepend the current date as \`YYYY-MM-DD-<name>\` (same rule as \`openspec archive\`).
+      Target name: use the change name as-is when it already starts with a \`YYYY-MM-DD-\` prefix; otherwise prepend the current date as \`YYYY-MM-DD-<name>\` (same rule as \`codespec archive\`).
 
       \`\`\`bash
       mkdir -p "<planningHome.changesDir>/archive"
@@ -590,7 +590,7 @@ ${STORE_SELECTION_GUIDANCE}
 
 Example 1: Only one implemented
 \`\`\`text
-Conflict: <planningHome.root>/openspec/specs/auth/spec.md touched by [add-oauth, add-jwt]
+Conflict: <planningHome.root>/codespec/specs/auth/spec.md touched by [add-oauth, add-jwt]
 
 Checking add-oauth:
 - Delta adds "OAuth Provider Integration" requirement
@@ -605,7 +605,7 @@ Resolution: Only add-oauth is implemented. Will sync add-oauth specs only.
 
 Example 2: Both implemented
 \`\`\`text
-Conflict: <planningHome.root>/openspec/specs/api/spec.md touched by [add-rest-api, add-graphql]
+Conflict: <planningHome.root>/codespec/specs/api/spec.md touched by [add-rest-api, add-graphql]
 
 Checking add-rest-api (created 2026-01-10):
 - Delta adds "REST Endpoints" requirement
@@ -667,13 +667,13 @@ No active changes found. Create a new change to get started.
 - Never allow \`--yes\`, \`--json\`, or automation to bypass that confirmation
 - Never archive after the user cancels the confirmation — a cancelled batch archives nothing
 - Track and report all outcomes (success/skip/fail)
-- Preserve .openspec.yaml when moving to archive
+- Preserve .codespec.yaml when moving to archive
 - Archive directory target uses current date: YYYY-MM-DD-<name>; a name that already starts with a \`YYYY-MM-DD-\` prefix is used as-is (never stack a second date)
 - If archive target exists, fail that change but continue with others
-- If sync is requested, run the \`/opsx:sync\` workflow inline (agent-driven) for each change with included delta specs
+- If sync is requested, run the \`/codespec:sync\` workflow inline (agent-driven) for each change with included delta specs
 - Carry the per-delta \`includedDeltas\` and \`excludedDeltas\` decisions into execution; sync and verify only included deltas
 - Report every excluded delta as \`sync skipped\` without treating the archive itself as skipped
-- Never archive a change while a spec sync is still in flight — run the sync inline and verify main specs at \`<planningHome.root>/openspec/specs/<capability-path>/spec.md\` before moving \`changeRoot\`
+- Never archive a change while a spec sync is still in flight — run the sync inline and verify main specs at \`<planningHome.root>/codespec/specs/<capability-path>/spec.md\` before moving \`changeRoot\`
 - Fetch archive inputs once per selected root before spec inspection or moves
 - Fetch all required specs-rule snapshots before the batch's first main-spec write or move
 - A failed archive-inputs lookup never blocks the batch; it proceeds with no context or guidance

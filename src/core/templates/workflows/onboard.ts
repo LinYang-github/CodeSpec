@@ -9,17 +9,17 @@ import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 
 export function getOnboardSkillTemplate(): SkillTemplate {
   return {
-    name: 'openspec-onboard',
-    description: 'Guided onboarding for OpenSpec - walk through a complete workflow cycle with narration and real codebase work.',
+    name: 'codespec-onboard',
+    description: 'Guided onboarding for CodeSpec - walk through a complete workflow cycle with narration and real codebase work.',
     instructions: getOnboardInstructions(),
     license: 'MIT',
-    compatibility: 'Requires openspec CLI.',
-    metadata: { author: 'openspec', version: '1.0' },
+    compatibility: 'Requires codespec CLI.',
+    metadata: { author: 'codespec', version: '1.0' },
   };
 }
 
 function getOnboardInstructions(): string {
-  return `Guide the user through their first complete OpenSpec workflow cycle. This is a teaching experience—you'll do real work in their codebase while explaining each step.
+  return `Guide the user through their first complete CodeSpec workflow cycle. This is a teaching experience—you'll do real work in their codebase while explaining each step.
 
 ${STORE_SELECTION_GUIDANCE}
 
@@ -27,17 +27,17 @@ ${STORE_SELECTION_GUIDANCE}
 
 ## Preflight
 
-Before starting, check if the OpenSpec CLI is installed:
+Before starting, check if the CodeSpec CLI is installed:
 
 \`\`\`bash
 # Unix/macOS
-openspec --version 2>&1 || echo "CLI_NOT_INSTALLED"
+codespec --version 2>&1 || echo "CLI_NOT_INSTALLED"
 # Windows (PowerShell)
-# if (Get-Command openspec -ErrorAction SilentlyContinue) { openspec --version } else { echo "CLI_NOT_INSTALLED" }
+# if (Get-Command codespec -ErrorAction SilentlyContinue) { codespec --version } else { echo "CLI_NOT_INSTALLED" }
 \`\`\`
 
 **If CLI not installed:**
-> OpenSpec CLI is not installed. Install it first, then come back to \`/opsx:onboard\`.
+> CodeSpec CLI is not installed. Install it first, then come back to \`/codespec:onboard\`.
 
 Stop here if not installed.
 
@@ -48,7 +48,7 @@ Stop here if not installed.
 Display:
 
 \`\`\`
-## Welcome to OpenSpec!
+## Welcome to CodeSpec!
 
 I'll walk you through a complete change cycle—from idea to implementation—using a real task in your codebase. Along the way, you'll learn the workflow by doing it.
 
@@ -126,7 +126,7 @@ Which task interests you? (Pick a number or describe your own)
 If the user picks or describes something too large (major feature, multi-day work):
 
 \`\`\`
-That's a valuable task, but it's probably larger than ideal for your first OpenSpec run-through.
+That's a valuable task, but it's probably larger than ideal for your first CodeSpec run-through.
 
 For learning the workflow, smaller is better—it lets you see the full cycle without getting stuck in implementation details.
 
@@ -164,7 +164,7 @@ Spend 1-2 minutes investigating the relevant code:
 │   [Optional: ASCII diagram if helpful]  │
 └─────────────────────────────────────────┘
 
-Explore mode (\`/opsx:explore\`) is for this kind of thinking—investigating before implementing. You can use it anytime you need to think through a problem.
+Explore mode (\`/codespec:explore\`) is for this kind of thinking—investigating before implementing. You can use it anytime you need to think through a problem.
 
 Now let's create a change to hold our work.
 \`\`\`
@@ -179,14 +179,14 @@ Now let's create a change to hold our work.
 \`\`\`
 ## Creating a Change
 
-A "change" in OpenSpec is a container for all the thinking and planning around a piece of work. It lives at the \`changeRoot\` reported by \`openspec status --change "<name>" --json\` and holds your artifacts—proposal, specs, design, tasks.
+A "change" in CodeSpec is a container for all the thinking and planning around a piece of work. It lives at the \`changeRoot\` reported by \`codespec status --change "<name>" --json\` and holds your artifacts—proposal, specs, design, tasks.
 
 Let me create one for our task.
 \`\`\`
 
 **DO:** Create the change with a derived kebab-case name:
 \`\`\`bash
-openspec new change "<derived-name>"
+codespec new change "<derived-name>"
 \`\`\`
 
 **SHOW:**
@@ -261,9 +261,9 @@ Does this capture the intent? I can adjust before we save it.
 
 After approval, save the proposal:
 \`\`\`bash
-openspec instructions proposal --change "<name>" --json
+codespec instructions proposal --change "<name>" --json
 \`\`\`
-Then write the content to the \`resolvedOutputPath\` from \`openspec instructions proposal --change "<name>" --json\`.
+Then write the content to the \`resolvedOutputPath\` from \`codespec instructions proposal --change "<name>" --json\`.
 
 \`\`\`
 Proposal saved. This is your "why" document—you can always come back and refine it as understanding evolves.
@@ -286,7 +286,7 @@ For a small task like this, we might only need one spec file.
 
 **DO:** Resolve where the spec file should be created:
 \`\`\`bash
-openspec instructions specs --change "<name>" --json
+codespec instructions specs --change "<name>" --json
 # Use resolvedOutputPath from the JSON. If it is a glob, choose the concrete file path using the schema instruction and the change's context.
 \`\`\`
 
@@ -359,7 +359,7 @@ Here's the design:
 For a small task, this captures the key decisions without over-engineering.
 \`\`\`
 
-Save to the \`resolvedOutputPath\` from \`openspec instructions design --change "<name>" --json\`.
+Save to the \`resolvedOutputPath\` from \`codespec instructions design --change "<name>" --json\`.
 
 ---
 
@@ -397,7 +397,7 @@ Each checkbox becomes a unit of work in the apply phase. Ready to implement?
 
 **PAUSE** - Wait for user to confirm they're ready to implement.
 
-Save to the \`resolvedOutputPath\` from \`openspec instructions tasks --change "<name>" --json\`.
+Save to the \`resolvedOutputPath\` from \`codespec instructions tasks --change "<name>" --json\`.
 
 ---
 
@@ -446,7 +446,7 @@ When a change is complete, we archive it. The archive path is derived from \`pla
 Archived changes become your project's decision history—you can always find them later to understand why something was built a certain way.
 \`\`\`
 
-**DO:** Stop and ask the user to archive the change manually in an interactive terminal. Do not invoke \`openspec archive\` from the workflow or use \`--yes\`/\`--json\` to bypass the human confirmation.
+**DO:** Stop and ask the user to archive the change manually in an interactive terminal. Do not invoke \`codespec archive\` from the workflow or use \`--yes\`/\`--json\` to bypass the human confirmation.
 
 **SHOW:**
 \`\`\`
@@ -462,7 +462,7 @@ The change is now part of your project's history. The code is in your codebase, 
 \`\`\`
 ## Congratulations!
 
-You just completed a full OpenSpec cycle:
+You just completed a full CodeSpec cycle:
 
 1. **Explore** - Thought through the problem
 2. **New** - Created a change container
@@ -483,25 +483,25 @@ This same rhythm works for any size change—a small fix or a major feature.
 
  | Command           | What it does                               |
  |-------------------|--------------------------------------------|
- | \`/opsx:propose\` | Create a change and generate all artifacts |
- | \`/opsx:explore\` | Think through problems before/during work  |
- | \`/opsx:apply\`   | Implement tasks from a change              |
- | \`/opsx:archive\` | Archive a completed change                 |
+ | \`/codespec:propose\` | Create a change and generate all artifacts |
+ | \`/codespec:explore\` | Think through problems before/during work  |
+ | \`/codespec:apply\`   | Implement tasks from a change              |
+ | \`/codespec:archive\` | Archive a completed change                 |
 
 **Additional commands** (only if installed - availability depends on your profile):
 
  | Command            | What it does                                             |
  |--------------------|----------------------------------------------------------|
- | \`/opsx:new\`      | Start a new change, step through artifacts one at a time |
- | \`/opsx:continue\` | Continue working on an existing change                   |
- | \`/opsx:ff\`       | Fast-forward: create all artifacts at once               |
- | \`/opsx:verify\`   | Verify implementation matches artifacts                  |
+ | \`/codespec:new\`      | Start a new change, step through artifacts one at a time |
+ | \`/codespec:continue\` | Continue working on an existing change                   |
+ | \`/codespec:ff\`       | Fast-forward: create all artifacts at once               |
+ | \`/codespec:verify\`   | Verify implementation matches artifacts                  |
 
 ---
 
 ## What's Next?
 
-Try \`/opsx:propose\` on something you actually want to build. You've got the rhythm now!
+Try \`/codespec:propose\` on something you actually want to build. You've got the rhythm now!
 \`\`\`
 
 ---
@@ -513,11 +513,11 @@ Try \`/opsx:propose\` on something you actually want to build. You've got the rh
 If the user says they need to stop, want to pause, or seem disengaged:
 
 \`\`\`
-No problem! Your change is saved at the \`changeRoot\` reported by \`openspec status --change "<name>" --json\`.
+No problem! Your change is saved at the \`changeRoot\` reported by \`codespec status --change "<name>" --json\`.
 
 To pick up where we left off later:
-- \`/opsx:continue <name>\` - Resume artifact creation (if installed; otherwise \`openspec status --change "<name>" --json\` shows the next artifact)
-- \`/opsx:apply <name>\` - Jump to implementation (if tasks exist)
+- \`/codespec:continue <name>\` - Resume artifact creation (if installed; otherwise \`codespec status --change "<name>" --json\` shows the next artifact)
+- \`/codespec:apply <name>\` - Jump to implementation (if tasks exist)
 
 The work won't be lost. Come back whenever you're ready.
 \`\`\`
@@ -529,27 +529,27 @@ Exit gracefully without pressure.
 If the user says they just want to see the commands or skip the tutorial:
 
 \`\`\`
-## OpenSpec Quick Reference
+## CodeSpec Quick Reference
 
 **Core workflow:**
 
  | Command                  | What it does                               |
  |--------------------------|--------------------------------------------|
- | \`/opsx:propose <name>\` | Create a change and generate all artifacts |
- | \`/opsx:explore\`        | Think through problems (no code changes)   |
- | \`/opsx:apply <name>\`   | Implement tasks                            |
- | \`/opsx:archive <name>\` | Archive when done                          |
+ | \`/codespec:propose <name>\` | Create a change and generate all artifacts |
+ | \`/codespec:explore\`        | Think through problems (no code changes)   |
+ | \`/codespec:apply <name>\`   | Implement tasks                            |
+ | \`/codespec:archive <name>\` | Archive when done                          |
 
 **Additional commands** (only if installed - availability depends on your profile):
 
  | Command                   | What it does                        |
  |---------------------------|-------------------------------------|
- | \`/opsx:new <name>\`      | Start a new change, step by step    |
- | \`/opsx:continue <name>\` | Continue an existing change         |
- | \`/opsx:ff <name>\`       | Fast-forward: all artifacts at once |
- | \`/opsx:verify <name>\`   | Verify implementation               |
+ | \`/codespec:new <name>\`      | Start a new change, step by step    |
+ | \`/codespec:continue <name>\` | Continue an existing change         |
+ | \`/codespec:ff <name>\`       | Fast-forward: all artifacts at once |
+ | \`/codespec:verify <name>\`   | Verify implementation               |
 
-Try \`/opsx:propose\` to start your first change.
+Try \`/codespec:propose\` to start your first change.
 \`\`\`
 
 Exit gracefully.
@@ -567,10 +567,10 @@ Exit gracefully.
 - **Adjust scope gently**—guide toward smaller tasks but respect user choice`;
 }
 
-export function getOpsxOnboardCommandTemplate(): CommandTemplate {
+export function getCodespecOnboardCommandTemplate(): CommandTemplate {
   return {
-    name: 'OPSX: Onboard',
-    description: 'Guided onboarding - walk through a complete OpenSpec workflow cycle with narration',
+    name: 'CODESPEC: Onboard',
+    description: 'Guided onboarding - walk through a complete CodeSpec workflow cycle with narration',
     category: 'Workflow',
     tags: ['workflow', 'onboarding', 'tutorial', 'learning'],
     content: getOnboardInstructions(),

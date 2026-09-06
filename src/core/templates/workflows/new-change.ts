@@ -5,7 +5,7 @@ import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 function renderNewChangeWorkflow(input: string): string {
   return `开始新的 Change：创建 canonical 骨架并展示第一个待完成工件，不直接编写任何工件。
 
-默认 schema 为 \`code-spec\`。默认工件顺序必须以 \`openspec status --change "<name>" --json\` 的实际输出为准，通常包括 \`metadata.yaml\`、\`proposal.md\`、\`design.md\`、\`spec.md\`、\`tasks.md\` 和 \`verification.md\`。
+默认 schema 为 \`code-spec\`。默认工件顺序必须以 \`codespec status --change "<name>" --json\` 的实际输出为准，通常包括 \`metadata.yaml\`、\`proposal.md\`、\`design.md\`、\`spec.md\`、\`tasks.md\` 和 \`verification.md\`。
 
 ${STORE_SELECTION_GUIDANCE}
 
@@ -19,12 +19,12 @@ ${STORE_SELECTION_GUIDANCE}
 
 2. **确定 schema**
 
-   除非用户明确要求其他 schema，否则省略 \`--schema\` 并使用默认的 \`code-spec\`。用户明确指定 schema 时使用 \`--schema <name>\`；用户要求查看可用工作流时，运行 \`openspec context --json\` 解析根目录后，在返回的 \`root.path\` 中运行 \`openspec schemas --json\` 供其选择。
+   除非用户明确要求其他 schema，否则省略 \`--schema\` 并使用默认的 \`code-spec\`。用户明确指定 schema 时使用 \`--schema <name>\`；用户要求查看可用工作流时，运行 \`codespec context --json\` 解析根目录后，在返回的 \`root.path\` 中运行 \`codespec schemas --json\` 供其选择。
 
 3. **创建 Change 目录**
 
    \`\`\`bash
-   openspec new change "<name>"
+   codespec new change "<name>"
    \`\`\`
 
    仅在用户指定其他 schema 时追加 \`--schema <name>\`。如已选择注册 Store，在此后支持该选项的命令中持续附加 \`--store "<store-id>"\`。CLI 会在解析出的规划目录创建 Change 骨架；不得手工创建 Change 目录。若同名 Change 已存在，建议继续现有 Change。
@@ -32,7 +32,7 @@ ${STORE_SELECTION_GUIDANCE}
 4. **展示工件状态**
 
    \`\`\`bash
-   openspec status --change "<name>" --json
+   codespec status --change "<name>" --json
    \`\`\`
 
    使用返回的 \`planningHome\`、\`changeRoot\`、\`artifactPaths\`、\`actionContext\` 和 \`nextSteps\`，不得自行假定仓库内路径。
@@ -41,7 +41,7 @@ ${STORE_SELECTION_GUIDANCE}
 
    从 status 输出选择第一个 \`status: "ready"\` 的工件，然后运行：
    \`\`\`bash
-   openspec instructions <first-artifact-id> --change "<name>" --json
+   codespec instructions <first-artifact-id> --change "<name>" --json
    \`\`\`
 
    该命令返回模板、上下文与工件指导。
@@ -62,21 +62,21 @@ ${STORE_SELECTION_GUIDANCE}
 
 export function getNewChangeSkillTemplate(): SkillTemplate {
   return {
-    name: 'openspec-new-change',
-    description: '按步骤创建 OpenSpec Change 并准备第一个产物。',
+    name: 'codespec-new-change',
+    description: '按步骤创建 CodeSpec Change 并准备第一个产物。',
     instructions: renderNewChangeWorkflow('用户请求应包含 Change 名称（kebab-case）或要构建内容的描述。'),
     license: 'MIT',
-    compatibility: '需要 openspec CLI。',
-    metadata: { author: 'openspec', version: '1.0' },
+    compatibility: '需要 codespec CLI。',
+    metadata: { author: 'codespec', version: '1.0' },
   };
 }
 
-export function getOpsxNewCommandTemplate(): CommandTemplate {
+export function getCodespecNewCommandTemplate(): CommandTemplate {
   return {
-    name: 'OPSX: 新建',
-    description: '按步骤开始新的 Change（OPSX）',
+    name: 'CODESPEC: 新建',
+    description: '按步骤开始新的 Change（CODESPEC）',
     category: 'Workflow',
     tags: ['workflow', 'artifacts', 'experimental'],
-    content: renderNewChangeWorkflow('紧随 \'/opsx:new\' 的参数应为 Change 名称（kebab-case）或用户希望构建内容的描述。'),
+    content: renderNewChangeWorkflow('紧随 \'/codespec:new\' 的参数应为 Change 名称（kebab-case）或用户希望构建内容的描述。'),
   };
 }

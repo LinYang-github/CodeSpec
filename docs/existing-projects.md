@@ -1,8 +1,8 @@
-# Using OpenSpec in an Existing Project
+# Using CodeSpec in an Existing Project
 
-**You do not document your whole codebase to start. You write specs only for what you're about to change.** That's the single most important thing to know about adopting OpenSpec on an existing project, and it's why OpenSpec is built brownfield-first.
+**You do not document your whole codebase to start. You write specs only for what you're about to change.** That's the single most important thing to know about adopting CodeSpec on an existing project, and it's why CodeSpec is built brownfield-first.
 
-A common worry sounds like this: "My app is 80,000 lines old. Do I have to write specs for all of it before OpenSpec is useful?" No. You'd hate that, and so would we. OpenSpec grows your specs one change at a time. Your first change documents the slice it touches, the next change documents its slice, and over months your specs fill in naturally around the work you actually do.
+A common worry sounds like this: "My app is 80,000 lines old. Do I have to write specs for all of it before CodeSpec is useful?" No. You'd hate that, and so would we. CodeSpec grows your specs one change at a time. Your first change documents the slice it touches, the next change documents its slice, and over months your specs fill in naturally around the work you actually do.
 
 This guide shows how to start on day one without boiling the ocean.
 
@@ -10,25 +10,25 @@ This guide shows how to start on day one without boiling the ocean.
 
 ```bash
 $ cd your-existing-project
-$ openspec init          # adds openspec/ and your AI tool's commands
+$ codespec init          # adds codespec/ and your AI tool's commands
 ```
 
 Then, in your AI chat:
 
 ```text
-/opsx:workflow <a real, small change you actually need>
-/opsx:archive           # after implementation and verification
+/codespec:workflow <a real, small change you actually need>
+/codespec:archive           # after implementation and verification
 ```
 
 Your specs now describe exactly the part of the system that change touched, and nothing more. That's correct. You're done worrying about the other 80,000 lines.
 
 ## Why delta-first is the whole trick
 
-OpenSpec changes are written as **deltas**: `ADDED`, `MODIFIED`, `REMOVED`. A delta describes what's changing relative to current behavior, not the entire system.
+CodeSpec changes are written as **deltas**: `ADDED`, `MODIFIED`, `REMOVED`. A delta describes what's changing relative to current behavior, not the entire system.
 
 This is exactly what brownfield work needs. You're rarely building from nothing. You're adding a field, fixing a redirect, tightening a timeout. A delta lets you specify that one change precisely without first writing a 40-page spec of everything around it.
 
-So your `openspec/archive/specs/` directory doesn't start full and complete. It starts nearly empty and accumulates. Each archived Change merges its delta in. The spec for `auth/` becomes thorough only after you've made several auth changes, which is exactly when you want it thorough.
+So your `codespec/specs/` directory doesn't start full and complete. It starts nearly empty and accumulates. Each archived Change merges its delta in. The spec for `auth/` becomes thorough only after you've made several auth changes, which is exactly when you want it thorough.
 
 If you want the deeper mechanics, see [Concepts: Delta Specs](concepts.md#delta-specs).
 
@@ -39,7 +39,7 @@ Pick something small and real. Not a toy, not a rewrite. A change you were going
 **Step 1: Start the workflow.** On an unfamiliar or large codebase, `workflow` delegates repository exploration and brainstorming to Superpowers before creating or changing a Change.
 
 ```text
-You: /opsx:workflow
+You: /codespec:workflow
 
 AI:  What would you like to explore?
 
@@ -57,14 +57,14 @@ Notice the AI now understands your actual structure, so the proposal it writes w
 **Step 2: Review the Change.** The proposal and its delta spec capture just this change.
 
 ```text
-You: /opsx:workflow add-api-rate-limiting
+You: /codespec:workflow add-api-rate-limiting
 ```
 
 **Step 3: Build and archive** through `workflow` and `archive`, same as any Change. After archiving, you have a real spec for your rate-limiting behavior.
 
 ## Prefer a guided tour?
 
-Describe the codebase and the smallest useful improvement to `/opsx:workflow`.
+Describe the codebase and the smallest useful improvement to `/codespec:workflow`.
 It uses Superpowers brainstorming and planning internally, then returns to the
 same workflow for implementation and verification.
 
@@ -72,22 +72,22 @@ same workflow for implementation and verification.
 
 Maybe you have a PRD, an SRS, a formal spec, even TLA+ models. Good. You don't import them wholesale, and you don't throw them away either.
 
-Treat existing docs as **source material for exploration**, not as specs to convert. When you start a change, paste or point the AI at the relevant section, and let it shape a focused OpenSpec delta from it. The delta captures the behavior you're changing now, in OpenSpec's testable requirement-and-scenario form. Your original documents stay where they are as background.
+Treat existing docs as **source material for exploration**, not as specs to convert. When you start a change, paste or point the AI at the relevant section, and let it shape a focused CodeSpec delta from it. The delta captures the behavior you're changing now, in CodeSpec's testable requirement-and-scenario form. Your original documents stay where they are as background.
 
-The honest reason: OpenSpec specs are deliberately behavior-first and scoped to changes. A 40-page PRD is a different artifact with a different job. Forcing a one-time bulk conversion tends to produce a large, stale spec nobody trusts. Letting specs grow from real changes keeps them accurate.
+The honest reason: CodeSpec specs are deliberately behavior-first and scoped to changes. A 40-page PRD is a different artifact with a different job. Forcing a one-time bulk conversion tends to produce a large, stale spec nobody trusts. Letting specs grow from real changes keeps them accurate.
 
 ```text
-You: /opsx:workflow
+You: /codespec:workflow
 You: Here's the section of our PRD about checkout. I'm implementing the
      "guest checkout" requirement next.
      [paste the relevant requirement]
 AI:  [reads it, asks clarifying questions, then helps scope a change]
-You: /opsx:workflow add-guest-checkout
+You: /codespec:workflow add-guest-checkout
 ```
 
 ## Organizing specs in a big codebase
 
-Specs live under `openspec/archive/specs/`, grouped by **domain**: a logical area that matches how your team thinks about the system. You don't have to design the whole taxonomy up front. Create a domain folder when your first Change in that area needs one.
+Specs live under `codespec/specs/`, grouped by **domain**: a logical area that matches how your team thinks about the system. You don't have to design the whole taxonomy up front. Create a domain folder when your first Change in that area needs one.
 
 Common ways to slice domains:
 
@@ -99,16 +99,16 @@ Pick whatever makes a newcomer nod. You can refine later. See [Concepts: Specs](
 
 ## Monorepos and work that spans repos
 
-For a monorepo, the simplest model is one `openspec/` directory at the repo root, with domains that map to your packages or services. That covers most teams.
+For a monorepo, the simplest model is one `codespec/` directory at the repo root, with domains that map to your packages or services. That covers most teams.
 
-If your work genuinely spans **multiple repositories** (or several packages you treat as separate), OpenSpec has a beta **stores** feature: planning lives in its own standalone repo that any of your code repos can reference, so the plan does not have to live inside one repo's `openspec/` folder. It's beta, so treat its commands and state as evolving. Start with the [Stores User Guide](stores-beta/user-guide.md) for the mental model and the smallest useful path.
+If your work genuinely spans **multiple repositories** (or several packages you treat as separate), CodeSpec has a beta **stores** feature: planning lives in its own standalone repo that any of your code repos can reference, so the plan does not have to live inside one repo's `codespec/` folder. It's beta, so treat its commands and state as evolving. Start with the [Stores User Guide](stores-beta/user-guide.md) for the mental model and the smallest useful path.
 
 ## A few honest cautions
 
 - **Resist the urge to back-fill everything.** Writing specs for code you aren't changing feels productive and usually isn't. Those specs go stale, because nothing forces them to track reality. Let real changes drive your specs.
 - **Keep early changes small.** Your first few changes are as much about learning the rhythm as shipping. A tight scope makes the loop fast and the lessons cheap.
-- **Commit `openspec/` to git.** Your specs and archive belong in version control alongside the code they describe.
-- **Give the AI context.** On a large codebase with strong conventions, fill in `openspec/config.yaml`'s `context:` so every proposal respects your stack and patterns. See [Customization](customization.md#project-configuration).
+- **Commit `codespec/` to git.** Your specs and archive belong in version control alongside the code they describe.
+- **Give the AI context.** On a large codebase with strong conventions, fill in `codespec/config.yaml`'s `context:` so every proposal respects your stack and patterns. See [Customization](customization.md#project-configuration).
 
 ## Where to go next
 
@@ -116,4 +116,4 @@ If your work genuinely spans **multiple repositories** (or several packages you 
 - [Getting Started](getting-started.md) - the full first-change walkthrough
 - [Editing & Iterating on a Change](editing-changes.md) - adjusting a change as you learn
 - [Concepts: Delta Specs](concepts.md#delta-specs) - why deltas make brownfield work clean
-- [Customization](customization.md) - teach OpenSpec your project's conventions
+- [Customization](customization.md) - teach CodeSpec your project's conventions

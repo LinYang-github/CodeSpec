@@ -6,9 +6,9 @@ import { runCLI } from '../helpers/run-cli.js';
 import { cleanupTempPath } from '../helpers/temp-cleanup.js';
 
 /**
- * `openspec view` used to hard-code '.' as its target, so a project whose
- * openspec/config.yaml points at an external store rendered an empty dashboard
- * while `openspec list` read the store correctly. These cover the fix and the
+ * `codespec view` used to hard-code '.' as its target, so a project whose
+ * codespec/config.yaml points at an external store rendered an empty dashboard
+ * while `codespec list` read the store correctly. These cover the fix and the
  * cwd-fallback behavior view shares with list/status.
  */
 
@@ -37,7 +37,7 @@ The system SHALL charge a card.
 `;
 
 beforeAll(async () => {
-  base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-view-store-'));
+  base = await fs.mkdtemp(path.join(tmpdir(), 'codespec-view-store-'));
   storeRoot = path.join(base, 'store');
   pointerProject = path.join(base, 'project');
 
@@ -46,7 +46,7 @@ beforeAll(async () => {
     XDG_DATA_HOME: path.join(base, 'home', 'data'),
     XDG_STATE_HOME: path.join(base, 'home', 'state'),
     XDG_CACHE_HOME: path.join(base, 'home', 'cache'),
-    OPENSPEC_TELEMETRY: '0',
+    CODESPEC_TELEMETRY: '0',
   };
 
   await fs.mkdir(storeRoot, { recursive: true });
@@ -56,13 +56,13 @@ beforeAll(async () => {
   );
   expect(setup.exitCode, setup.stderr).toBe(0);
 
-  const specDir = path.join(storeRoot, 'openspec', 'specs', 'billing');
+  const specDir = path.join(storeRoot, 'codespec', 'specs', 'billing');
   await fs.mkdir(specDir, { recursive: true });
   await fs.writeFile(path.join(specDir, 'spec.md'), SPEC);
 
-  await fs.mkdir(path.join(pointerProject, 'openspec'), { recursive: true });
+  await fs.mkdir(path.join(pointerProject, 'codespec'), { recursive: true });
   await fs.writeFile(
-    path.join(pointerProject, 'openspec', 'config.yaml'),
+    path.join(pointerProject, 'codespec', 'config.yaml'),
     `store: ${STORE_ID}\n`
   );
 }, TIMEOUT_MS);
@@ -71,9 +71,9 @@ afterAll(async () => {
   await cleanupTempPath(base);
 });
 
-describe('openspec view root resolution', () => {
+describe('codespec view root resolution', () => {
   it(
-    'follows a store pointer declared in openspec/config.yaml',
+    'follows a store pointer declared in codespec/config.yaml',
     async () => {
       const result = await runCLI(['view'], {
         cwd: pointerProject,
@@ -82,7 +82,7 @@ describe('openspec view root resolution', () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toContain('1 specs, 1 requirements');
+      expect(result.stdout).toContain('Spec：1 个，1 个 Requirement');
       expect(result.stdout).toContain('billing');
     },
     TIMEOUT_MS
@@ -101,21 +101,21 @@ describe('openspec view root resolution', () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toContain('1 specs, 1 requirements');
+      expect(result.stdout).toContain('Spec：1 个，1 个 Requirement');
     },
     TIMEOUT_MS
   );
 
   it(
-    'still renders an openspec/ directory that predates config.yaml',
+    'still renders an codespec/ directory that predates config.yaml',
     async () => {
-      // Regression guard: a pre-config.yaml openspec/ resolves no root, so
+      // Regression guard: a pre-config.yaml codespec/ resolves no root, so
       // view has to fall back to the cwd rather than refusing outright.
       // Isolated home: no store is registered, which is the common case.
       const legacy = path.join(base, 'legacy');
-      await fs.mkdir(path.join(legacy, 'openspec'), { recursive: true });
+      await fs.mkdir(path.join(legacy, 'codespec'), { recursive: true });
       await fs.writeFile(
-        path.join(legacy, 'openspec', 'project.md'),
+        path.join(legacy, 'codespec', 'project.md'),
         '# Project\n'
       );
 
@@ -138,7 +138,7 @@ describe('openspec view root resolution', () => {
 
       expect(list.exitCode, list.stderr).toBe(0);
       expect(view.exitCode, view.stderr).toBe(0);
-      expect(view.stdout).toContain('OpenSpec Dashboard');
+      expect(view.stdout).toContain('CodeSpec 面板');
     },
     TIMEOUT_MS
   );
@@ -149,9 +149,9 @@ describe('openspec view root resolution', () => {
       // view is no longer the odd command out: where a registered store makes
       // list demand --store, view now gives the same actionable error.
       const legacy = path.join(base, 'legacy-with-store');
-      await fs.mkdir(path.join(legacy, 'openspec'), { recursive: true });
+      await fs.mkdir(path.join(legacy, 'codespec'), { recursive: true });
       await fs.writeFile(
-        path.join(legacy, 'openspec', 'project.md'),
+        path.join(legacy, 'codespec', 'project.md'),
         '# Project\n'
       );
 
@@ -173,7 +173,7 @@ describe('openspec view root resolution', () => {
   );
 
   it(
-    'reports a missing openspec directory outside any project',
+    'reports a missing codespec directory outside any project',
     async () => {
       const bare = path.join(base, 'bare');
       await fs.mkdir(bare, { recursive: true });

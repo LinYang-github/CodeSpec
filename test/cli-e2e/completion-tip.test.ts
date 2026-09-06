@@ -10,16 +10,16 @@ import { runCLI } from '../helpers/run-cli.js';
  * Spawned runs — agents driving the CLI, shell pipelines, CI — have no TTY on
  * stderr, so they must leave the tip unconsumed for the next interactive run.
  * A regression here is invisible in normal use: the user simply never sees the
- * tip, because a background `openspec status` already spent it.
+ * tip, because a background `codespec status` already spent it.
  */
 describe('completions tip in non-interactive runs', () => {
   async function freshConfigHome(): Promise<string> {
-    return fs.mkdtemp(path.join(os.tmpdir(), 'openspec-tip-e2e-'));
+    return fs.mkdtemp(path.join(os.tmpdir(), 'codespec-tip-e2e-'));
   }
 
   async function tipSeenFlag(configHome: string): Promise<unknown> {
     try {
-      const raw = await fs.readFile(path.join(configHome, 'openspec', 'config.json'), 'utf-8');
+      const raw = await fs.readFile(path.join(configHome, 'codespec', 'config.json'), 'utf-8');
       return JSON.parse(raw).completionTipSeen;
     } catch {
       return undefined;

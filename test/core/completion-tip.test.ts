@@ -18,7 +18,7 @@ describe('core/completion-tip', () => {
   }
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-completion-tip-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-completion-tip-'));
     originalEnv = { ...process.env };
     process.env.XDG_CONFIG_HOME = path.join(tempDir, 'config');
     // HOME too: the already-installed probe reads the shell's completion dirs,
@@ -31,7 +31,7 @@ describe('core/completion-tip', () => {
     process.env.USERPROFILE = tempDir;
     process.env.SHELL = '/bin/zsh';
     delete process.env.CI;
-    delete process.env.OPENSPEC_NO_COMPLETIONS;
+    delete process.env.CODESPEC_NO_COMPLETIONS;
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -48,7 +48,7 @@ describe('core/completion-tip', () => {
     // Asserting the literal, not the imported constant: comparing the message
     // against itself would pass even if the tip advertised a typo'd command.
     expect(COMPLETION_TIP_MESSAGE).toBe(
-      "Tip: Run 'openspec completion install' for shell completions"
+      "Tip: Run 'codespec completion install' for shell completions"
     );
   });
 
@@ -87,7 +87,7 @@ describe('core/completion-tip', () => {
     ['CI', 'True'],
     ['CI', 'yes'],
     ['CI', 'on'],
-    ['OPENSPEC_NO_COMPLETIONS', '1'],
+    ['CODESPEC_NO_COMPLETIONS', '1'],
   ])('stays silent when %s=%s', async (key, value) => {
     process.env[key] = value;
 
@@ -144,7 +144,7 @@ describe('core/completion-tip', () => {
   });
 
   it('retires the tip quietly on a shell the installer would reject', async () => {
-    // `openspec completion install` exits 1 for unsupported shells, so sending
+    // `codespec completion install` exits 1 for unsupported shells, so sending
     // these users there is a dead end — and this tip is the only thing that
     // would ever mention completions to them.
     process.env.SHELL = '/bin/tcsh';
@@ -174,7 +174,7 @@ describe('core/completion-tip', () => {
     // have — including on the very next command after `completion install`,
     // whose own run only defers the tip.
     process.env.SHELL = '/bin/fish';
-    const installed = path.join(tempDir, '.config', 'fish', 'completions', 'openspec.fish');
+    const installed = path.join(tempDir, '.config', 'fish', 'completions', 'codespec.fish');
     fs.mkdirSync(path.dirname(installed), { recursive: true });
     fs.writeFileSync(installed, '# completions');
 

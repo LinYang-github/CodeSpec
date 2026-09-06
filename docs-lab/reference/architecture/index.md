@@ -1,6 +1,6 @@
 # Overview
 
-> How OPSX is built: internals for the curious.
+> How CodeSpec is built: internals for the curious.
 
 <!-- WIP, on the todo list: this page is not written yet and is held back from the
 site (its entry is commented out in website/docs.sync.config.mjs, 2026-08-21). The file
@@ -14,6 +14,6 @@ on 2026-08-10. -->
 The pages in this section:
 
 - [Workflow runs](workflow-runs.md): how a workflow run executes, from invocation to written artifacts.
-- [Design decisions](design-decisions.md): why OPSX works the way it does.
+- [Design decisions](design-decisions.md): why CodeSpec works the way it does.
 
 ## How the pieces fit

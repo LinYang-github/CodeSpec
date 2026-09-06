@@ -6,19 +6,19 @@ import { promisify } from 'node:util';
 
 import { FileSystemUtils } from '../../utils/file-system.js';
 import {
-  classifyOpenSpecDir,
+  classifyCodeSpecDir,
   storePointerProblem,
 } from '../project-config.js';
 import {
-  ANCHORED_OPENSPEC_DIRS,
+  ANCHORED_CODESPEC_DIRS,
   DIRECTORY_ANCHOR_FILE_NAME,
-  OPENSPEC_ROOT_DIR,
-  ensureOpenSpecRoot,
-  inspectOpenSpecRoot,
+  CODESPEC_ROOT_DIR,
+  ensureCodeSpecRoot,
+  inspectCodeSpecRoot,
   rollbackCreatedPaths,
   type CreatedPathLedgerEntry,
-  type OpenSpecRootInspection,
-} from '../openspec-root.js';
+  type CodeSpecRootInspection,
+} from '../codespec-root.js';
 import {
   STORE_METADATA_DIR_NAME,
   getStoreMetadataDir,
@@ -111,7 +111,7 @@ export interface StoreDoctorResult {
 }
 
 export interface StoreInspection extends StoreInfo {
-  openspecRoot: OpenSpecRootInspection;
+  codespecRoot: CodeSpecRootInspection;
   metadata: {
     present: boolean | null;
     valid: boolean | null;
@@ -225,7 +225,7 @@ function alreadyRegisteredDiagnostic(id: string): StoreDiagnostic {
 }
 
 function assertNotConfigOnlyPointerRoot(storeRoot: string): void {
-  const { hasPlanningShape, pointer } = classifyOpenSpecDir(storeRoot);
+  const { hasPlanningShape, pointer } = classifyCodeSpecDir(storeRoot);
   if (hasPlanningShape || pointer.filePath === null) return;
 
   if (pointer.malformed) {
@@ -349,7 +349,7 @@ function resolveSetupRoot(id: string, inputPath: string | undefined): string {
       'store_setup_path_required',
       {
         target: 'store.root',
-        fix: `openspec store setup ${id} --path ~/openspec/${id}`,
+        fix: `codespec store setup ${id} --path ~/codespec/${id}`,
       }
     );
   }
@@ -361,7 +361,7 @@ function resolveRegisterRoot(inputPath: string | undefined): string {
   if (inputPath === undefined || inputPath.trim().length === 0) {
     throw new StoreError('Pass a store path.', 'store_path_required', {
       target: 'store.root',
-      fix: 'openspec store register /path/to/store',
+      fix: 'codespec store register /path/to/store',
     });
   }
 
@@ -475,7 +475,7 @@ async function prepareSetupPlan(
       'store_setup_path_not_directory',
       {
         target: 'store.root',
-        fix: 'Choose an empty directory or an existing healthy OpenSpec root.',
+        fix: 'Choose an empty directory or an existing healthy CodeSpec root.',
       }
     );
   }
@@ -510,15 +510,15 @@ async function prepareSetupPlan(
         throw remoteRequiresHandEditError(id, storeRoot);
       }
     } else {
-      const openspecRoot = await inspectOpenSpecRoot(storeRoot);
+      const codespecRoot = await inspectCodeSpecRoot(storeRoot);
       const safeFreshDirectory = await isDirectoryEmpty(storeRoot) || await isGitOnlyDirectory(storeRoot);
-      if (!openspecRoot.healthy && !safeFreshDirectory) {
+      if (!codespecRoot.healthy && !safeFreshDirectory) {
         throw new StoreError(
-          'Store setup does not support initializing a non-empty folder that is not a healthy OpenSpec root.',
+          'Store setup does not support initializing a non-empty folder that is not a healthy CodeSpec root.',
           'store_setup_non_empty_directory',
           {
             target: 'store.root',
-            fix: 'Choose an empty folder, a Git-only folder, or an existing healthy OpenSpec root.',
+            fix: 'Choose an empty folder, a Git-only folder, or an existing healthy CodeSpec root.',
           }
         );
       }
@@ -595,7 +595,7 @@ export async function setupPreparedStore(
       'store_setup_path_changed',
       {
         target: 'store.root',
-        fix: 'Rerun openspec store setup to re-evaluate the directory.',
+        fix: 'Rerun codespec store setup to re-evaluate the directory.',
       }
     );
   }
@@ -624,7 +624,7 @@ export async function setupPreparedStore(
   }
 
   try {
-    const root = await ensureOpenSpecRoot(storeRoot, {
+    const root = await ensureCodeSpecRoot(storeRoot, {
       anchorEmptyDirectories: !alreadyRegisteredHere,
     });
     createdFiles.push(...root.createdArtifacts);
@@ -649,14 +649,14 @@ export async function setupPreparedStore(
         ...(prepared.remote !== undefined ? { remote: prepared.remote } : {}),
       });
       if (metadataDirMissing) {
-        createdPaths.push(createdPath('.openspec-store/', metadataDir, 'directory'));
+        createdPaths.push(createdPath('.codespec-store/', metadataDir, 'directory'));
       }
       createdPaths.push(createdPath(
-        '.openspec-store/store.yaml',
+        '.codespec-store/store.yaml',
         getStoreMetadataPath(storeRoot),
         'file'
       ));
-      createdFiles.push('.openspec-store/store.yaml');
+      createdFiles.push('.codespec-store/store.yaml');
     }
 
     gitInitialized = gitEnabled ? await initGitRepository(storeRoot) : false;
@@ -667,7 +667,7 @@ export async function setupPreparedStore(
     // be unhealthy. In a pre-existing repo the user owns the history, so
     // setup commits only what it created.
     const commitPathspecs = gitInitialized
-      ? [OPENSPEC_ROOT_DIR, STORE_METADATA_DIR_NAME]
+      ? [CODESPEC_ROOT_DIR, STORE_METADATA_DIR_NAME]
       : createdPaths
           .filter((entry) => entry.kind === 'file')
           .map((entry) => entry.relativePath);
@@ -763,11 +763,11 @@ export async function registerExistingStore(
   }
 
   assertNotConfigOnlyPointerRoot(storeRoot);
-  const openspecRoot = await inspectOpenSpecRoot(storeRoot);
-  if (!openspecRoot.healthy) {
+  const codespecRoot = await inspectCodeSpecRoot(storeRoot);
+  if (!codespecRoot.healthy) {
     const problems =
-      openspecRoot.diagnostics.map((diagnostic) => diagnostic.message).join(' ') ||
-      'The OpenSpec root is missing or incomplete.';
+      codespecRoot.diagnostics.map((diagnostic) => diagnostic.message).join(' ') ||
+      'The CodeSpec root is missing or incomplete.';
     const isEmptyCloneSuspect =
       (await isGitRepositoryAtRoot(storeRoot)) &&
       (await gitHasCommits(storeRoot)) === false;
@@ -776,13 +776,13 @@ export async function registerExistingStore(
       : '';
 
     throw new StoreError(
-      `Store register requires an existing healthy OpenSpec root. ${problems}${emptyCloneHint}`,
+      `Store register requires an existing healthy CodeSpec root. ${problems}${emptyCloneHint}`,
       'store_register_root_unhealthy',
       {
-        target: 'openspec.root',
+        target: 'codespec.root',
         fix: isEmptyCloneSuspect
           ? 'If this is a store clone: commit and push the origin store, pull it into this clone, then rerun register.'
-          : 'Run openspec store setup for a new store, or point register at a checkout whose openspec/ files are present.',
+          : 'Run codespec store setup for a new store, or point register at a checkout whose codespec/ files are present.',
       }
     );
   }
@@ -799,12 +799,12 @@ export async function registerExistingStore(
       !isRegisteredAtPath(currentRegistry, metadata.id, storeRoot);
 
     throw new StoreError(
-      `Store metadata id '${metadata.id}' does not match --id '${explicitId}'. The id comes from the store's committed .openspec-store/store.yaml.`,
+      `Store metadata id '${metadata.id}' does not match --id '${explicitId}'. The id comes from the store's committed .codespec-store/store.yaml.`,
       'store_metadata_id_mismatch',
       {
         target: 'store.id',
         fix: registeredElsewhere
-          ? `One checkout per store id is supported, and '${metadata.id}' is already registered. Run openspec store unregister ${metadata.id} first to register this checkout instead.`
+          ? `One checkout per store id is supported, and '${metadata.id}' is already registered. Run codespec store unregister ${metadata.id} first to register this checkout instead.`
           : `Use --id ${metadata.id} or register a different folder.`,
       }
     );
@@ -813,7 +813,7 @@ export async function registerExistingStore(
   const id = metadata?.id ?? explicitId ?? inferStoreIdFromPath(storeRoot);
   if (!metadata && !input.allowCreateIdentity) {
     throw new StoreError(
-      `将此 OpenSpec 根目录转换为 Store '${id}'？`,
+      `将此 CodeSpec 根目录转换为 Store '${id}'？`,
       'store_register_identity_confirmation_required',
       {
         target: 'store.metadata',
@@ -834,7 +834,7 @@ export async function registerExistingStore(
     writeMetadataIfMissing: true,
   });
   if (registered.metadataCreated) {
-    createdFiles.push('.openspec-store/store.yaml');
+    createdFiles.push('.codespec-store/store.yaml');
   }
   const diagnostics = registered.alreadyRegistered && createdFiles.length === 0
     ? [alreadyRegisteredDiagnostic(id)]
@@ -917,7 +917,7 @@ async function assertSafeToDeleteStoreRoot(storeRoot: string, id: string): Promi
       'store_remove_path_not_directory',
       {
         target: 'store.root',
-        fix: 'Run "openspec store unregister <id>" if you only want to forget this local registry entry.',
+        fix: 'Run "codespec store unregister <id>" if you only want to forget this local registry entry.',
       }
     );
   }
@@ -929,7 +929,7 @@ async function assertSafeToDeleteStoreRoot(storeRoot: string, id: string): Promi
       'store_remove_metadata_missing',
       {
         target: 'store.metadata',
-        fix: 'Run "openspec store unregister <id>" if you only want to forget this local registry entry.',
+        fix: 'Run "codespec store unregister <id>" if you only want to forget this local registry entry.',
       }
     );
   }
@@ -1061,7 +1061,7 @@ async function inspectStore(entry: {
     hasRemote: null,
     originUrl: null,
   };
-  let openspecRoot: OpenSpecRootInspection = await inspectOpenSpecRoot(root);
+  let codespecRoot: CodeSpecRootInspection = await inspectCodeSpecRoot(root);
 
   if (kind === 'missing') {
     diagnostics.push(makeStoreDiagnostic(
@@ -1070,7 +1070,7 @@ async function inspectStore(entry: {
       'Store location does not exist.',
       {
         target: 'store.root',
-        fix: `Run openspec store register /path/to/${entry.id} --id ${entry.id}.`,
+        fix: `Run codespec store register /path/to/${entry.id} --id ${entry.id}.`,
       }
     ));
   } else if (kind !== 'directory') {
@@ -1084,8 +1084,8 @@ async function inspectStore(entry: {
       }
     ));
   } else {
-    openspecRoot = await inspectOpenSpecRoot(root);
-    diagnostics.push(...openspecRoot.diagnostics);
+    codespecRoot = await inspectCodeSpecRoot(root);
+    diagnostics.push(...codespecRoot.diagnostics);
 
     try {
       const parsed = await readOptionalStoreMetadataState(root);
@@ -1157,7 +1157,7 @@ async function inspectStore(entry: {
         ));
       } else if (git.hasCommits === true) {
         const fragileDirs: string[] = [];
-        for (const relativeDir of ANCHORED_OPENSPEC_DIRS) {
+        for (const relativeDir of ANCHORED_CODESPEC_DIRS) {
           const dirKind = await pathKind(path.join(root, relativeDir));
           if (dirKind !== 'directory') continue;
           if ((await gitDirectoryHasTrackedFiles(root, relativeDir)) === false) {
@@ -1184,7 +1184,7 @@ async function inspectStore(entry: {
     id: entry.id,
     root,
     metadataPath,
-    openspecRoot,
+    codespecRoot,
     metadata,
     git,
     diagnostics,
@@ -1199,7 +1199,7 @@ export async function doctorStores(id?: string): Promise<StoreDoctorResult> {
     if (selectedId !== undefined) {
       throw new StoreError(`未知 Store：'${selectedId}'。`, 'store_not_found', {
         target: 'store.id',
-        fix: '运行 openspec store list 查看已注册的 Store。',
+        fix: '运行 codespec store list 查看已注册的 Store。',
       });
     }
 
@@ -1214,7 +1214,7 @@ export async function doctorStores(id?: string): Promise<StoreDoctorResult> {
   if (selectedId && selected.length === 0) {
     throw new StoreError(`未知 Store：'${selectedId}'。`, 'store_not_found', {
       target: 'store.id',
-      fix: '运行 openspec store list 查看已注册的 Store。',
+      fix: '运行 codespec store list 查看已注册的 Store。',
     });
   }
 

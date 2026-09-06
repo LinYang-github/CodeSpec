@@ -6,8 +6,8 @@ import { execFileSync } from 'child_process';
 describe('spec validate (interactive behavior)', () => {
   const projectRoot = process.cwd();
   const testDir = path.join(projectRoot, 'test-spec-validate-tmp');
-  const specsDir = path.join(testDir, 'openspec', 'specs');
-  const bin = path.join(projectRoot, 'bin', 'openspec.js');
+  const specsDir = path.join(testDir, 'codespec', 'specs');
+  const bin = path.join(projectRoot, 'bin', 'codespec.js');
 
 
   beforeEach(async () => {
@@ -33,12 +33,11 @@ describe('spec validate (interactive behavior)', () => {
       } catch (e) { err = e; }
       expect(err).toBeDefined();
       expect(err.status).not.toBe(0);
-      expect(err.stderr.toString()).toContain('Missing required argument <spec-id>');
+      expect(err.stderr.toString()).toContain('缺少必需参数 <spec-id>');
     } finally {
       process.chdir(originalCwd);
       process.env = originalEnv;
     }
   });
 });
-
 

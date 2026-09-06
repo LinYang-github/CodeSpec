@@ -1,6 +1,6 @@
 # 验证证据
 <!-- GIVEN 基线 WHEN 执行验证 THEN 记录 fresh 结果。 -->
-<!-- 本文档由 OpenSpec 生成。每次 VERIFY 都重新执行命令，不复用过期输出。 -->
+<!-- 本文档由 CodeSpec 生成。每次 VERIFY 都重新执行命令，不复用过期输出。 -->
 
 ## 验证结果
 
@@ -29,12 +29,18 @@
 
 | 命令 | 类型 | Exit status | 结果摘要 | 时间 |
 | --- | --- | ---: | --- | --- |
-| `pnpm test` | test | 0 | 中文摘要 | `2026-09-01T00:00:00Z` |
+| `pnpm test:unit` | unit | 0 | 中文摘要 | `2026-09-01T00:00:00Z` |
+| `pnpm typecheck` | typecheck | 0 | 中文摘要 | `2026-09-01T00:00:00Z` |
+| `pnpm build` | build | 0 | 中文摘要 | `2026-09-01T00:00:00Z` |
+| `pnpm lint` | lint | 0 | 中文摘要 | `2026-09-01T00:00:00Z` |
+
+Level 2 还必须记录 `bdd` 和 `integration`；Level 3 只在 `affected_areas` 声明对应风险时记录 `security`、`migration` 或 `performance`。影响既有 Current Specification 时，必须记录覆盖旧、新 Requirement / Scenario 的 `archive-regression`。
 
 ## Gate
 
 - ✅ Requirements fresh verified
-- ✅ tests passed
+- ✅ unit tests passed
+- ✅ typecheck passed
 - ✅ build passed
 - ✅ lint passed
 - ✅ 每个 Scenario 的 ERROR 必须已填写
@@ -58,8 +64,14 @@ scenario_ids:
 baseline_identity: <sha256>
 receipt: <sha256>
 commands:
-  - command: pnpm test
-    kind: test
+  - command: pnpm test:unit
+    kind: unit
+    exit_code: 0
+    output_summary: 中文摘要
+    started_at: 2026-09-01T00:00:00Z
+    finished_at: 2026-09-01T00:00:00Z
+  - command: pnpm typecheck
+    kind: typecheck
     exit_code: 0
     output_summary: 中文摘要
     started_at: 2026-09-01T00:00:00Z

@@ -5,7 +5,7 @@ import type { Delivery } from './global-config.js';
 export type CommandSurfaceCapability = 'adapter-backed' | 'skills-invocable' | 'none';
 
 /**
- * How the tool spells its OpenSpec commands: the name from the command files
+ * How the tool spells its CodeSpec commands: the name from the command files
  * its adapter writes, the prefix the adapter declares. Returns undefined for
  * tools with no command adapter, which have no command names to spell.
  */

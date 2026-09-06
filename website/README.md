@@ -1,6 +1,6 @@
-# OpenSpec documentation site
+# CodeSpec documentation site
 
-The marketing and documentation site for [OpenSpec](https://github.com/Fission-AI/OpenSpec), built with [Fumadocs](https://fumadocs.dev) and [Next.js](https://nextjs.org). It is configured as a **static export**, so it deploys to Cloudflare Pages (or any static host) with no server.
+The marketing and documentation site for [CodeSpec](https://github.com/Fission-AI/CodeSpec), built with [Fumadocs](https://fumadocs.dev) and [Next.js](https://nextjs.org). It is configured as a **static export**, so it deploys to Cloudflare Pages (or any static host) with no server.
 
 > **The doc pages are generated, not authored here.** The repository's `docs/*.md` files are the single source of truth. `scripts/sync-docs.mjs` mirrors them into `content/docs/` (as `.md`) on every build, so the site stays current automatically — locally and in CI. Edit `../docs`, not `content/docs/`. Only the marketing landing page (`app/(home)/page.tsx`) is hand-authored. See [Keeping docs in sync](#keeping-docs-in-sync).
 
@@ -40,17 +40,17 @@ domain:
 
 | Variable | Example |
 |----------|---------|
-| `NEXT_PUBLIC_SITE_URL` | `https://openspec.dev` |
+| `NEXT_PUBLIC_SITE_URL` | `https://codespec.dev` |
 
 The site itself needs no server runtime. A small routing Worker exposes the
-separate Pages project at `openspec.dev/docs` while the Astro landing project
-continues to own the rest of `openspec.dev`. It also routes the supporting
+separate Pages project at `codespec.dev/docs` while the Astro landing project
+continues to own the rest of `codespec.dev`. It also routes the supporting
 `/_next`, search, Open Graph, icon, and `llms` paths. Its source and Wrangler
 configuration live in `cloudflare/router/`.
 
 Cloudflare's Free plan cannot override the Host header or DNS origin in an
 Origin Rule, so the routing Worker proxies these paths to
-`openspec-docs.pages.dev` instead. Deploy routing changes from `website/` with:
+`codespec-docs.pages.dev` instead. Deploy routing changes from `website/` with:
 
 ```bash
 npx wrangler deploy --config cloudflare/router/wrangler.jsonc
@@ -60,7 +60,7 @@ npx wrangler deploy --config cloudflare/router/wrangler.jsonc
 
 ```bash
 pnpm run build
-npx wrangler pages deploy out --project-name openspec-docs
+npx wrangler pages deploy out --project-name codespec-docs
 ```
 
 ## Keeping docs in sync
@@ -91,8 +91,8 @@ re-mirrors them before producing the static export.
 
 ## Automated deploys
 
-The `openspec-docs` Cloudflare Pages project is connected directly to
-`Fission-AI/OpenSpec`. Cloudflare rebuilds and deploys `main` when `docs/**` or
+The `codespec-docs` Cloudflare Pages project is connected directly to
+`Fission-AI/CodeSpec`. Cloudflare rebuilds and deploys `main` when `docs/**` or
 `website/**` changes, and creates preview deployments for pull requests.
 
 Once the site changes, that's it — a `docs/*.md` edit merged to `main` re-mirrors
@@ -104,7 +104,7 @@ preview build statuses directly to GitHub.
 
 ### Landing page
 
-The current [openspec.dev](https://openspec.dev) landing page remains in the
+The current [codespec.dev](https://codespec.dev) landing page remains in the
 separate Astro project. The routing Worker sends only documentation-owned paths
 to this Pages project, so its Fumadocs landing page at `app/(home)/page.tsx` is
 built but is not served at the public root. The projects can be consolidated
@@ -128,7 +128,7 @@ website/
 │   ├── source.ts            # Fumadocs content source + sidebar icons
 │   └── layout.shared.tsx    # shared nav/header options
 ├── components/              # MDX components, search dialog, root provider
-├── cloudflare/router/        # Worker that mounts this site on openspec.dev/docs
+├── cloudflare/router/        # Worker that mounts this site on codespec.dev/docs
 ├── next.config.mjs          # static export config
 └── source.config.ts         # Fumadocs MDX collection config
 ```

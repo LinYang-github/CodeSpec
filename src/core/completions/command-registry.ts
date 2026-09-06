@@ -49,7 +49,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'init',
-    description: '在项目中初始化 OpenSpec',
+    description: '在项目中初始化 CodeSpec',
     acceptsPositional: true,
     positionalType: 'path',
     positionals: [{ name: 'path', type: 'path', optional: true }],
@@ -61,8 +61,14 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       },
       {
         name: 'language',
-        description: '使用指定语言编写新的 OpenSpec 产物',
+        description: '使用指定语言编写新的 CodeSpec 产物',
         takesValue: true,
+      },
+      {
+        name: 'schema',
+        description: '选择工作流 schema（默认：code-spec）',
+        takesValue: true,
+        values: ['code-spec', 'spec-driven'],
       },
       {
         name: 'force',
@@ -90,7 +96,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'update',
-    description: '更新 OpenSpec 指导文件',
+    description: '更新 CodeSpec 指导文件',
     acceptsPositional: true,
     positionalType: 'path',
     positionals: [{ name: 'path', type: 'path', optional: true }],
@@ -131,6 +137,14 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     ],
   },
   {
+    name: 'ui',
+    description: '在浏览器中只读浏览和检索 CodeSpec 内容',
+    acceptsPositional: true,
+    positionalType: 'path',
+    positionals: [{ name: 'path', type: 'path', optional: true }],
+    flags: [],
+  },
+  {
     name: 'validate',
     description: '校验 Change 和 Spec',
     acceptsPositional: true,
@@ -158,7 +172,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       COMMON_FLAGS.jsonValidation,
       {
         name: 'concurrency',
-        description: '最大并发校验数（默认读取环境变量 OPENSPEC_CONCURRENCY，或使用 6）',
+        description: '最大并发校验数（默认读取环境变量 CODESPEC_CONCURRENCY，或使用 6）',
         takesValue: true,
       },
       COMMON_FLAGS.noInteractive,
@@ -315,6 +329,11 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
             takesValue: true,
           },
           {
+            name: 'sdd-level',
+            description: 'SDD 执行等级：1、2 或 3',
+            takesValue: true,
+          },
+          {
             name: 'schema',
             description: '使用的工作流 Schema',
             takesValue: true,
@@ -328,7 +347,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'store',
     description:
-      '创建并管理 Store——在本机登记的独立 OpenSpec 仓库',
+      '创建并管理 Store——在本机登记的独立 CodeSpec 仓库',
     flags: [],
     subcommands: [
       {
@@ -426,7 +445,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'context',
-    description: '输出解析后 OpenSpec 根目录的工作上下文',
+    description: '输出解析后 CodeSpec 根目录的工作上下文',
     flags: [
       COMMON_FLAGS.json,
       COMMON_FLAGS.store,
@@ -444,7 +463,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'doctor',
-    description: '报告解析后 OpenSpec 根目录的关联健康状态',
+    description: '报告解析后 CodeSpec 根目录的关联健康状态',
     flags: [
       COMMON_FLAGS.json,
       COMMON_FLAGS.store,
@@ -517,7 +536,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'feedback',
-    description: '提交 OpenSpec 反馈',
+    description: '提交 CodeSpec 反馈',
     acceptsPositional: true,
     positionals: [{ name: 'message' }],
     flags: [
@@ -530,7 +549,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'change',
-    description: '管理 OpenSpec Change 提案（已弃用）',
+    description: '管理 CodeSpec Change 提案（已弃用）',
     flags: [],
     subcommands: [
       {
@@ -541,6 +560,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
         flags: [
           { name: 'description', description: '要写入 README.md 的描述', takesValue: true },
           { name: 'goal', description: '随 Change 保存的可选目标元数据', takesValue: true },
+          { name: 'sdd-level', description: 'SDD 执行等级：1、2 或 3', takesValue: true },
           { name: 'schema', description: '使用的工作流 Schema', takesValue: true },
           COMMON_FLAGS.json,
           COMMON_FLAGS.store,
@@ -596,7 +616,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'spec',
-    description: '管理 OpenSpec Spec',
+    description: '管理 CodeSpec Spec',
     flags: [],
     subcommands: [
       {
@@ -651,7 +671,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'completion',
-    description: '管理 OpenSpec CLI 的 Shell 补全',
+    description: '管理 CodeSpec CLI 的 Shell 补全',
     flags: [],
     subcommands: [
       {
@@ -693,7 +713,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   },
   {
     name: 'config',
-    description: '查看和修改全局 OpenSpec 配置',
+    description: '查看和修改全局 CodeSpec 配置',
     flags: [
       {
         name: 'scope',

@@ -15,37 +15,37 @@
 ```text
 编程使用者描述需求
         ↓
-openspec-workflow：唯一正常开发入口
+codespec-workflow：唯一正常开发入口
         ↓
 生成并迭代一个 Change
         ↓
 实现与验证
         ↓
-openspec-archive-change：确认后归档
+codespec-archive-change：确认后归档
 ```
 
-主线旁边单独放出异常分支：出现 `STALE`、Baseline 漂移或多 Change 冲突时，进入 `openspec-rebase-change`，完成 semantic rebase 后返回 `workflow`；它不是第二条正常开发路径。
+主线旁边单独放出异常分支：出现 `STALE`、Baseline 漂移或多 Change 冲突时，进入 `codespec-rebase-change`，完成 semantic rebase 后返回 `workflow`；它不是第二条正常开发路径。
 
 ## 3. 画面结构
 
 采用三段式宽版布局：
 
 1. **上段：从 0 开始怎么用**
-   - 先展示安装 / 初始化的最小入口：`openspec init`。
-   - 展示用户在 AI 对话中输入 `/opsx:workflow <what-you-want-to-build>`。
+   - 先展示安装 / 初始化的最小入口：`codespec init`。
+   - 展示用户在 AI 对话中输入 `/codespec:workflow <what-you-want-to-build>`。
    - 用 4 个编号步骤讲清楚：描述需求、形成 Change、编码验证、人工确认归档。
    - 用橙色虚线标出 `STALE / 冲突 → rebase → workflow`。
 
 2. **中段：为什么只保留三个 Skills**
    - 用三张职责卡展示：
-     - `openspec-workflow`：正常开发，承载分析、规划、实现、验证的完整协作线。
-     - `openspec-rebase-change`：只处理基线过期和冲突恢复。
-     - `openspec-archive-change`：只处理 Current Specification 的事务性更新和 Change 归档。
-   - 在卡片下方用一行边界说明：OpenSpec Core 负责领域治理和事务；Superpowers 负责 brainstorming、planning、TDD、debugging、verification、review。
+     - `codespec-workflow`：正常开发，承载分析、规划、实现、验证的完整协作线。
+     - `codespec-rebase-change`：只处理基线过期和冲突恢复。
+     - `codespec-archive-change`：只处理 Current Specification 的事务性更新和 Change 归档。
+   - 在卡片下方用一行边界说明：CodeSpec Core 负责领域治理和事务；Superpowers 负责 brainstorming、planning、TDD、debugging、verification、review。
    - 解释收敛原因：用户不再需要在 `new / propose / continue / apply / verify / sync` 等阶段入口之间做选择；能力仍存在，但变成 `workflow` 内部编排或 Core 能力。
 
 3. **下段：一次 Change 产生什么**
-   - 以 `openspec/changes/CHG-YYYYMMDD-NNN/` 为中心展示产物树。
+   - 以 `codespec/changes/CHG-YYYYMMDD-NNN/` 为中心展示产物树。
    - 逐项写出文件用途：
      - `metadata.yaml`：状态权威、Change、Baseline、Requirement、Task、验证和归档门禁。
      - `proposal.md`：为什么改、改什么、影响范围。
@@ -53,7 +53,7 @@ openspec-archive-change：确认后归档
      - `spec.md`：Requirement 与 Scenario；Scenario 使用 `GIVEN / WHEN / THEN / ERROR`。
      - `tasks.md`：`SP-##` 的简洁任务投影。
      - `verification.md`：测试、构建、lint、Baseline 和 fresh verification 证据。
-   - 用箭头指向归档结果：Delta 合并到 `openspec/archive/specs/`，完整 Change 移入 `openspec/archive/changes/`。
+   - 用箭头指向归档结果：Delta 合并到 `codespec/archive/specs/`，完整 Change 移入 `codespec/archive/changes/`。
 
 ## 4. CodeSpec 与通用 open-driven / spec-driven 的区别
 
@@ -64,7 +64,7 @@ openspec-archive-change：确认后归档
 | 核心视角 | 由 Schema 编排一组 artifacts | 面向软件编码落地的固定协议 |
 | 用户入口 | 可按 Schema 或阶段选择不同入口 | 正常开发从 `workflow` 开始 |
 | 工作单元 | 由具体 Schema 定义 Change 结构 | `CHG-YYYYMMDD-NNN` + `metadata.yaml` |
-| 规则中心 | 由模板、Schema 和团队约定决定 | OpenSpec Core 统一管理 Change、Requirement、Baseline、STALE、Traceability 和 archive transaction |
+| 规则中心 | 由模板、Schema 和团队约定决定 | CodeSpec Core 统一管理 Change、Requirement、Baseline、STALE、Traceability 和 archive transaction |
 | 迭代方式 | 依赖所选流程约定 | 产物可回看、可修改；顺序是上下文依赖，不是僵硬瀑布门禁 |
 | 规格落点 | 由 Schema 定义发布方式 | archive 事务把 Delta 合并为 Current Specification |
 

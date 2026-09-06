@@ -13,10 +13,10 @@ import type { CommandContent } from '../../../src/core/command-generation/types.
 import { ALL_WORKFLOWS } from '../../../src/core/profiles.js';
 
 /**
- * Tools whose command files live in an `opsx/` directory, so the tool
- * namespaces the command and registers `/opsx:<id>`. Every other registered
- * adapter writes `opsx-<id>` as the filename and therefore registers
- * `/opsx-<id>`.
+ * Tools whose command files live in an `codespec/` directory, so the tool
+ * namespaces the command and registers `/codespec:<id>`. Every other registered
+ * adapter writes `codespec-<id>` as the filename and therefore registers
+ * `/codespec-<id>`.
  *
  * This list is a tripwire, not the source of truth: production classifies a
  * tool from its own `getFilePath`. A new adapter that lands on the wrong side
@@ -29,7 +29,7 @@ const NAMESPACED_TOOLS = ['claude', 'codebuddy', 'crush', 'gemini', 'lingma', 'q
  * prefix cannot be read off the file path, so it is adapter metadata — and
  * this list is the tripwire that a new one was declared deliberately. Amazon Q
  * loads its `.amazonq/prompts/` files into its prompt library, invoked as
- * `@opsx-<id>`.
+ * `@codespec-<id>`.
  */
 const NON_SLASH_PREFIXES: Record<string, string> = { 'amazon-q': '@' };
 
@@ -40,23 +40,23 @@ const expectedInvocation = (toolId: string) => ({
 
 const sampleContent: CommandContent = {
   id: 'apply',
-  name: 'OpenSpec Apply',
+  name: 'CodeSpec Apply',
   description: 'Implement tasks',
   category: 'Workflow',
-  tags: ['openspec'],
-  body: 'Run /opsx:archive when done. See /opsx:continue for the next artifact.',
+  tags: ['codespec'],
+  body: 'Run /codespec:archive when done. See /codespec:continue for the next artifact.',
 };
 
 describe('command-generation/invocation', () => {
   describe('getInvocationStyleForPath', () => {
-    it('classifies an opsx- prefixed filename as flat', () => {
-      expect(getInvocationStyleForPath(path.join('.cursor', 'commands', 'opsx-apply.md'))).toBe('flat');
-      expect(getInvocationStyleForPath(path.join('.github', 'prompts', 'opsx-apply.prompt.md'))).toBe('flat');
+    it('classifies an codespec- prefixed filename as flat', () => {
+      expect(getInvocationStyleForPath(path.join('.cursor', 'commands', 'codespec-apply.md'))).toBe('flat');
+      expect(getInvocationStyleForPath(path.join('.github', 'prompts', 'codespec-apply.prompt.md'))).toBe('flat');
     });
 
-    it('classifies a file inside an opsx/ directory as namespaced', () => {
-      expect(getInvocationStyleForPath(path.join('.claude', 'commands', 'opsx', 'apply.md'))).toBe('namespaced');
-      expect(getInvocationStyleForPath(path.join('.gemini', 'commands', 'opsx', 'apply.toml'))).toBe('namespaced');
+    it('classifies a file inside an codespec/ directory as namespaced', () => {
+      expect(getInvocationStyleForPath(path.join('.claude', 'commands', 'codespec', 'apply.md'))).toBe('namespaced');
+      expect(getInvocationStyleForPath(path.join('.gemini', 'commands', 'codespec', 'apply.toml'))).toBe('namespaced');
     });
   });
 
@@ -117,10 +117,10 @@ describe('command-generation/invocation', () => {
 
   describe('formatCommandInvocation', () => {
     it('spells each shape the way the tool registers it', () => {
-      expect(formatCommandInvocation({ style: 'namespaced', prefix: '/' }, 'apply')).toBe('/opsx:apply');
-      expect(formatCommandInvocation({ style: 'flat', prefix: '/' }, 'apply')).toBe('/opsx-apply');
+      expect(formatCommandInvocation({ style: 'namespaced', prefix: '/' }, 'apply')).toBe('/codespec:apply');
+      expect(formatCommandInvocation({ style: 'flat', prefix: '/' }, 'apply')).toBe('/codespec-apply');
       expect(formatCommandInvocation({ style: 'flat', prefix: '@' }, 'bulk-archive')).toBe(
-        '@opsx-bulk-archive'
+        '@codespec-bulk-archive'
       );
     });
 
@@ -136,37 +136,37 @@ describe('command-generation/invocation', () => {
       for (const toolId of ['cursor', 'github-copilot', 'devin', 'opencode', 'qwen']) {
         const adapter = CommandAdapterRegistry.get(toolId)!;
         const { fileContent } = generateCommand(sampleContent, adapter);
-        expect(fileContent, toolId).toContain('/opsx-archive');
-        expect(fileContent, toolId).toContain('/opsx-continue');
-        expect(fileContent, toolId).not.toContain('/opsx:');
+        expect(fileContent, toolId).toContain('/codespec-archive');
+        expect(fileContent, toolId).toContain('/codespec-continue');
+        expect(fileContent, toolId).not.toContain('/codespec:');
       }
     });
 
     it("writes Amazon Q's prompt-library form, not a slash command", () => {
-      // .amazonq/prompts/opsx-<id>.md is a prompt, invoked with @ — a body
-      // telling the user to type /opsx-archive names nothing Amazon Q registers.
+      // .amazonq/prompts/codespec-<id>.md is a prompt, invoked with @ — a body
+      // telling the user to type /codespec-archive names nothing Amazon Q registers.
       const adapter = CommandAdapterRegistry.get('amazon-q')!;
       const { fileContent } = generateCommand(sampleContent, adapter);
-      expect(fileContent).toContain('@opsx-archive');
-      expect(fileContent).toContain('@opsx-continue');
-      expect(fileContent).not.toContain('/opsx-');
-      expect(fileContent).not.toContain('/opsx:');
+      expect(fileContent).toContain('@codespec-archive');
+      expect(fileContent).toContain('@codespec-continue');
+      expect(fileContent).not.toContain('/codespec-');
+      expect(fileContent).not.toContain('/codespec:');
     });
 
     it('leaves command references alone for namespaced tools', () => {
       for (const toolId of NAMESPACED_TOOLS) {
         const adapter = CommandAdapterRegistry.get(toolId)!;
         const { fileContent } = generateCommand(sampleContent, adapter);
-        expect(fileContent, toolId).toContain('/opsx:archive');
-        expect(fileContent, toolId).not.toContain('/opsx-archive');
+        expect(fileContent, toolId).toContain('/codespec:archive');
+        expect(fileContent, toolId).not.toContain('/codespec-archive');
       }
     });
 
     it('rewrites nothing but the command references', () => {
       const adapter = CommandAdapterRegistry.get('cursor')!;
-      const plain = { ...sampleContent, body: 'Plain body. See docs/opsx.md and openspec/changes/.' };
+      const plain = { ...sampleContent, body: 'Plain body. See docs/codespec.md and codespec/changes/.' };
       const { fileContent } = generateCommand(plain, adapter);
-      expect(fileContent).toContain('Plain body. See docs/opsx.md and openspec/changes/.');
+      expect(fileContent).toContain('Plain body. See docs/codespec.md and codespec/changes/.');
     });
 
     it('leaves the adapters themselves as pure formatters', () => {
@@ -175,7 +175,7 @@ describe('command-generation/invocation', () => {
       // generateCommand happens to be identical (the rewrite is idempotent).
       for (const toolId of ['bob', 'oh-my-pi', 'opencode', 'pi', 'qwen', 'cursor', 'devin']) {
         const adapter = CommandAdapterRegistry.get(toolId)!;
-        expect(adapter.formatFile(sampleContent), toolId).toContain('/opsx:archive');
+        expect(adapter.formatFile(sampleContent), toolId).toContain('/codespec:archive');
       }
     });
   });

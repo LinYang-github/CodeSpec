@@ -15,7 +15,7 @@ describe('artifact-graph/outputs', () => {
   const canonical = (targetPath: string): string => FileSystemUtils.canonicalizeExistingPath(targetPath);
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-outputs-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-outputs-test-'));
   });
 
   afterEach(() => {

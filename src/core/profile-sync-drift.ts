@@ -23,9 +23,9 @@ import {
 type WorkflowId = (typeof ALL_WORKFLOWS)[number];
 
 const PUBLIC_WORKFLOW_TO_SKILL_DIR = {
-  workflow: 'openspec-workflow',
-  rebase: 'openspec-rebase-change',
-  archive: 'openspec-archive-change',
+  workflow: 'codespec-workflow',
+  rebase: 'codespec-rebase-change',
+  archive: 'codespec-archive-change',
 } as const;
 
 function usesPublicWorkflowSurface(workflows: readonly string[]): boolean {
@@ -36,18 +36,18 @@ function usesPublicWorkflowSurface(workflows: readonly string[]): boolean {
  * Maps workflow IDs to their skill directory names.
  */
 export const WORKFLOW_TO_SKILL_DIR: Record<WorkflowId, string> = {
-  'explore': 'openspec-explore',
-  'new': 'openspec-new-change',
-  'continue': 'openspec-continue-change',
-  'apply': 'openspec-apply-change',
-  'update': 'openspec-update-change',
-  'ff': 'openspec-ff-change',
-  'sync': 'openspec-sync-specs',
-  'archive': 'openspec-archive-change',
-  'bulk-archive': 'openspec-bulk-archive-change',
-  'verify': 'openspec-verify-change',
-  'onboard': 'openspec-onboard',
-  'propose': 'openspec-propose',
+  'explore': 'codespec-explore',
+  'new': 'codespec-new-change',
+  'continue': 'codespec-continue-change',
+  'apply': 'codespec-apply-change',
+  'update': 'codespec-update-change',
+  'ff': 'codespec-ff-change',
+  'sync': 'codespec-sync-specs',
+  'archive': 'codespec-archive-change',
+  'bulk-archive': 'codespec-bulk-archive-change',
+  'verify': 'codespec-verify-change',
+  'onboard': 'codespec-onboard',
+  'propose': 'codespec-propose',
 };
 
 function toKnownWorkflows(workflows: readonly string[]): WorkflowId[] {
@@ -97,8 +97,11 @@ export function hasToolProfileOrDeliveryDrift(
     ? readSharedSkillTarget(projectPath, tool.skillsDir)
     : undefined;
   for (const root of tool.legacySkillsDirs ?? []) {
-    for (const workflow of knownDesiredWorkflows) {
-      const dirName = WORKFLOW_TO_SKILL_DIR[workflow];
+    const legacyWorkflows = publicSurface ? desiredPublicWorkflows : knownDesiredWorkflows;
+    for (const workflow of legacyWorkflows) {
+      const dirName = publicSurface
+        ? PUBLIC_WORKFLOW_TO_SKILL_DIR[workflow as keyof typeof PUBLIC_WORKFLOW_TO_SKILL_DIR]
+        : WORKFLOW_TO_SKILL_DIR[workflow as keyof typeof WORKFLOW_TO_SKILL_DIR];
       const legacySkill = path.join(projectPath, root, 'skills', dirName, 'SKILL.md');
       if (!fs.existsSync(legacySkill)) continue;
 

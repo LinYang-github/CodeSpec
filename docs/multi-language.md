@@ -1,22 +1,22 @@
 # Multi-Language Guide
 
-Configure OpenSpec to generate artifacts in languages other than English.
+Configure CodeSpec to generate artifacts in languages other than English.
 
 ## Quick Setup
 
 For a new project, set the language during initialization:
 
 ```bash
-openspec init --language "Portuguese (pt-BR)"
+codespec init --language "Portuguese (pt-BR)"
 ```
 
-This writes the language instruction to `openspec/config.yaml`. If the project
+This writes the language instruction to `codespec/config.yaml`. If the project
 already has a config, edit its `context` field directly so existing project
 guidance is preserved.
 
 You can also configure the same behavior manually:
 
-Add a language instruction to your `openspec/config.yaml`:
+Add a language instruction to your `codespec/config.yaml`:
 
 ```yaml
 schema: spec-driven
@@ -24,7 +24,7 @@ schema: spec-driven
 context: |
   Language: Portuguese (pt-BR)
   All artifacts must be written in Brazilian Portuguese.
-  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Keep CodeSpec structural headings and SHALL/MUST keywords in English.
 
   # Your other project context below...
   Tech stack: TypeScript, React, Node.js
@@ -32,7 +32,7 @@ context: |
 
 That's it. All generated artifacts will now be in Portuguese.
 
-OpenSpec's document structure and normative `SHALL`/`MUST` keywords remain in
+CodeSpec's document structure and normative `SHALL`/`MUST` keywords remain in
 English because validation relies on them. The surrounding requirement and
 scenario prose can use your selected language.
 
@@ -121,7 +121,7 @@ To verify your language config is working:
 
 ```bash
 # Check the instructions - should show your language context
-openspec instructions proposal --change my-change
+codespec instructions proposal --change my-change
 
 # Output will include your language context
 ```

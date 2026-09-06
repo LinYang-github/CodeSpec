@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Generate the static skills.sh distribution of the OpenSpec workflow skills.
+ * Generate the static skills.sh distribution of the CodeSpec workflow skills.
  *
  * skills.sh installs skills by reading committed `SKILL.md` files straight from
- * a GitHub repo (`npx skills add Fission-AI/OpenSpec`). OpenSpec normally
- * *generates* these skills into a user's project via `openspec init`, so this
+ * a GitHub repo (`npx skills add LinYang-github/CodeSpec`). CodeSpec normally
+ * *generates* these skills into a user's project via `codespec init`, so this
  * script mirrors that same output into a committed `skills/<name>/SKILL.md`
  * tree that skills.sh can discover.
  *
@@ -34,7 +34,7 @@ cleanSkillSubdirectories(outDir);
 
 let count = 0;
 for (const { template, dirName } of getSkillTemplates()) {
-  // skills.sh installs SKILL.md files only — no /opsx:* commands exist in
+  // skills.sh installs SKILL.md files only — no /codespec:* commands exist in
   // that channel, so references must point at the skills themselves.
   const content = stripVolatileFrontmatter(
     generateSkillContent(template, 'skills.sh', transformToSkillReferences)

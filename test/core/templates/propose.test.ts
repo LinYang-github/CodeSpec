@@ -3,10 +3,10 @@ import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
 import {
-  getOpsxProposeSkillTemplate,
-  getOpsxProposeCommandTemplate,
+  getCodespecProposeSkillTemplate,
+  getCodespecProposeCommandTemplate,
   getFfChangeSkillTemplate,
-  getOpsxFfCommandTemplate,
+  getCodespecFfCommandTemplate,
 } from '../../../src/core/templates/skill-templates.js';
 import { generateSkillContent, getCommandContents } from '../../../src/core/shared/skill-generation.js';
 import { loadSchema } from '../../../src/core/artifact-graph/schema.js';
@@ -14,13 +14,13 @@ import { CommandAdapterRegistry } from '../../../src/core/command-generation/reg
 import { generateCommand } from '../../../src/core/command-generation/generator.js';
 
 const proposeBodies: Array<[string, string]> = [
-  ['propose skill', generateSkillContent(getOpsxProposeSkillTemplate(), 'TEST')],
-  ['propose command', getOpsxProposeCommandTemplate().content],
+  ['propose skill', generateSkillContent(getCodespecProposeSkillTemplate(), 'TEST')],
+  ['propose command', getCodespecProposeCommandTemplate().content],
 ];
 const loopBodies: Array<[string, string]> = [
   ...proposeBodies,
   ['ff skill', getFfChangeSkillTemplate().instructions],
-  ['ff command', getOpsxFfCommandTemplate().content],
+  ['ff command', getCodespecFfCommandTemplate().content],
 ];
 
 const repoRoot = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
@@ -43,16 +43,16 @@ describe('canonical code-spec templates', () => {
   it('keeps planning and implementation as separate user actions', () => {
     for (const [label, body] of proposeBodies) {
       expect(body, label).toContain('等待用户发起新的请求后，再进入 apply 工作流');
-      expect(body, label).toContain('准备实现时，运行 `/opsx:apply`');
+      expect(body, label).toContain('准备实现时，运行 `/codespec:apply`');
     }
   });
 
   it('keeps default and explicit schema creation forms', () => {
     for (const [label, body] of proposeBodies) {
-      expect(body, label).toContain('openspec new change "<name>"');
-      expect(body, label).toContain('openspec new change "<name>" --schema "<schema-name>"');
-      expect(body, label).toContain('openspec context --json');
-      expect(body, label).toContain('openspec schemas --json');
+      expect(body, label).toContain('codespec new change "<name>"');
+      expect(body, label).toContain('codespec new change "<name>" --schema "<schema-name>"');
+      expect(body, label).toContain('codespec context --json');
+      expect(body, label).toContain('codespec schemas --json');
     }
   });
 
@@ -71,13 +71,12 @@ describe('canonical code-spec templates', () => {
 
   it('carries the Chinese planning boundary through command adapters', () => {
     const propose = getCommandContents(['propose'])[0];
-    expect(propose?.id).toBe('propose');
+    expect(propose?.id).toBe('workflow');
 
     for (const adapter of CommandAdapterRegistry.getAll()) {
       const generated = generateCommand(propose, adapter).fileContent;
-      expect(generated, adapter.toolId).toContain('本工作流只授权规划');
-      expect(generated, adapter.toolId).toContain('不得编辑项目代码');
-      expect(generated, adapter.toolId).toContain('等待用户发起新的请求后');
+      expect(generated, adapter.toolId).toContain('中文用户体验约定');
+      expect(generated, adapter.toolId).toContain('CodeSpec');
     }
   });
 });

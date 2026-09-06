@@ -50,9 +50,9 @@ describe('spec serialization', () => {
   let target: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-spec-eof-'));
-    changeDir = path.join(tempDir, 'openspec', 'changes', 'serializer-test');
-    mainSpecsDir = path.join(tempDir, 'openspec', 'specs');
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-spec-eof-'));
+    changeDir = path.join(tempDir, 'codespec', 'changes', 'serializer-test');
+    mainSpecsDir = path.join(tempDir, 'codespec', 'specs');
     source = path.join(changeDir, 'specs', 'demo', 'spec.md');
     target = path.join(mainSpecsDir, 'demo', 'spec.md');
     await fs.mkdir(path.dirname(source), { recursive: true });

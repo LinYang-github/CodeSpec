@@ -2,7 +2,7 @@
  * New Change Command
  *
  * Creates a new change directory with optional description and schema in the
- * resolved OpenSpec root. `--store <id>` selects a registered store's
+ * resolved CodeSpec root. `--store <id>` selects a registered store's
  * root; initiative linking and workspace affected areas are no longer part of
  * this command.
  */
@@ -13,7 +13,7 @@ import { promises as fs } from 'fs';
 import { createChange, validateChangeName } from '../../utils/change-utils.js';
 import {
   createCanonicalChange,
-} from '../../core/openspec-workflow/change-manager.js';
+} from '../../core/codespec-workflow/change-manager.js';
 import { formatChangeLocation } from '../../core/planning-home.js';
 import {
   resolveRootForCommand,
@@ -21,7 +21,7 @@ import {
   toPlanningHome,
   toRootOutput,
   withStoreFlag,
-  type ResolvedOpenSpecRoot,
+  type ResolvedCodeSpecRoot,
   type RootOutput,
   isStoreSelectedRoot,
 } from '../../core/root-selection.js';
@@ -39,6 +39,7 @@ export interface NewChangeOptions {
   storePath?: string;
   initiative?: string;
   areas?: string;
+  sddLevel?: string;
   json?: boolean;
 }
 
@@ -59,7 +60,7 @@ interface NewChangeOutput {
 function assertRemovedOptionsAbsent(options: NewChangeOptions): void {
   if (options.initiative !== undefined) {
     throw new RootSelectionError(
-      '--initiative 已不再支持。普通 Change 不再关联 initiative；使用 --store <id> 选择 OpenSpec 根目录。',
+      '--initiative 已不再支持。普通 Change 不再关联 initiative；使用 --store <id> 选择 CodeSpec 根目录。',
       'initiative_option_removed',
       { target: 'change.options' }
     );
@@ -67,7 +68,7 @@ function assertRemovedOptionsAbsent(options: NewChangeOptions): void {
 
   if (options.areas !== undefined) {
     throw new RootSelectionError(
-      '--areas 已不再支持。普通 OpenSpec 根目录不再维护 workspace affected areas。',
+      '--areas 已不再支持。普通 CodeSpec 根目录不再维护 workspace affected areas。',
       'areas_option_removed',
       { target: 'change.options' }
     );
@@ -76,7 +77,7 @@ function assertRemovedOptionsAbsent(options: NewChangeOptions): void {
 
 function printCreatedChangeHuman(
   payload: NewChangeOutput,
-  root: ResolvedOpenSpecRoot
+  root: ResolvedCodeSpecRoot
 ): void {
   // A relative path is only honest when the root is where the user
   // stands; a distant ancestor root gets the absolute path.
@@ -86,7 +87,7 @@ function printCreatedChangeHuman(
       : payload.change.path;
   console.log(`已创建 Change：${payload.change.id}，位置：${location}/`);
   console.log(`Schema：${payload.change.schema}`);
-  console.log(`下一步：${withStoreFlag(root, `openspec status --change ${payload.change.id}`)}`);
+  console.log(`下一步：${withStoreFlag(root, `codespec status --change ${payload.change.id}`)}`);
 }
 
 export async function newChangeCommand(name: string | undefined, options: NewChangeOptions): Promise<void> {
@@ -117,6 +118,9 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
       if (options.schema) {
         throw new Error('canonical code-spec Change 不支持 --schema；请使用默认 schema。');
       }
+      if (options.sddLevel !== undefined && !/^[123]$/u.test(options.sddLevel)) {
+        throw new Error('--sdd-level 只能是 1、2 或 3。');
+      }
     } else {
       const validation = validateChangeName(name);
       if (!validation.valid) {
@@ -141,6 +145,7 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
             title: name,
             summary: options.goal ?? options.description ?? name,
             mode: 'feature',
+            sddLevel: options.sddLevel ? Number(options.sddLevel) as 1 | 2 | 3 : undefined,
           }),
         }
       : {
@@ -169,7 +174,7 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
         metadataPath:
           result.kind === 'canonical'
             ? result.value.metadataPath
-            : path.join(result.value.changeDir, '.openspec.yaml'),
+            : path.join(result.value.changeDir, '.codespec.yaml'),
         schema: result.kind === 'canonical' ? 'code-spec' : result.value.schema,
       },
       root: toRootOutput(root),

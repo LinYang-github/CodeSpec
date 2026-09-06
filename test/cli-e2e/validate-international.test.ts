@@ -8,9 +8,9 @@ const tempRoots: string[] = [];
 
 /** Create a temporary project containing a non-English main spec. */
 async function prepareNonEnglishSpec(): Promise<string> {
-  const projectDir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-i18n-validation-'));
+  const projectDir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-i18n-validation-'));
   tempRoots.push(projectDir);
-  const specDir = path.join(projectDir, 'openspec', 'specs', '日志记录');
+  const specDir = path.join(projectDir, 'codespec', 'specs', '日志记录');
   await fs.mkdir(specDir, { recursive: true });
   await fs.writeFile(
     path.join(specDir, 'spec.md'),
@@ -34,11 +34,11 @@ async function prepareNonEnglishSpec(): Promise<string> {
 
 /** Create a temporary project containing a non-English change delta. */
 async function prepareNonEnglishChange(): Promise<string> {
-  const projectDir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-i18n-change-validation-'));
+  const projectDir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-i18n-change-validation-'));
   tempRoots.push(projectDir);
   const specDir = path.join(
     projectDir,
-    'openspec',
+    'codespec',
     'changes',
     '添加日志',
     'specs',

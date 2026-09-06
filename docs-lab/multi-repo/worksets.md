@@ -4,14 +4,14 @@
 
 With a store, the context your agent needs is split across folders. The specs and changes live in the store, and the code lives in each repo. An agent started in one repo can read and grep that repo and nothing else, so it works from half the picture.
 
-Worksets are the utility OpenSpec provides for this. A workset is a saved, named list of folders you open together. This page assumes the store is already set up and registered on your machine. [Stores (beta)](stores.md) covers that.
+Worksets are the utility CodeSpec provides for this. A workset is a saved, named list of folders you open together. This page assumes the store is already set up and registered on your machine. [Stores (beta)](stores.md) covers that.
 
 ## How it works
 
 - **What it is**: a named list of folders, saved on your machine only. Nothing is written into the member folders, and nothing is committed.
-- **What opening does**: OpenSpec generates a `.code-workspace` file from the list and launches your editor on it. Every member folder sits in one window.
+- **What opening does**: CodeSpec generates a `.code-workspace` file from the list and launches your editor on it. Every member folder sits in one window.
 - **What you get**: your editor's search, and any agent you run inside that window, can read every member folder. The agent can grep the store's specs and the repo's code in one session.
-- **What it doesn't change**: which `openspec/` folder a command uses. That still follows [Where artifacts get created](stores.md#where-artifacts-get-created-when-using-stores).
+- **What it doesn't change**: which `codespec/` folder a command uses. That still follows [Where artifacts get created](stores.md#where-artifacts-get-created-when-using-stores).
 
 ## Set it up
 
@@ -19,39 +19,39 @@ Worksets are the utility OpenSpec provides for this. A workset is a saved, named
 
    ```bash
    # save a named list of folders you open together
-   openspec workset create platform \
+   codespec workset create platform \
      --member ~/src/web-app \
-     --member ~/openspec/team-plans \
+     --member ~/codespec/team-plans \
      --tool code
    ```
 
    ```yaml
    Saved workset 'platform' (2 members) to your machine.
-   Open it any time with: openspec workset open platform
+   Open it any time with: codespec workset open platform
    ```
 
 2. **Open it** whenever you start work:
 
    ```bash
    # open every member in one VS Code window
-   openspec workset open platform
+   codespec workset open platform
    ```
 
-`openspec workset list` shows what you saved, and `openspec workset remove <name>` deletes a workset without touching the member folders:
+`codespec workset list` shows what you saved, and `codespec workset remove <name>` deletes a workset without touching the member folders:
 
 ```yaml
 platform  (opens in VS Code)
   web-app     /Users/you/src/web-app
-  team-plans  /Users/you/openspec/team-plans
+  team-plans  /Users/you/codespec/team-plans
 ```
 
 ## Use it: one change, two folders
 
 Say the `add-login` change lives in the `team-plans` store, and the code for it lives in `web-app`. Open the `platform` workset and ask your agent to implement the change. In that one session it can:
 
-- read `team-plans/openspec/changes/add-login/` and the specs next to it
+- read `team-plans/codespec/changes/add-login/` and the specs next to it
 - edit the code in `web-app/`
-- run `openspec` commands from inside `web-app`
+- run `codespec` commands from inside `web-app`
 
 Without the workset, the agent only sees whichever folder it was started in.
 

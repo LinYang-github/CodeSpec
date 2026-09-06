@@ -17,9 +17,9 @@
 ### Modified Capabilities
 <!-- Existing capabilities whose REQUIREMENTS are changing (not just implementation).
      Only list here if spec-level behavior changes. Each needs a delta spec file.
-     Use the exact existing path under openspec/specs/. Leave empty if no requirement
+     Use the exact existing path under codespec/specs/. Leave empty if no requirement
      changes. A change with no capabilities at all (pure refactor, tooling, docs)
-     must set `skip_specs: true` in its .openspec.yaml - openspec validate rejects
+     must set `skip_specs: true` in its .codespec.yaml - codespec validate rejects
      a zero-delta change without that marker. Do not invent a requirement just to
      satisfy validation. -->
 - `<existing-capability-path>`: <what requirement is changing>

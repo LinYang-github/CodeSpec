@@ -15,12 +15,12 @@ describe('startUiServer', () => {
   });
 
   it('serves indexed documents only through opaque IDs on the loopback interface', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-server-'));
-    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-assets-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-server-'));
+    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));
     tempRoots.push(root, assetsDir);
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'business.md'), '# 业务说明\n\n本机浏览。');
-    await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html><title>OpenSpec UI</title>');
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'business.md'), '# 业务说明\n\n本机浏览。');
+    await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html><title>CodeSpec UI</title>');
 
     const server = await startUiServer({ projectRoot: root, assetsDir, port: 0 });
     servers.push(server);
@@ -30,18 +30,18 @@ describe('startUiServer', () => {
     const document = index.documents[0];
 
     expect(server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-    expect(document.relativePath).toBe('openspec/business.md');
+    expect(document.relativePath).toBe('codespec/business.md');
     expect((await fetch(`${server.url}/api/documents/${document.id}`)).status).toBe(200);
     expect((await fetch(`${server.url}/api/documents/../../etc/passwd`)).status).toBe(404);
   });
 
   it('searches indexed content and refreshes the index only on an explicit request', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-server-'));
-    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-assets-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-server-'));
+    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));
     tempRoots.push(root, assetsDir);
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'release.md'), '# 发布计划\n\n初始内容。');
-    await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html><title>OpenSpec UI</title>');
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'release.md'), '# 发布计划\n\n初始内容。');
+    await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html><title>CodeSpec UI</title>');
 
     const revealed: string[] = [];
     const server = await startUiServer({ projectRoot: root, assetsDir, port: 0, revealDocument: async (filePath) => { revealed.push(filePath); } });
@@ -49,23 +49,23 @@ describe('startUiServer', () => {
     const before = await (await fetch(`${server.url}/api/search?q=%E5%8F%91%E5%B8%83`)).json() as {
       documents: Array<{ relativePath: string }>;
     };
-    await fs.writeFile(path.join(root, 'openspec', 'new.md'), '# 新文档\n\n重新扫描后可见。');
+    await fs.writeFile(path.join(root, 'codespec', 'new.md'), '# 新文档\n\n重新扫描后可见。');
     const rebuild = await fetch(`${server.url}/api/rebuild`, { method: 'POST' });
     const after = await (await fetch(`${server.url}/api/index`)).json() as {
       documents: Array<{ relativePath: string }>;
     };
 
-    expect(before.documents.map((document) => document.relativePath)).toEqual(['openspec/release.md']);
+    expect(before.documents.map((document) => document.relativePath)).toEqual(['codespec/release.md']);
     expect(rebuild.status).toBe(200);
-    expect(after.documents.map((document) => document.relativePath)).toContain('openspec/new.md');
+    expect(after.documents.map((document) => document.relativePath)).toContain('codespec/new.md');
   });
 
   it('accepts reveal requests only for an indexed document ID', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-server-'));
-    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-assets-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-server-'));
+    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));
     tempRoots.push(root, assetsDir);
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'business.md'), '# 业务说明');
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'business.md'), '# 业务说明');
     await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html>');
     const revealed: string[] = [];
     const server = await startUiServer({ projectRoot: root, assetsDir, port: 0, revealDocument: async (filePath) => { revealed.push(filePath); } });
@@ -74,6 +74,6 @@ describe('startUiServer', () => {
 
     expect((await fetch(`${server.url}/api/reveal/../../etc/passwd`, { method: 'POST' })).status).toBe(404);
     expect((await fetch(`${server.url}/api/reveal/${index.documents[0].id}`, { method: 'POST' })).status).toBe(200);
-    expect(revealed).toEqual([path.join(root, 'openspec', 'business.md')]);
+    expect(revealed).toEqual([path.join(root, 'codespec', 'business.md')]);
   });
 });

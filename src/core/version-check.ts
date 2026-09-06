@@ -8,7 +8,7 @@ import { isCiEnvironment } from '../utils/ci.js';
 import { getGlobalConfig } from './global-config.js';
 
 const require = createRequire(import.meta.url);
-const { name: PACKAGE_NAME, version: OPENSPEC_VERSION } = require('../../package.json');
+const { name: PACKAGE_NAME, version: CODESPEC_VERSION } = require('../../package.json');
 
 const DEFAULT_REGISTRY = 'https://registry.npmjs.org';
 const REQUEST_TIMEOUT_MS = 1500;
@@ -31,9 +31,9 @@ const SAFE_VERSION = /^\d{1,10}\.\d{1,10}\.\d{1,10}(?:-[0-9A-Za-z.-]{1,64})?(?:\
  * or telemetry.enabled false did not agree to a different outbound request.
  */
 function isCheckEnabled(): boolean {
-  if (process.env.OPENSPEC_NO_UPDATE_CHECK !== undefined) return false;
+  if (process.env.CODESPEC_NO_UPDATE_CHECK !== undefined) return false;
   if (process.env.DO_NOT_TRACK === '1') return false;
-  if (process.env.OPENSPEC_TELEMETRY === '0') return false;
+  if (process.env.CODESPEC_TELEMETRY === '0') return false;
   if (isCiEnvironment()) return false;
   if (process.env.NODE_ENV === 'test') return false;
   // Same config opt-out as telemetry (env remains the hard override above).
@@ -249,7 +249,7 @@ export async function getAvailableCliUpdate(): Promise<string | null> {
   try {
     const latest = await fetchLatestVersion();
     if (!latest) return null;
-    return compareVersions(latest, OPENSPEC_VERSION) > 0 ? latest : null;
+    return compareVersions(latest, CODESPEC_VERSION) > 0 ? latest : null;
   } catch {
     return null;
   }
@@ -273,7 +273,7 @@ export function getInstallDir(): string | null {
  * True when the running CLI resolves from a `node_modules` belonging to the
  * project being updated or any ancestor of it — the hoisted-root layout npm and
  * pnpm workspaces produce. Anchored on the target path rather than the working
- * directory, since `openspec update <path>` and running from a sub-package are
+ * directory, since `codespec update <path>` and running from a sub-package are
  * both normal. Never throws: process.cwd() fails when the directory has been
  * deleted, and a wrong upgrade hint must not take down a successful update.
  */
@@ -409,7 +409,7 @@ export function isNpmGlobalInstall(
     // parent of the node_modules dir the CLI resolved from, so a hand-copied
     // portable tree would pass and be offered an npm upgrade it never had.
     return fs.existsSync(
-      process.platform === 'win32' ? path.join(prefix, 'openspec.cmd') : path.join(prefix, 'bin')
+      process.platform === 'win32' ? path.join(prefix, 'codespec.cmd') : path.join(prefix, 'bin')
     );
   } catch {
     return false;
@@ -473,7 +473,7 @@ export function buildCliUpdateLines(
   projectPath: string,
   options: { withCommand?: boolean } = {}
 ): string[] {
-  const lines = [`A newer OpenSpec CLI is available (v${OPENSPEC_VERSION} → v${latestVersion}).`];
+  const lines = [`A newer CodeSpec CLI is available (v${CODESPEC_VERSION} → v${latestVersion}).`];
 
   // Omitted when we are about to offer to run it — printing a command and then
   // asking to run that same command reads like the user has to do both.
@@ -510,7 +510,7 @@ export function buildUpgradeCommandLines(
     lines.push(`  ${GLOBAL_UPGRADE_COMMANDS[detectPackageManager(installDir)]}`);
   }
 
-  lines.push('  Then run "openspec update" again to pick up new workflows.');
+  lines.push('  Then run "codespec update" again to pick up new workflows.');
   return lines;
 }
 
@@ -536,7 +536,7 @@ function loadSpawn(): typeof import('child_process').spawn {
 export function canSelfUpgrade(installDir: string | null, projectPath: string): boolean {
   if (!installDir) return false;
   if (isEphemeralRunnerInstall(installDir)) return false;
-  // Both anchors matter: `openspec update ../other` from a project that owns
+  // Both anchors matter: `codespec update ../other` from a project that owns
   // the CLI as a dependency is still a project-local install.
   if (isProjectLocalInstall(installDir, projectPath)) return false;
   if (isProjectLocalInstall(installDir)) return false;
@@ -580,7 +580,7 @@ async function runGlobalUpgrade(): Promise<boolean> {
 }
 
 /**
- * The `openspec` npm installs alongside its global package, so the upgrade can
+ * The `codespec` npm installs alongside its global package, so the upgrade can
  * be handed to the copy npm just wrote rather than to whatever PATH resolves.
  * Null when it cannot be found, in which case PATH is the only option left.
  */
@@ -602,11 +602,11 @@ export function upgradedBinPath(
 
   for (const root of ordered) {
     // npm writes the shim beside the global root on Windows
-    // (%APPDATA%\\npm\\openspec.cmd) and in <prefix>/bin on POSIX.
+    // (%APPDATA%\\npm\\codespec.cmd) and in <prefix>/bin on POSIX.
     const candidates =
       process.platform === 'win32'
-        ? [path.join(path.dirname(root), 'openspec.cmd')]
-        : [path.resolve(root, '..', '..', 'bin', 'openspec')];
+        ? [path.join(path.dirname(root), 'codespec.cmd')]
+        : [path.resolve(root, '..', '..', 'bin', 'codespec')];
 
     for (const candidate of candidates) {
       try {
@@ -655,7 +655,7 @@ export function readCliVersion(binPath: string): Promise<string | null> {
     child.on('close', () => {
       clearTimeout(timer);
       // A line that is only a version, not the first version-shaped token
-      // anywhere: a wrapper banner ("Node.js v25.8.1 | OpenSpec") would
+      // anywhere: a wrapper banner ("Node.js v25.8.1 | CodeSpec") would
       // otherwise be read as the answer.
       const version = output
         .split(/\r?\n/)
@@ -706,14 +706,14 @@ export async function offerCliUpgrade(latestVersion: string): Promise<UpgradeOut
   }
 
   const binPath = upgradedBinPath();
-  const version = await readCliVersion(binPath ?? 'openspec');
+  const version = await readCliVersion(binPath ?? 'codespec');
 
   if (!version) {
-    console.log(chalk.yellow('Upgrade finished, but no "openspec" could be run to confirm it.'));
+    console.log(chalk.yellow('Upgrade finished, but no "codespec" could be run to confirm it.'));
     return 'not-on-path';
   }
-  if (compareVersions(version, OPENSPEC_VERSION) <= 0) {
-    console.log(chalk.yellow(`Upgrade finished, but "openspec" still reports v${version}.`));
+  if (compareVersions(version, CODESPEC_VERSION) <= 0) {
+    console.log(chalk.yellow(`Upgrade finished, but "codespec" still reports v${version}.`));
     console.log(
       chalk.dim(
         binPath
@@ -730,9 +730,9 @@ export async function offerCliUpgrade(latestVersion: string): Promise<UpgradeOut
 }
 
 /**
- * Runs `openspec update` again with the CLI that was just installed — this
+ * Runs `codespec update` again with the CLI that was just installed — this
  * process is still the old code, so it cannot write the new workflows itself.
- * Resolves the exit code to pass along; when no `openspec` is on PATH the
+ * Resolves the exit code to pass along; when no `codespec` is on PATH the
  * upgrade still landed but nothing was regenerated, so it says so and
  * resolves 0 rather than reporting a failure the upgrade did not have.
  */
@@ -741,7 +741,7 @@ export async function rerunUpdateWithUpgradedCli(
   options: { force?: boolean; binPath?: string } = {}
 ): Promise<number> {
   const spawn = loadSpawn();
-  const binPath = options.binPath ?? upgradedBinPath() ?? 'openspec';
+  const binPath = options.binPath ?? upgradedBinPath() ?? 'codespec';
   // The re-run stands in for the command the user typed, so it has to carry
   // the flags they typed with it.
   const args = ['update'];
@@ -756,17 +756,17 @@ export async function rerunUpdateWithUpgradedCli(
         ...process.env,
         // The child must not offer the upgrade again: if PATH still resolves
         // to the old binary, prompting would loop forever.
-        OPENSPEC_NO_UPDATE_CHECK: '1',
+        CODESPEC_NO_UPDATE_CHECK: '1',
         // This is a continuation of the command the user already ran, and the
         // parent recorded it; counting it twice would overstate usage.
-        OPENSPEC_TELEMETRY: '0',
+        CODESPEC_TELEMETRY: '0',
       },
     });
     child.on('error', () => {
       // Nothing to hand off to: the upgrade landed but the instruction files
       // are still the old ones, so this run did not do what was asked.
       console.log(chalk.yellow('Instruction files were not regenerated.'));
-      console.log(chalk.dim('  Run "openspec update" to pick up the new workflows.'));
+      console.log(chalk.dim('  Run "codespec update" to pick up the new workflows.'));
       resolve(1);
     });
     // A child killed by a signal reports no code; that is not success.

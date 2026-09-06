@@ -11,9 +11,9 @@ describe('skill-generation', () => {
     it('should generate exactly three public skills', () => {
       const templates = getSkillTemplates();
       expect(templates.map((template) => template.dirName)).toEqual([
-        'openspec-workflow',
-        'openspec-rebase-change',
-        'openspec-archive-change',
+        'codespec-workflow',
+        'codespec-rebase-change',
+        'codespec-archive-change',
       ]);
       expect(templates.map((template) => template.workflowId)).toEqual([
         'workflow',
@@ -53,9 +53,9 @@ describe('skill-generation', () => {
       const templates = getSkillTemplates();
       const dirNames = templates.map(t => t.dirName);
 
-      expect(dirNames).toContain('openspec-workflow');
-      expect(dirNames).toContain('openspec-rebase-change');
-      expect(dirNames).toContain('openspec-archive-change');
+      expect(dirNames).toContain('codespec-workflow');
+      expect(dirNames).toContain('codespec-rebase-change');
+      expect(dirNames).toContain('codespec-archive-change');
     });
 
     it('should have valid template structure', () => {
@@ -101,7 +101,7 @@ describe('skill-generation', () => {
       const filtered = getSkillTemplates(['propose']);
       expect(filtered).toHaveLength(1);
       expect(filtered[0].workflowId).toBe('workflow');
-      expect(filtered[0].dirName).toBe('openspec-workflow');
+      expect(filtered[0].dirName).toBe('codespec-workflow');
     });
   });
 
@@ -227,8 +227,8 @@ describe('skill-generation', () => {
       const content = generateSkillContent(template, '0.24.0');
 
       expect(content).toContain('license: MIT');
-      expect(content).toContain('compatibility: Requires openspec CLI.');
-      expect(content).toContain('author: openspec');
+      expect(content).toContain('compatibility: Requires codespec CLI.');
+      expect(content).toContain('author: codespec');
       expect(content).toContain('version: "1.0"');
       expect(content).toContain('generatedBy: "0.24.0"');
     });
@@ -266,28 +266,28 @@ describe('skill-generation', () => {
       const template = {
         name: 'transform-test',
         description: 'Test transform callback',
-        instructions: 'Use /opsx:new to start and /opsx:apply to implement.',
+        instructions: 'Use /codespec:new to start and /codespec:apply to implement.',
       };
 
-      const transformer = (text: string) => text.replace(/\/opsx:/g, '/opsx-');
+      const transformer = (text: string) => text.replace(/\/codespec:/g, '/codespec-');
       const content = generateSkillContent(template, '0.23.0', transformer);
 
-      expect(content).toContain('/opsx-new');
-      expect(content).toContain('/opsx-apply');
-      expect(content).not.toContain('/opsx:new');
-      expect(content).not.toContain('/opsx:apply');
+      expect(content).toContain('/codespec-new');
+      expect(content).toContain('/codespec-apply');
+      expect(content).not.toContain('/codespec:new');
+      expect(content).not.toContain('/codespec:apply');
     });
 
     it('should not transform instructions when callback is undefined', () => {
       const template = {
         name: 'no-transform-test',
         description: 'Test without transform',
-        instructions: 'Use /opsx:new to start.',
+        instructions: 'Use /codespec:new to start.',
       };
 
       const content = generateSkillContent(template, '0.23.0', undefined);
 
-      expect(content).toContain('/opsx:new');
+      expect(content).toContain('/codespec:new');
     });
 
     it('should support custom transformInstructions logic', () => {

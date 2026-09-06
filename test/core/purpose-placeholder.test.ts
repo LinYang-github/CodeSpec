@@ -177,7 +177,7 @@ describe('findPurposePlaceholderIssue', () => {
       // it. Reporting that is the check failing the one document that explains
       // what it is for.
       const purpose = [
-        'Documents the Purpose `openspec archive` writes for a new capability:',
+        'Documents the Purpose `codespec archive` writes for a new capability:',
         '',
         fenced(ARCHIVE_TEXT),
       ].join('\n');

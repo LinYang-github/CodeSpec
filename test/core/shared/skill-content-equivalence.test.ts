@@ -17,18 +17,18 @@ describe('legacy Codex skill equivalence', () => {
 
   it('accepts generated version, BOM, CRLF, and known dual-reference differences', () => {
     const legacy =
-      '\uFEFF---\r\nmetadata:\r\n  generatedBy: "0.1.0"\r\n---\r\nUse $openspec-apply-change.\r\n';
+      '\uFEFF---\r\nmetadata:\r\n  generatedBy: "0.1.0"\r\n---\r\nUse $codespec-archive-change.\r\n';
     const current =
-      '---\nmetadata:\n  generatedBy: "1.7.0-beta.1+build.5"\n---\nUse $openspec-apply-change (Codex) or /openspec-apply-change (other agents).\n';
+      '---\nmetadata:\n  generatedBy: "1.7.0-beta.1+build.5"\n---\nUse $codespec-archive-change (Codex) or /codespec-archive-change (other agents).\n';
 
     expect(isLegacyCodexSkillEquivalentToCurrent(legacy, current)).toBe(true);
   });
 
   it('preserves custom invocation examples', () => {
     const legacy =
-      '---\nmetadata:\n  generatedBy: "1.0.0"\n---\nUse $openspec-personal.\n';
+      '---\nmetadata:\n  generatedBy: "1.0.0"\n---\nUse $codespec-personal.\n';
     const current =
-      '---\nmetadata:\n  generatedBy: "1.0.0"\n---\nUse $openspec-personal (Codex) or /openspec-personal (other agents).\n';
+      '---\nmetadata:\n  generatedBy: "1.0.0"\n---\nUse $codespec-personal (Codex) or /codespec-personal (other agents).\n';
 
     expect(isLegacyCodexSkillEquivalentToCurrent(legacy, current)).toBe(false);
   });

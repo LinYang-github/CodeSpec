@@ -1,18 +1,18 @@
-# OpenSpec + Superpowers Overall Migration Design
+# CodeSpec + Superpowers Overall Migration Design
 
 > Status: approved for implementation.
 
 ## Purpose
 
-Replace the current code-spec Change model with the OpenSpec + Superpowers
-protocol described in the supplied overall design. OpenSpec becomes the
+Replace the current code-spec Change model with the CodeSpec + Superpowers
+protocol described in the supplied overall design. CodeSpec becomes the
 long-lived source of truth for modules, requirements, Change lifecycle,
 traceability, verification evidence, baselines, and archive history;
 Superpowers remains the methodology engine for analysis, planning, TDD,
 debugging, execution, review, and fresh verification.
 
 This is an intentional breaking migration. Existing slug-based Changes,
-`.openspec.yaml` metadata, and the previous code-spec archive layout are not
+`.codespec.yaml` metadata, and the previous code-spec archive layout are not
 read or written by the new code-spec workflow. Existing files are left in place
 for manual migration or removal by the repository owner; the CLI reports them
 as unsupported rather than silently interpreting them as new Changes.
@@ -32,14 +32,14 @@ as unsupported rather than silently interpreting them as new Changes.
   any current specification or history file.
 - Mark only requirement-overlapping active Changes STALE after an archive and
   provide semantic Rebase back to the latest current specification.
-- Route OpenSpec lifecycle actions to Superpowers skills without forking their
+- Route CodeSpec lifecycle actions to Superpowers skills without forking their
   methodology or creating a second long-lived plan/spec source.
 - Keep the existing CLI's cross-platform path and JSON-output guarantees.
 
 ## Non-Goals
 
-- Do not preserve compatibility with old Change IDs, `.openspec.yaml`, or the
-  old `openspec/specs` delta layout.
+- Do not preserve compatibility with old Change IDs, `.codespec.yaml`, or the
+  old `codespec/specs` delta layout.
 - Do not implement replacement versions of brainstorming, writing-plans, TDD,
   systematic debugging, verification, review, or branch-finishing skills.
 - Do not infer lifecycle state from artifact existence alone.
@@ -49,10 +49,10 @@ as unsupported rather than silently interpreting them as new Changes.
 
 ## Canonical Workspace Model
 
-The code-spec workspace is rooted at `openspec/` and contains:
+The code-spec workspace is rooted at `codespec/` and contains:
 
 ```text
-openspec/
+codespec/
 ├── config.yaml
 ├── business.md
 ├── changes/
@@ -203,7 +203,7 @@ ownership, scenario structure, and verification coverage.
 
 Superpowers' detailed plan is stored at
 `docs/superpowers/plans/<date>-<change-id>.md` only as an execution artifact of
-the current agent session. The OpenSpec `tasks.md` remains the concise status
+the current agent session. The CodeSpec `tasks.md` remains the concise status
 projection and archive gate. Both use `SP-##` IDs, but `tasks.md` never copies
 the detailed plan prose. Task completion requires observed RED, minimal GREEN,
 regression coverage, and scenario coverage; Requirement verification is a
@@ -211,7 +211,7 @@ separate gate recorded in `verification.md` with fresh command output.
 
 ## Lifecycle Orchestration
 
-The new `openspec-workflow` integration layer owns these actions:
+The new `codespec-workflow` integration layer owns these actions:
 
 ```text
 create-change, resolve-change, resume, analyze, resolve-modules,
@@ -281,13 +281,13 @@ operate on the new Change contract and reject legacy metadata. The command
 surfaces are:
 
 ```text
-openspec new change [title]
-openspec status --change CHG-...
-openspec instructions analyze|design|plan|implement|verify|archive
-openspec detect-stale --change CHG-...
-openspec rebase --change CHG-...
-openspec archive CHG-...
-openspec abandon CHG-...
+codespec new change [title]
+codespec status --change CHG-...
+codespec instructions analyze|design|plan|implement|verify|archive
+codespec detect-stale --change CHG-...
+codespec rebase --change CHG-...
+codespec archive CHG-...
+codespec abandon CHG-...
 ```
 
 JSON output includes the resolved Change ID, status, revision, baseline,
@@ -295,7 +295,7 @@ Requirements, task progress, verification state, and actionable gate errors.
 Paths are produced with Node's `path` module and remain valid on Windows.
 
 Generated skills are derived from templates. The `using-superpowers` template
-detects `openspec/config.yaml` before selecting brainstorming. The
+detects `codespec/config.yaml` before selecting brainstorming. The
 brainstorming and writing-plans integrations route artifacts to the active
 Change. Verify and archive instructions consume fresh evidence and never treat
 Task DONE as Requirement PASS.
@@ -328,7 +328,7 @@ Tests are organized around the domain boundaries:
   conflict, dependency blocking, rollback, and immutable history;
 - CLI tests for explicit/semantic/ambiguous Change resolution, JSON errors,
   Windows-safe paths, and the lifecycle command sequence;
-- generated Skill parity tests for the OpenSpec workflow injection;
+- generated Skill parity tests for the CodeSpec workflow injection;
 - end-to-end tests for ordinary feature, revisions, independent parallel
   Changes, same-module different Requirement, same-Requirement conflict,
   STALE/Rebase, parallel Requirement allocation, VERIFY branches, bug routing,

@@ -4,7 +4,7 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { runCLI } from '../helpers/run-cli.js';
 
-describe('openspec validate --archived checks archived task completion (#205)', () => {
+describe('codespec validate --archived checks archived task completion (#205)', () => {
   let projectDir: string;
 
   const write = async (relative: string, content: string) => {
@@ -14,17 +14,17 @@ describe('openspec validate --archived checks archived task completion (#205)', 
   };
 
   beforeAll(async () => {
-    projectDir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-archived-tasks-e2e-'));
+    projectDir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-archived-tasks-e2e-'));
 
     // Fully completed archived change.
     await write(
-      'openspec/changes/archive/2026-01-01-done-change/tasks.md',
+      'codespec/changes/archive/2026-01-01-done-change/tasks.md',
       ['# Tasks', '', '- [x] 1.1 do a', '- [x] 1.2 do b', ''].join('\n')
     );
 
     // Archived change with an unchecked nested sub-task.
     await write(
-      'openspec/changes/archive/2026-01-02-incomplete-change/tasks.md',
+      'codespec/changes/archive/2026-01-02-incomplete-change/tasks.md',
       [
         '# Tasks',
         '',
@@ -37,7 +37,7 @@ describe('openspec validate --archived checks archived task completion (#205)', 
 
     // An active change with unchecked tasks must NOT be scanned by --archived.
     await write(
-      'openspec/changes/active-change/tasks.md',
+      'codespec/changes/active-change/tasks.md',
       ['# Tasks', '', '- [ ] 1.1 still in progress', ''].join('\n')
     );
   });
@@ -79,7 +79,7 @@ describe('openspec validate --archived checks archived task completion (#205)', 
     await fs.rm(
       path.join(
         projectDir,
-        'openspec/changes/archive/2026-01-02-incomplete-change'
+        'codespec/changes/archive/2026-01-02-incomplete-change'
       ),
       { recursive: true, force: true }
     );
@@ -91,9 +91,9 @@ describe('openspec validate --archived checks archived task completion (#205)', 
   });
 
   it('exits 0 with a friendly message when there is no archive directory', async () => {
-    const emptyDir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-no-archive-e2e-'));
-    await fs.mkdir(path.join(emptyDir, 'openspec', 'changes'), { recursive: true });
-    await fs.mkdir(path.join(emptyDir, 'openspec', 'specs'), { recursive: true });
+    const emptyDir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-no-archive-e2e-'));
+    await fs.mkdir(path.join(emptyDir, 'codespec', 'changes'), { recursive: true });
+    await fs.mkdir(path.join(emptyDir, 'codespec', 'specs'), { recursive: true });
 
     const result = await runCLI(['validate', '--archived'], { cwd: emptyDir });
 
@@ -103,12 +103,12 @@ describe('openspec validate --archived checks archived task completion (#205)', 
   });
 
   it('fails instead of passing silently when the archive path is not a directory', async () => {
-    const dir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-archive-notdir-e2e-'));
-    await fs.mkdir(path.join(dir, 'openspec', 'changes'), { recursive: true });
-    await fs.mkdir(path.join(dir, 'openspec', 'specs'), { recursive: true });
+    const dir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-archive-notdir-e2e-'));
+    await fs.mkdir(path.join(dir, 'codespec', 'changes'), { recursive: true });
+    await fs.mkdir(path.join(dir, 'codespec', 'specs'), { recursive: true });
     // A real read failure (ENOTDIR) must not read as "no archived changes".
     await fs.writeFile(
-      path.join(dir, 'openspec', 'changes', 'archive'),
+      path.join(dir, 'codespec', 'changes', 'archive'),
       'not a directory\n'
     );
 
@@ -120,15 +120,15 @@ describe('openspec validate --archived checks archived task completion (#205)', 
   });
 
   it('fails when an archived tasks file exists but cannot be read', async () => {
-    const dir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-archive-unreadable-e2e-'));
-    await fs.mkdir(path.join(dir, 'openspec', 'specs'), { recursive: true });
+    const dir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-archive-unreadable-e2e-'));
+    await fs.mkdir(path.join(dir, 'codespec', 'specs'), { recursive: true });
     // A tasks.md that is a directory triggers a non-ENOENT read error (EISDIR)
     // on every platform, standing in for a genuinely unreadable file. It must
     // be reported, not silently counted as "no tasks".
     await fs.mkdir(
       path.join(
         dir,
-        'openspec',
+        'codespec',
         'changes',
         'archive',
         'unreadable-change',
@@ -151,7 +151,7 @@ describe('openspec validate --archived checks archived task completion (#205)', 
       expect.objectContaining({
         level: 'ERROR',
         // Pathed like every other validate issue: POSIX, root-relative.
-        path: 'openspec/changes/archive/unreadable-change/tasks.md',
+        path: 'codespec/changes/archive/unreadable-change/tasks.md',
         message: 'could not read task file',
       })
     );

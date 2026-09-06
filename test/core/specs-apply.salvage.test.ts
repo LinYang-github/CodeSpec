@@ -19,20 +19,20 @@ describe('buildUpdatedSpec (content absorbed into a requirement)', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-orphan-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-orphan-'));
   });
   afterEach(async () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
   async function build(specBody: string[], deltaBody: string[]) {
-    const specsDir = path.join(tempDir, 'openspec', 'specs', 'demo');
-    const changeDir = path.join(tempDir, 'openspec', 'changes', 'c');
+    const specsDir = path.join(tempDir, 'codespec', 'specs', 'demo');
+    const changeDir = path.join(tempDir, 'codespec', 'changes', 'c');
     await fs.mkdir(specsDir, { recursive: true });
     await fs.mkdir(path.join(changeDir, 'specs', 'demo'), { recursive: true });
     await fs.writeFile(path.join(specsDir, 'spec.md'), specBody.join('\n'));
     await fs.writeFile(path.join(changeDir, 'specs', 'demo', 'spec.md'), deltaBody.join('\n'));
-    const [update] = await findSpecUpdates(changeDir, path.join(tempDir, 'openspec', 'specs'));
+    const [update] = await findSpecUpdates(changeDir, path.join(tempDir, 'codespec', 'specs'));
     return buildUpdatedSpec(update, 'c', { silent: true });
   }
 

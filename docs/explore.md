@@ -1,36 +1,36 @@
 # Explore and Clarify a Change
 
-OpenSpec has one development entry: `/opsx:workflow`. When the intent is
+CodeSpec has one development entry: `/codespec:workflow`. When the intent is
 unclear, the workflow delegates exploration to Superpowers brainstorming
 before it creates or updates a Change.
 
 Use this path when you know the problem but not the solution, need to compare
 approaches, or are unfamiliar with the affected code. Superpowers owns the
-engineering conversation; OpenSpec Core owns Change identity, requirements,
+engineering conversation; CodeSpec Core owns Change identity, requirements,
 baseline, traceability, and stale detection.
 
 ```text
 idea or problem
       │
       ▼
-/opsx:workflow
+/codespec:workflow
       │
       ├─ Superpowers brainstorming / plan / TDD / debug / verify
-      ├─ OpenSpec Core Change + requirements + baseline governance
-      └─ /opsx:rebase when the baseline is stale or changes conflict
+      ├─ CodeSpec Core Change + requirements + baseline governance
+      └─ /codespec:rebase when the baseline is stale or changes conflict
 ```
 
 ## Start
 
 ```text
-You: /opsx:workflow
+You: /codespec:workflow
 
 You: The checkout sometimes creates duplicate orders. Please investigate,
      compare safe approaches, and turn the selected approach into a Change.
 ```
 
 The workflow should inspect the repository, clarify scope and non-goals, then
-create a canonical Change under `openspec/changes/CHG-YYYYMMDD-NNN/`. The
+create a canonical Change under `codespec/changes/CHG-YYYYMMDD-NNN/`. The
 resulting artifacts are reviewed before implementation begins.
 
 ## Keep exploration useful
@@ -41,7 +41,7 @@ resulting artifacts are reviewed before implementation begins.
 - If the requested behavior changes after implementation starts, revise the
   current artifacts and let Core recalculate the baseline and requirement delta.
 
-Do not use exploration as a second public OpenSpec entry. It is an internal
+Do not use exploration as a second public CodeSpec entry. It is an internal
 Superpowers method reached through `workflow`.
 
 ## Related

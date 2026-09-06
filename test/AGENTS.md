@@ -1,4 +1,4 @@
-# OpenSpec Test Guidance
+# CodeSpec Test Guidance
 
 Applies to tests under `test/`.
 

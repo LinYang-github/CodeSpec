@@ -67,15 +67,15 @@ canonical Scenario 从：
 
 需要同步更新：
 
-- `src/core/openspec-workflow/types.ts` 的 Scenario 类型。
-- `src/core/openspec-workflow/schemas.ts` 的 canonical Scenario Schema。
+- `src/core/codespec-workflow/types.ts` 的 Scenario 类型。
+- `src/core/codespec-workflow/schemas.ts` 的 canonical Scenario Schema。
 - 所有创建、复制、比较和渲染 Scenario 的代码路径。
 
 ## 4. 解析规则
 
 ### 4.1 Delta parser
 
-`src/core/openspec-workflow/delta-parser.ts` 当前只接受 `GIVEN/WHEN/THEN`。本次将 `ERROR` 加入 Scenario 行解析：
+`src/core/codespec-workflow/delta-parser.ts` 当前只接受 `GIVEN/WHEN/THEN`。本次将 `ERROR` 加入 Scenario 行解析：
 
 1. 识别 `- **ERROR** <text>` 和 `- **ERROR**`。
 2. 收集所有非空 `ERROR` 内容到 `error` 数组。
@@ -105,7 +105,7 @@ canonical Scenario 从：
 
 存在 `ERROR` 行但内容为空时：
 
-- `openspec validate` 返回失败。
+- `codespec validate` 返回失败。
 - 诊断包含 `Change`、Requirement ID、Scenario ID 和补写提示。
 - 不自动填入内容，不把空值当成“无异常”。
 

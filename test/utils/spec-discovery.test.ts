@@ -5,7 +5,7 @@ import os from 'os';
 import { discoverSpecFiles } from '../../src/utils/spec-discovery.js';
 
 async function withTempDir(run: (dir: string) => Promise<void>) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-spec-discovery-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-spec-discovery-'));
   try {
     await run(dir);
   } finally {

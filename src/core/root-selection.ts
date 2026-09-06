@@ -1,11 +1,11 @@
 /**
- * Shared OpenSpec root resolution for normal commands.
+ * Shared CodeSpec root resolution for normal commands.
  *
  * Normal commands (`new change`, `status`, `instructions`, `list`, `show`,
- * `validate`, `archive`) resolve one OpenSpec root through this module:
+ * `validate`, `archive`) resolve one CodeSpec root through this module:
  *
  * - `--store <id>` selects a registered store's root.
- * - Without `--store`, the nearest ancestor containing `openspec/` wins.
+ * - Without `--store`, the nearest ancestor containing `codespec/` wins.
  *   Leftover workspace view state is never considered a root here.
  * - With no nearest root, a global `defaultStore` (if set) is the last
  *   machine-level fallback before the selection hint error.
@@ -19,7 +19,7 @@
  * (`unknown_store`, `no_registered_stores`, `store_identity_mismatch`,
  * `unhealthy_store_root`, `store_path_not_supported`,
  * `invalid_store_pointer`, `no_root_with_registered_stores`,
- * `no_openspec_root`).
+ * `no_codespec_root`).
  */
 
 import * as fs from 'node:fs';
@@ -34,13 +34,13 @@ import {
   validateStoreId,
 } from './store/foundation.js';
 import { getStoreRootForBackend } from './store/registry.js';
-import { inspectOpenSpecRoot } from './openspec-root.js';
+import { inspectCodeSpecRoot } from './codespec-root.js';
 import { findRepoPlanningRootSync, type PlanningHome } from './planning-home.js';
-import { classifyOpenSpecDir, storePointerProblem } from './project-config.js';
+import { classifyCodeSpecDir, storePointerProblem } from './project-config.js';
 import { getGlobalConfig } from './global-config.js';
 import { FileSystemUtils } from '../utils/file-system.js';
 
-export type OpenSpecRootSource =
+export type CodeSpecRootSource =
   | 'store'
   | 'declared'
   | 'global_default'
@@ -52,19 +52,19 @@ export interface StoreSelectorOptions {
   storePath?: string;
 }
 
-export interface ResolveOpenSpecRootOptions extends StoreSelectorOptions {
+export interface ResolveCodeSpecRootOptions extends StoreSelectorOptions {
   startPath?: string;
   allowImplicitRoot?: boolean;
   globalDataDir?: string;
 }
 
-export interface ResolvedOpenSpecRoot {
+export interface ResolvedCodeSpecRoot {
   path: string;
   changesDir: string;
   specsDir: string;
   archiveDir: string;
   defaultSchema: 'code-spec';
-  source: OpenSpecRootSource;
+  source: CodeSpecRootSource;
   storeId?: string;
 }
 
@@ -111,19 +111,19 @@ function fromStoreError(error: unknown): never {
 }
 
 function doctorFix(id: string): string {
-  return `运行 openspec store doctor ${id} 检查该 Store。`;
+  return `运行 codespec store doctor ${id} 检查该 Store。`;
 }
 
 function makeRoot(
   rootPath: string,
-  source: OpenSpecRootSource,
+  source: CodeSpecRootSource,
   storeId?: string
-): ResolvedOpenSpecRoot {
+): ResolvedCodeSpecRoot {
   return {
     path: rootPath,
-    changesDir: path.join(rootPath, 'openspec', 'changes'),
-    specsDir: path.join(rootPath, 'openspec', 'specs'),
-    archiveDir: path.join(rootPath, 'openspec', 'changes', 'archive'),
+    changesDir: path.join(rootPath, 'codespec', 'changes'),
+    specsDir: path.join(rootPath, 'codespec', 'specs'),
+    archiveDir: path.join(rootPath, 'codespec', 'changes', 'archive'),
     defaultSchema: 'code-spec',
     source,
     ...(storeId ? { storeId } : {}),
@@ -145,8 +145,8 @@ function canonicalDirectory(startPath: string): string {
 async function resolveStoreRoot(
   id: string,
   globalDataDir?: string,
-  source: OpenSpecRootSource = 'store'
-): Promise<ResolvedOpenSpecRoot> {
+  source: CodeSpecRootSource = 'store'
+): Promise<ResolvedCodeSpecRoot> {
   try {
     validateStoreId(id);
   } catch (error) {
@@ -169,7 +169,7 @@ async function resolveStoreRoot(
         'no_registered_stores',
         {
           target: 'store.id',
-          fix: `请先运行 openspec store setup ${id} 或 openspec store register <path>。`,
+          fix: `请先运行 codespec store setup ${id} 或 codespec store register <path>。`,
         }
       );
     }
@@ -181,7 +181,7 @@ async function resolveStoreRoot(
       'unknown_store',
       {
         target: 'store.id',
-        fix: '请传入已登记的 Store ID，或运行 openspec store list。',
+        fix: '请传入已登记的 Store ID，或运行 codespec store list。',
       }
     );
   }
@@ -208,9 +208,9 @@ async function resolveStoreRoot(
       );
     case 'unhealthy_root':
       throw new RootSelectionError(
-        `Store '${id}' 在 ${storeRoot} 没有健康的 OpenSpec 根目录：${inspection.problems} ${doctorFix(id)}`,
+        `Store '${id}' 在 ${storeRoot} 没有健康的 CodeSpec 根目录：${inspection.problems} ${doctorFix(id)}`,
         'unhealthy_store_root',
-        { target: 'openspec.root', fix: doctorFix(id) }
+        { target: 'codespec.root', fix: doctorFix(id) }
       );
     case 'ok':
       return makeRoot(inspection.canonicalRoot, source, id);
@@ -256,11 +256,11 @@ export async function inspectRegisteredStore(
     return { kind: 'metadata_id_mismatch', actualId: metadata.id };
   }
 
-  const inspection = await inspectOpenSpecRoot(storeRoot);
+  const inspection = await inspectCodeSpecRoot(storeRoot);
   if (!inspection.healthy) {
     const problems =
       inspection.diagnostics.map((diagnostic) => diagnostic.message).join(' ') ||
-      'OpenSpec 根目录缺失或不完整。';
+      'CodeSpec 根目录缺失或不完整。';
     return { kind: 'unhealthy_root', problems };
   }
 
@@ -268,23 +268,23 @@ export async function inspectRegisteredStore(
 }
 
 /**
- * Classifies the nearest `openspec/` directory (slice 3.2): a planning
+ * Classifies the nearest `codespec/` directory (slice 3.2): a planning
  * shape (specs/ or changes/ directories) is a real root and wins —
  * fallback never override. A config-only directory with a `store:`
  * pointer resolves the declared store; without one, it stays a root
  * (today's behavior for freshly initialized minimal roots).
  */
 /**
- * The nearest-root walk, qualified: an `openspec/` DIRECTORY alone is
+ * The nearest-root walk, qualified: an `codespec/` DIRECTORY alone is
  * not a root — it must carry a planning shape or a config file.
- * Without this, the recommended `~/openspec/<id>` store layout would
+ * Without this, the recommended `~/codespec/<id>` store layout would
  * make $HOME a phantom root that captures every command under the
  * home tree.
  */
 function findQualifyingRootSync(startPath: string): string | null {
   let candidate = findRepoPlanningRootSync(startPath);
   while (candidate) {
-    const { hasPlanningShape, pointer } = classifyOpenSpecDir(candidate);
+    const { hasPlanningShape, pointer } = classifyCodeSpecDir(candidate);
     if (hasPlanningShape || pointer.filePath) {
       return candidate;
     }
@@ -300,13 +300,13 @@ function findQualifyingRootSync(startPath: string): string | null {
 async function resolveNearestOrDeclaredRoot(
   nearestRoot: string,
   globalDataDir?: string
-): Promise<ResolvedOpenSpecRoot> {
-  const { hasPlanningShape, pointer } = classifyOpenSpecDir(nearestRoot);
+): Promise<ResolvedCodeSpecRoot> {
+  const { hasPlanningShape, pointer } = classifyCodeSpecDir(nearestRoot);
 
   if (hasPlanningShape) {
     if (pointer.value !== undefined) {
       console.error(
-        `警告：${pointer.filePath} 声明了 Store '${pointer.value}'，但此目录本身是真实的 OpenSpec 根目录；该声明已忽略。`
+        `警告：${pointer.filePath} 声明了 Store '${pointer.value}'，但此目录本身是真实的 CodeSpec 根目录；该声明已忽略。`
       );
     }
     return makeRoot(nearestRoot, 'nearest');
@@ -340,7 +340,7 @@ async function resolveNearestOrDeclaredRoot(
       // they did not pass --store.
       const declarationFix =
         error.diagnostic.code === 'unknown_store'
-          ? `请登记该 Store（openspec store register <path> --id ${pointer.value}），或编辑 ${pointer.filePath} 指向已登记的 Store。`
+          ? `请登记该 Store（codespec store register <path> --id ${pointer.value}），或编辑 ${pointer.filePath} 指向已登记的 Store。`
           : error.diagnostic.fix;
       throw new RootSelectionError(
         `Declared in ${pointer.filePath}: ${error.message}`,
@@ -366,7 +366,7 @@ async function resolveNearestOrDeclaredRoot(
 async function resolveDefaultStoreRoot(
   id: string,
   globalDataDir?: string
-): Promise<ResolvedOpenSpecRoot> {
+): Promise<ResolvedCodeSpecRoot> {
   try {
     return await resolveStoreRoot(id, globalDataDir, 'global_default');
   } catch (error) {
@@ -374,7 +374,7 @@ async function resolveDefaultStoreRoot(
       const staleFix =
         error.diagnostic.code === 'unknown_store' ||
         error.diagnostic.code === 'no_registered_stores'
-          ? `Register the store (openspec store register <path> --id ${id}) or clear the stale global default (openspec config unset defaultStore).`
+          ? `Register the store (codespec store register <path> --id ${id}) or clear the stale global default (codespec config unset defaultStore).`
           : error.diagnostic.fix;
       throw new RootSelectionError(
         `Global defaultStore '${id}': ${error.message}`,
@@ -389,16 +389,16 @@ async function resolveDefaultStoreRoot(
   }
 }
 
-export async function resolveOpenSpecRoot(
-  options: ResolveOpenSpecRootOptions = {}
-): Promise<ResolvedOpenSpecRoot> {
+export async function resolveCodeSpecRoot(
+  options: ResolveCodeSpecRootOptions = {}
+): Promise<ResolvedCodeSpecRoot> {
   if (options.storePath !== undefined) {
     throw new RootSelectionError(
-      '--store-path is not supported. Register the path with openspec store register <path>, then select it with --store <id>.',
+      '--store-path is not supported. Register the path with codespec store register <path>, then select it with --store <id>.',
       'store_path_not_supported',
       {
         target: 'store.id',
-        fix: 'openspec store register <path>, then rerun with --store <id>.',
+        fix: 'codespec store register <path>, then rerun with --store <id>.',
       }
     );
   }
@@ -435,20 +435,20 @@ export async function resolveOpenSpecRoot(
 
   if (registeredIds.length > 0) {
     throw new RootSelectionError(
-      `当前目录及其父目录中未找到 OpenSpec 根目录。已登记的 Store：${registeredIds.join('、')}。请传入 --store <id> 使用指定 Store，或运行 openspec init 创建本地根目录。`,
+      `当前目录及其父目录中未找到 CodeSpec 根目录。已登记的 Store：${registeredIds.join('、')}。请传入 --store <id> 使用指定 Store，或运行 codespec init 创建本地根目录。`,
       'no_root_with_registered_stores',
       {
-        target: 'openspec.root',
-        fix: `使用 --store <id> 重新运行（已注册：${registeredIds.join('、')}），或运行 openspec init。`,
+        target: 'codespec.root',
+        fix: `使用 --store <id> 重新运行（已注册：${registeredIds.join('、')}），或运行 codespec init。`,
       }
     );
   }
 
   if (options.allowImplicitRoot === false) {
     throw new RootSelectionError(
-      '从当前目录开始未找到 OpenSpec 根目录。',
-      'no_openspec_root',
-      { target: 'openspec.root', fix: '运行 openspec init 在此处创建根目录。' }
+      '从当前目录开始未找到 CodeSpec 根目录。',
+      'no_codespec_root',
+      { target: 'codespec.root', fix: '运行 codespec init 在此处创建根目录。' }
     );
   }
 
@@ -461,11 +461,11 @@ export async function resolveOpenSpecRoot(
 
 export interface RootOutput {
   path: string;
-  source: OpenSpecRootSource;
+  source: CodeSpecRootSource;
   store_id?: string;
 }
 
-export function toRootOutput(root: ResolvedOpenSpecRoot): RootOutput {
+export function toRootOutput(root: ResolvedCodeSpecRoot): RootOutput {
   return {
     path: root.path,
     source: root.source,
@@ -479,8 +479,8 @@ export function toRootOutput(root: ResolvedOpenSpecRoot): RootOutput {
  * suppressed noun-form suggestions) keys on this, never on `source` directly.
  */
 export function isStoreSelectedRoot(
-  root: ResolvedOpenSpecRoot
-): root is ResolvedOpenSpecRoot & { storeId: string } {
+  root: ResolvedCodeSpecRoot
+): root is ResolvedCodeSpecRoot & { storeId: string } {
   return root.storeId !== undefined;
 }
 
@@ -488,9 +488,9 @@ export function isStoreSelectedRoot(
  * Human-mode verification signal for a selected store. Written to stderr so
  * raw-Markdown and agent-consumed stdout payloads stay clean.
  */
-export function emitStoreRootBanner(root: ResolvedOpenSpecRoot): void {
+export function emitStoreRootBanner(root: ResolvedCodeSpecRoot): void {
   if (isStoreSelectedRoot(root)) {
-    console.error(`使用 OpenSpec 根目录：${root.storeId}（${root.path}）`);
+    console.error(`使用 CodeSpec 根目录：${root.storeId}（${root.path}）`);
   }
 }
 
@@ -498,7 +498,7 @@ export function emitStoreRootBanner(root: ResolvedOpenSpecRoot): void {
  * Keeps follow-up command hints inside the selected store: a hint a user can
  * paste verbatim must carry `--store <id>` when a store was selected.
  */
-export function withStoreFlag(root: ResolvedOpenSpecRoot, command: string): string {
+export function withStoreFlag(root: ResolvedCodeSpecRoot, command: string): string {
   return isStoreSelectedRoot(root)
     ? `${command} --store ${root.storeId}`
     : command;
@@ -508,7 +508,7 @@ export function withStoreFlag(root: ResolvedOpenSpecRoot, command: string): stri
  * Compatibility bridge for workflow code that still expects a PlanningHome.
  * The planning home is always repo-shaped.
  */
-export function toPlanningHome(root: ResolvedOpenSpecRoot): PlanningHome {
+export function toPlanningHome(root: ResolvedCodeSpecRoot): PlanningHome {
   return {
     kind: 'repo',
     root: root.path,
@@ -532,9 +532,9 @@ export async function resolveRootForCommand(
     /** Commands that require an existing root set this to false. */
     allowImplicitRoot?: boolean;
   } = {}
-): Promise<ResolvedOpenSpecRoot | null> {
+): Promise<ResolvedCodeSpecRoot | null> {
   try {
-    const root = await resolveOpenSpecRoot({
+    const root = await resolveCodeSpecRoot({
       ...(selector.store !== undefined ? { store: selector.store } : {}),
       ...(selector.storePath !== undefined ? { storePath: selector.storePath } : {}),
       ...(output.allowImplicitRoot !== undefined

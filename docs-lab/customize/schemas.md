@@ -1,6 +1,6 @@
 # Schemas
 
-> Change what OpenSpec produces: the artifacts, their order, and their templates.
+> Change what CodeSpec produces: the artifacts, their order, and their templates.
 
 A schema defines what a change proposal produces: which artifacts, in what order, from which templates. For example, [spec-driven](../reference/schemas/spec-driven/index.md), the default bundled schema, produces these four in roughly this order, each building on what came before:
 
@@ -12,22 +12,22 @@ Fork a schema when you want these to be different documents, whether that means 
 
 ## Where schemas live
 
-OpenSpec looks for a schema in three places, in order, and uses the first one it finds:
+CodeSpec looks for a schema in three places, in order, and uses the first one it finds:
 
-1. **Your project**: `openspec/schemas/`, committed with the repo so your whole team gets it.
-2. **Your machine**: `~/.local/share/openspec/schemas` on macOS and Linux (or under `$XDG_DATA_HOME` if you set it), or `%LOCALAPPDATA%\openspec\schemas` on Windows. Schemas here are available in every project you work in.
-3. **The package**: the built-ins, like `spec-driven`, ship inside openspec itself.
+1. **Your project**: `codespec/schemas/`, committed with the repo so your whole team gets it.
+2. **Your machine**: `~/.local/share/codespec/schemas` on macOS and Linux (or under `$XDG_DATA_HOME` if you set it), or `%LOCALAPPDATA%\codespec\schemas` on Windows. Schemas here are available in every project you work in.
+3. **The package**: the built-ins, like `spec-driven`, ship inside codespec itself.
 
-The same name can exist in more than one place, and the more specific location wins. `openspec schema which` shows which copy is in use:
+The same name can exist in more than one place, and the more specific location wins. `codespec schema which` shows which copy is in use:
 
 ```
-$ openspec schema which spec-driven
+$ codespec schema which spec-driven
 Schema: spec-driven
 Source: project
-Path: /your-project/openspec/schemas/spec-driven
+Path: /your-project/codespec/schemas/spec-driven
 
 Shadows:
-  package: .../openspec/schemas/spec-driven
+  package: .../codespec/schemas/spec-driven
 ```
 
 ## What's in a schema
@@ -62,42 +62,42 @@ artifacts:
       - design
 ```
 
-The built-in schemas ship inside the openspec package, so you never edit them in place. You get your own copy by forking.
+The built-in schemas ship inside the codespec package, so you never edit them in place. You get your own copy by forking.
 
 ## Creating your own custom schema
 
 There are two ways to get your own schema:
 
 1. **Fork an existing schema** and edit your copy. Start here when an existing schema is close to what you want, because everything in it already works.
-2. **Start from scratch** when none of them fit, scaffolding an empty schema with `openspec schema init`.
+2. **Start from scratch** when none of them fit, scaffolding an empty schema with `codespec schema init`.
 
 ### Fork an existing schema
 
 1. Fork the schema you want to start from, running from your project root:
 
    ```console
-   $ openspec schema fork spec-driven
+   $ codespec schema fork spec-driven
 
    Note: Schema commands are experimental and may change.
    ✔ Forked 'spec-driven' to 'spec-driven-custom'
 
-   Source: .../openspec/schemas/spec-driven (package)
-   Destination: /your-project/openspec/schemas/spec-driven-custom
+   Source: .../codespec/schemas/spec-driven (package)
+   Destination: /your-project/codespec/schemas/spec-driven-custom
    ```
 
-   Pass a second argument to pick the name (`openspec schema fork spec-driven team-flow`). Names are kebab-case.
+   Pass a second argument to pick the name (`codespec schema fork spec-driven team-flow`). Names are kebab-case.
 
 2. Edit the copy: schema.yaml and the templates. [Editing your fork](#editing-your-fork) covers what to change.
 
 3. Validate it:
 
    ```bash
-   openspec schema validate spec-driven-custom
+   codespec schema validate spec-driven-custom
    ```
 
    This is the one command that catches a broken schema (missing templates, bad YAML, dependency cycles) before you're in the middle of a change.
 
-4. Point your project at it in openspec/config.yaml. This step is yours to do because fork leaves config.yaml untouched:
+4. Point your project at it in codespec/config.yaml. This step is yours to do because fork leaves config.yaml untouched:
 
    ```yaml
    schema: spec-driven-custom
@@ -105,17 +105,17 @@ There are two ways to get your own schema:
 
 5. New change proposals now follow your schema. Changes created earlier keep the schema they started with.
 
-To replace the default everywhere without touching config.yaml, fork to the same name: `openspec schema fork spec-driven spec-driven`. Your project's copy then shadows the built-in, as [Where schemas live](#where-schemas-live) explains.
+To replace the default everywhere without touching config.yaml, fork to the same name: `codespec schema fork spec-driven spec-driven`. Your project's copy then shadows the built-in, as [Where schemas live](#where-schemas-live) explains.
 
 ### Start from scratch
 
-`openspec schema init` scaffolds a new schema instead of copying one:
+`codespec schema init` scaffolds a new schema instead of copying one:
 
 ```console
-$ openspec schema init lite --description "Lite flow" --artifacts proposal,tasks
+$ codespec schema init lite --description "Lite flow" --artifacts proposal,tasks
 
 ✔ Created schema 'lite'
-Schema created at: /your-project/openspec/schemas/lite
+Schema created at: /your-project/codespec/schemas/lite
 Artifacts: proposal, tasks
 ```
 
@@ -135,7 +135,7 @@ For example, to drop the design document for a leaner flow:
 3. Validate:
 
    ```console
-   $ openspec schema validate spec-driven-custom
+   $ codespec schema validate spec-driven-custom
 
    ✓ Schema 'spec-driven-custom' is valid
    ```
@@ -151,14 +151,14 @@ Validate after every hand-edit. A broken schema otherwise surfaces in the middle
 
 ## A fork is a snapshot
 
-`openspec update` refreshes the installed skills and commands, and it never touches `openspec/schemas/`. Your fork keeps working exactly as you left it, which also means it stops receiving improvements when the built-in schema evolves. To pick those up later, fork the built-in again under a new name and port the differences across.
+`codespec update` refreshes the installed skills and commands, and it never touches `codespec/schemas/`. Your fork keeps working exactly as you left it, which also means it stops receiving improvements when the built-in schema evolves. To pick those up later, fork the built-in again under a new name and port the differences across.
 
 ## Sharing schemas
 
 Sharing a schema means copying its folder.
 
-- **With your team**: commit `openspec/schemas/` and everyone on the repo uses it.
+- **With your team**: commit `codespec/schemas/` and everyone on the repo uses it.
 - **Across your projects**: put the folder in the user-level directory from [Where schemas live](#where-schemas-live).
-- **From the community**: the [community catalog](https://github.com/Fission-AI/OpenSpec/blob/main/docs/customization.md#community-schemas) lists shared schemas. Copy one into `openspec/schemas/<name>` and it works like your own.
+- **From the community**: the [community catalog](https://github.com/Fission-AI/CodeSpec/blob/main/docs/customization.md#community-schemas) lists shared schemas. Copy one into `codespec/schemas/<name>` and it works like your own.
 
 We're working on a schema registry, public and private, so schemas can be installed by name instead of copied by hand.

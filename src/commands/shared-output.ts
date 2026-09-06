@@ -5,7 +5,7 @@
  * array in JSON mode.
  */
 import { StoreError, type StoreDiagnostic } from '../core/store/errors.js';
-import { isEmptyBusinessRegistryError } from '../core/openspec-workflow/business-registry.js';
+import { isEmptyBusinessRegistryError } from '../core/codespec-workflow/business-registry.js';
 import { formatDiagnosticMessage } from '../ui/user-facing-messages.js';
 
 export function printJson(payload: unknown): void {

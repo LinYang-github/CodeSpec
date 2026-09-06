@@ -4,7 +4,7 @@ import {
   resolveRootForCommand,
   toRootOutput,
   withStoreFlag,
-  type ResolvedOpenSpecRoot,
+  type ResolvedCodeSpecRoot,
   type RootOutput,
   isStoreSelectedRoot,
 } from '../core/root-selection.js';
@@ -12,7 +12,7 @@ import { ChangeCommand } from './change.js';
 import { SpecCommand } from './spec.js';
 import { nearestMatches } from '../utils/match.js';
 import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
-import { loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
+import { loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
 import { formatStatusLabel } from '../ui/user-facing-messages.js';
 
 type ItemType = 'change' | 'spec';
@@ -68,7 +68,7 @@ export class ShowCommand {
   private async showCanonical(
     itemName: string | undefined,
     options: ShowExecuteOptions,
-    root: ResolvedOpenSpecRoot,
+    root: ResolvedCodeSpecRoot,
     workspace: Awaited<ReturnType<typeof tryLoadCanonicalWorkspace>>,
     interactive: boolean,
     typeOverride?: ItemType,
@@ -109,7 +109,7 @@ export class ShowCommand {
     return undefined;
   }
 
-  private delegateOptions(root: ResolvedOpenSpecRoot, options: ShowExecuteOptions): ShowExecuteOptions & { rootOutput?: RootOutput } {
+  private delegateOptions(root: ResolvedCodeSpecRoot, options: ShowExecuteOptions): ShowExecuteOptions & { rootOutput?: RootOutput } {
     return {
       ...options,
       ...(options.json ? { rootOutput: toRootOutput(root) } : {}),
@@ -119,7 +119,7 @@ export class ShowCommand {
   private async runInteractiveByType(
     type: ItemType,
     options: ShowExecuteOptions,
-    root: ResolvedOpenSpecRoot
+    root: ResolvedCodeSpecRoot
   ): Promise<void> {
     const { select } = await import('@inquirer/prompts');
     if (type === 'change') {
@@ -148,7 +148,7 @@ export class ShowCommand {
 
   private async showDirect(
     itemName: string,
-    params: { typeOverride?: ItemType; options: ShowExecuteOptions; root: ResolvedOpenSpecRoot }
+    params: { typeOverride?: ItemType; options: ShowExecuteOptions; root: ResolvedCodeSpecRoot }
   ): Promise<void> {
     const root = params.root;
     // Optimize lookups when type is pre-specified
@@ -216,7 +216,7 @@ export class ShowCommand {
       if (isStoreSelectedRoot(root)) {
         console.error('传入 --type change|spec。');
       } else {
-        console.error('传入 --type change|spec，或使用：openspec change show / openspec spec show');
+        console.error('传入 --type change|spec，或使用：codespec change show / codespec spec show');
       }
       process.exitCode = 1;
       return;
@@ -232,16 +232,16 @@ export class ShowCommand {
     await cmd.show(itemName, this.delegateOptions(root, params.options) as any);
   }
 
-  private printNonInteractiveHint(root: ResolvedOpenSpecRoot): void {
+  private printNonInteractiveHint(root: ResolvedCodeSpecRoot): void {
     console.error('没有可显示的条目。请尝试以下命令之一：');
-    console.error(`  ${withStoreFlag(root, 'openspec show <item>')}`);
+    console.error(`  ${withStoreFlag(root, 'codespec show <item>')}`);
     if (isStoreSelectedRoot(root)) {
       // The noun-form commands are cwd-based and cannot reach a selected store.
-      console.error(`  ${withStoreFlag(root, 'openspec show <item> --type change')}`);
-      console.error(`  ${withStoreFlag(root, 'openspec show <item> --type spec')}`);
+      console.error(`  ${withStoreFlag(root, 'codespec show <item> --type change')}`);
+      console.error(`  ${withStoreFlag(root, 'codespec show <item> --type spec')}`);
     } else {
-      console.error('  openspec change show');
-      console.error('  openspec spec show');
+      console.error('  codespec change show');
+      console.error('  codespec spec show');
     }
     console.error('或在交互式终端中运行。');
   }

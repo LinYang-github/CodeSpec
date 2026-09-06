@@ -1,24 +1,24 @@
 # Examples and Recipes
 
-These examples use the three public OpenSpec entries. Engineering methods such
+These examples use the three public CodeSpec entries. Engineering methods such
 as brainstorming, writing plans, TDD, debugging, and verification are supplied
-by Superpowers inside `workflow`; they are not separate OpenSpec entries.
+by Superpowers inside `workflow`; they are not separate CodeSpec entries.
 
 ## A normal change
 
 ```text
-You: /opsx:workflow add-logout-button
+You: /codespec:workflow add-logout-button
 
 AI:  Core resolved CHG-20260902-001.
      Superpowers drafted the plan and requirements.
      Review the Change, then implementation can continue.
 
-You: /opsx:workflow
+You: /codespec:workflow
 
 AI:  TDD and implementation are complete.
      Fresh verification evidence is recorded.
 
-You: /opsx:archive
+You: /codespec:archive
 
 AI:  Core validated the delta and updated Current Specification.
      The Change is archived.
@@ -27,7 +27,7 @@ AI:  Core validated the delta and updated Current Specification.
 ## An unclear request
 
 ```text
-You: /opsx:workflow
+You: /codespec:workflow
      Checkout sometimes creates duplicate orders. Investigate the code,
      compare approaches, and propose the smallest safe fix.
 ```
@@ -40,17 +40,17 @@ implementation, and verification.
 ## A stale Change
 
 ```text
-You: /opsx:workflow
+You: /codespec:workflow
 
 AI:  The baseline is STALE because Current Specification changed.
      Archive is blocked until the Change is rebased.
 
-You: /opsx:rebase
+You: /codespec:rebase
 
 AI:  Core captured the new baseline, recalculated the delta, and reported
      the requirement conflict for review.
 
-You: /opsx:workflow
+You: /codespec:workflow
      Continue after reviewing the rebased Change.
 ```
 
@@ -70,12 +70,12 @@ Change through the single `archive` transaction in a deliberate order.
 You: I changed the timeout directly in the code. Please reconcile the active
      Change and update the requirement delta and verification evidence.
 
-You: /opsx:workflow
+You: /codespec:workflow
 ```
 
 If the code is correct, the artifacts must describe the shipped behavior. If
 the specification is correct, implementation must be brought back into
-agreement. Never edit `openspec/archive/specs/` directly.
+agreement. Never edit `codespec/specs/` directly.
 
 ## CLI inspection
 
@@ -83,10 +83,10 @@ The AI entries operate in chat. Use the CLI for inspection and deterministic
 validation:
 
 ```bash
-openspec list
-openspec status --change CHG-20260902-001
-openspec validate CHG-20260902-001
-openspec view
+codespec list
+codespec status --change CHG-20260902-001
+codespec validate CHG-20260902-001
+codespec view
 ```
 
 ## Related

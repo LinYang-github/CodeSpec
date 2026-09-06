@@ -13,13 +13,13 @@ describe('FishGenerator', () => {
   function completionLine(script: string, needle: string): string | undefined {
     return script
       .split('\n')
-      .find((line) => line.includes('complete -c openspec') && line.includes(needle));
+      .find((line) => line.includes('complete -c codespec') && line.includes(needle));
   }
 
   function completionLines(script: string, needle: string): string[] {
     return script
       .split('\n')
-      .filter((line) => line.includes('complete -c openspec') && line.includes(needle));
+      .filter((line) => line.includes('complete -c codespec') && line.includes(needle));
   }
 
   describe('interface compliance', () => {
@@ -37,35 +37,35 @@ describe('FishGenerator', () => {
       const commands: CommandDefinition[] = [
         {
           name: 'init',
-          description: 'Initialize OpenSpec',
+          description: 'Initialize CodeSpec',
           flags: [],
         },
       ];
 
       const script = generator.generate(commands);
 
-      expect(script).toContain('# Fish completion script for OpenSpec CLI');
-      expect(script).toContain('function __fish_openspec');
+      expect(script).toContain('# Fish completion script for CodeSpec CLI');
+      expect(script).toContain('function __fish_codespec');
     });
 
     it('should generate helper functions for Fish', () => {
       const commands: CommandDefinition[] = [
         {
           name: 'init',
-          description: 'Initialize OpenSpec',
+          description: 'Initialize CodeSpec',
           flags: [],
         },
       ];
 
       const script = generator.generate(commands);
 
-      expect(script).toContain('function __fish_openspec_using_command_path');
-      expect(script).toContain('function __fish_openspec_no_subcommand');
-      expect(script).toContain("complete -c openspec -l no-color -f -d 'Disable color output'");
-      expect(script).toContain('function __fish_openspec_completing_option_value');
-      expect(script).toContain('function __fish_openspec_complete_attached_short_path');
+      expect(script).toContain('function __fish_codespec_using_command_path');
+      expect(script).toContain('function __fish_codespec_no_subcommand');
+      expect(script).toContain("complete -c codespec -l no-color -f -d 'Disable color output'");
+      expect(script).toContain('function __fish_codespec_completing_option_value');
+      expect(script).toContain('function __fish_codespec_complete_attached_short_path');
       expect(script).toContain('string match -q -- "$option=*" "$current"');
-      expect(script).toContain('function __fish_openspec_positional_index');
+      expect(script).toContain('function __fish_codespec_positional_index');
       expect(script).toContain('if test "$token" = --');
       expect(script).toContain('set options 0');
       expect(script).toContain('test $skip -eq 0; or return 1');
@@ -76,7 +76,7 @@ describe('FishGenerator', () => {
       const commands: CommandDefinition[] = [
         {
           name: 'init',
-          description: 'Initialize OpenSpec',
+          description: 'Initialize CodeSpec',
           flags: [],
         },
         {
@@ -93,9 +93,9 @@ describe('FishGenerator', () => {
 
       const script = generator.generate(commands);
 
-      expect(script).toContain("complete -c openspec");
+      expect(script).toContain("complete -c codespec");
       expect(script).toContain("-f -a 'init'");
-      expect(script).toContain("'Initialize OpenSpec'");
+      expect(script).toContain("'Initialize CodeSpec'");
       expect(script).toContain("-a 'validate'");
       expect(script).toContain("'Validate specs'");
       expect(script).toContain("-a 'show'");
@@ -202,18 +202,18 @@ describe('FishGenerator', () => {
 
       const script = generator.generate(commands);
       const pathLines = completionLines(script, '-l path');
-      const optionLine = pathLines.find((line) => !line.includes('__fish_openspec_completing_option_value'));
-      const valueLine = pathLines.find((line) => line.includes('__fish_openspec_completing_option_value'));
+      const optionLine = pathLines.find((line) => !line.includes('__fish_codespec_completing_option_value'));
+      const valueLine = pathLines.find((line) => line.includes('__fish_codespec_completing_option_value'));
 
       expect(script).toContain(
-        "complete -c openspec -n '__fish_openspec_using_command_path store setup' -f"
+        "complete -c codespec -n '__fish_codespec_using_command_path store setup' -f"
       );
       expect(optionLine).toContain('-r -f');
-      expect(valueLine).toContain('__fish_openspec_completing_option_value --path -p');
+      expect(valueLine).toContain('__fish_codespec_completing_option_value --path -p');
       expect(valueLine).toContain('-r -F');
       expect(valueLine).not.toContain(' -f');
       expect(pathLines).toContainEqual(
-        expect.stringContaining("-a '(__fish_openspec_complete_attached_short_path -p)'")
+        expect.stringContaining("-a '(__fish_codespec_complete_attached_short_path -p)'")
       );
     });
 
@@ -222,11 +222,11 @@ describe('FishGenerator', () => {
 
       for (const flag of ['path', 'code-workspace', 'member']) {
         const lines = completionLines(script, `-l ${flag}`);
-        const optionLine = lines.find((line) => !line.includes('__fish_openspec_completing_option_value'));
-        const valueLine = lines.find((line) => line.includes('__fish_openspec_completing_option_value'));
+        const optionLine = lines.find((line) => !line.includes('__fish_codespec_completing_option_value'));
+        const valueLine = lines.find((line) => line.includes('__fish_codespec_completing_option_value'));
 
         expect(optionLine).toContain('-r -f');
-        expect(valueLine).toContain(`__fish_openspec_completing_option_value --${flag}`);
+        expect(valueLine).toContain(`__fish_codespec_completing_option_value --${flag}`);
         expect(valueLine).toContain('-r -F');
         expect(valueLine).not.toContain(' -f');
       }
@@ -305,9 +305,9 @@ describe('FishGenerator', () => {
       expect(script).toContain("'change'");
       expect(script).toContain("-f -a 'show'");
       expect(script).toContain("-f -a 'list'");
-      expect(script).toContain("__fish_openspec_using_command_path change");
-      expect(script).toContain('not __fish_openspec_using_command_path change show');
-      expect(script).toContain('not __fish_openspec_using_command_path change list');
+      expect(script).toContain("__fish_codespec_using_command_path change");
+      expect(script).toContain('not __fish_codespec_using_command_path change show');
+      expect(script).toContain('not __fish_codespec_using_command_path change list');
     });
 
     it('should find subcommands after parent options that consume values', () => {
@@ -322,8 +322,8 @@ describe('FishGenerator', () => {
 
       const script = generator.generate(commands);
 
-      expect(script).toContain('__fish_openspec_using_command_path config get -- --scope');
-      expect(script).toContain('not __fish_openspec_using_command_path config get -- --scope');
+      expect(script).toContain('__fish_codespec_using_command_path config get -- --scope');
+      expect(script).toContain('not __fish_codespec_using_command_path config get -- --scope');
     });
 
     it('should handle positional arguments for change-id', () => {
@@ -338,10 +338,10 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_changes');
+      const line = completionLine(script, '__fish_codespec_changes');
 
       expect(line).toContain('-f');
-      expect(script).toContain('__fish_openspec_changes');
+      expect(script).toContain('__fish_codespec_changes');
     });
 
     it('should handle positional arguments for spec-id', () => {
@@ -356,10 +356,10 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_specs');
+      const line = completionLine(script, '__fish_codespec_specs');
 
       expect(line).toContain('-f');
-      expect(script).toContain('__fish_openspec_specs');
+      expect(script).toContain('__fish_codespec_specs');
     });
 
     it('should handle positional arguments for change-or-spec-id', () => {
@@ -374,10 +374,10 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_items');
+      const line = completionLine(script, '__fish_codespec_items');
 
       expect(line).toContain('-f');
-      expect(script).toContain('__fish_openspec_items');
+      expect(script).toContain('__fish_codespec_items');
     });
 
     it('should handle positional arguments for shell with inline values', () => {
@@ -413,11 +413,11 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_schemas');
+      const line = completionLine(script, '__fish_codespec_schemas');
 
       expect(line).toContain('-f');
-      expect(script).toContain('__fish_openspec_schemas');
-      expect(script).toContain('openspec __complete schemas 2>/dev/null');
+      expect(script).toContain('__fish_codespec_schemas');
+      expect(script).toContain('codespec __complete schemas 2>/dev/null');
     });
 
     it('should handle indexed positional arguments for schema fork', () => {
@@ -442,13 +442,13 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const sourceLine = completionLine(script, '__fish_openspec_positional_index 0 2');
-      const nameLine = completionLine(script, '__fish_openspec_positional_index 1 2');
+      const sourceLine = completionLine(script, '__fish_codespec_positional_index 0 2');
+      const nameLine = completionLine(script, '__fish_codespec_positional_index 1 2');
 
-      expect(sourceLine).toContain('__fish_openspec_schemas');
+      expect(sourceLine).toContain('__fish_codespec_schemas');
       expect(sourceLine).toContain('-f');
       expect(nameLine).toContain('-f');
-      expect(nameLine).not.toContain('__fish_openspec_schemas');
+      expect(nameLine).not.toContain('__fish_codespec_schemas');
     });
 
     it('should allow file completion for path-typed indexed positionals', () => {
@@ -479,12 +479,12 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const firstLine = completionLine(script, '__fish_openspec_positional_index 0 2 --workspace');
-      const secondLine = completionLine(script, '__fish_openspec_positional_index 1 2 --workspace');
+      const firstLine = completionLine(script, '__fish_codespec_positional_index 0 2 --workspace');
+      const secondLine = completionLine(script, '__fish_codespec_positional_index 1 2 --workspace');
 
       expect(firstLine).toContain('-f');
-      expect(secondLine).toContain('__fish_openspec_using_command_path workspace relink');
-      expect(secondLine).toContain('__fish_openspec_positional_index 1 2 --workspace');
+      expect(secondLine).toContain('__fish_codespec_using_command_path workspace relink');
+      expect(secondLine).toContain('__fish_codespec_positional_index 1 2 --workspace');
       // -F, not a bare rule: the sibling subcommand rules below carry -f, and
       // Fish only restores filesystem completion with --force-files.
       expect(secondLine).toContain('-F');
@@ -516,7 +516,7 @@ describe('FishGenerator', () => {
 
       const script = generator.generate(commands);
       const siblingLine = completionLine(script, "-a 'list'");
-      const pathLine = completionLine(script, '__fish_openspec_positional_index 0 2');
+      const pathLine = completionLine(script, '__fish_codespec_positional_index 0 2');
 
       // The sibling rule matches while `store register <TAB>` is being completed
       // and suppresses files, so the path rule has to force them back on.
@@ -536,11 +536,11 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_changes');
+      const line = completionLine(script, '__fish_codespec_changes');
 
       expect(line).toContain('-f');
-      expect(script).toContain('function __fish_openspec_changes');
-      expect(script).toContain('openspec __complete changes 2>/dev/null');
+      expect(script).toContain('function __fish_codespec_changes');
+      expect(script).toContain('codespec __complete changes 2>/dev/null');
       expect(script).toContain('while read -l id desc');
       expect(script).toContain('printf');
     });
@@ -557,11 +557,11 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_specs');
+      const line = completionLine(script, '__fish_codespec_specs');
 
       expect(line).toContain('-f');
-      expect(script).toContain('function __fish_openspec_specs');
-      expect(script).toContain('openspec __complete specs 2>/dev/null');
+      expect(script).toContain('function __fish_codespec_specs');
+      expect(script).toContain('codespec __complete specs 2>/dev/null');
     });
 
     it('should generate dynamic completion helper for items', () => {
@@ -576,12 +576,12 @@ describe('FishGenerator', () => {
       ];
 
       const script = generator.generate(commands);
-      const line = completionLine(script, '__fish_openspec_items');
+      const line = completionLine(script, '__fish_codespec_items');
 
       expect(line).toContain('-f');
-      expect(script).toContain('function __fish_openspec_items');
-      expect(script).toContain('__fish_openspec_changes');
-      expect(script).toContain('__fish_openspec_specs');
+      expect(script).toContain('function __fish_codespec_items');
+      expect(script).toContain('__fish_codespec_changes');
+      expect(script).toContain('__fish_codespec_specs');
     });
 
     it('should escape single quotes in descriptions', () => {
@@ -636,7 +636,7 @@ describe('FishGenerator', () => {
       expect(script).toContain("'validate'");
       expect(script).toContain("-l strict");
       expect(script).toContain("-l json");
-      expect(script).toContain('__fish_openspec_specs');
+      expect(script).toContain('__fish_codespec_specs');
     });
 
     it('should handle empty command list', () => {
@@ -645,7 +645,7 @@ describe('FishGenerator', () => {
       const script = generator.generate(commands);
 
       expect(script).toContain('# Fish completion script');
-      expect(script).toContain('function __fish_openspec');
+      expect(script).toContain('function __fish_codespec');
     });
 
     it('should handle commands with no flags', () => {
@@ -753,7 +753,7 @@ describe('FishGenerator', () => {
       const line = completionLine(script, "-a 'test'");
 
       expect(line).toBe(
-        "complete -c openspec -n '__fish_openspec_no_subcommand' -f -a 'test' -d 'Dangerous: $(rm -rf /) `cat /etc/passwd` $HOME \\'first\\' and \\'second\\' \\\\ path'"
+        "complete -c codespec -n '__fish_codespec_no_subcommand' -f -a 'test' -d 'Dangerous: $(rm -rf /) `cat /etc/passwd` $HOME \\'first\\' and \\'second\\' \\\\ path'"
       );
     });
   });

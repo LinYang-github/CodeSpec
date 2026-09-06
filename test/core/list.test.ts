@@ -11,7 +11,7 @@ describe('ListCommand', () => {
 
   beforeEach(async () => {
     // Create temp directory
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-list-test-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-list-test-'));
 
     // Mock console.log to capture output
     originalLog = console.log;
@@ -30,27 +30,27 @@ describe('ListCommand', () => {
   });
 
   describe('execute', () => {
-    it('should treat a missing openspec/changes directory as no active changes', async () => {
+    it('should treat a missing codespec/changes directory as no active changes', async () => {
       const listCommand = new ListCommand();
 
       await listCommand.execute(tempDir, 'changes');
 
-      expect(logOutput).toEqual(['No active changes found.']);
+      expect(logOutput).toEqual(['未找到活动 Change。']);
     });
 
     it('should handle empty changes directory', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(changesDir, { recursive: true });
 
       const listCommand = new ListCommand();
       await listCommand.execute(tempDir, 'changes');
 
-      expect(logOutput).toEqual(['No active changes found.']);
+      expect(logOutput).toEqual(['未找到活动 Change。']);
     });
 
-    it('should not report a malformed openspec/changes path as empty', async () => {
-      await fs.mkdir(path.join(tempDir, 'openspec'), { recursive: true });
-      await fs.writeFile(path.join(tempDir, 'openspec', 'changes'), 'not a directory\n');
+    it('should not report a malformed codespec/changes path as empty', async () => {
+      await fs.mkdir(path.join(tempDir, 'codespec'), { recursive: true });
+      await fs.writeFile(path.join(tempDir, 'codespec', 'changes'), 'not a directory\n');
 
       const listCommand = new ListCommand();
 
@@ -59,7 +59,7 @@ describe('ListCommand', () => {
     });
 
     it('should exclude archive directory', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(path.join(changesDir, 'archive'), { recursive: true });
       await fs.mkdir(path.join(changesDir, 'my-change'), { recursive: true });
       
@@ -72,13 +72,13 @@ describe('ListCommand', () => {
       const listCommand = new ListCommand();
       await listCommand.execute(tempDir, 'changes');
 
-      expect(logOutput).toContain('Changes:');
+      expect(logOutput).toContain('Change：');
       expect(logOutput.some(line => line.includes('my-change'))).toBe(true);
       expect(logOutput.some(line => line.includes('archive'))).toBe(false);
     });
 
     it('should count tasks correctly', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(path.join(changesDir, 'test-change'), { recursive: true });
       
       await fs.writeFile(
@@ -100,7 +100,7 @@ Regular text that should be ignored
     });
 
     it('should show complete status for fully completed changes', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(path.join(changesDir, 'completed-change'), { recursive: true });
       
       await fs.writeFile(
@@ -115,7 +115,7 @@ Regular text that should be ignored
     });
 
     it('does not report a change with unfinished sub-tasks as complete (#1485)', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(path.join(changesDir, 'nested-change'), { recursive: true });
 
       await fs.writeFile(
@@ -131,7 +131,7 @@ Regular text that should be ignored
     });
 
     it('should handle changes without tasks.md', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(path.join(changesDir, 'no-tasks'), { recursive: true });
 
       const listCommand = new ListCommand();
@@ -141,7 +141,7 @@ Regular text that should be ignored
     });
 
     it('should sort changes alphabetically when sort=name', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       await fs.mkdir(path.join(changesDir, 'zebra'), { recursive: true });
       await fs.mkdir(path.join(changesDir, 'alpha'), { recursive: true });
       await fs.mkdir(path.join(changesDir, 'middle'), { recursive: true });
@@ -159,7 +159,7 @@ Regular text that should be ignored
     });
 
     it('should handle multiple changes with various states', async () => {
-      const changesDir = path.join(tempDir, 'openspec', 'changes');
+      const changesDir = path.join(tempDir, 'codespec', 'changes');
       
       // Complete change
       await fs.mkdir(path.join(changesDir, 'completed'), { recursive: true });
@@ -181,7 +181,7 @@ Regular text that should be ignored
       const listCommand = new ListCommand();
       await listCommand.execute(tempDir);
 
-      expect(logOutput).toContain('Changes:');
+      expect(logOutput).toContain('Change：');
       expect(logOutput.some(line => line.includes('completed') && line.includes('✓ Complete'))).toBe(true);
       expect(logOutput.some(line => line.includes('partial') && line.includes('1/3 tasks'))).toBe(true);
       expect(logOutput.some(line => line.includes('no-tasks') && line.includes('No tasks'))).toBe(true);

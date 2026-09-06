@@ -119,12 +119,12 @@ describe('Purpose placeholder validation', () => {
 
   describe('a Purpose that documents the placeholder is not one', () => {
     it('passes --strict while quoting the sentence archive writes inside a fence', async () => {
-      // OpenSpec's own docs are the population most likely to quote this text.
+      // CodeSpec's own docs are the population most likely to quote this text.
       // A check that fails the document explaining what the placeholder is
       // teaches people that the warning is noise, which costs more than the one
       // finding it adds.
       const purpose = [
-        'Documents the Purpose `openspec archive` writes for a capability a delta introduced',
+        'Documents the Purpose `codespec archive` writes for a capability a delta introduced',
         'without one, and what to replace it with:',
         '',
         '```',
@@ -141,7 +141,7 @@ describe('Purpose placeholder validation', () => {
 
   describe('archive is unaffected', () => {
     it('still reports a placeholder spec as valid to the validator archive runs', async () => {
-      // `openspec archive` validates every rebuilt spec before writing it, with a
+      // `codespec archive` validates every rebuilt spec before writing it, with a
       // non-strict Validator. A spec archive writes must not fail validation it
       // would have passed before, so the new rule has to stay a warning on
       // exactly this call.
@@ -155,7 +155,7 @@ describe('Purpose placeholder validation', () => {
     let dir: string;
 
     beforeEach(async () => {
-      dir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-purpose-'));
+      dir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-purpose-'));
     });
 
     afterEach(async () => {

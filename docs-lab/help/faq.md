@@ -9,15 +9,15 @@ once the prose lands. -->
 
 <!-- Every entry is a one-liner: a short answer or a router link to the page that owns the topic; how-to content never lives here (README's "FAQ is one-liners" rule). Update/uninstall moved to installation.md; the skills-missing fix and Getting help live in troubleshooting.md; the git question is a one-line yes routing to guides/teams.md, which owns the team conventions. Unfilled headings are skeletons. -->
 
-## Should openspec/ be checked into git?
+## Should codespec/ be checked into git?
 
 ## What runs in the terminal, and what in chat?
 
-## Does OpenSpec work with my tool?
+## Does CodeSpec work with my tool?
 
 If it has a row in the [support matrix](../reference/supported-tools.md), yes.
 Pick its id at init. If it isn't listed but reads the shared `.agents/skills/`
 folder, pick **Shared `.agents` skills** (`--tools agents`). If neither, request
-it in the [OpenSpec repo](https://github.com/Fission-AI/OpenSpec/issues).
+it in the [CodeSpec repo](https://github.com/Fission-AI/CodeSpec/issues).
 
-## Where did the old /openspec:* commands go?
+## Where did the old /codespec:* commands go?

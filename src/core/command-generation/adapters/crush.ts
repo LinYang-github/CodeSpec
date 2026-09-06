@@ -10,14 +10,14 @@ import { escapeYamlValue, formatTagsArray } from '../yaml.js';
 
 /**
  * Crush adapter for command generation.
- * File path: .crush/commands/opsx/<id>.md
+ * File path: .crush/commands/codespec/<id>.md
  * Frontmatter: name, description, category, tags
  */
 export const crushAdapter: ToolCommandAdapter = {
   toolId: 'crush',
 
   getFilePath(commandId: string): string {
-    return path.join('.crush', 'commands', 'opsx', `${commandId}.md`);
+    return path.join('.crush', 'commands', 'codespec', `${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

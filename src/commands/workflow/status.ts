@@ -23,8 +23,8 @@ import {
 } from '../../core/artifact-graph/index.js';
 import { asStatus } from '../shared-output.js';
 import { formatStatusLabel } from '../../ui/user-facing-messages.js';
-import { loadWorkspace, loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
-import { validateExitGate } from '../../core/openspec-workflow/gates.js';
+import { loadWorkspace, loadChangeArtifacts } from '../../core/codespec-workflow/loaders.js';
+import { validateExitGate } from '../../core/codespec-workflow/gates.js';
 import type { StoreDiagnostic } from '../../core/store/errors.js';
 import {
   validateChangeExists,
@@ -86,7 +86,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     const planningHome = toPlanningHome(root);
     const projectRoot = root.path;
     const rootOutput = toRootOutput(root);
-    const newChangeHint = withStoreFlag(root, 'openspec new change <name>');
+    const newChangeHint = withStoreFlag(root, 'codespec new change <name>');
 
     // Single definition of "load one change's status" so the batch and
     // single-change payloads can never drift apart.
@@ -103,7 +103,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       if (!/^CHG-\d{8}-\d{3}$/.test(changeName)) return null;
       const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
       if (!canonicalWorkspace) return null;
-      const openspecDir = canonicalWorkspace.openspecDir;
+      const codespecDir = canonicalWorkspace.codespecDir;
       const metadataPath = path.join(canonicalWorkspace.paths.changes, changeName, 'metadata.yaml');
       if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
         throw new Error(`未找到 canonical Change 元数据：${metadataPath}`);
@@ -111,7 +111,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       {
         const workspace = canonicalWorkspace;
         const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
-        const gate = validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
+        const gate = await validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
         return {
           changeId: changeName, status: artifacts.metadata.change.status,
           revision: artifacts.metadata.change.revision, title: artifacts.metadata.change.title,

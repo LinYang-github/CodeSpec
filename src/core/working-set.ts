@@ -1,6 +1,6 @@
 /**
  * Working-set assembly (slice 4.1): the full set a root's declarations
- * describe — the OpenSpec root and its referenced stores — as an
+ * describe — the CodeSpec root and its referenced stores — as an
  * agent-consumable brief. A local convenience
  * computed from declared relationships, never a planning system; no
  * clone/sync/launch machinery. Unresolvable members are reported, not
@@ -8,7 +8,7 @@
  */
 import type { StoreDiagnostic } from './store/errors.js';
 import { fetchRecipe, type ReferenceIndexEntry } from './references.js';
-import { toRootOutput, type ResolvedOpenSpecRoot } from './root-selection.js';
+import { toRootOutput, type ResolvedCodeSpecRoot } from './root-selection.js';
 
 export type WorkingSetRole = 'referenced_store';
 
@@ -24,16 +24,16 @@ export interface WorkingSetMember {
 export interface WorkingSet {
   root: {
     path: string;
-    source: ResolvedOpenSpecRoot['source'];
+    source: ResolvedCodeSpecRoot['source'];
     store_id?: string;
-    role: 'openspec_root';
+    role: 'codespec_root';
   };
   members: WorkingSetMember[];
   status: StoreDiagnostic[];
 }
 
 export interface AssembleWorkingSetInput {
-  root: ResolvedOpenSpecRoot;
+  root: ResolvedCodeSpecRoot;
   referenceEntries: ReferenceIndexEntry[];
   /** The composition's top-level status; the working set keeps only
    * the registry-unreadable degradation (selected by code, never by
@@ -66,7 +66,7 @@ export function assembleWorkingSet(input: AssembleWorkingSetInput): WorkingSet {
   );
 
   return {
-    root: { ...toRootOutput(input.root), role: 'openspec_root' },
+    root: { ...toRootOutput(input.root), role: 'codespec_root' },
     members,
     status,
   };

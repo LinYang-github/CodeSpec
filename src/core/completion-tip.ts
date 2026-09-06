@@ -11,10 +11,10 @@
  *
  * The tip is suppressed when:
  * - CI is set (any value npm/telemetry would treat as CI)
- * - OPENSPEC_NO_COMPLETIONS=1
+ * - CODESPEC_NO_COMPLETIONS=1
  * - completions are already installed, or the shell is one the installer would
  *   reject
- * - the caller passes `silent` — JSON runs, `openspec completion ...`, and
+ * - the caller passes `silent` — JSON runs, `codespec completion ...`, and
  *   non-TTY runs, which are deferred rather than consumed (see `silent`)
  */
 import * as fs from 'node:fs';
@@ -25,7 +25,7 @@ import { detectShell } from '../utils/shell-detection.js';
 import { CompletionFactory } from './completions/factory.js';
 
 export const COMPLETION_TIP_MESSAGE =
-  "Tip: Run 'openspec completion install' for shell completions";
+  "Tip: Run 'codespec completion install' for shell completions";
 
 export interface CompletionTipOptions {
   /**
@@ -39,14 +39,14 @@ export interface CompletionTipOptions {
 function isSuppressedByEnv(): boolean {
   // isCiEnvironment, not a CI==='true' string check: providers set CI to "True",
   // "yes", "on", and the tip should be as quiet in those builds as telemetry is.
-  return isCiEnvironment() || process.env.OPENSPEC_NO_COMPLETIONS === '1';
+  return isCiEnvironment() || process.env.CODESPEC_NO_COMPLETIONS === '1';
 }
 
 /**
  * Whether the tip is worth showing, once we know it is owed and readable.
  *
  * "retire" consumes the tip without printing: the user either already has
- * completions, or is on a shell `openspec completion install` would refuse.
+ * completions, or is on a shell `codespec completion install` would refuse.
  *
  * Without the installed check the tip tells people to install completions they
  * installed long ago — including on the run right after `completion install`,
@@ -104,7 +104,7 @@ function readRawConfig(): Record<string, unknown> | null {
  * Record the flag, re-reading the config first and replacing the file by rename.
  *
  * Deciding whether to show the tip costs a `ps` spawn and a stat, and a sibling
- * `openspec` process can write the same file in that window — on a first run
+ * `codespec` process can write the same file in that window — on a first run
  * that is exactly when telemetry mints `anonymousId`. Re-reading here keeps the
  * write down to this one key, and the rename keeps a reader from ever seeing a
  * half-written config.

@@ -10,7 +10,7 @@ const config = {
   // for the diagram images the docs pipeline embeds via next/image.
   images: { unoptimized: true },
   reactStrictMode: true,
-  // This site has its own lockfile and lives inside the OpenSpec monorepo, so
+  // This site has its own lockfile and lives inside the CodeSpec monorepo, so
   // pin the workspace root to silence Next's multi-lockfile inference warning.
   turbopack: {
     root: import.meta.dirname,

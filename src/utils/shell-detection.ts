@@ -35,7 +35,7 @@ function matchSupportedShell(name: string): SupportedShell | undefined {
  * `process.env.SHELL` is only the login shell, so users whose interactive shell
  * differs from it (e.g. running fish while their login shell is bash) are
  * misdetected. Inspecting the parent process reflects the shell that actually
- * launched openspec. POSIX-only and best-effort — any failure returns undefined
+ * launched codespec. POSIX-only and best-effort — any failure returns undefined
  * so the caller falls back to `$SHELL`.
  *
  * @returns The supported shell running as the parent process, or undefined

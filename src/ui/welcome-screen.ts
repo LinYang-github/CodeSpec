@@ -31,7 +31,7 @@ function getWelcomeText(workflows: readonly string[]): string[] {
       quickStart.push(`  ${chalk.yellow(command.padEnd(commandWidth + 1))} ${chalk.dim(description)}`);
     }
     // These are the canonical names. How each tool spells them differs
-    // (/opsx-propose, @opsx-propose, $openspec-propose ...) and cannot be known
+    // (/codespec-propose, @codespec-propose, $codespec-propose ...) and cannot be known
     // until tools are picked, one prompt later — so flag it rather than let the
     // canonical form read as the literal thing to type. "Getting started"
     // prints the real spelling once the selection is known.
@@ -40,12 +40,12 @@ function getWelcomeText(workflows: readonly string[]): string[] {
   }
 
   return [
-    chalk.white.bold('欢迎使用 OpenSpec'),
+    chalk.white.bold('欢迎使用 HRHY CodeSpec'),
     chalk.dim('轻量的 code-spec 需求与变更管理框架'),
     '',
     chalk.white('本次设置将配置：'),
     chalk.dim('  • AI 工具的 Agent Skills'),
-    // Not "opsx slash commands": this screen runs before tool selection, and
+    // Not "codespec slash commands": this screen runs before tool selection, and
     // skills-only tools (Codex, Kimi Code, ...) correctly get no command files
     // at all. The exact spelling per tool is printed in "Getting started".
     chalk.dim('  • 工作流命令（如果工具支持）'),
@@ -132,7 +132,7 @@ function canAnimate(): boolean {
 
   // Manual override for users who need reduced motion (#722). Presence is
   // what counts: even an empty value disables the animation.
-  if (process.env.OPENSPEC_NO_ANIMATION !== undefined) return false;
+  if (process.env.CODESPEC_NO_ANIMATION !== undefined) return false;
 
   // Check terminal width
   const columns = process.stdout.columns || 80;
@@ -184,14 +184,14 @@ export async function showWelcomeScreen(
   const textLines = getWelcomeText(workflows);
 
   if (options.animate === false || !canAnimate()) {
-    // Fallback: show static welcome. The "Press Enter" line is only honest
+    // Fallback: show static welcome. The Enter prompt is only honest
     // when we actually wait; in a TTY, returning immediately would let the
     // Enter it asks for fall through into the tool picker and submit the
     // pre-selected tools sight-unseen. Without a TTY, drop the line instead.
     const staticLines = process.stdin.isTTY
       ? textLines
-      : textLines.filter((line) => !line.includes('Press Enter'));
-    const frame = WELCOME_ANIMATION.frames[3]; // Peak frame
+      : textLines.filter((line) => !line.includes('按 Enter'));
+    const frame = WELCOME_ANIMATION.frames.at(-1)!;
     process.stdout.write('\n' + renderFrame(frame, staticLines) + '\n\n');
     await waitForEnter();
     return;

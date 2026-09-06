@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { runCLI } from '../helpers/run-cli.js';
-import { createWorkflowFixture } from '../helpers/openspec-workflow.js';
+import { createWorkflowFixture } from '../helpers/codespec-workflow.js';
 
 const specWithError = (error: string) => `# Payment
 

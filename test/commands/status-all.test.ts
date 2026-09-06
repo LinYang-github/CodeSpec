@@ -9,8 +9,8 @@ describe('status --all', () => {
   let changesDir: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-status-all-'));
-    changesDir = path.join(tempDir, 'openspec', 'changes');
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-status-all-'));
+    changesDir = path.join(tempDir, 'codespec', 'changes');
     await fs.mkdir(changesDir, { recursive: true });
   });
 
@@ -166,7 +166,7 @@ describe('status --all', () => {
     const brokenDir = await createTestChange('broken-change');
     // An unknown schema in the metadata makes loadChangeContext throw
     await fs.writeFile(
-      path.join(brokenDir, '.openspec.yaml'),
+      path.join(brokenDir, '.codespec.yaml'),
       'schema: no-such-schema\n'
     );
 
@@ -207,7 +207,7 @@ describe('status --all', () => {
     await createTestChange('good-change', ['design']);
     const brokenDir = await createTestChange('broken-change');
     await fs.writeFile(
-      path.join(brokenDir, '.openspec.yaml'),
+      path.join(brokenDir, '.codespec.yaml'),
       'schema: no-such-schema\n'
     );
 
@@ -221,7 +221,7 @@ describe('status --all', () => {
   describe('--schema interaction', () => {
     /** Writes a minimal project-local schema so an override is distinguishable from the default. */
     async function createProjectSchema(schemaName: string): Promise<void> {
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', schemaName);
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', schemaName);
       await fs.mkdir(schemaDir, { recursive: true });
       await fs.writeFile(
         path.join(schemaDir, 'schema.yaml'),
@@ -291,7 +291,7 @@ describe('status --all', () => {
       await createTestChange('good-change');
       const brokenDir = await createTestChange('broken-change');
       await fs.writeFile(
-        path.join(brokenDir, '.openspec.yaml'),
+        path.join(brokenDir, '.codespec.yaml'),
         'schema: no-such-schema\n'
       );
 

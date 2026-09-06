@@ -26,7 +26,7 @@ import {
   withStoreFlag,
   toPlanningHome,
   toRootOutput,
-  type ResolvedOpenSpecRoot,
+  type ResolvedCodeSpecRoot,
 } from '../../core/root-selection.js';
 import {
   assembleReferenceIndex,
@@ -49,8 +49,8 @@ import {
   tryLoadCanonicalWorkspace,
 } from './shared.js';
 import { parseTaskLines, type ParsedTask } from '../../utils/task-progress.js';
-import { loadChangeArtifacts } from '../../core/openspec-workflow/loaders.js';
-import { renderCanonicalChangeContext, getStageAdapterGuidance, type WorkflowStage } from '../../core/templates/workflows/openspec-workflow.js';
+import { loadChangeArtifacts } from '../../core/codespec-workflow/loaders.js';
+import { renderCanonicalChangeContext, getStageAdapterGuidance, type WorkflowStage } from '../../core/templates/workflows/codespec-workflow.js';
 
 function isWorkflowStage(value: string): value is WorkflowStage {
   switch (value) {
@@ -93,7 +93,7 @@ export type ArchiveInstructionsOptions = ApplyInstructionsOptions;
  * index when references are declared, and resolves the config path for
  * fix text. Shared by both instruction surfaces.
  */
-async function loadRootConfigContext(root: ResolvedOpenSpecRoot): Promise<{
+async function loadRootConfigContext(root: ResolvedCodeSpecRoot): Promise<{
   projectConfig: ProjectConfig | null;
   references: ReferenceIndexEntry[] | undefined;
 }> {
@@ -138,7 +138,7 @@ export async function instructionsCommand(
       options.change,
       projectRoot,
       root.changesDir,
-      { newChangeHint: withStoreFlag(root, 'openspec new change <name>') }
+      { newChangeHint: withStoreFlag(root, 'codespec new change <name>') }
     );
 
     if (/^CHG-\d{8}-\d{3}$/.test(changeName)) {
@@ -244,7 +244,7 @@ export function printInstructionsText(instructions: ArtifactInstructions, isBloc
   // validate then rejects as conflicting with the marker.
   if (instructions.skipped) {
     console.log('<warning>');
-    console.log(instructions.warning ?? '此产物已跳过（.openspec.yaml 中设置了 skip_specs）。');
+    console.log(instructions.warning ?? '此产物已跳过（.codespec.yaml 中设置了 skip_specs）。');
     console.log('</warning>');
     console.log();
     console.log('</artifact>');
@@ -370,7 +370,7 @@ export function printInstructionsText(instructions: ArtifactInstructions, isBloc
  * agent to act on and tick off, and a bare `- [ ]` gives it nothing to match.
  * It still counts toward progress, which is taken from every parsed line, so
  * this list can be shorter than the totals beside it but never disagrees with
- * `openspec list` or archive about how much work is left. An empty list is also
+ * `codespec list` or archive about how much work is left. An empty list is also
  * what puts apply in its "nothing to work on" state, so a file of nothing but
  * text-less checkboxes asks to be rewritten instead of being called done.
  */
@@ -465,7 +465,7 @@ export async function generateApplyInstructions(
   const tasks = toTaskItems(parsedTasks);
 
   // Calculate progress over every checkbox in the file, listed or not, so these
-  // numbers match `openspec list` and archive's incomplete-task check.
+  // numbers match `codespec list` and archive's incomplete-task check.
   const total = parsedTasks.length;
   const complete = parsedTasks.filter((task) => task.done).length;
   const remaining = total - complete;
@@ -476,18 +476,18 @@ export async function generateApplyInstructions(
 
   if (missingArtifacts.length > 0) {
     state = 'blocked';
-    instruction = `当前还不能实现此 Change。缺少产物：${missingArtifacts.join('、')}。\n请先使用 openspec-continue-change skill 创建缺少的产物。`;
+    instruction = `当前还不能实现此 Change。缺少产物：${missingArtifacts.join('、')}。\n请先使用 codespec-continue-change skill 创建缺少的产物。`;
   } else if (tracksFile && !tracksFileExists) {
     // Tracking file configured but doesn't exist yet
     const tracksFilename = path.basename(tracksFile);
     state = 'blocked';
-    instruction = `缺少 ${tracksFilename} 文件，必须创建。\n请使用 openspec-continue-change 生成此跟踪文件。`;
+    instruction = `缺少 ${tracksFilename} 文件，必须创建。\n请使用 codespec-continue-change 生成此跟踪文件。`;
   } else if (tracksFile && tracksFileExists && tasks.length === 0) {
     // Tracking file exists but lists nothing an agent can work on: either no
     // checkboxes at all, or only checkboxes with no text after them.
     const tracksFilename = path.basename(tracksFile);
     state = 'blocked';
-    instruction = `${tracksFilename} 文件已存在，但没有可执行任务。\n请向 ${tracksFilename} 添加任务，或使用 openspec-continue-change 重新生成。`;
+    instruction = `${tracksFilename} 文件已存在，但没有可执行任务。\n请向 ${tracksFilename} 添加任务，或使用 codespec-continue-change 重新生成。`;
   } else if (tracksFile && remaining === 0 && total > 0) {
     state = 'all_done';
     instruction = '全部任务已完成！此 Change 可以归档。\n归档前建议运行测试并审查变更。';
@@ -531,7 +531,7 @@ export async function applyInstructionsCommand(options: ApplyInstructionsOptions
       options.change,
       projectRoot,
       root.changesDir,
-      { newChangeHint: withStoreFlag(root, 'openspec new change <name>') }
+      { newChangeHint: withStoreFlag(root, 'codespec new change <name>') }
     );
 
     // Validate schema if explicitly provided
@@ -579,7 +579,7 @@ export function printApplyInstructionsText(instructions: ApplyInstructions): voi
     console.log('### ⚠️ 已阻塞');
     console.log();
     console.log(`缺少产物：${missingArtifacts.join('、')}`);
-    console.log('请先使用 openspec-continue-change skill 创建这些产物。');
+    console.log('请先使用 codespec-continue-change skill 创建这些产物。');
     console.log();
   }
 
@@ -649,7 +649,7 @@ export async function archiveInstructionsCommand(
       options.change,
       root.path,
       root.changesDir,
-      { newChangeHint: withStoreFlag(root, 'openspec new change <name>') }
+      { newChangeHint: withStoreFlag(root, 'codespec new change <name>') }
     );
     const projectConfig = readProjectConfig(root.path);
     const instructions = generateArchiveInstructions(changeName, projectConfig);

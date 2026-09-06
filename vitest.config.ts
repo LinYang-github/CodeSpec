@@ -32,7 +32,7 @@ export default defineConfig({
     // CLI child processes they spawn. Telemetry's own tests delete these vars
     // before asserting, so they are unaffected.
     env: {
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
       DO_NOT_TRACK: '1',
     },
     // Tests rely on per-file process isolation (e.g., `process.cwd()` assumptions).

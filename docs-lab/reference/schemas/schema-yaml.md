@@ -6,40 +6,40 @@
 
 ## Location
 
-A project schema lives under `openspec/schemas/<name>/`:
+A project schema lives under `codespec/schemas/<name>/`:
 
 ```text
-openspec/schemas/review-first/
+codespec/schemas/review-first/
 ├── schema.yaml
 └── templates/
     ├── proposal.md
     └── tasks.md
 ```
 
-OpenSpec checks three places for that directory. The first match wins.
+CodeSpec checks three places for that directory. The first match wins.
 
 | Copy | Directory |
 |---|---|
-| **1. Project** | `<project>/openspec/schemas/<name>/` |
-| **2. User, macOS and Linux** | `~/.local/share/openspec/schemas/<name>/` |
-| **2. User, Windows** | `%LOCALAPPDATA%\openspec\schemas\<name>\` |
+| **1. Project** | `<project>/codespec/schemas/<name>/` |
+| **2. User, macOS and Linux** | `~/.local/share/codespec/schemas/<name>/` |
+| **2. User, Windows** | `%LOCALAPPDATA%\codespec\schemas\<name>\` |
 | **3. Package** | The schemas installed with the CLI |
 
-If `XDG_DATA_HOME` is set, the user directory moves to `$XDG_DATA_HOME/openspec/schemas/<name>/` on every platform.
+If `XDG_DATA_HOME` is set, the user directory moves to `$XDG_DATA_HOME/codespec/schemas/<name>/` on every platform.
 
-The directory name is the lookup key used by `--schema`, `config.yaml`, and [`.openspec.yaml`](../configuration/change-metadata.md#schema). If the `name` field differs from the directory name, OpenSpec still uses the directory name for lookup.
+The directory name is the lookup key used by `--schema`, `config.yaml`, and [`.codespec.yaml`](../configuration/change-metadata.md#schema). If the `name` field differs from the directory name, CodeSpec still uses the directory name for lookup.
 
-[`openspec schema which <name>`](../cli.md#openspec-schema-which) prints the active directory and any lower-priority copies it hides.
+[`codespec schema which <name>`](../cli.md#codespec-schema-which) prints the active directory and any lower-priority copies it hides.
 
 ## Top-level fields
 
 | Field | Contract |
 |---|---|
 | `name` | **Required.** A non-empty string stored as the schema name. Lookup still uses the directory name. |
-| `version` | **Required.** A positive integer stored as the schema revision. The value doesn't change OpenSpec's behavior. |
-| `description` | An optional string printed by `openspec schemas`. With no value, the schema has no description. |
+| `version` | **Required.** A positive integer stored as the schema revision. The value doesn't change CodeSpec's behavior. |
+| `description` | An optional string printed by `codespec schemas`. With no value, the schema has no description. |
 | `artifacts` | **Required.** A non-empty list of [artifact entries](#artifact-fields). |
-| `apply` | Optional [apply settings](#apply-fields). With no block, OpenSpec uses the [apply defaults](#apply-defaults). |
+| `apply` | Optional [apply settings](#apply-fields). With no block, CodeSpec uses the [apply defaults](#apply-defaults). |
 
 ## Artifact fields
 
@@ -65,7 +65,7 @@ generates: proposal.md
 The artifact goes here:
 
 ```text
-openspec/changes/add-auth/proposal.md
+codespec/changes/add-auth/proposal.md
 ```
 
 A glob can match several files:
@@ -74,13 +74,13 @@ A glob can match several files:
 generates: specs/**/*.md
 ```
 
-This matches Markdown files below `openspec/changes/add-auth/specs/`. OpenSpec treats a value containing `*`, `?`, or `[` as a glob.
+This matches Markdown files below `codespec/changes/add-auth/specs/`. CodeSpec treats a value containing `*`, `?`, or `[` as a glob.
 
-OpenSpec rejects absolute paths and paths containing a `..` segment.
+CodeSpec rejects absolute paths and paths containing a `..` segment.
 
 #### Completion
 
-OpenSpec checks whether the output exists. It doesn't read the file to decide whether the artifact is complete.
+CodeSpec checks whether the output exists. It doesn't read the file to decide whether the artifact is complete.
 
 | `generates` value | Complete when |
 |---|---|
@@ -95,22 +95,22 @@ The path starts from the schema's `templates/` folder. In the `review-first` sch
 template: proposal.md
 ```
 
-OpenSpec reads this file:
+CodeSpec reads this file:
 
 ```text
-openspec/schemas/review-first/templates/proposal.md
+codespec/schemas/review-first/templates/proposal.md
 ```
 
-OpenSpec gives the template's contents to the agent as the output format. It doesn't copy the template into the change folder.
+CodeSpec gives the template's contents to the agent as the output format. It doesn't copy the template into the change folder.
 
-OpenSpec rejects absolute paths and paths containing a `..` segment.
+CodeSpec rejects absolute paths and paths containing a `..` segment.
 
 ### `requires`
 
 - **Dependencies**: every ID in `requires` must name another artifact in the same schema.
 - **Ready state**: an artifact becomes ready after all its dependencies are complete.
 - **Invalid graphs**: missing IDs, duplicate IDs, and dependency cycles fail validation.
-- **Ties**: when several artifacts are ready, their order in `artifacts` decides which one OpenSpec returns first.
+- **Ties**: when several artifacts are ready, their order in `artifacts` decides which one CodeSpec returns first.
 
 ## Apply fields
 
@@ -120,7 +120,7 @@ OpenSpec rejects absolute paths and paths containing a `..` segment.
 |---|---|
 | `requires` | **Required.** A non-empty list of artifacts that must exist before apply instructions become ready. |
 | `tracks` | An optional relative path to a Markdown task file in the change folder. Default: `null`. |
-| `instruction` | Optional guidance sent to the agent when apply is ready. OpenSpec uses built-in guidance by default. |
+| `instruction` | Optional guidance sent to the agent when apply is ready. CodeSpec uses built-in guidance by default. |
 
 Artifact `requires` controls planning order. `apply.requires` controls when apply instructions become ready.
 
@@ -129,10 +129,10 @@ Artifact `requires` controls planning order. `apply.requires` controls when appl
 The path starts from the change folder. For a change named `add-auth`, `tracks: tasks.md` reads:
 
 ```text
-openspec/changes/add-auth/tasks.md
+codespec/changes/add-auth/tasks.md
 ```
 
-Apply stays blocked if that file is missing or contains no checkbox with task text. OpenSpec counts these checkbox forms:
+Apply stays blocked if that file is missing or contains no checkbox with task text. CodeSpec counts these checkbox forms:
 
 ```markdown
 - [ ] Pending task
@@ -148,7 +148,7 @@ The tracked file drives the apply state:
 - **`ready`**: at least one tracked task is pending.
 - **`all_done`**: every tracked task is checked.
 
-OpenSpec rejects absolute paths and paths containing a `..` segment.
+CodeSpec rejects absolute paths and paths containing a `..` segment.
 
 ### Apply defaults
 
@@ -193,7 +193,7 @@ apply:
 
 ## Validation
 
-[`openspec schema validate <name>`](../cli.md#openspec-schema-validate) checks:
+[`codespec schema validate <name>`](../cli.md#codespec-schema-validate) checks:
 
 - Field types and required fields
 - Relative paths
@@ -204,6 +204,6 @@ Validation doesn't catch these mistakes:
 
 | Mistake | What happens |
 |---|---|
-| A field is misspelled, such as `instrution` | OpenSpec ignores it. Validation doesn't report the typo. |
+| A field is misspelled, such as `instrution` | CodeSpec ignores it. Validation doesn't report the typo. |
 | `apply.requires` names an unknown artifact ID | Validation doesn't report the unknown ID. |
-| `name` differs from the schema directory | Validation passes. OpenSpec still uses the directory name for lookup. |
+| `name` differs from the schema directory | Validation passes. CodeSpec still uses the directory name for lookup. |

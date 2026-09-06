@@ -4,13 +4,13 @@ Quick answers to the questions people ask most. If your question is really a "so
 
 ## The basics
 
-### What is OpenSpec, in one sentence?
+### What is CodeSpec, in one sentence?
 
 A lightweight layer that gets you and your AI coding assistant to agree on what to build, in writing, before any code is written.
 
 ### Why would I want that?
 
-Because AI assistants are confident even when they're wrong. When the requirements live only in a chat thread, the AI fills gaps with guesses, and you find out after the code exists. OpenSpec moves the agreement earlier, where mistakes are cheap to fix. See [Core Concepts at a Glance](overview.md) for the full case.
+Because AI assistants are confident even when they're wrong. When the requirements live only in a chat thread, the AI fills gaps with guesses, and you find out after the code exists. CodeSpec moves the agreement earlier, where mistakes are cheap to fix. See [Core Concepts at a Glance](overview.md) for the full case.
 
 ### Do I have to use it for everything?
 
@@ -18,49 +18,49 @@ No. Use it where agreement matters, which is most non-trivial work. For a one-ch
 
 ### Can I use it on a big existing codebase, or only new projects?
 
-Existing codebases are the main event. OpenSpec is brownfield-first: you do not document your whole app up front. You write specs only for what each change touches, and your specs fill in over time around the work you actually do. There's a dedicated guide: [Using OpenSpec in an Existing Project](existing-projects.md).
+Existing codebases are the main event. CodeSpec is brownfield-first: you do not document your whole app up front. You write specs only for what each change touches, and your specs fill in over time around the work you actually do. There's a dedicated guide: [Using CodeSpec in an Existing Project](existing-projects.md).
 
 ### Is it tied to one AI tool?
 
-No. OpenSpec works with 30+ assistants, including Claude Code, Cursor, Devin Desktop, GitHub Copilot, Gemini CLI, Codex, and more. The full list and per-tool details are in [Supported Tools](supported-tools.md).
+No. CodeSpec works with 30+ assistants, including Claude Code, Cursor, Devin Desktop, GitHub Copilot, Gemini CLI, Codex, and more. The full list and per-tool details are in [Supported Tools](supported-tools.md).
 
 ## Running commands
 
-### Where do I type `/opsx:workflow`?
+### Where do I type `/codespec:workflow`?
 
-In your AI assistant's chat, not your terminal. This is the single most common point of confusion, so it has its own page: [How Commands Work](how-commands-work.md). Short version: `openspec ...` runs in the terminal, `/opsx:...` runs in chat.
+In your AI assistant's chat, not your terminal. This is the single most common point of confusion, so it has its own page: [How Commands Work](how-commands-work.md). Short version: `codespec ...` runs in the terminal, `/codespec:...` runs in chat.
 
 ### How do I "start interactive mode"?
 
-There isn't a separate mode to start. You open your AI assistant like normal and type a slash command into its chat. The slash command is how you "enter" OpenSpec. (The one genuinely interactive terminal feature is `openspec view`, a dashboard for browsing specs and changes.) Full explanation in [How Commands Work](how-commands-work.md).
+There isn't a separate mode to start. You open your AI assistant like normal and type a slash command into its chat. The slash command is how you "enter" CodeSpec. (The one genuinely interactive terminal feature is `codespec view`, a dashboard for browsing specs and changes.) Full explanation in [How Commands Work](how-commands-work.md).
 
 ### I typed a slash command and nothing happened. Why?
 
-Most likely you typed it in the terminal instead of your AI chat, you used a spelling your tool doesn't register, or the commands aren't installed yet. If the files are missing — or you never set the tool up — run `openspec init`; `openspec update` only refreshes files that already exist. Then restart your assistant and use the form printed under "Getting started" — see [How To Invoke](supported-tools.md#how-to-invoke). [Troubleshooting](troubleshooting.md#commands-dont-show-up) has the full checklist.
+Most likely you typed it in the terminal instead of your AI chat, you used a spelling your tool doesn't register, or the commands aren't installed yet. If the files are missing — or you never set the tool up — run `codespec init`; `codespec update` only refreshes files that already exist. Then restart your assistant and use the form printed under "Getting started" — see [How To Invoke](supported-tools.md#how-to-invoke). [Troubleshooting](troubleshooting.md#commands-dont-show-up) has the full checklist.
 
-### Why is the syntax `/opsx:workflow` in one tool and `/opsx-workflow` in another?
+### Why is the syntax `/codespec:workflow` in one tool and `/codespec-workflow` in another?
 
-Each AI tool surfaces the three public entries differently. A command file named `opsx-workflow.md` is typed `/opsx-workflow`; one filed under `commands/opsx/` is typed `/opsx:workflow`. Codex uses `$openspec-workflow`, and Kimi Code uses `/skill:openspec-workflow`. The `openspec init` "Getting started" line prints the right form for your tools.
+Each AI tool surfaces the three public entries differently. A command file named `codespec-workflow.md` is typed `/codespec-workflow`; one filed under `commands/codespec/` is typed `/codespec:workflow`. Codex uses `$codespec-workflow`, and Kimi Code uses `/skill:codespec-workflow`. The `codespec init` "Getting started" line prints the right form for your tools.
 
 ### What's the difference between a skill and a command?
 
-Both are files OpenSpec writes so your assistant can run the workflow. Skills (`.../skills/openspec-*/SKILL.md`) are the newer cross-tool standard; commands (`.../commands/opsx-*`) are the older per-tool slash files. You don't need to pick. You just type the slash command, and OpenSpec installs whichever your tool uses.
+Both are files CodeSpec writes so your assistant can run the workflow. Skills (`.../skills/codespec-*/SKILL.md`) are the newer cross-tool standard; commands (`.../commands/codespec-*`) are the older per-tool slash files. You don't need to pick. You just type the slash command, and CodeSpec installs whichever your tool uses.
 
 ## The workflow
 
 ### Where should I start if I'm not sure what to build?
 
-With `/opsx:workflow`. It delegates brainstorming and planning to Superpowers, then continues through implementation and verification.
+With `/codespec:workflow`. It delegates brainstorming and planning to Superpowers, then continues through implementation and verification.
 
 ### What's the simplest possible flow?
 
 ```text
-/opsx:workflow <what you want>   then   /opsx:archive
+/codespec:workflow <what you want>   then   /codespec:archive
 ```
 
 The workflow entry routes the request through planning, implementation, and verification. Archive only after the Change is complete.
 
-### How does `/opsx:workflow` differ from the internal phases?
+### How does `/codespec:workflow` differ from the internal phases?
 
 `workflow` is the only development entry. Core resolves the Change, requirements, baseline, and state transitions. Superpowers supplies the engineering method for brainstorming, planning, TDD, debugging, verification, and review.
 
@@ -74,11 +74,11 @@ No. Current Specification updates are part of the `archive` Core transaction. Th
 
 ### How do I edit a proposal, spec, or task after I've started?
 
-Just edit the file. Every artifact is plain Markdown in `openspec/changes/<name>/`, and there's no locked phase or special edit mode. Change it by hand, or ask your AI to revise it ("update the design to use a queue"), then keep going. The AI always works from the current file contents. Full guide: [Editing & Iterating on a Change](editing-changes.md).
+Just edit the file. Every artifact is plain Markdown in `codespec/changes/<name>/`, and there's no locked phase or special edit mode. Change it by hand, or ask your AI to revise it ("update the design to use a queue"), then keep going. The AI always works from the current file contents. Full guide: [Editing & Iterating on a Change](editing-changes.md).
 
 ### Can I go back and change the plan after implementing some of it?
 
-Yes, at any time. Edit the artifact, then return to `/opsx:workflow`. Use
+Yes, at any time. Edit the artifact, then return to `/codespec:workflow`. Use
 Superpowers verification and let Core re-check traceability and baseline
 freshness. See [Editing & Iterating on a Change](editing-changes.md).
 
@@ -97,10 +97,10 @@ Update when it's the same work, refined. Start fresh when the intent fundamental
 
 This is where specs earn their keep. Because the plan lives in files (not only
 in chat history), you can clear your context, start a fresh AI session, and
-pick up with `/opsx:workflow`; it resolves the active Change and resumes from
+pick up with `/codespec:workflow`; it resolves the active Change and resumes from
 the current task state. If requirements change, edit the artifacts and continue.
 
-### Should I commit the `openspec/` folder to git?
+### Should I commit the `codespec/` folder to git?
 
 Yes. Your specs, active changes, and archive are part of your project's history. Commit them like any other source. The archive in particular becomes a durable record of why your system works the way it does.
 
@@ -112,17 +112,17 @@ A spec describes observable behavior: what the system does, its inputs, outputs,
 
 ### What's a delta spec?
 
-A spec that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMOVED` sections, rather than restating the whole spec. It's how OpenSpec handles edits to existing systems cleanly. See [Concepts](concepts.md#delta-specs).
+A spec that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMOVED` sections, rather than restating the whole spec. It's how CodeSpec handles edits to existing systems cleanly. See [Concepts](concepts.md#delta-specs).
 
 ### Where do archived changes go?
 
-To `openspec/archive/changes/YYYY-MM-DD-<name>/`, with all Change artifacts preserved. The Change moves out of your active list. A Change that explicitly declares `retire_capabilities: true` can also delete a capability spec when it removes that capability's final requirement.
+To `codespec/archive/changes/YYYY-MM-DD-<name>/`, with all Change artifacts preserved. The Change moves out of your active list. A Change that explicitly declares `retire_capabilities: true` can also delete a capability spec when it removes that capability's final requirement.
 
 ## Configuration and customization
 
 ### How do I tell the AI about my tech stack?
 
-Put it in `openspec/config.yaml` under `context:`. That text is injected into every planning request, so the AI always knows your stack and conventions. See [Customization](customization.md#project-configuration).
+Put it in `codespec/config.yaml` under `context:`. That text is injected into every planning request, so the AI always knows your stack and conventions. See [Customization](customization.md#project-configuration).
 
 ### Can I generate specs in a language other than English?
 
@@ -130,33 +130,33 @@ Yes. Add a language instruction to your config's `context:`. [Multi-Language](mu
 
 ### Can I change the workflow itself?
 
-Yes, with custom schemas. A schema defines which artifacts exist and how they depend on each other. Fork the default with `openspec schema fork spec-driven my-workflow`, then edit it. See [Customization](customization.md#custom-schemas).
+Yes, with custom schemas. A schema defines which artifacts exist and how they depend on each other. Fork the default with `codespec schema fork spec-driven my-workflow`, then edit it. See [Customization](customization.md#custom-schemas).
 
 ## Models, privacy, and upgrades
 
 ### Which AI model should I use?
 
-OpenSpec works best with high-reasoning models. The README recommends models like Codex 5.5 and Opus 4.7 for both planning and implementation. Also keep your context window clean: clear it before implementation for best results.
+CodeSpec works best with high-reasoning models. The README recommends models like Codex 5.5 and Opus 4.7 for both planning and implementation. Also keep your context window clean: clear it before implementation for best results.
 
-### Does OpenSpec collect data?
+### Does CodeSpec collect data?
 
-It collects anonymous usage stats: command names and version only. No arguments, paths, content, or personal data, and it's off automatically in CI. Opt out with `export OPENSPEC_TELEMETRY=0` or `export DO_NOT_TRACK=1`.
+It collects anonymous usage stats: command names and version only. No arguments, paths, content, or personal data, and it's off automatically in CI. Opt out with `export CODESPEC_TELEMETRY=0` or `export DO_NOT_TRACK=1`.
 
 ### How do I upgrade?
 
-Two steps. Upgrade the package (`npm install -g @fission-ai/openspec@latest`), then run `openspec update` inside each project to refresh the generated skills and commands.
+Two steps. Upgrade the package (`npm install -g @hrhy-ai/codespec@latest`), then run `codespec update` inside each project to refresh the generated skills and commands.
 
-### How do I uninstall OpenSpec?
+### How do I uninstall CodeSpec?
 
-There's no uninstall command, because it's just a global package plus files in your project. Remove the package (`npm uninstall -g @fission-ai/openspec`), and optionally delete the `openspec/` directory and the generated tool files. Step-by-step, including what's safe to keep, is in [Installation: Uninstalling](installation.md#uninstalling).
+There's no uninstall command, because it's just a global package plus files in your project. Remove the package (`npm uninstall -g @hrhy-ai/codespec`), and optionally delete the `codespec/` directory and the generated tool files. Step-by-step, including what's safe to keep, is in [Installation: Uninstalling](installation.md#uninstalling).
 
 ## Getting help
 
 ### Where do I ask questions or report bugs?
 
 - **Discord:** [discord.gg/YctCnvvshC](https://discord.gg/YctCnvvshC)
-- **GitHub Issues:** [github.com/Fission-AI/OpenSpec/issues](https://github.com/Fission-AI/OpenSpec/issues)
-- **From your terminal:** `openspec feedback "your message"` opens a GitHub issue for you.
+- **GitHub Issues:** [github.com/LinYang-github/CodeSpec/issues](https://github.com/LinYang-github/CodeSpec/issues)
+- **From your terminal:** `codespec feedback "your message"` opens a GitHub issue for you.
 
 ### These docs are wrong or confusing. What do I do?
 

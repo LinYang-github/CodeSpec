@@ -37,7 +37,7 @@ export interface CompletionInstaller {
    *
    * Deliberately just the script: bash and PowerShell also need a sourcing
    * line in the user's profile, and `install()` adds that on a best-effort
-   * basis (it is skipped by OPENSPEC_NO_AUTO_CONFIG=1 or an unwritable
+   * basis (it is skipped by CODESPEC_NO_AUTO_CONFIG=1 or an unwritable
    * profile, printing manual instructions instead). Someone in that state has
    * already met the installer, so callers that use this to decide whether to
    * *advertise* completions should not advertise again.

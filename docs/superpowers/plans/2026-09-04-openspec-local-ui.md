@@ -1,20 +1,20 @@
-# OpenSpec 本地只读可视化界面实施计划
+# CodeSpec 本地只读可视化界面实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 提供 `openspec ui [path]`，启动仅本机可访问的浏览器界面，以只读方式浏览并检索 `openspec/` 全部内容和 `docs/superpowers/plans/`。
+**Goal:** 提供 `codespec ui [path]`，启动仅本机可访问的浏览器界面，以只读方式浏览并检索 `codespec/` 全部内容和 `docs/superpowers/plans/`。
 
 **Architecture:** CLI 命令创建受限的内容索引与 Node 本地 HTTP 服务；API 只接受索引 ID，永不接受客户端任意路径。无框架静态前端随 npm 包发布，用本地 API 实现目录树、全文检索、Markdown 阅读和手动重新扫描。
 
 **Tech Stack:** Node.js 20、TypeScript、Commander、Node `http`、Vitest、ESLint、pnpm、浏览器原生 ES modules、`markdown-it` 14.1.0。
 
-**Spec:** [docs/superpowers/specs/2026-09-04-openspec-local-ui-design.md](/Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/docs/superpowers/specs/2026-09-04-openspec-local-ui-design.md)
+**Spec:** [docs/superpowers/specs/2026-09-04-codespec-local-ui-design.md](/Users/wanglinan/Documents/01_工作/02_AI/01_project/CodeSpec/CodeSpec/docs/superpowers/specs/2026-09-04-codespec-local-ui-design.md)
 
 ## Global Constraints
 
-- 命令必须为 `openspec ui [path]`，省略路径时使用当前目录。
+- 命令必须为 `codespec ui [path]`，省略路径时使用当前目录。
 - 服务只监听 `127.0.0.1`；不实现远程访问、认证、多用户、同步或编辑能力。
-- 只索引工程根目录下 `openspec/**` 与 `docs/superpowers/plans/**`，不索引其他 `docs/` 内容。
+- 只索引工程根目录下 `codespec/**` 与 `docs/superpowers/plans/**`，不索引其他 `docs/` 内容。
 - API 用索引 ID 读取内容；拒绝未知 ID 和任何路径穿越请求。
 - 首版只支持刷新页面或显式“重新扫描”，不使用文件监听。
 - 跳过二进制、超大文件及逃离白名单根目录的符号链接；UI 必须说明空状态和可见的跳过原因。
@@ -27,10 +27,10 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `src/core/ui-content-index.ts` | 受限扫描、索引类型、OpenSpec 分类、Markdown 标题/YAML 元数据提取、全文搜索与重建。 |
+| `src/core/ui-content-index.ts` | 受限扫描、索引类型、CodeSpec 分类、Markdown 标题/YAML 元数据提取、全文搜索与重建。 |
 | `src/core/ui-server.ts` | 仅本机 HTTP 服务、静态资源与只读 API、端口选择和优雅关闭。 |
 | `src/core/ui-browser.ts` | 跨平台打开浏览器的可注入封装。 |
-| `src/commands/ui.ts` | `openspec ui` 参数解析、启动输出、自动打开与进程生命周期。 |
+| `src/commands/ui.ts` | `codespec ui` 参数解析、启动输出、自动打开与进程生命周期。 |
 | `src/cli/index.ts` | 注册 `ui [path]` Commander 命令。 |
 | `src/ui/web/index.html` | UI HTML 壳与三栏可访问性语义。 |
 | `src/ui/web/styles.css` | 三栏、窄屏、搜索结果、Markdown 和错误/空状态样式。 |
@@ -40,7 +40,7 @@
 | `test/core/ui-content-index.test.ts` | 索引范围、安全、分类、搜索和重建单元测试。 |
 | `test/core/ui-server.test.ts` | HTTP API、静态资源、端口和关闭行为测试。 |
 | `test/commands/ui.test.ts` | 命令的默认路径、启动诊断和浏览器调用测试。 |
-| `test/cli-e2e/ui.test.ts` | 已编译 CLI 的真实 `openspec ui` 冒烟测试。 |
+| `test/cli-e2e/ui.test.ts` | 已编译 CLI 的真实 `codespec ui` 冒烟测试。 |
 
 ### Task 1: 建立受限内容索引与全文检索
 
@@ -51,7 +51,7 @@
 
 **Interfaces:**
 
-- Produces `export type UiSource = 'openspec' | 'superpowers-plans'`。
+- Produces `export type UiSource = 'codespec' | 'superpowers-plans'`。
 - Produces `export interface UiDocument { id: string; relativePath: string; source: UiSource; category: string; contentType: 'markdown' | 'yaml' | 'text'; title: string; labels: string[]; content: string; modifiedAt: string; }`。
 - Produces `export interface UiIndex { documents: UiDocument[]; skipped: Array<{ relativePath: string; reason: 'binary' | 'too_large' | 'outside_root' | 'unreadable' }>; rebuiltAt: string; }`。
 - Produces `buildUiIndex(projectRoot: string): Promise<UiIndex>`、`searchUiIndex(index: UiIndex, query: string, source?: UiSource): UiDocument[]`、`findUiDocument(index: UiIndex, id: string): UiDocument | undefined`。
@@ -59,11 +59,11 @@
 
 - [ ] **Step 1: 写索引与搜索的失败测试。**
 
-在临时工程创建 `openspec/business.md`、活动/归档 Change、`openspec/archive/specs/` 和 `docs/superpowers/plans/plan.md`，以及 `docs/other.md`。断言前述允许文件均出现、`docs/other.md` 不出现，标题采用首个 ATX 标题，中文和英文正文都能命中；标题命中排在正文命中之前。
+在临时工程创建 `codespec/business.md`、活动/归档 Change、`codespec/archive/specs/` 和 `docs/superpowers/plans/plan.md`，以及 `docs/other.md`。断言前述允许文件均出现、`docs/other.md` 不出现，标题采用首个 ATX 标题，中文和英文正文都能命中；标题命中排在正文命中之前。
 
 ```ts
 const index = await buildUiIndex(root);
-expect(index.documents.map((item) => item.relativePath)).toContain('openspec/business.md');
+expect(index.documents.map((item) => item.relativePath)).toContain('codespec/business.md');
 expect(index.documents.map((item) => item.relativePath)).toContain('docs/superpowers/plans/plan.md');
 expect(index.documents.map((item) => item.relativePath)).not.toContain('docs/other.md');
 expect(searchUiIndex(index, '发布')[0]?.title).toBe('发布计划');
@@ -83,7 +83,7 @@ pnpm exec vitest run test/core/ui-content-index.test.ts
 
 用 `fs.promises.realpath()` 规范化工程根和每个候选文件；只有真实路径仍以各自允许根加 `path.sep` 开头时才读取。递归时跳过目录符号链接，接受扩展名 `.md`、`.mdx`、`.yaml`、`.yml`、`.json`、`.txt`，单文件上限固定为 `1_048_576` bytes；读取前检查大小，读取后检查 `content.includes('\0')`。
 
-将路径按 POSIX 形式存入 `relativePath`，按字典序排序。分类规则必须为：`openspec/business.md` 是 `业务说明`；`openspec/changes/<id>/...` 是 `活动 Change`；`openspec/specs/...` 是 `当前 Spec`；`openspec/archive/changes/...` 是 `归档 Change`；`openspec/archive/specs/...` 是 `归档 Spec`；其余 OpenSpec 文件是 `其他 OpenSpec 文件`；计划根下内容是 `Superpowers Plans`。将 `.md`/`.mdx` 标为 `markdown`，`.yaml`/`.yml` 标为 `yaml`，其余允许文件为 `text`。标题使用 Markdown 的第一条 `/^#\s+(.+)$/m`，无标题时用 `path.basename()`；YAML 用安全解析取得顶层 `id`、`status`、`updated_at`、`created_at` 中的标量值作为 `labels`，解析失败时返回空标签并保留原始内容。
+将路径按 POSIX 形式存入 `relativePath`，按字典序排序。分类规则必须为：`codespec/business.md` 是 `业务说明`；`codespec/changes/<id>/...` 是 `活动 Change`；`codespec/specs/...` 是 `当前 Spec`；`codespec/archive/changes/...` 是 `归档 Change`；`codespec/archive/specs/...` 是 `归档 Spec`；其余 CodeSpec 文件是 `其他 CodeSpec 文件`；计划根下内容是 `Superpowers Plans`。将 `.md`/`.mdx` 标为 `markdown`，`.yaml`/`.yml` 标为 `yaml`，其余允许文件为 `text`。标题使用 Markdown 的第一条 `/^#\s+(.+)$/m`，无标题时用 `path.basename()`；YAML 用安全解析取得顶层 `id`、`status`、`updated_at`、`created_at` 中的标量值作为 `labels`，解析失败时返回空标签并保留原始内容。
 
 搜索将查询按 Unicode 小写和空白折叠；对每个文档计算 title、relativePath、content 的首次位置，按 `title`、`relativePath`、`content` 三档命中，再以 `modifiedAt` 降序和路径升序排序；空查询返回全部文档。
 
@@ -162,7 +162,7 @@ pnpm exec tsc --noEmit
 
 ```bash
 git add src/core/ui-server.ts src/core/ui-browser.ts test/core/ui-server.test.ts
-git commit -m "feat: serve OpenSpec UI locally"
+git commit -m "feat: serve CodeSpec UI locally"
 ```
 
 ### Task 3: 加入静态三栏界面并接入构建产物
@@ -207,7 +207,7 @@ test -f dist/ui/web/vendor/markdown-it.min.js
 
 - [ ] **Step 3: 创建可访问的三栏 HTML 与 CSS。**
 
-`index.html` 使用一个全局 `<input type="search">`、来源筛选 `<select>`、默认选中的“内容文档”切换项、重新扫描 `<button>`，以及带 `aria-label` 的 `nav`（目录树）、`section`（结果列表）和 `article`（阅读器）。YAML 仅在用户启用可折叠的“配置与元数据”分组后显示；初始状态分别写明“正在扫描 OpenSpec 和 Superpowers Plans…”与空内容提示。
+`index.html` 使用一个全局 `<input type="search">`、来源筛选 `<select>`、默认选中的“内容文档”切换项、重新扫描 `<button>`，以及带 `aria-label` 的 `nav`（目录树）、`section`（结果列表）和 `article`（阅读器）。YAML 仅在用户启用可折叠的“配置与元数据”分组后显示；初始状态分别写明“正在扫描 CodeSpec 和 Superpowers Plans…”与空内容提示。
 
 `styles.css` 在宽度至少 960px 时使用 `grid-template-columns: 260px minmax(260px, 360px) minmax(0, 1fr)`；小于 960px 时变为单列。定义选中项、搜索命中、错误、空状态、代码块、表格和任务清单样式，保持足够文本对比度。不得依赖远程字体、CDN 或在线资源。
 
@@ -231,7 +231,7 @@ pnpm lint
 
 ```bash
 git add package.json pnpm-lock.yaml build.js src/ui/web
-git commit -m "feat: add OpenSpec UI web assets"
+git commit -m "feat: add CodeSpec UI web assets"
 ```
 
 ### Task 4: 注册 CLI 命令并完成端到端验证
@@ -247,17 +247,17 @@ git commit -m "feat: add OpenSpec UI web assets"
 
 - Produces `UiCommand.execute(targetPath?: string): Promise<void>`.
 - Consumes `startUiServer` from Task 2 and `openBrowser` from Task 2.
-- Registers `program.command('ui [path]')` with description `在浏览器中只读浏览和检索 OpenSpec 内容`.
-- The command prints `OpenSpec UI: <url>` before attempting browser open, and remains alive until `SIGINT`/`SIGTERM`.
+- Registers `program.command('ui [path]')` with description `在浏览器中只读浏览和检索 CodeSpec 内容`.
+- The command prints `CodeSpec UI: <url>` before attempting browser open, and remains alive until `SIGINT`/`SIGTERM`.
 
 - [ ] **Step 1: 写命令单元与已编译 CLI 的失败测试。**
 
 在 `UiCommand` 注入 `startServer` 和 `openBrowser` 测试桩，断言：未传路径时传 `process.cwd()`；有路径时先 `path.resolve()`；服务 URL 总被输出；浏览器打开错误只打印“无法自动打开浏览器，请访问 <url>”而不关闭服务；接收 `SIGINT` 时调用一次 `close()` 并将退出码设为 0。
 
-端到端测试建立临时工程，spawn `node dist/cli/index.js ui <root>`，等待 stdout 的 `OpenSpec UI: http://127.0.0.1:`，请求 `/api/index` 并断言得到两个来源；发送 `SIGTERM`，断言子进程在 5 秒内退出。测试必须在 `afterEach` 终止残留子进程，沿用 `test/helpers/run-cli.ts` 的进程树清理方式。
+端到端测试建立临时工程，spawn `node dist/cli/index.js ui <root>`，等待 stdout 的 `CodeSpec UI: http://127.0.0.1:`，请求 `/api/index` 并断言得到两个来源；发送 `SIGTERM`，断言子进程在 5 秒内退出。测试必须在 `afterEach` 终止残留子进程，沿用 `test/helpers/run-cli.ts` 的进程树清理方式。
 
 ```ts
-expect(output).toMatch(/OpenSpec UI: http:\/\/127\.0\.0\.1:\d+/);
+expect(output).toMatch(/CodeSpec UI: http:\/\/127\.0\.0\.1:\d+/);
 expect((await fetch(`${url}/api/index`)).status).toBe(200);
 child.kill('SIGTERM');
 ```
@@ -285,13 +285,13 @@ pnpm lint
 pnpm test
 ```
 
-预期：全部退出 0。手动运行 `node dist/cli/index.js ui .` 时自动打开本机页面，能在左栏见到 OpenSpec/Plans，搜索 `设计` 后阅读区可显示匹配 Markdown；按 Ctrl-C 后端口释放。
+预期：全部退出 0。手动运行 `node dist/cli/index.js ui .` 时自动打开本机页面，能在左栏见到 CodeSpec/Plans，搜索 `设计` 后阅读区可显示匹配 Markdown；按 Ctrl-C 后端口释放。
 
 - [ ] **Step 5: 提交 CLI 与测试。**
 
 ```bash
 git add src/commands/ui.ts src/cli/index.ts test/commands/ui.test.ts test/cli-e2e/ui.test.ts
-git commit -m "feat: add openspec ui command"
+git commit -m "feat: add codespec ui command"
 ```
 
 ## 自检结果

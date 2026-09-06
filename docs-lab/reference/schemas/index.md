@@ -17,4 +17,4 @@ One schema ships with the CLI:
 
 A project can add its own schemas, and a machine can override globally. Where those folders live and which copy wins is in schema.yaml's [Location](schema-yaml.md#location) section.
 
-In your terminal, [`openspec schemas`](../cli.md#openspec-schemas) prints every schema your project can see.
+In your terminal, [`codespec schemas`](../cli.md#codespec-schemas) prints every schema your project can see.

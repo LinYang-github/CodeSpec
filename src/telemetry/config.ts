@@ -4,7 +4,6 @@
  */
 import { promises as fs } from 'fs';
 import path from 'path';
-import os from 'os';
 import {
   GLOBAL_CONFIG_DIR_NAME,
   GLOBAL_CONFIG_FILE_NAME,
@@ -33,10 +32,6 @@ function getConfigDir(): string {
   return getGlobalConfigDir();
 }
 
-function getLegacyConfigPath(): string {
-  return path.join(os.homedir(), '.config', CONFIG_DIR_NAME, CONFIG_FILE_NAME);
-}
-
 async function readConfigFile(configPath: string): Promise<ConfigReadResult> {
   try {
     const content = await fs.readFile(configPath, 'utf-8');
@@ -55,77 +50,13 @@ async function writeConfigFile(configPath: string, config: GlobalConfig): Promis
   await fs.writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
-function hasMissingTelemetryFields(config: GlobalConfig): boolean {
-  const telemetry = config.telemetry;
-  return (
-    !telemetry ||
-    telemetry.anonymousId === undefined ||
-    telemetry.noticeSeen === undefined
-  );
-}
-
-function mergeLegacyTelemetry(config: GlobalConfig, legacyConfig: GlobalConfig): GlobalConfig | undefined {
-  const legacyTelemetry = legacyConfig.telemetry;
-  if (!legacyTelemetry) {
-    return undefined;
-  }
-
-  const currentTelemetry = config.telemetry ?? {};
-  const shouldMigrate =
-    (currentTelemetry.anonymousId === undefined && legacyTelemetry.anonymousId !== undefined) ||
-    (currentTelemetry.noticeSeen === undefined && legacyTelemetry.noticeSeen !== undefined);
-
-  if (!shouldMigrate) {
-    return undefined;
-  }
-
-  return {
-    ...config,
-    telemetry: {
-      ...legacyTelemetry,
-      ...currentTelemetry,
-    },
-  };
-}
-
-async function migrateLegacyTelemetryConfig(
-  configPath: string,
-  config: GlobalConfig,
-  persist: boolean,
-): Promise<GlobalConfig> {
-  const legacyConfigPath = getLegacyConfigPath();
-  if (path.resolve(configPath) === path.resolve(legacyConfigPath) || !hasMissingTelemetryFields(config)) {
-    return config;
-  }
-
-  const legacyRead = await readConfigFile(legacyConfigPath);
-  if (legacyRead.status !== 'ok') {
-    return config;
-  }
-
-  const migrated = mergeLegacyTelemetry(config, legacyRead.config);
-  if (!migrated) {
-    return config;
-  }
-
-  if (persist) {
-    try {
-      await writeConfigFile(configPath, migrated);
-    } catch {
-      // Preserve telemetry for this run even if the one-time migration cannot be persisted.
-    }
-  }
-
-  return migrated;
-}
-
 /**
  * Get the path to the global config file.
  * Follows XDG Base Directory Specification and platform conventions.
  *
- * - All platforms: $XDG_CONFIG_HOME/openspec/ if XDG_CONFIG_HOME is set
- * - Unix/macOS fallback: ~/.config/openspec/
- * - Windows fallback: %APPDATA%/openspec/
+ * - All platforms: $XDG_CONFIG_HOME/codespec/ if XDG_CONFIG_HOME is set
+ * - Unix/macOS fallback: ~/.config/codespec/
+ * - Windows fallback: %APPDATA%/codespec/
  */
 export function getConfigPath(): string {
   const configDir = getConfigDir();
@@ -139,8 +70,7 @@ export function getConfigPath(): string {
 export async function readConfig(): Promise<GlobalConfig> {
   const configPath = getConfigPath();
   const read = await readConfigFile(configPath);
-  const config = read.status === 'ok' ? read.config : {};
-  return migrateLegacyTelemetryConfig(configPath, config, read.status !== 'invalid');
+  return read.status === 'ok' ? read.config : {};
 }
 
 /**

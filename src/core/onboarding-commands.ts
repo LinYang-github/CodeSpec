@@ -32,9 +32,9 @@ export const DESCRIPTION_BUDGET = 17;
  * advertised here; they are internal Core routing or Superpowers guidance.
  */
 const ONBOARDING_COMMANDS: readonly OnboardingCommand[] = [
-  { workflow: 'workflow', command: '/opsx:workflow', description: '开始或继续开发' },
-  { workflow: 'rebase', command: '/opsx:rebase', description: '恢复 STALE Change' },
-  { workflow: 'archive', command: '/opsx:archive', description: '提交并归档 Change' },
+  { workflow: 'workflow', command: '/codespec:workflow', description: '开始/继续开发' },
+  { workflow: 'rebase', command: '/codespec:rebase', description: '恢复 STALE' },
+  { workflow: 'archive', command: '/codespec:archive', description: '归档 Change' },
 ];
 
 /**

@@ -1,10 +1,10 @@
 # Concepts
 
-This guide explains the core ideas behind OpenSpec and how they fit together. For practical usage, see [Getting Started](getting-started.md) and [Workflows](workflows.md).
+This guide explains the core ideas behind CodeSpec and how they fit together. For practical usage, see [Getting Started](getting-started.md) and [Workflows](workflows.md).
 
 ## Philosophy
 
-OpenSpec is built around four principles:
+CodeSpec is built around four principles:
 
 ```
 fluid not rigid         — no phase gates, work on what makes sense
@@ -15,24 +15,24 @@ brownfield-first        — works with existing codebases, not just greenfield
 
 ### Why These Principles Matter
 
-**Fluid not rigid.** Traditional spec systems lock you into phases: first you plan, then you implement, then you're done. OpenSpec is more flexible — you can create artifacts in any order that makes sense for your work.
+**Fluid not rigid.** Traditional spec systems lock you into phases: first you plan, then you implement, then you're done. CodeSpec is more flexible — you can create artifacts in any order that makes sense for your work.
 
-**Iterative not waterfall.** Requirements change. Understanding deepens. What seemed like a good approach at the start might not hold up after you see the codebase. OpenSpec embraces this reality.
+**Iterative not waterfall.** Requirements change. Understanding deepens. What seemed like a good approach at the start might not hold up after you see the codebase. CodeSpec embraces this reality.
 
-**Easy not complex.** Some spec frameworks require extensive setup, rigid formats, or heavyweight processes. OpenSpec stays out of your way. Initialize in seconds, start working immediately, customize only if you need to.
+**Easy not complex.** Some spec frameworks require extensive setup, rigid formats, or heavyweight processes. CodeSpec stays out of your way. Initialize in seconds, start working immediately, customize only if you need to.
 
-**Brownfield-first.** Most software work isn't building from scratch — it's modifying existing systems. OpenSpec's delta-based approach makes it easy to specify changes to existing behavior, not just describe new systems.
+**Brownfield-first.** Most software work isn't building from scratch — it's modifying existing systems. CodeSpec's delta-based approach makes it easy to specify changes to existing behavior, not just describe new systems.
 
 ## The Big Picture
 
-OpenSpec organizes your work into two main areas:
+CodeSpec organizes your work into two main areas:
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                        openspec/                                   │
+│                        codespec/                                   │
 │                                                                    │
 │   ┌─────────────────────┐      ┌───────────────────────────────┐   │
-│   │  archive/specs/     │      │         changes/              │   │
+│   │  specs/     │      │         changes/              │   │
 │   │  Canonical current  │◄─────│  CHG-* proposed modifications  │   │
 │   │  code-spec truth     │ merge│  Each Change has metadata     │   │
 │   │                     │      │                               │   │
@@ -41,7 +41,7 @@ OpenSpec organizes your work into two main areas:
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-For canonical `code-spec` workspaces (`openspec/config.yaml` with `schema: code-spec`), `openspec/archive/specs/` is the source of truth and `openspec/changes/CHG-YYYYMMDD-NNN/` contains proposed modifications. The `openspec/specs/` source-of-truth model and generic archive paths below apply only to generic `spec-driven` workspaces.
+For canonical `code-spec` workspaces (`codespec/config.yaml` with `schema: code-spec`), `codespec/specs/` is the source of truth and `codespec/changes/CHG-YYYYMMDD-NNN/` contains proposed modifications. The `codespec/specs/` source-of-truth model and generic archive paths below apply only to generic `spec-driven` workspaces.
 
 Canonical Scenarios use four protocol tokens: `GIVEN`, `WHEN`, `THEN`, and `ERROR`. `ERROR` describes how the system handles an exception. An explicit empty `ERROR` row is allowed only as an analysis placeholder; Core rejects it during Verification and archive until a human fills it in.
 
@@ -56,7 +56,7 @@ Specs describe your system's behavior using structured requirements and scenario
 ### Structure
 
 ```
-openspec/archive/specs/
+codespec/specs/
 ├── auth/
 │   └── spec.md           # Authentication behavior
 ├── payments/
@@ -154,7 +154,7 @@ Quick test:
 
 ### Keep It Lightweight: Progressive Rigor
 
-OpenSpec aims to avoid bureaucracy. Use the lightest level that still makes the change verifiable.
+CodeSpec aims to avoid bureaucracy. Use the lightest level that still makes the change verifiable.
 
 **Lite spec (default):**
 - Short behavior-first requirements
@@ -177,7 +177,7 @@ In many teams, humans explore and agents draft artifacts. The intended loop is:
 3. Agent keeps implementation detail in `design.md` and `tasks.md`, not `spec.md`.
 4. Validation confirms structure and clarity before implementation.
 
-This keeps specs readable for humans and consistent for agents. The canonical code-spec source of truth is `openspec/archive/specs/`; the legacy `openspec/specs/` source-of-truth wording below applies only to generic `spec-driven` workspaces.
+This keeps specs readable for humans and consistent for agents. The canonical code-spec source of truth is `codespec/specs/`; the legacy `codespec/specs/` source-of-truth wording below applies only to generic `spec-driven` workspaces.
 
 ## Changes
 
@@ -186,7 +186,7 @@ A change is a proposed modification to your system, packaged as a folder with ev
 ### Change Structure
 
 ```
-openspec/changes/CHG-YYYYMMDD-NNN/
+codespec/changes/CHG-YYYYMMDD-NNN/
 ├── proposal.md           # Why and what
 ├── design.md             # How (technical approach)
 ├── tasks.md              # Implementation checklist
@@ -208,7 +208,7 @@ Packaging a change as a folder has several benefits:
 
 2. **Parallel work.** Multiple changes can exist simultaneously without conflicting. Work on `add-dark-mode` while `fix-auth-bug` is also in progress.
 
-3. **Clean history.** Canonical Changes move to `openspec/archive/changes/` with full context preserved. Generic `spec-driven` documentation may use its historical archive path.
+3. **Clean history.** Canonical Changes move to `codespec/archive/changes/` with full context preserved. Generic `spec-driven` documentation may use its historical archive path.
 
 4. **Review-friendly.** A change folder is easy to review — open it, read the proposal, check the design, see the spec deltas.
 
@@ -344,7 +344,7 @@ Tasks are the **implementation checklist** — concrete steps with checkboxes.
 
 ## Delta Specs
 
-Delta specs are the key concept that makes OpenSpec work for brownfield development. They describe **what's changing** rather than restating the entire spec.
+Delta specs are the key concept that makes CodeSpec work for brownfield development. They describe **what's changing** rather than restating the entire spec.
 
 ### The Format
 
@@ -411,7 +411,7 @@ Schemas define the artifact types and their dependencies for a workflow.
 ### How Schemas Work
 
 ```yaml
-# openspec/schemas/spec-driven/schema.yaml
+# codespec/schemas/spec-driven/schema.yaml
 name: spec-driven
 artifacts:
   - id: proposal
@@ -472,16 +472,16 @@ Create custom schemas for your team's workflow:
 
 ```bash
 # Create from scratch
-openspec schema init research-first
+codespec schema init research-first
 
 # Or fork an existing one
-openspec schema fork spec-driven research-first
+codespec schema fork spec-driven research-first
 ```
 
 **Example custom schema:**
 
 ```yaml
-# openspec/schemas/research-first/schema.yaml
+# codespec/schemas/research-first/schema.yaml
 name: research-first
 artifacts:
   - id: research
@@ -508,7 +508,7 @@ Archiving completes a Change by applying its delta to Current Specification and 
 ```
 Before archive:
 
-openspec/
+codespec/
 ├── specs/
 │   └── auth/
 │       └── spec.md ◄────────────────┐
@@ -524,7 +524,7 @@ openspec/
 
 After archive:
 
-openspec/
+codespec/
 ├── specs/
 │   └── auth/
 │       └── spec.md        # Now includes 2FA requirements
@@ -543,7 +543,7 @@ openspec/
 
 1. **Merge deltas.** Each delta spec section (ADDED/MODIFIED/REMOVED) is applied to the corresponding main spec.
 
-2. **Move to archive.** The Change folder moves to `openspec/archive/changes/` with a date prefix for chronological ordering.
+2. **Move to archive.** The Change folder moves to `codespec/archive/changes/` with a date prefix for chronological ordering.
 
 3. **Preserve context.** All artifacts remain intact in the archive. You can always look back to understand why a change was made.
 
@@ -559,10 +559,10 @@ openspec/
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                              OPENSPEC FLOW                                   │
+│                              CodeSpec FLOW                                   │
 │                                                                              │
 │   ┌────────────────┐                                                         │
-│   │  1. START      │  /opsx:workflow                                        │
+│   │  1. START      │  /codespec:workflow                                        │
 │   │     CHANGE     │                                                         │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │
@@ -575,7 +575,7 @@ openspec/
 │           │                                                                  │
 │           ▼                                                                  │
 │   ┌────────────────┐                                                         │
-│   │  3. IMPLEMENT  │  /opsx:workflow + Superpowers                           │
+│   │  3. IMPLEMENT  │  /codespec:workflow + Superpowers                           │
 │   │     TASKS      │  Work through tasks, checking them off                  │
 │   │                │◄──── Update artifacts as you learn                      │
 │   └───────┬────────┘                                                         │
@@ -618,7 +618,7 @@ openspec/
 | **Scenario** | A concrete example of a requirement, typically in Given/When/Then format |
 | **Schema** | A definition of artifact types and their dependencies |
 | **Spec** | A specification describing system behavior, containing requirements and scenarios |
-| **Source of truth** | The `openspec/archive/specs/` directory, containing current agreed-upon behavior |
+| **Source of truth** | The `codespec/specs/` directory, containing current agreed-upon behavior |
 
 ## Next Steps
 

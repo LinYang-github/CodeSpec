@@ -19,27 +19,26 @@ describe('buildUiIndex', () => {
     ]);
   });
 
-  it('indexes only OpenSpec content and Superpowers plans', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+  it('indexes only CodeSpec content and Superpowers plans', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
-    await fs.mkdir(path.join(root, 'openspec', 'changes', 'CHG-001'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-001'), { recursive: true });
     await fs.mkdir(path.join(root, 'docs', 'superpowers', 'plans'), { recursive: true });
     await fs.mkdir(path.join(root, 'docs'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'business.md'), '# 业务说明\n\n核心业务内容。');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-001', 'proposal.md'), '# 发布计划\n\n变更内容。');
+    await fs.writeFile(path.join(root, 'codespec', 'business.md'), '# 业务说明\n\n核心业务内容。');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-001', 'proposal.md'), '# 发布计划\n\n变更内容。');
     await fs.writeFile(path.join(root, 'docs', 'superpowers', 'plans', 'release.md'), '# 发布实施计划\n\n执行步骤。');
     await fs.writeFile(path.join(root, 'docs', 'other.md'), '# 不应显示\n\n范围外内容。');
 
     const index = await buildUiIndex(root);
-
     expect(index.documents.map((document) => document.relativePath)).toEqual([
+      'codespec/business.md',
+      'codespec/changes/CHG-001/proposal.md',
       'docs/superpowers/plans/release.md',
-      'openspec/business.md',
-      'openspec/changes/CHG-001/proposal.md',
     ]);
-    expect(index.documents.find((document) => document.relativePath === 'openspec/business.md')).toMatchObject({
-      source: 'openspec',
+    expect(index.documents.find((document) => document.relativePath === 'codespec/business.md')).toMatchObject({
+      source: 'codespec',
       category: '业务说明',
       contentType: 'markdown',
       title: '业务说明',
@@ -48,22 +47,22 @@ describe('buildUiIndex', () => {
   });
 
   it('groups archive Spec snapshots separately from archived Change history', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
-    await fs.mkdir(path.join(root, 'openspec', 'archive', 'specs', 'cli-init'), { recursive: true });
-    await fs.mkdir(path.join(root, 'openspec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init'), { recursive: true });
-    await fs.mkdir(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init'), { recursive: true });
-    await fs.mkdir(path.join(root, 'openspec', 'changes', 'archive', '2025-08-07-legacy-change'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'archive', 'specs', 'cli-init', 'spec.md'), '# CLI 初始化规范');
-    await fs.writeFile(path.join(root, 'openspec', 'archive', 'specs', 'README.md'), '# 归档说明');
-    await fs.writeFile(path.join(root, 'openspec', 'archive', 'changes', '2025-08-06-add-init-command', 'proposal.md'), '# 初始化命令');
-    await fs.writeFile(path.join(root, 'openspec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init', 'spec.md'), '# 历史规格');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'proposal.md'), '# 当前变更');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'tasks.md'), '# 任务');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init', 'spec.md'), '# 当前规格');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'index.yaml'), 'changes: []\n');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'archive', '2025-08-07-legacy-change', 'proposal.md'), '# 旧归档');
+    await fs.mkdir(path.join(root, 'codespec', 'archive', 'specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'changes', 'archive', '2025-08-07-legacy-change'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'archive', 'specs', 'cli-init', 'spec.md'), '# CLI 初始化规范');
+    await fs.writeFile(path.join(root, 'codespec', 'archive', 'specs', 'README.md'), '# 归档说明');
+    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'proposal.md'), '# 初始化命令');
+    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init', 'spec.md'), '# 历史规格');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'proposal.md'), '# 当前变更');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'tasks.md'), '# 任务');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init', 'spec.md'), '# 当前规格');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'index.yaml'), 'changes: []\n');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'archive', '2025-08-07-legacy-change', 'proposal.md'), '# 旧归档');
 
     const index = await buildUiIndex(root);
     const archive = index as typeof index & {
@@ -71,12 +70,12 @@ describe('buildUiIndex', () => {
     };
 
     expect(archive.archive.specSnapshots.map((document) => document.relativePath)).toEqual([
-      'openspec/archive/specs/cli-init/spec.md',
+      'codespec/archive/specs/cli-init/spec.md',
     ]);
     expect(archive.archive.history.map((document) => document.relativePath)).toEqual([
-      'openspec/archive/changes/2025-08-06-add-init-command/proposal.md',
-      'openspec/archive/changes/2025-08-06-add-init-command/specs/cli-init/spec.md',
-      'openspec/changes/archive/2025-08-07-legacy-change/proposal.md',
+      'codespec/archive/changes/2025-08-06-add-init-command/proposal.md',
+      'codespec/archive/changes/2025-08-06-add-init-command/specs/cli-init/spec.md',
+      'codespec/changes/archive/2025-08-07-legacy-change/proposal.md',
     ]);
     expect(archive.archive.historyCount).toBe(2);
     expect((index as typeof index & { changes: Array<{ id: string; documents: Array<{ relativePath: string }> }> }).changes.map((change) => ({
@@ -86,9 +85,9 @@ describe('buildUiIndex', () => {
       {
         id: 'CHG-20260903-001',
         documents: [
-          { relativePath: 'openspec/changes/CHG-20260903-001/proposal.md' },
-          { relativePath: 'openspec/changes/CHG-20260903-001/specs/cli-init/spec.md' },
-          { relativePath: 'openspec/changes/CHG-20260903-001/tasks.md' },
+          { relativePath: 'codespec/changes/CHG-20260903-001/proposal.md' },
+          { relativePath: 'codespec/changes/CHG-20260903-001/specs/cli-init/spec.md' },
+          { relativePath: 'codespec/changes/CHG-20260903-001/tasks.md' },
         ],
       },
     ]);
@@ -99,24 +98,24 @@ describe('buildUiIndex', () => {
   });
 
   it('ranks title matches before body matches and extracts YAML metadata labels', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'body.md'), '# 概览\n\n发布准备事项。');
-    await fs.writeFile(path.join(root, 'openspec', 'title.md'), '# 发布计划\n\n其他内容。');
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'body.md'), '# 概览\n\n发布准备事项。');
+    await fs.writeFile(path.join(root, 'codespec', 'title.md'), '# 发布计划\n\n其他内容。');
     await fs.writeFile(
-      path.join(root, 'openspec', 'metadata.yaml'),
+      path.join(root, 'codespec', 'metadata.yaml'),
       'id: CHG-001\nstatus: PLAN\nupdated_at: 2026-09-04\n'
     );
 
     const index = await buildUiIndex(root);
     const results = searchUiIndex(index, '发布');
-    const metadata = index.documents.find((document) => document.relativePath === 'openspec/metadata.yaml');
+    const metadata = index.documents.find((document) => document.relativePath === 'codespec/metadata.yaml');
 
     expect(results.map((document) => document.relativePath)).toEqual([
-      'openspec/title.md',
-      'openspec/body.md',
+      'codespec/title.md',
+      'codespec/body.md',
     ]);
     expect(metadata).toMatchObject({
       contentType: 'yaml',
@@ -125,25 +124,25 @@ describe('buildUiIndex', () => {
   });
 
   it('skips unsafe files while resolving indexed documents by opaque ID', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
-    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-outside-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-outside-'));
     tempRoots.push(root, outsideRoot);
 
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'safe.md'), '# 安全文档');
-    await fs.writeFile(path.join(root, 'openspec', 'binary.md'), Buffer.from([0x61, 0x00, 0x62]));
-    await fs.writeFile(path.join(root, 'openspec', 'large.md'), 'a'.repeat(1_048_577));
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'safe.md'), '# 安全文档');
+    await fs.writeFile(path.join(root, 'codespec', 'binary.md'), Buffer.from([0x61, 0x00, 0x62]));
+    await fs.writeFile(path.join(root, 'codespec', 'large.md'), 'a'.repeat(1_048_577));
     await fs.writeFile(path.join(outsideRoot, 'outside.md'), '# 范围外');
-    await fs.symlink(path.join(outsideRoot, 'outside.md'), path.join(root, 'openspec', 'outside.md'));
+    await fs.symlink(path.join(outsideRoot, 'outside.md'), path.join(root, 'codespec', 'outside.md'));
 
     const index = await buildUiIndex(root);
-    const safeDocument = index.documents.find((document) => document.relativePath === 'openspec/safe.md');
+    const safeDocument = index.documents.find((document) => document.relativePath === 'codespec/safe.md');
 
-    expect(index.documents.map((document) => document.relativePath)).toEqual(['openspec/safe.md']);
+    expect(index.documents.map((document) => document.relativePath)).toEqual(['codespec/safe.md']);
     expect(index.skipped).toEqual([
-      { relativePath: 'openspec/binary.md', reason: 'binary' },
-      { relativePath: 'openspec/large.md', reason: 'too_large' },
-      { relativePath: 'openspec/outside.md', reason: 'outside_root' },
+      { relativePath: 'codespec/binary.md', reason: 'binary' },
+      { relativePath: 'codespec/large.md', reason: 'too_large' },
+      { relativePath: 'codespec/outside.md', reason: 'outside_root' },
     ]);
     expect(safeDocument).toBeDefined();
     expect(findUiDocument(index, safeDocument!.id)).toEqual(safeDocument);

@@ -14,7 +14,14 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 describe('published package install scripts', () => {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf-8')
-  ) as { scripts?: Record<string, string> };
+  ) as { name?: string; version?: string; bin?: Record<string, string>; scripts?: Record<string, string> };
+
+  it('publishes the CodeSpec 1.0 package and only codespec binary', () => {
+    expect(packageJson.name).toBe('@hrhy-ai/codespec');
+    expect(packageJson.version).toBe('1.0.0');
+    expect(packageJson.bin).toEqual({ codespec: './bin/codespec.js' });
+    expect(packageJson.scripts?.typecheck).toBe('tsc --noEmit');
+  });
 
   it.each(['preinstall', 'install', 'postinstall'])(
     'declares no "%s" script',

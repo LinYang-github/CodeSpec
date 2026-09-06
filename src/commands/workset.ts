@@ -107,7 +107,7 @@ function worksetCliOpenerDisabledError(
     'workset_cli_opener_disabled',
     {
       target: 'workset.tool',
-      fix: `使用 VS Code 或 Cursor 打开：openspec workset open ${name} --tool code`,
+      fix: `使用 VS Code 或 Cursor 打开：codespec workset open ${name} --tool code`,
     }
   );
 }
@@ -253,7 +253,7 @@ class WorksetCommand {
       }
 
       console.log(
-        `随时可使用以下命令打开：openspec workset open ${workset.name}`
+        `随时可使用以下命令打开：codespec workset open ${workset.name}`
       );
     } catch (error) {
       emitFailure(options.json, { workset: null, status: [] }, error, 'workset_error');
@@ -267,7 +267,7 @@ class WorksetCommand {
     if (!name) {
       throw new StoreError('Pass a workset name.', 'workset_name_required', {
         target: 'workset.name',
-        fix: 'openspec workset create <name> --member <path>',
+        fix: 'codespec workset create <name> --member <path>',
       });
     }
 
@@ -280,7 +280,7 @@ class WorksetCommand {
         'workset_members_required',
         {
           target: 'workset.member',
-          fix: `openspec workset create ${name} --member <path> --member <name>=<path>`,
+          fix: `codespec workset create ${name} --member <path> --member <name>=<path>`,
         }
       );
     }
@@ -310,7 +310,7 @@ class WorksetCommand {
 
       if (worksets.length === 0) {
         console.log(
-          '尚未保存 Workset。可使用 openspec workset create 创建。'
+          '尚未保存 Workset。可使用 codespec workset create 创建。'
         );
         return;
       }
@@ -344,7 +344,7 @@ class WorksetCommand {
           'workset_open_json_unsupported',
           {
             target: 'workset.tool',
-            fix: '使用以下命令查看 Workset：openspec workset list --json',
+            fix: '使用以下命令查看 Workset：codespec workset list --json',
           }
         );
       }
@@ -376,7 +376,7 @@ class WorksetCommand {
             'workset_no_members_available',
             {
               target: 'workset.member',
-              fix: `重新创建：openspec workset remove ${name} --yes && openspec workset create ${name} --member <path>`,
+              fix: `重新创建：codespec workset remove ${name} --yes && codespec workset create ${name} --member <path>`,
             }
           );
         }
@@ -425,7 +425,7 @@ class WorksetCommand {
             'workset_tool_required',
             {
               target: 'workset.tool',
-              fix: `openspec workset open ${name} --tool <id>`,
+              fix: `codespec workset open ${name} --tool <id>`,
             }
           );
         }
@@ -484,7 +484,7 @@ class WorksetCommand {
           if (alternative !== null) {
             throw new StoreError(error.message, 'workset_launch_failed', {
               target: 'workset.tool',
-              fix: `运行：openspec workset open ${name} --tool ${alternative}`,
+              fix: `运行：codespec workset open ${name} --tool ${alternative}`,
             });
           }
         }
@@ -534,7 +534,7 @@ class WorksetCommand {
             'workset_remove_confirmation_required',
             {
               target: 'workset.name',
-              fix: `openspec workset remove ${name} --yes`,
+              fix: `codespec workset remove ${name} --yes`,
             }
           );
         }
@@ -576,7 +576,7 @@ export function registerWorksetCommand(program: Command): void {
     COMMAND_REGISTRY.find((entry) => entry.name === 'workset')?.description ??
     '创建、保存并打开个人工作视图（仅保存在本机）';
   const workset = program.command('workset').description(groupDescription);
-  // Parsed at the group level so `openspec workset --json` keeps the
+  // Parsed at the group level so `codespec workset --json` keeps the
   // one-JSON-document contract instead of a raw Commander error. The
   // parent option matches anywhere; actions read optsWithGlobals().
   workset.addOption(new Option('--json', '以 JSON 输出').hideHelp());
@@ -648,8 +648,8 @@ export function registerWorksetCommand(program: Command): void {
     );
     const message =
       attempted.length > 0
-        ? `'openspec workset' 中的未知命令 '${attempted[0]}'。Workset 子命令：${subcommandsLine}。`
-        : `缺少 'openspec workset' 子命令。Workset 子命令：${subcommandsLine}。`;
+        ? `'codespec workset' 中的未知命令 '${attempted[0]}'。Workset 子命令：${subcommandsLine}。`
+        : `缺少 'codespec workset' 子命令。Workset 子命令：${subcommandsLine}。`;
     if (workset.opts().json) {
       printJson({
         status: [

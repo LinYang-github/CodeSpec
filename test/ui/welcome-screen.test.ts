@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ALL_WORKFLOWS, CORE_WORKFLOWS } from '../../src/core/profiles.js';
+import { PUBLIC_WORKFLOWS } from '../../src/core/profiles.js';
 
 const { useKeypressMock, execFileSyncMock } = vi.hoisted(() => ({
   useKeypressMock: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('@inquirer/core', () => ({
 
 describe('welcome screen', () => {
   const originalNoColor = process.env.NO_COLOR;
-  const originalNoAnimation = process.env.OPENSPEC_NO_ANIMATION;
+  const originalNoAnimation = process.env.CODESPEC_NO_ANIMATION;
   const originalStdinIsTTY = process.stdin.isTTY;
   const originalStdoutIsTTY = process.stdout.isTTY;
   const originalColumns = process.stdout.columns;
@@ -44,7 +44,7 @@ describe('welcome screen', () => {
 
   beforeEach(() => {
     delete process.env.NO_COLOR;
-    delete process.env.OPENSPEC_NO_ANIMATION;
+    delete process.env.CODESPEC_NO_ANIMATION;
     Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
     Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true });
     Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true });
@@ -65,9 +65,9 @@ describe('welcome screen', () => {
       process.env.NO_COLOR = originalNoColor;
     }
     if (originalNoAnimation === undefined) {
-      delete process.env.OPENSPEC_NO_ANIMATION;
+      delete process.env.CODESPEC_NO_ANIMATION;
     } else {
-      process.env.OPENSPEC_NO_ANIMATION = originalNoAnimation;
+      process.env.CODESPEC_NO_ANIMATION = originalNoAnimation;
     }
     Object.defineProperty(process.stdin, 'isTTY', { value: originalStdinIsTTY, configurable: true });
     Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true });
@@ -78,64 +78,75 @@ describe('welcome screen', () => {
   it('uses an Inquirer prompt to wait for Enter', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
 
-    await showWelcomeScreen(CORE_WORKFLOWS);
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
 
     expect(useKeypressMock).toHaveBeenCalledOnce();
+  });
+
+  it('renders the HRHY CodeSpec brand in its static fallback', async () => {
+    const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
+    process.env.CODESPEC_NO_ANIMATION = '1';
+
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
+
+    expect(writtenOutput()).toContain('HRHY');
+    expect(writtenOutput()).toContain('CodeSpec');
   });
 
   it('only advertises commands the profile installs', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
     renderStatically();
 
-    await showWelcomeScreen(CORE_WORKFLOWS);
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
 
     const output = writtenOutput();
 
-    expect(output).toContain('/opsx:propose');
-    expect(output).toContain('/opsx:apply');
-    expect(output).not.toContain('/opsx:new');
-    expect(output).not.toContain('/opsx:continue');
+    expect(output).toContain('/codespec:workflow');
+    expect(output).toContain('/codespec:rebase');
+    expect(output).toContain('/codespec:archive');
+    expect(output).not.toContain('/codespec:propose');
+    expect(output).not.toContain('/codespec:apply');
   });
 
-  it('advertises expanded commands when a custom profile installs them', async () => {
+  it('only advertises public commands from a custom profile', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
     renderStatically();
 
-    await showWelcomeScreen(['new', 'continue', 'apply']);
+    await showWelcomeScreen(['workflow']);
 
     const output = writtenOutput();
 
-    expect(output).toContain('/opsx:new');
-    expect(output).toContain('/opsx:continue');
-    expect(output).not.toContain('/opsx:propose');
+    expect(output).toContain('/codespec:workflow');
+    expect(output).not.toContain('/codespec:rebase');
+    expect(output).not.toContain('/codespec:propose');
   });
 
   it('omits the quick start block when no onboarding workflow is installed', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
     renderStatically();
 
-    await showWelcomeScreen(['archive']);
+    await showWelcomeScreen([]);
 
     const output = writtenOutput();
 
-    expect(output).toContain('Welcome to OpenSpec');
-    expect(output).not.toContain('Quick start after setup:');
+    expect(output).toContain('欢迎使用 HRHY CodeSpec');
+    expect(output).not.toContain('设置完成后的快速开始：');
   });
 
-  it('does not promise opsx commands in the setup summary', async () => {
+  it('does not promise codespec commands in the setup summary', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
     renderStatically();
 
     // This screen runs before tool selection, and skills-only tools (Codex,
     // Kimi Code, ...) correctly receive no command files, so the summary must
-    // not state that opsx slash commands are part of every setup.
-    await showWelcomeScreen(['archive']);
+    // not state that codespec slash commands are part of every setup.
+    await showWelcomeScreen([]);
 
     const output = writtenOutput();
 
-    expect(output).toContain('Agent Skills for AI tools');
-    expect(output).toContain('Workflow commands, if supported');
-    expect(output).not.toContain('opsx slash commands');
+    expect(output).toContain('AI 工具的 Agent Skills');
+    expect(output).toContain('工作流命令（如果工具支持）');
+    expect(output).not.toContain('codespec slash commands');
   });
 
   it('flags that the quick-start spelling varies by tool', async () => {
@@ -143,23 +154,23 @@ describe('welcome screen', () => {
     renderStatically();
 
     // The quick start shows canonical names, but this screen renders one
-    // prompt before tools are picked — an Amazon Q user types @opsx-propose
-    // and a Codex user $openspec-propose, neither of which is shown here.
-    await showWelcomeScreen(['propose']);
+    // prompt before tools are picked — an Amazon Q user types @codespec:workflow
+    // and a Codex user $codespec-workflow, neither of which is shown here.
+    await showWelcomeScreen(['workflow']);
 
     const output = writtenOutput();
 
-    expect(output).toContain('/opsx:propose');
-    expect(output).toContain('spelling varies by tool');
+    expect(output).toContain('/codespec:workflow');
+    expect(output).toContain('不同工具的调用写法可能不同');
   });
 
   it('omits the spelling caveat when there is no quick start block', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
     renderStatically();
 
-    await showWelcomeScreen(['archive']);
+    await showWelcomeScreen([]);
 
-    expect(writtenOutput()).not.toContain('spelling varies by tool');
+    expect(writtenOutput()).not.toContain('不同工具的调用写法可能不同');
   });
 
   it('keeps every rendered line inside the animation width budget', async () => {
@@ -169,7 +180,7 @@ describe('welcome screen', () => {
     // The animated path moves the cursor up a fixed count of logical lines, so a
     // line that wraps at the narrowest animating terminal (MIN_WIDTH = 60) makes
     // each frame redraw lower than the last. Worst case is every command shown.
-    await showWelcomeScreen(ALL_WORKFLOWS);
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
 
     const rendered = writtenOutput().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '');
 
@@ -178,27 +189,27 @@ describe('welcome screen', () => {
     }
   });
 
-  it('renders statically when OPENSPEC_NO_ANIMATION is set', async () => {
+  it('renders statically when CODESPEC_NO_ANIMATION is set', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
-    process.env.OPENSPEC_NO_ANIMATION = '1';
+    process.env.CODESPEC_NO_ANIMATION = '1';
 
-    await showWelcomeScreen(CORE_WORKFLOWS);
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
 
     // Static rendering still waits for the Enter the prompt line asks for;
     // otherwise the keystroke falls through into the tool picker (#1462).
     expect(useKeypressMock).toHaveBeenCalledOnce();
     const output = writtenOutput();
-    expect(output).toContain('Welcome to OpenSpec');
-    expect(output).toContain('Press Enter');
+    expect(output).toContain('欢迎使用 HRHY CodeSpec');
+    expect(output).toContain('按 Enter');
     // No cursor-up repaints: the frame is drawn exactly once.
     expect(output).not.toMatch(/\x1b\[\d+A/);
   });
 
-  it('honors OPENSPEC_NO_ANIMATION even when set to an empty value', async () => {
+  it('honors CODESPEC_NO_ANIMATION even when set to an empty value', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
-    process.env.OPENSPEC_NO_ANIMATION = '';
+    process.env.CODESPEC_NO_ANIMATION = '';
 
-    await showWelcomeScreen(CORE_WORKFLOWS);
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
 
     expect(useKeypressMock).toHaveBeenCalledOnce();
     expect(writtenOutput()).not.toMatch(/\x1b\[\d+A/);
@@ -207,12 +218,23 @@ describe('welcome screen', () => {
   it('renders statically when animate is disabled via options', async () => {
     const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
 
-    await showWelcomeScreen(CORE_WORKFLOWS, { animate: false });
+    await showWelcomeScreen(PUBLIC_WORKFLOWS, { animate: false });
 
     expect(useKeypressMock).toHaveBeenCalledOnce();
     const output = writtenOutput();
-    expect(output).toContain('Welcome to OpenSpec');
+    expect(output).toContain('欢迎使用 HRHY CodeSpec');
     expect(output).not.toMatch(/\x1b\[\d+A/);
+  });
+
+  it('does not print an Enter prompt when standard input is not interactive', async () => {
+    const { showWelcomeScreen } = await import('../../src/ui/welcome-screen.js');
+    Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
+    renderStatically();
+
+    await showWelcomeScreen(PUBLIC_WORKFLOWS);
+
+    expect(writtenOutput()).not.toContain('按 Enter');
+    expect(useKeypressMock).not.toHaveBeenCalled();
   });
 
   it.runIf(process.platform === 'darwin' || process.platform === 'linux')(
@@ -223,10 +245,10 @@ describe('welcome screen', () => {
         file === 'defaults' ? '1\n' : 'false\n'
       );
 
-      await showWelcomeScreen(CORE_WORKFLOWS);
+      await showWelcomeScreen(PUBLIC_WORKFLOWS);
 
       expect(useKeypressMock).toHaveBeenCalledOnce();
-      expect(writtenOutput()).toContain('Welcome to OpenSpec');
+      expect(writtenOutput()).toContain('欢迎使用 HRHY CodeSpec');
     }
   );
 });

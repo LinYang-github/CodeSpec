@@ -1,16 +1,16 @@
 # CLI settings (config.json)
 
-> Every field of config.json: how the openspec CLI behaves on your machine.
+> Every field of config.json: how the codespec CLI behaves on your machine.
 
 ## Location
 
-The CLI keeps its machine-level settings at `~/.config/openspec/config.json` on macOS and Linux, and `%APPDATA%\openspec\config.json` on Windows. `$XDG_CONFIG_HOME` wins on every platform when set. The `openspec config` command reads and edits it.
+The CLI keeps its machine-level settings at `~/.config/codespec/config.json` on macOS and Linux, and `%APPDATA%\codespec\config.json` on Windows. `$XDG_CONFIG_HOME` wins on every platform when set. The `codespec config` command reads and edits it.
 
 ## Fields
 
 | Key | Type | Required | Effect |
 | --- | --- | --- | --- |
-| `profile` | string: `core` or `custom` | No | Picks the workflow set `openspec init` installs |
+| `profile` | string: `core` or `custom` | No | Picks the workflow set `codespec init` installs |
 | `delivery` | string: `both`, `skills`, or `commands` | No | Whether init installs skills, slash commands, or both |
 | `workflows` | list of strings | No | The workflow list a `custom` profile installs |
 | `featureFlags` | map: flag → boolean | No | Boolean feature toggles |
@@ -20,7 +20,7 @@ The CLI keeps its machine-level settings at `~/.config/openspec/config.json` on 
 
 ### profile
 
-Which workflow set `openspec init` installs. Defaults to `core`: propose, explore, apply, update, sync, and archive. Setting `custom` installs exactly the `workflows` list instead.
+Which workflow set `codespec init` installs. Defaults to `core`: propose, explore, apply, update, sync, and archive. Setting `custom` installs exactly the `workflows` list instead.
 
 ### delivery
 
@@ -32,11 +32,11 @@ The workflows a `custom` profile installs; ignored when the profile is `core`. V
 
 ### featureFlags
 
-Boolean toggles keyed by flag name, set with `openspec config set featureFlags.<flag> true`. No flag is read by the CLI today.
+Boolean toggles keyed by flag name, set with `codespec config set featureFlags.<flag> true`. No flag is read by the CLI today.
 
 ### defaultStore
 
-The machine-level fallback store id for root resolution, consulted only when no `--store` flag, local `openspec/`, or project `store:` pointer resolves. The full ladder is [Root resolution](stores.md#root-resolution).
+The machine-level fallback store id for root resolution, consulted only when no `--store` flag, local `codespec/`, or project `store:` pointer resolves. The full ladder is [Root resolution](stores.md#root-resolution).
 
 ### openers
 

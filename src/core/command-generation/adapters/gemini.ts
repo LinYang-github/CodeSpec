@@ -47,14 +47,14 @@ function escapeTomlMultilineBasicString(value: string): string {
 
 /**
  * Gemini adapter for command generation.
- * File path: .gemini/commands/opsx/<id>.toml
+ * File path: .gemini/commands/codespec/<id>.toml
  * Format: TOML with description and prompt fields
  */
 export const geminiAdapter: ToolCommandAdapter = {
   toolId: 'gemini',
 
   getFilePath(commandId: string): string {
-    return path.join('.gemini', 'commands', 'opsx', `${commandId}.toml`);
+    return path.join('.gemini', 'commands', 'codespec', `${commandId}.toml`);
   },
 
   formatFile(content: CommandContent): string {

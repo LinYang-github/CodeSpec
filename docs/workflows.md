@@ -1,6 +1,6 @@
 # CodeSpec 工作流
 
-`code-spec` 把一次开发拆成两条协作线：OpenSpec Core 管理 Change、Requirement、Baseline、状态和归档事务，Superpowers 管理工程方法。正常开发只从 `workflow` 进入。
+`code-spec` 把一次开发拆成两条协作线：CodeSpec Core 管理 Change、Requirement、Baseline、状态和归档事务，Superpowers 管理工程方法。正常开发只从 `workflow` 进入。
 
 ```text
 workflow ──► 分析/规划 ──► 实现 ──► 验证 ──► 人工确认归档
@@ -12,21 +12,21 @@ workflow ──► 分析/规划 ──► 实现 ──► 验证 ──► 人
 
 | 入口 | 使用时机 | 主要负责方 |
 |---|---|---|
-| `openspec-workflow` | 所有正常开发请求，或继续一个已有 Change | OpenSpec Core + Superpowers |
-| `openspec-rebase-change` | Core 报告 `STALE`、Baseline 漂移或多 Change 冲突 | OpenSpec Core |
-| `openspec-archive-change` | 实现和验证完成后提交 Change | OpenSpec Core，归档前必须人工确认 |
+| `codespec-workflow` | 所有正常开发请求，或继续一个已有 Change | CodeSpec Core + Superpowers |
+| `codespec-rebase-change` | Core 报告 `STALE`、Baseline 漂移或多 Change 冲突 | CodeSpec Core |
+| `codespec-archive-change` | 实现和验证完成后提交 Change | CodeSpec Core，归档前必须人工确认 |
 
 在 AI 对话中使用工具生成的调用形式。例如：
 
 ```text
-/opsx:workflow add-rate-limit
-/opsx:rebase
-/opsx:archive
+/codespec:workflow add-rate-limit
+/codespec:rebase
+/codespec:archive
 ```
 
 ## CodeSpec 产物顺序
 
-`code-spec` 默认 Change 使用 `CHG-YYYYMMDD-NNN` ID，目录为 `openspec/changes/<CHG-ID>/`。Core 按依赖顺序管理以下产物：
+`code-spec` 默认 Change 使用 `CHG-YYYYMMDD-NNN` ID，目录为 `codespec/changes/<CHG-ID>/`。Core 按依赖顺序管理以下产物：
 
 ```text
 metadata.yaml
@@ -51,7 +51,7 @@ metadata.yaml
 
 运行 `workflow` 后，Core 先解析当前上下文：
 
-- 读取 `openspec context --json` 和 `openspec status --change "<CHG-ID>" --json`。
+- 读取 `codespec context --json` 和 `codespec status --change "<CHG-ID>" --json`。
 - 创建或解析唯一的 `CHG-YYYYMMDD-NNN` Change。
 - 解析模块并分配稳定的 Requirement ID，例如 `MOD-001-REQ-001`。
 - 捕获 Baseline，检查是否存在 `STALE`、多个 Change 或未裁决冲突。
@@ -140,7 +140,7 @@ Change 类型和门禁由 Core 读取和管理。Superpowers 只负责按类型�
 
 ## Core 和 Superpowers 的边界
 
-### OpenSpec Core 负责什么
+### CodeSpec Core 负责什么
 
 - 创建、解析和选择 Change。
 - 解析模块，分配 Requirement 和 Scenario 关联信息。
@@ -176,7 +176,7 @@ Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `a
 1. Core 执行 `preflightArchive()`，检查任务、验证证据、Delta、Traceability、canonical Spec 和冲突。
 2. Core 执行 `prepareArchive()`，准备 Delta 和可恢复写入集，并确认 Delta 与 Current Specification 的每个 Scenario 都有非空 `ERROR`。
 3. 只有用户在交互式终端中明确确认后，Core 才执行 `commitArchive()` 和 `archiveTransaction()`。
-4. 事务将 Delta 应用到 Current Specification，并把 Change 移入 `openspec/archive/changes/<CHG-ID>/`。
+4. 事务将 Delta 应用到 Current Specification，并把 Change 移入 `codespec/changes/archive/`。
 
 归档规则：
 

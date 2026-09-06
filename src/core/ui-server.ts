@@ -39,7 +39,7 @@ export async function startUiServer(options: {
       const documents = searchUiIndex(
         index,
         url.searchParams.get('q') ?? '',
-        source === 'openspec' || source === 'superpowers-plans' ? source : undefined
+        source === 'codespec' || source === 'superpowers-plans' ? source : undefined
       );
       sendJson(response, 200, { documents });
       return;

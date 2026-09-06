@@ -14,7 +14,7 @@ export class UiCommand {
     const projectRoot = path.resolve(targetPath);
     const assetsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../ui/web');
     const server = await startUiServer({ projectRoot, assetsDir });
-    console.log(`OpenSpec UI: ${server.url}`);
+    console.log(`CodeSpec UI: ${server.url}`);
     try { openBrowser(server.url); } catch { console.error(`无法自动打开浏览器，请访问 ${server.url}`); }
     const close = async () => { await server.close(); process.exitCode = 0; };
     process.once('SIGINT', close);

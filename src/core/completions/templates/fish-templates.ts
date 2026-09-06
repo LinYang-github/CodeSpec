@@ -4,7 +4,7 @@
  */
 
 export const FISH_STATIC_HELPERS = `# Helper function to match the command path at the start of the invocation
-function __fish_openspec_using_command_path
+function __fish_codespec_using_command_path
     set -l expected
     set -l value_flags
     set -l reading_value_flags 0
@@ -51,7 +51,7 @@ function __fish_openspec_using_command_path
     return 0
 end
 
-function __fish_openspec_no_subcommand
+function __fish_codespec_no_subcommand
     set -l tokens (commandline -opc)
     set -e tokens[1]
     for token in $tokens
@@ -62,7 +62,7 @@ function __fish_openspec_no_subcommand
     return 0
 end
 
-function __fish_openspec_completing_option_value
+function __fish_codespec_completing_option_value
     set -l current (commandline -ct)
     for option in $argv
         if string match -q -- "$option=*" "$current"
@@ -75,7 +75,7 @@ function __fish_openspec_completing_option_value
     contains -- $tokens[-1] $argv
 end
 
-function __fish_openspec_complete_attached_short_path
+function __fish_codespec_complete_attached_short_path
     set -l option $argv[1]
     set -l current (commandline -ct)
     test "$current" != "$option"; or return 1
@@ -84,7 +84,7 @@ function __fish_openspec_complete_attached_short_path
     __fish_complete_path "$value"
 end
 
-function __fish_openspec_positional_index
+function __fish_codespec_positional_index
     set -l target $argv[1]
     set -l depth $argv[2]
     set -l value_flags $argv[3..]
@@ -119,25 +119,25 @@ end`;
 
 export const FISH_DYNAMIC_HELPERS = `# Dynamic completion helpers
 
-function __fish_openspec_changes
-    openspec __complete changes 2>/dev/null | while read -l id desc
+function __fish_codespec_changes
+    codespec __complete changes 2>/dev/null | while read -l id desc
         printf '%s\\t%s\\n' "$id" "$desc"
     end
 end
 
-function __fish_openspec_specs
-    openspec __complete specs 2>/dev/null | while read -l id desc
+function __fish_codespec_specs
+    codespec __complete specs 2>/dev/null | while read -l id desc
         printf '%s\\t%s\\n' "$id" "$desc"
     end
 end
 
-function __fish_openspec_items
-    __fish_openspec_changes
-    __fish_openspec_specs
+function __fish_codespec_items
+    __fish_codespec_changes
+    __fish_codespec_specs
 end
 
-function __fish_openspec_schemas
-    openspec __complete schemas 2>/dev/null | while read -l id desc
+function __fish_codespec_schemas
+    codespec __complete schemas 2>/dev/null | while read -l id desc
         printf '%s\\t%s\\n' "$id" "$desc"
     end
 end`;

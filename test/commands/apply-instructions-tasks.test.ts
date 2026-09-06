@@ -15,10 +15,10 @@ describe('generateApplyInstructions task list', () => {
   let changeDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-apply-tasks-'));
-    changeDir = path.join(tempDir, 'openspec', 'changes', 'my-change');
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-apply-tasks-'));
+    changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
     fs.mkdirSync(path.join(changeDir, 'specs', 'demo'), { recursive: true });
-    fs.writeFileSync(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\n');
+    fs.writeFileSync(path.join(changeDir, '.codespec.yaml'), 'schema: spec-driven\n');
     fs.writeFileSync(path.join(changeDir, 'proposal.md'), '## Why\nx\n');
     fs.writeFileSync(
       path.join(changeDir, 'specs', 'demo', 'spec.md'),
@@ -55,7 +55,7 @@ describe('generateApplyInstructions task list', () => {
     expect(instructions.progress).toEqual({ total: 3, complete: 1, remaining: 2 });
   });
 
-  it('reports the totals openspec list reports for the same change', async () => {
+  it('reports the totals codespec list reports for the same change', async () => {
     writeTasks(
       ['## 1. Implementation', '- [x] 1.1 Parent task', '  - [ ] 1.1.1 Unfinished sub-task', ''].join(
         '\n'
@@ -63,10 +63,10 @@ describe('generateApplyInstructions task list', () => {
     );
 
     const instructions = await generateApplyInstructions(tempDir, 'my-change');
-    // `openspec list` reads progress through getTaskProgressForChange, not the
+    // `codespec list` reads progress through getTaskProgressForChange, not the
     // apply parser. The two must not disagree about the same file.
     const listProgress = await getTaskProgressForChange(
-      path.join(tempDir, 'openspec', 'changes'),
+      path.join(tempDir, 'codespec', 'changes'),
       'my-change',
       tempDir
     );
@@ -85,18 +85,18 @@ describe('generateApplyInstructions task list', () => {
     // rather than listing a blank row an agent cannot act on.
     expect(instructions.tasks).toEqual([]);
     expect(instructions.state).toBe('blocked');
-    expect(instructions.instruction).toContain('contains no tasks');
+    expect(instructions.instruction).toContain('没有可执行任务');
   });
 
   it('counts a text-less checkbox toward progress even though it lists none', async () => {
-    // Progress must not disagree with `openspec list` or archive's gate just
+    // Progress must not disagree with `codespec list` or archive's gate just
     // because a line carries no text an agent could act on: hiding the row is
     // presentation, dropping it from the count would understate the work left.
     writeTasks('## 1. Implementation\n- [x] 1.1 Real task\n- [ ]   \n');
 
     const instructions = await generateApplyInstructions(tempDir, 'my-change');
     const listProgress = await getTaskProgressForChange(
-      path.join(tempDir, 'openspec', 'changes'),
+      path.join(tempDir, 'codespec', 'changes'),
       'my-change',
       tempDir
     );
