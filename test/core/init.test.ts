@@ -67,10 +67,11 @@ describe('InitCommand', () => {
 
       expect(await fileExists(path.join(testDir, 'codespec', 'business.md'))).toBe(true);
       expect(await fileExists(path.join(testDir, 'codespec', 'changes', 'index.yaml'))).toBe(true);
-      expect(await directoryExists(path.join(testDir, 'codespec', 'archive', 'specs'))).toBe(true);
+      expect(await directoryExists(path.join(testDir, 'codespec', 'specs'))).toBe(true);
       expect(await directoryExists(path.join(testDir, 'codespec', 'archive', 'changes'))).toBe(
         true
       );
+      expect(await directoryExists(path.join(testDir, 'codespec', 'archive', 'specs'))).toBe(false);
       expect(await fs.readFile(legacyFile, 'utf-8')).toBe('schema: code-spec\n');
     });
 
@@ -81,9 +82,10 @@ describe('InitCommand', () => {
 
       const codespecPath = path.join(testDir, 'codespec');
       expect(await directoryExists(codespecPath)).toBe(true);
+      expect(await directoryExists(path.join(codespecPath, 'specs'))).toBe(true);
       expect(await directoryExists(path.join(codespecPath, 'changes'))).toBe(true);
-      expect(await directoryExists(path.join(codespecPath, 'archive', 'specs'))).toBe(true);
       expect(await directoryExists(path.join(codespecPath, 'archive', 'changes'))).toBe(true);
+      expect(await directoryExists(path.join(codespecPath, 'archive', 'specs'))).toBe(false);
     });
 
     it('should not print repository links after init', async () => {

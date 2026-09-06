@@ -27,6 +27,7 @@ export interface UiChangeGroup {
 
 export interface UiIndex {
   documents: UiDocument[];
+  businessModules: BusinessModule[];
   changes: UiChangeGroup[];
   archive: {
     specSnapshots: UiDocument[];
@@ -41,13 +42,37 @@ export interface UiIndex {
   rebuiltAt: string;
 }
 
-export interface BusinessModule { id: string; name: string; responsibility: string; keywords: string[]; }
+export interface BusinessModule {
+  id: string;
+  name: string;
+  description: string;
+  responsibility: string;
+  keywords: string[];
+}
 
 export function parseBusinessModules(content: string): BusinessModule[] {
-  return content.split(/\r?\n/u).slice(2).flatMap((line) => {
+  let inFence = false;
+  return content.split(/\r?\n/u).flatMap((line) => {
+    if (/^\s*```/u.test(line)) {
+      inFence = !inFence;
+      return [];
+    }
+    if (inFence || !/^\s*\|/u.test(line)) return [];
+
     const cells = line.split('|').map((cell) => cell.trim()).filter(Boolean);
-    if (!/^MOD-\d+$/u.test(cells[0] ?? '')) return [];
-    return [{ id: cells[0], name: cells[1] ?? '', responsibility: cells[2] ?? '', keywords: (cells[3] ?? '').split(/\s+/u).filter(Boolean) }];
+    if (!/^MOD-\d+$/u.test(cells[0] ?? '') || cells.length < 3) return [];
+
+    const isCanonicalRow = cells.length >= 5;
+    const description = isCanonicalRow ? cells[2] ?? '' : '';
+    const responsibility = isCanonicalRow ? cells[3] ?? '' : cells[2] ?? '';
+    const keywordCell = isCanonicalRow ? cells[4] ?? '' : cells[3] ?? '';
+    return [{
+      id: cells[0],
+      name: cells[1] ?? '',
+      description,
+      responsibility,
+      keywords: keywordCell.split(/[\s,，;；]+/u).filter(Boolean),
+    }];
   });
 }
 
@@ -218,9 +243,11 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
 
   documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   skipped.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const businessDocument = documents.find((document) => document.relativePath === 'codespec/business.md');
 
   return {
     documents,
+    businessModules: businessDocument ? parseBusinessModules(businessDocument.content) : [],
     changes: groupChangeDocuments(
       documents.filter((document) => !document.relativePath.startsWith('codespec/changes/archive/')),
       'codespec/changes/'

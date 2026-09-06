@@ -14,8 +14,48 @@ describe('buildUiIndex', () => {
   });
 
   it('extracts supported business modules from the registration table', () => {
-    expect(parseBusinessModules('# 业务模块注册表\n| Module ID | 模块名称 | 职责 | 关键词 |\n| --- | --- | --- | --- |\n| MOD-001 | 账户 | 管理用户 | 登录 权限 |')).toEqual([
-      { id: 'MOD-001', name: '账户', responsibility: '管理用户', keywords: ['登录', '权限'] },
+    const content = [
+      '# 业务',
+      '',
+      '示例：',
+      '```markdown',
+      '| MOD-999 | 示例模块 | 不应显示 | 示例职责 | 示例关键词 |',
+      '```',
+      '',
+      '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
+      '| --- | --- | --- | --- | --- |',
+      '| MOD-001 | 账户 | 管理账户 | 管理用户 | 登录；权限 |',
+    ].join('\n');
+    expect(parseBusinessModules(content)).toEqual([
+      {
+        id: 'MOD-001',
+        name: '账户',
+        description: '管理账户',
+        responsibility: '管理用户',
+        keywords: ['登录', '权限'],
+      },
+    ]);
+  });
+
+  it('exposes business modules parsed from codespec/business.md in the UI index', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, 'codespec', 'business.md'),
+      '# 业务\n\n| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |\n| --- | --- | --- | --- | --- |\n| MOD-001 | 账户 | 管理账户 | 管理用户 | 登录；权限 |\n'
+    );
+
+    const index = await buildUiIndex(root);
+    expect(index.businessModules).toEqual([
+      {
+        id: 'MOD-001',
+        name: '账户',
+        description: '管理账户',
+        responsibility: '管理用户',
+        keywords: ['登录', '权限'],
+      },
     ]);
   });
 

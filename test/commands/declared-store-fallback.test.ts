@@ -186,7 +186,8 @@ describe('declared store fallback (3.2)', () => {
       env,
     });
     expect(converted.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(pointerRepo, 'codespec', 'archive', 'specs'))).toBe(true);
+    expect(fs.existsSync(path.join(pointerRepo, 'codespec', 'specs'))).toBe(true);
+    expect(fs.existsSync(path.join(pointerRepo, 'codespec', 'archive', 'specs'))).toBe(false);
     expect(fs.existsSync(path.join(pointerRepo, 'codespec', 'changes'))).toBe(true);
   });
 

@@ -1606,9 +1606,9 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
   const codespecPath = path.join(projectRoot, CODESPEC_DIR_NAME);
   const directories = [
     codespecPath,
+    path.join(codespecPath, 'specs'),
     path.join(codespecPath, 'changes'),
     path.join(codespecPath, 'archive'),
-    path.join(codespecPath, 'archive', 'specs'),
     path.join(codespecPath, 'archive', 'changes'),
   ];
 

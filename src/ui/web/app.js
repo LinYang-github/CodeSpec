@@ -78,7 +78,7 @@ function documentTabLabel(doc) {
 }
 
 function changeDocumentOrder(left, right) {
-  const order = ['proposal.md', 'design.md', 'tasks.md', '.openspec.yaml'];
+  const order = ['metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md', 'verification.md'];
   const leftIndex = order.indexOf(left.relativePath.split('/').at(-1));
   const rightIndex = order.indexOf(right.relativePath.split('/').at(-1));
   return (leftIndex < 0 ? order.length : leftIndex) - (rightIndex < 0 ? order.length : rightIndex)
@@ -135,15 +135,7 @@ function cardSection(title, count) {
   return section;
 }
 
-function businessModules(doc) {
-  return (doc?.content.match(/^\|\s*MOD-\d+\s*\|.*$/gmu) ?? []).map((line) => {
-    const cells = line.split('|').map((cell) => cell.trim()).filter(Boolean);
-    return { id: cells[0], name: cells[1] };
-  });
-}
-
-function businessCard(doc) {
-  const modules = businessModules(doc);
+function businessCard(doc, modules) {
   const panel = document.createElement('details');
   panel.open = true;
   panel.className = 'card';
@@ -156,6 +148,9 @@ function businessCard(doc) {
     const button = document.createElement('button');
     button.className = 'item tree-file';
     button.textContent = `${module.id} · ${module.name}`;
+    button.title = [module.description, module.responsibility, module.keywords?.join('；')]
+      .filter(Boolean)
+      .join('；');
     button.onclick = () => openDocument(doc);
     panel.append(button);
   }
@@ -188,16 +183,16 @@ function archiveCard(archive) {
 }
 
 function render() {
-  const business = index.documents.filter((doc) => doc.relativePath === 'openspec/business.md');
+  const business = index.documents.find((doc) => doc.relativePath === 'codespec/business.md');
   tree.replaceChildren(
-    businessCard(business[0]),
+    businessCard(business, index.businessModules),
     archiveCard(index.archive),
     changeCard('活动 Change', index.changes),
   );
 
-  const initialDocument = business[0] ?? index.documents[0];
+  const initialDocument = business ?? index.documents[0];
   if (initialDocument) openDocument(initialDocument).catch(showError);
-  else reader.textContent = '当前工程中没有可展示的 OpenSpec 文件。';
+  else reader.textContent = '当前工程中没有可展示的 CodeSpec 文件。';
 }
 
 function showError(error) {
@@ -209,7 +204,7 @@ async function load() {
     index = await api('/api/index');
     render();
   } catch (error) {
-    tree.textContent = '无法读取当前工程的 OpenSpec 内容。';
+    tree.textContent = '无法读取当前工程的 CodeSpec 内容。';
     showError(error);
   }
 }
