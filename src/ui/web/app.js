@@ -161,14 +161,15 @@ function archiveCard(archive) {
   const panel = document.createElement('details');
   panel.open = true;
   panel.className = 'card';
-  panel.innerHTML = `<summary>归档记录 <b>${archive.specSnapshots.length} Spec · ${archive.historyCount} Change</b></summary>`;
-  panel.append(cardSection('能力 Spec 快照', archive.specSnapshots.length));
-  if (archive.specSnapshots.length === 0) {
-    panel.append(Object.assign(document.createElement('p'), { textContent: '暂无归档 Spec' }));
+  const currentSpecs = archive.currentSpecs ?? archive.specSnapshots ?? [];
+  panel.innerHTML = `<summary>归档记录 <b>${currentSpecs.length} Spec · ${archive.historyCount} Change</b></summary>`;
+  panel.append(cardSection('当前生效 Spec', currentSpecs.length));
+  if (currentSpecs.length === 0) {
+    panel.append(Object.assign(document.createElement('p'), { textContent: '暂无当前 Spec' }));
   } else {
-    for (const snapshot of archive.specSnapshots) {
+    for (const snapshot of currentSpecs) {
       const button = fileButton(snapshot);
-      button.textContent = snapshot.relativePath.split('/')[3];
+      button.textContent = snapshot.relativePath.split('/').slice(-2, -1)[0] ?? snapshot.title;
       panel.append(button);
     }
   }
@@ -183,7 +184,7 @@ function archiveCard(archive) {
 }
 
 function render() {
-  const business = index.documents.find((doc) => doc.relativePath === 'codespec/business.md');
+  const business = index.businessDocument;
   tree.replaceChildren(
     businessCard(business, index.businessModules),
     archiveCard(index.archive),

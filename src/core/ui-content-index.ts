@@ -5,6 +5,9 @@ import path from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
 
+import { getWorkspacePaths } from './codespec-workflow/paths.js';
+import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
+
 export type UiSource = 'codespec' | 'superpowers-plans';
 export type UiContentType = 'markdown' | 'yaml' | 'text';
 
@@ -27,10 +30,12 @@ export interface UiChangeGroup {
 
 export interface UiIndex {
   documents: UiDocument[];
+  businessDocument: UiDocument | null;
   businessModules: BusinessModule[];
   changes: UiChangeGroup[];
   archive: {
-    specSnapshots: UiDocument[];
+    currentSpecs: UiDocument[];
+    legacySpecSnapshots: UiDocument[];
     history: UiDocument[];
     historyCount: number;
     historyChanges: UiChangeGroup[];
@@ -94,13 +99,27 @@ function getContentType(filePath: string): UiContentType {
   return 'text';
 }
 
-function getCategory(relativePath: string, source: UiSource): string {
+interface UiWorkspacePaths {
+  business: string;
+  changes: string;
+  specs: string;
+  archivedChanges: string;
+}
+
+const DEFAULT_UI_PATHS: UiWorkspacePaths = {
+  business: 'codespec/business.md',
+  changes: 'codespec/changes/',
+  specs: 'codespec/specs/',
+  archivedChanges: 'codespec/archive/changes/',
+};
+
+function getCategory(relativePath: string, source: UiSource, uiPaths: UiWorkspacePaths): string {
   if (source === 'superpowers-plans') return 'Superpowers Plans';
-  if (relativePath === 'codespec/business.md') return '业务说明';
-  if (relativePath.startsWith('codespec/archive/changes/') || relativePath.startsWith('codespec/changes/archive/')) return '归档 Change';
+  if (relativePath === uiPaths.business) return '业务说明';
+  if (relativePath.startsWith(uiPaths.archivedChanges) || relativePath.startsWith('codespec/changes/archive/')) return '归档 Change';
   if (relativePath.startsWith('codespec/archive/specs/')) return '归档 Spec';
-  if (relativePath.startsWith('codespec/changes/')) return '活动 Change';
-  if (relativePath.startsWith('codespec/specs/')) return '当前 Spec';
+  if (relativePath.startsWith(uiPaths.changes)) return '活动 Change';
+  if (relativePath.startsWith(uiPaths.specs)) return '当前 Spec';
   return '其他 CodeSpec 文件';
 }
 
@@ -149,24 +168,57 @@ function groupChangeDocuments(documents: UiDocument[], prefix: string): UiChange
     .map(([id, groupedDocuments]) => ({ id, documents: groupedDocuments }));
 }
 
-function getArchiveGroups(documents: UiDocument[]): UiIndex['archive'] {
-  const specSnapshots = documents.filter((document) =>
+function mergeChangeGroups(groups: UiChangeGroup[]): UiChangeGroup[] {
+  const merged = new Map<string, UiDocument[]>();
+  for (const group of groups) {
+    const documents = merged.get(group.id) ?? [];
+    documents.push(...group.documents);
+    merged.set(group.id, documents);
+  }
+  return [...merged.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([id, groupedDocuments]) => ({ id, documents: groupedDocuments }));
+}
+
+function getArchiveGroups(documents: UiDocument[], uiPaths: UiWorkspacePaths): UiIndex['archive'] {
+  const currentSpecs = documents.filter((document) =>
+    document.relativePath.startsWith(uiPaths.specs) && /\/spec\.md$/u.test(document.relativePath)
+  );
+  const legacySpecSnapshots = documents.filter((document) =>
     /^codespec\/archive\/specs\/[^/]+\/spec\.md$/u.test(document.relativePath)
   );
-  const history = documents.filter((document) =>
-    document.relativePath.startsWith('codespec/archive/changes/') || document.relativePath.startsWith('codespec/changes/archive/')
-  );
-  const historyChanges = [
-    ...groupChangeDocuments(documents, 'codespec/archive/changes/'),
-    ...groupChangeDocuments(documents, 'codespec/changes/archive/'),
-  ].sort((left, right) => left.id.localeCompare(right.id));
-  return { specSnapshots, history, historyCount: historyChanges.length, historyChanges };
+  const historyPrefixes = [...new Set([uiPaths.archivedChanges, 'codespec/changes/archive/'])];
+  const history = documents.filter((document) => historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix)));
+  const historyChanges = mergeChangeGroups(historyPrefixes.flatMap((prefix) => groupChangeDocuments(documents, prefix)));
+  return { currentSpecs, legacySpecSnapshots, history, historyCount: historyChanges.length, historyChanges };
+}
+
+function relativePrefix(projectRoot: string, directory: string): string {
+  const relative = toPosixPath(path.relative(projectRoot, directory)).replace(/^\/+|\/+$/gu, '');
+  return relative ? `${relative}/` : '';
+}
+
+async function loadUiWorkspacePaths(projectRoot: string): Promise<UiWorkspacePaths> {
+  try {
+    const codespecDir = path.join(projectRoot, 'codespec');
+    const config = parseWorkspaceConfig(parseYaml(await fs.readFile(path.join(codespecDir, 'config.yaml'), 'utf8')));
+    const paths = getWorkspacePaths(codespecDir, config);
+    return {
+      business: toPosixPath(path.relative(projectRoot, paths.business)),
+      changes: relativePrefix(projectRoot, paths.changes),
+      specs: relativePrefix(projectRoot, paths.currentSpecs),
+      archivedChanges: relativePrefix(projectRoot, paths.archivedChanges),
+    };
+  } catch {
+    return DEFAULT_UI_PATHS;
+  }
 }
 
 async function collectFiles(
   directory: string,
   projectRoot: string,
   source: UiSource,
+  uiPaths: UiWorkspacePaths,
   documents: UiDocument[],
   skipped: UiIndex['skipped']
 ): Promise<void> {
@@ -187,7 +239,7 @@ async function collectFiles(
       continue;
     }
     if (entry.isDirectory()) {
-      await collectFiles(filePath, projectRoot, source, documents, skipped);
+      await collectFiles(filePath, projectRoot, source, uiPaths, documents, skipped);
       continue;
     }
     if (!entry.isFile() || !ALLOWED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
@@ -210,7 +262,7 @@ async function collectFiles(
         id: createDocumentId(relativePath),
         relativePath,
         source,
-        category: getCategory(relativePath, source),
+        category: getCategory(relativePath, source, uiPaths),
         contentType,
         title: getTitle(content, filePath, contentType),
         labels: contentType === 'yaml' ? getYamlLabels(content) : [],
@@ -225,6 +277,7 @@ async function collectFiles(
 
 export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   const root = await fs.realpath(projectRoot);
+  const uiPaths = await loadUiWorkspacePaths(root);
   const documents: UiDocument[] = [];
   const skipped: UiIndex['skipped'] = [];
 
@@ -235,7 +288,7 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
     const directory = path.join(root, relativePath);
     try {
       const stats = await fs.stat(directory);
-      if (stats.isDirectory()) await collectFiles(directory, root, source, documents, skipped);
+      if (stats.isDirectory()) await collectFiles(directory, root, source, uiPaths, documents, skipped);
     } catch {
       // Missing scan roots produce an empty section rather than a command failure.
     }
@@ -243,16 +296,18 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
 
   documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   skipped.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
-  const businessDocument = documents.find((document) => document.relativePath === 'codespec/business.md');
+  const businessDocument = documents.find((document) => document.relativePath === uiPaths.business);
+  const historyPrefixes = [...new Set([uiPaths.archivedChanges, 'codespec/changes/archive/'])];
 
   return {
     documents,
+    businessDocument: businessDocument ?? null,
     businessModules: businessDocument ? parseBusinessModules(businessDocument.content) : [],
     changes: groupChangeDocuments(
-      documents.filter((document) => !document.relativePath.startsWith('codespec/changes/archive/')),
-      'codespec/changes/'
+      documents.filter((document) => !historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix))),
+      uiPaths.changes
     ),
-    archive: getArchiveGroups(documents),
+    archive: getArchiveGroups(documents, uiPaths),
     skipped,
     rebuiltAt: new Date().toISOString(),
   };

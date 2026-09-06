@@ -48,6 +48,7 @@ describe('buildUiIndex', () => {
     );
 
     const index = await buildUiIndex(root);
+    expect(index.businessDocument?.relativePath).toBe('codespec/business.md');
     expect(index.businessModules).toEqual([
       {
         id: 'MOD-001',
@@ -106,10 +107,11 @@ describe('buildUiIndex', () => {
 
     const index = await buildUiIndex(root);
     const archive = index as typeof index & {
-      archive: { specSnapshots: Array<{ relativePath: string }>; history: Array<{ relativePath: string }>; historyCount: number };
+      archive: { currentSpecs: Array<{ relativePath: string }>; legacySpecSnapshots: Array<{ relativePath: string }>; history: Array<{ relativePath: string }>; historyCount: number };
     };
 
-    expect(archive.archive.specSnapshots.map((document) => document.relativePath)).toEqual([
+    expect(archive.archive.currentSpecs.map((document) => document.relativePath)).toEqual([]);
+    expect(archive.archive.legacySpecSnapshots.map((document) => document.relativePath)).toEqual([
       'codespec/archive/specs/cli-init/spec.md',
     ]);
     expect(archive.archive.history.map((document) => document.relativePath)).toEqual([
@@ -135,6 +137,63 @@ describe('buildUiIndex', () => {
       { id: '2025-08-06-add-init-command' },
       { id: '2025-08-07-legacy-change' },
     ]);
+  });
+
+  it('uses configured specs and archived changes paths as the archive data source', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+
+    await fs.mkdir(path.join(root, 'codespec', 'current-specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'meta'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'history', 'CHG-20260906-001'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, 'codespec', 'config.yaml'),
+      [
+        'version: 1',
+        'schema: code-spec',
+        'project:',
+        '  name: ui-test',
+        'paths:',
+        '  business: meta/business.md',
+        '  changes: changes',
+        '  change_index: changes/index.yaml',
+        '  archive: archive',
+        '  specs: current-specs',
+        '  archived_changes: history',
+        'workflow:',
+        '  multiple_active_changes: true',
+        'requirements:',
+        "  id_format: '{module}-REQ-{sequence:03d}'",
+        'changes:',
+        "  id_format: 'CHG-{date}-{sequence:03d}'",
+        'archive:',
+        '  update_index: true',
+        '  require_verification: true',
+        '  conflict_strategy: optimistic',
+        '',
+      ].join('\n')
+    );
+    await fs.writeFile(path.join(root, 'codespec', 'meta', 'business.md'), '# 业务\n\n| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |\n| --- | --- | --- | --- | --- |\n| MOD-001 | 账户 | 管理账户 | 管理用户 | 登录；权限 |\n');
+    await fs.writeFile(path.join(root, 'codespec', 'current-specs', 'cli-init', 'spec.md'), '# 当前 CLI 规范');
+    await fs.writeFile(path.join(root, 'codespec', 'history', 'CHG-20260906-001', 'proposal.md'), '# 已归档变更');
+
+    const index = await buildUiIndex(root);
+
+    expect(index.archive.currentSpecs.map((document) => document.relativePath)).toEqual([
+      'codespec/current-specs/cli-init/spec.md',
+    ]);
+    expect(index.archive.history.map((document) => document.relativePath)).toEqual([
+      'codespec/history/CHG-20260906-001/proposal.md',
+    ]);
+    expect(index.archive.historyChanges.map((change) => change.id)).toEqual(['CHG-20260906-001']);
+    expect(index.businessDocument?.relativePath).toBe('codespec/meta/business.md');
+    expect(index.businessModules.map((module) => module.id)).toEqual(['MOD-001']);
+    expect(index.documents.find((document) => document.relativePath === 'codespec/current-specs/cli-init/spec.md')).toMatchObject({
+      category: '当前 Spec',
+    });
+    expect(index.documents.find((document) => document.relativePath === 'codespec/history/CHG-20260906-001/proposal.md')).toMatchObject({
+      category: '归档 Change',
+    });
   });
 
   it('ranks title matches before body matches and extracts YAML metadata labels', async () => {

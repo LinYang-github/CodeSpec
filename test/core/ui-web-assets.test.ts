@@ -12,7 +12,10 @@ describe('CodeSpec UI web assets', () => {
     ]);
     const runtime = `${app}\n${html}`;
 
-    expect(app).toContain("relativePath === 'codespec/business.md'");
+    expect(app).toContain('index.businessDocument');
+    expect(app).toContain('archive.currentSpecs');
+    expect(app).toContain('当前生效 Spec');
+    expect(app).not.toContain('暂无归档 Spec');
     expect(app).not.toContain('openspec/business.md');
     expect(app).not.toContain('.openspec.yaml');
     expect(runtime).not.toMatch(/OpenSpec|openspec/);
