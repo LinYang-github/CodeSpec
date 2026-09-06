@@ -419,7 +419,7 @@ expect(getSkillTemplates().map((item) => item.name)).toEqual([
   'codespec-workflow', 'codespec-rebase-change', 'codespec-archive-change',
 ]);
 expect(rendered).toContain('codespec archive');
-expect(rendered).not.toMatch(/openspec|opsx-/i);
+expect(rendered).not.toMatch(/openspec|legacy-command-prefix/i);
 ```
 
 - [ ] **Step 2: Run Skills/template tests and verify failure.**

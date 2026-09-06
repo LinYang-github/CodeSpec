@@ -21,7 +21,7 @@ import {
   DEFAULT_CONFIG,
 } from '../core/config-schema.js';
 import { CORE_WORKFLOWS, ALL_WORKFLOWS, getProfileWorkflows } from '../core/profiles.js';
-import { OPENSPEC_DIR_NAME } from '../core/config.js';
+import { CODESPEC_DIR_NAME } from '../core/config.js';
 import { hasProjectConfigDrift } from '../core/profile-sync-drift.js';
 import { UpdateCommand } from '../core/update.js';
 import { asErrorMessage, isPromptCancellationError } from './shared-output.js';
@@ -91,7 +91,7 @@ export const WORKFLOW_PROMPT_META: Record<string, WorkflowPromptMeta> = {
   },
   onboard: {
     name: '入门引导',
-    description: 'OpenSpec 入门引导流程',
+    description: 'CodeSpec 入门引导流程',
   },
 };
 
@@ -192,18 +192,18 @@ function maybeWarnProjectConfigDrift(
   state: ProfileState,
   colorize: (message: string) => string
 ): void {
-  const openspecDir = path.join(projectDir, OPENSPEC_DIR_NAME);
-  if (!fs.existsSync(openspecDir)) {
+  const codespecDir = path.join(projectDir, CODESPEC_DIR_NAME);
+  if (!fs.existsSync(codespecDir)) {
     return;
   }
   if (!hasProjectConfigDrift(projectDir, state.workflows, state.delivery)) {
     return;
   }
-  console.log(colorize('警告：全局配置尚未应用到此项目。请运行 `openspec update` 同步。'));
+  console.log(colorize('警告：全局配置尚未应用到此项目。请运行 `codespec update` 同步。'));
 }
 
 function printConfigProfileApplyGuidance(): void {
-  console.log('配置已更新。请在项目中运行 `openspec update` 应用配置。');
+  console.log('配置已更新。请在项目中运行 `codespec update` 应用配置。');
 }
 
 /**
@@ -214,7 +214,7 @@ function printConfigProfileApplyGuidance(): void {
 export function registerConfigCommand(program: Command): void {
   const configCmd = program
     .command('config')
-    .description('查看和修改全局 OpenSpec 配置')
+    .description('查看和修改全局 CodeSpec 配置')
     .option('--scope <scope>', '配置范围（当前仅支持 "global"）')
     .hook('preAction', (thisCommand) => {
       const opts = thisCommand.opts();
@@ -306,7 +306,7 @@ export function registerConfigCommand(program: Command): void {
       if (!keyValidation.valid && (!allowUnknown || unsafeKey)) {
         const reason = keyValidation.reason ? ` ${keyValidation.reason}.` : '';
         console.error(`错误：配置键 "${key}" 无效。${reason}`);
-        console.error('使用 "openspec config list" 查看可用配置键。');
+        console.error('使用 "codespec config list" 查看可用配置键。');
         if (!allowUnknown && !unsafeKey) {
           console.error('可传入 --allow-unknown 跳过此检查。');
         }
@@ -363,7 +363,7 @@ export function registerConfigCommand(program: Command): void {
     .action(async (options: { all?: boolean; yes?: boolean }) => {
       if (!options.all) {
         console.error('错误：重置配置必须提供 --all。');
-        console.error('用法：openspec config reset --all [-y]');
+        console.error('用法：codespec config reset --all [-y]');
         process.exitCode = 1;
         return;
       }
@@ -463,7 +463,7 @@ export function registerConfigCommand(program: Command): void {
     .command('profile [preset]')
     .description('配置工作流 Profile（交互式选择或预设快捷方式）')
     .action(async (preset?: string) => {
-      // Preset shortcut: `openspec config profile core`
+      // Preset shortcut: `codespec config profile core`
       if (preset === 'core') {
         const config = getGlobalConfig();
         config.profile = 'core';
@@ -482,7 +482,7 @@ export function registerConfigCommand(program: Command): void {
 
       // Non-interactive check
       if (!process.stdout.isTTY) {
-        console.error('此操作需要交互模式。请使用 `openspec config profile core`，或通过环境变量/选项设置配置。');
+        console.error('此操作需要交互模式。请使用 `codespec config profile core`，或通过环境变量/选项设置配置。');
         process.exitCode = 1;
         return;
       }
@@ -631,10 +631,10 @@ export function registerConfigCommand(program: Command): void {
         }
         saveGlobalConfig(config);
 
-        // Check if inside an OpenSpec project
+        // Check if inside an CodeSpec project
         const projectDir = process.cwd();
-        const openspecDir = path.join(projectDir, OPENSPEC_DIR_NAME);
-        if (fs.existsSync(openspecDir)) {
+        const codespecDir = path.join(projectDir, CODESPEC_DIR_NAME);
+        if (fs.existsSync(codespecDir)) {
           const applyNow = await confirm({
             message: '立即将变更应用到此项目？',
             default: true,
@@ -643,9 +643,9 @@ export function registerConfigCommand(program: Command): void {
           if (applyNow) {
             try {
               await new UpdateCommand().execute(projectDir);
-              console.log('请在其他项目中运行 `openspec update` 应用配置。');
+              console.log('请在其他项目中运行 `codespec update` 应用配置。');
             } catch (error) {
-              console.error(`\`openspec update\` 失败：${asErrorMessage(error)}`);
+              console.error(`\`codespec update\` 失败：${asErrorMessage(error)}`);
               console.error('请手动运行该命令应用 Profile 变更。');
               process.exitCode = 1;
             }

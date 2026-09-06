@@ -6,8 +6,8 @@ import { execFileSync } from 'child_process';
 describe('validate command enriched human output', () => {
   const projectRoot = process.cwd();
   const testDir = path.join(projectRoot, 'test-validate-enriched-tmp');
-  const changesDir = path.join(testDir, 'openspec', 'changes');
-  const bin = path.join(projectRoot, 'bin', 'openspec.js');
+  const changesDir = path.join(testDir, 'codespec', 'changes');
+  const bin = path.join(projectRoot, 'bin', 'codespec.js');
 
 
   beforeEach(async () => {
@@ -37,13 +37,11 @@ describe('validate command enriched human output', () => {
         stderr = e?.stderr?.toString?.() ?? '';
       }
       expect(code).not.toBe(0);
-      expect(stderr).toContain('has issues');
-      expect(stderr).toContain('Next steps:');
-      expect(stderr).toContain('openspec change show');
+      expect(stderr).toContain('存在问题');
+      expect(stderr).toContain('下一步：');
+      expect(stderr).toContain('codespec change show');
     } finally {
       process.chdir(originalCwd);
     }
   });
 });
-
-

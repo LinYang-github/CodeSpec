@@ -1,27 +1,27 @@
 # AI entries
 
-OpenSpec exposes three AI entries. Type the tool-specific spelling in your AI assistant's chat, not in the terminal.
+CodeSpec exposes three AI entries. Type the tool-specific spelling in your AI assistant's chat, not in the terminal.
 
 | Entry | Use it for | Core owner |
 |---|---|---|
-| `openspec-workflow` | Start or continue one Change | OpenSpec Core and Superpowers |
-| `openspec-rebase-change` | Recover STALE, baseline, or multi-Change conflicts | OpenSpec Core |
-| `openspec-archive-change` | Validate and archive a completed Change | OpenSpec Core |
+| `codespec-workflow` | Start or continue one Change | CodeSpec Core and Superpowers |
+| `codespec-rebase-change` | Recover STALE, baseline, or multi-Change conflicts | CodeSpec Core |
+| `codespec-archive-change` | Validate and archive a completed Change | CodeSpec Core |
 
-OpenSpec generates these entries from the templates in `src/core/templates/`. The root `skills/` directory is generated output and contains the same three Skill directories.
+CodeSpec generates these entries from the templates in `src/core/templates/`. The root `skills/` directory is generated output and contains the same three Skill directories.
 
 ## Invoke an entry
 
-Use the spelling that `openspec init` prints for your selected tool.
+Use the spelling that `codespec init` prints for your selected tool.
 
 | Tool surface | `workflow` | `rebase` | `archive` |
 |---|---|---|---|
-| Namespaced command file | `/opsx:workflow` | `/opsx:rebase` | `/opsx:archive` |
-| Flat command file | `/opsx-workflow` | `/opsx-rebase` | `/opsx-archive` |
-| Amazon Q prompt | `@opsx-workflow` | `@opsx-rebase` | `@opsx-archive` |
-| Default Skill invocation | `/openspec-workflow` | `/openspec-rebase-change` | `/openspec-archive-change` |
-| Kimi Code | `/skill:openspec-workflow` | `/skill:openspec-rebase-change` | `/skill:openspec-archive-change` |
-| Codex | `$openspec-workflow` | `$openspec-rebase-change` | `$openspec-archive-change` |
+| Namespaced command file | `/codespec:workflow` | `/codespec:rebase` | `/codespec:archive` |
+| Flat command file | `/codespec-workflow` | `/codespec-rebase` | `/codespec-archive` |
+| Amazon Q prompt | `@codespec-workflow` | `@codespec-rebase` | `@codespec-archive` |
+| Default Skill invocation | `/codespec-workflow` | `/codespec-rebase-change` | `/codespec-archive-change` |
+| Kimi Code | `/skill:codespec-workflow` | `/skill:codespec-rebase-change` | `/skill:codespec-archive-change` |
+| Codex | `$codespec-workflow` | `$codespec-rebase-change` | `$codespec-archive-change` |
 
 See [Supported Tools](supported-tools.md#how-to-invoke) for the file path used by each tool.
 
@@ -30,7 +30,7 @@ See [Supported Tools](supported-tools.md#how-to-invoke) for the file path used b
 Use `workflow` for every normal development request.
 
 ```text
-/opsx:workflow add-rate-limit
+/codespec:workflow add-rate-limit
 ```
 
 The entry performs these steps through Core and Superpowers:
@@ -51,7 +51,7 @@ The entry performs these steps through Core and Superpowers:
 Use `rebase` only when Core reports STALE, a baseline conflict, or an unsafe multi-Change state.
 
 ```text
-/opsx:rebase
+/codespec:rebase
 ```
 
 The entry reads the target Change, current baseline, and conflicting Changes before changing anything. It stops when the target or conflict decision is ambiguous.
@@ -63,7 +63,7 @@ Core performs the rebase transaction. The Skill does not implement `captureBasel
 Use `archive` after the Change is implemented and verification has passed.
 
 ```text
-/opsx:archive
+/codespec:archive
 ```
 
 Core checks the archive preconditions and runs the transaction:
@@ -77,7 +77,7 @@ Core checks the archive preconditions and runs the transaction:
 
 ## What belongs to Core and Superpowers
 
-OpenSpec Core owns domain state and governance:
+CodeSpec Core owns domain state and governance:
 
 - Change creation, resolution, and ID allocation
 - module and requirement-ID resolution

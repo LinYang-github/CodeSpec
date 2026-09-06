@@ -2,7 +2,7 @@
 
 > The default workflow's artifacts: their order, their formats, and the change folder they produce.
 
-`spec-driven` is OpenSpec's built-in default schema. [schema.yaml](../schema-yaml.md) defines the fields it sets.
+`spec-driven` is CodeSpec's built-in default schema. [schema.yaml](../schema-yaml.md) defines the fields it sets.
 
 ## Artifacts
 
@@ -28,15 +28,15 @@ Proposal comes first. Specs and design follow in either order, and tasks needs b
 Two artifacts can be skipped:
 
 - **`design`**: when none of [its conditions](#designmd) apply, the agent leaves it out and drafts `tasks` anyway.
-- **`specs`**: set [`skip_specs: true`](../../configuration/change-metadata.md#skip_specs) in the change's `.openspec.yaml`.
+- **`specs`**: set [`skip_specs: true`](../../configuration/change-metadata.md#skip_specs) in the change's `.codespec.yaml`.
 
 ## Example change folder
 
 A change named `add-user-auth`, with every artifact drafted:
 
 ```text
-openspec/changes/add-user-auth/
-├── .openspec.yaml      change metadata, written when the change is created
+codespec/changes/add-user-auth/
+├── .codespec.yaml      change metadata, written when the change is created
 ├── proposal.md
 ├── specs/
 │   └── user-auth/
@@ -51,7 +51,7 @@ Establishes why the change is needed.
 
 ### Structure
 
-The template the agent receives as the output format ([templates/proposal.md](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/proposal.md)):
+The template the agent receives as the output format ([templates/proposal.md](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/templates/proposal.md)):
 
 ```md
 ## Why
@@ -73,9 +73,9 @@ The template the agent receives as the output format ([templates/proposal.md](ht
 ### Modified Capabilities
 <!-- Existing capabilities whose REQUIREMENTS are changing (not just implementation).
      Only list here if spec-level behavior changes. Each needs a delta spec file.
-     Use the exact existing path under openspec/specs/. Leave empty if no requirement
+     Use the exact existing path under codespec/specs/. Leave empty if no requirement
      changes. A change with no capabilities at all (pure refactor, tooling, docs)
-     must set `skip_specs: true` in its .openspec.yaml - openspec validate rejects
+     must set `skip_specs: true` in its .codespec.yaml - codespec validate rejects
      a zero-delta change without that marker. Do not invent a requirement just to
      satisfy validation. -->
 - `<existing-capability-path>`: <what requirement is changing>
@@ -87,7 +87,7 @@ The template the agent receives as the output format ([templates/proposal.md](ht
 
 ### Instructions
 
-The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml)):
+The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml)):
 
 ```md
 Create the proposal document that establishes WHY this change is needed.
@@ -97,7 +97,7 @@ Sections:
 - **What Changes**: Bullet list of changes. Be specific about new capabilities, modifications, or removals. Mark breaking changes with **BREAKING**.
 - **Capabilities**: Identify which specs will be created or modified:
   - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<capability-path>/spec.md`. Use kebab-case for path segments you introduce (e.g., `user-auth` or `identity/user-auth`) and follow the project's existing spec organization.
-  - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Only include if spec-level behavior changes (not just implementation details). Each needs a delta spec file. Use the exact existing path under `openspec/specs/`. Leave empty if no requirement changes.
+  - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Only include if spec-level behavior changes (not just implementation details). Each needs a delta spec file. Use the exact existing path under `codespec/specs/`. Leave empty if no requirement changes.
 - **Impact**: Affected code, APIs, dependencies, or systems.
 
 IMPORTANT: The Capabilities section is critical. It creates the contract between
@@ -105,8 +105,8 @@ proposal and specs phases. Research existing specs before filling this in.
 Each capability listed here will need a corresponding spec file.
 
 Every change must either declare at least one capability (new or
-modified) or explicitly opt out of specs: `openspec validate` rejects a
-change with zero deltas unless the change's `.openspec.yaml` sets
+modified) or explicitly opt out of specs: `codespec validate` rejects a
+change with zero deltas unless the change's `.codespec.yaml` sets
 `skip_specs: true`. Use `skip_specs: true` only when no spec-level
 behavior changes (pure refactor, tooling, docs) - specs describe
 behavior, so if behavior does not change, no spec should change either.
@@ -124,7 +124,7 @@ Defines what behavior changes, with one delta spec per capability the proposal l
 
 ### Structure
 
-The template the agent receives as the output format ([templates/spec.md](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/spec.md)):
+The template the agent receives as the output format ([templates/spec.md](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/templates/spec.md)):
 
 ```md
 ## Purpose
@@ -142,7 +142,7 @@ The template the agent receives as the output format ([templates/spec.md](https:
 
 ### Instructions
 
-The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml)):
+The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml)):
 
 ````md
 Create specification files that define WHAT the system should do.
@@ -168,10 +168,10 @@ Create one spec file per capability listed in the proposal's Capabilities sectio
 `<capability-path>` is the spec directory relative to `specs/` (for example,
 `user-auth` or `identity/user-auth`). Preserve the full path:
 - New capabilities: use the exact path from the proposal at `specs/<capability-path>/spec.md`. Any path segment newly introduced in the proposal must be kebab-case. Follow the project's existing organization; do not add a new domain level when the project uses a flat layout.
-- Modified capabilities: use the exact existing path from `openspec/specs/<capability-path>/` when creating the delta at `specs/<capability-path>/spec.md`. Do not move or rename the capability.
+- Modified capabilities: use the exact existing path from `codespec/specs/<capability-path>/` when creating the delta at `specs/<capability-path>/spec.md`. Do not move or rename the capability.
 
-There must be at least one spec file unless the change's `.openspec.yaml`
-sets `skip_specs: true` (no spec-level behavior change) - `openspec validate`
+There must be at least one spec file unless the change's `.codespec.yaml`
+sets `skip_specs: true` (no spec-level behavior change) - `codespec validate`
 rejects a zero-delta change without that marker. If the proposal lists no
 capabilities and `skip_specs` is not set, revisit the proposal first.
 
@@ -189,17 +189,17 @@ Format requirements:
 - Every requirement MUST have at least one scenario.
 
 New capabilities only: start the delta spec with a `## Purpose` section -
-one or two sentences (50+ characters, or `openspec validate --strict`
+one or two sentences (50+ characters, or `codespec validate --strict`
 reports it as too brief) describing what the capability is for. Archive
 copies it into the main spec it creates; without it the new main spec is
 left with a `TBD ... Update Purpose after archive` placeholder to fill in
 by hand. Do NOT add `## Purpose` to a delta for an existing capability -
 that spec already has one and the delta's is ignored. To change an
 existing capability's Purpose - including a leftover `TBD` placeholder -
-edit `openspec/specs/<capability-path>/spec.md` directly.
+edit `codespec/specs/<capability-path>/spec.md` directly.
 
 MODIFIED requirements workflow:
-1. Locate the existing requirement in openspec/specs/<capability-path>/spec.md
+1. Locate the existing requirement in codespec/specs/<capability-path>/spec.md
 2. Copy the ENTIRE requirement block (from `### Requirement:` through all scenarios)
 3. Paste under `## MODIFIED Requirements` and edit to reflect new behavior
 4. Ensure header text matches exactly (whitespace-insensitive)
@@ -238,7 +238,7 @@ Explains how to implement the change. Drafted only when the change needs one.
 
 ### Structure
 
-The template the agent receives as the output format ([templates/design.md](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/design.md)):
+The template the agent receives as the output format ([templates/design.md](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/templates/design.md)):
 
 ```md
 ## Context
@@ -264,7 +264,7 @@ The template the agent receives as the output format ([templates/design.md](http
 
 ### Instructions
 
-The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml)):
+The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml)):
 
 ```md
 Create the design document that explains HOW to implement the change.
@@ -302,7 +302,7 @@ Breaks the implementation into checkable tasks. [apply](#apply) tracks progress 
 
 ### Structure
 
-The template the agent receives as the output format ([templates/tasks.md](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/tasks.md)):
+The template the agent receives as the output format ([templates/tasks.md](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/templates/tasks.md)):
 
 ```md
 ## 1. <!-- Task Group Name -->
@@ -318,7 +318,7 @@ The template the agent receives as the output format ([templates/tasks.md](https
 
 ### Instructions
 
-The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml)):
+The instruction sent to the agent when it drafts this artifact (from [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml)):
 
 ````md
 Create the task list that breaks down the implementation work.
@@ -359,11 +359,11 @@ The handoff from planning to implementation. Apply is the phase that works throu
 
 - **Starts**: once `tasks.md` exists and lists at least one task.
 - **Tracks**: the checkboxes in `tasks.md`. Checking them off is the progress record.
-- **Ends**: every checkbox checked. OpenSpec then suggests archiving the change.
+- **Ends**: every checkbox checked. CodeSpec then suggests archiving the change.
 
 ### Settings
 
-The apply settings (from [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml)):
+The apply settings (from [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml)):
 
 ```yaml
 apply:
@@ -374,7 +374,7 @@ apply:
 
 ### Instructions
 
-The instruction sent to the agent when implementation starts (from [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml)):
+The instruction sent to the agent when implementation starts (from [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml)):
 
 ```md
 Read context files, work through pending tasks, mark complete as you go.
@@ -383,12 +383,12 @@ Pause if you hit blockers or need clarification.
 
 ## schema.yaml
 
-The complete [schema.yaml](https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/schema.yaml), with instruction bodies elided. Each is shown in full in its section above.
+The complete [schema.yaml](https://github.com/Fission-AI/CodeSpec/blob/main/schemas/spec-driven/schema.yaml), with instruction bodies elided. Each is shown in full in its section above.
 
 ```yaml
 name: spec-driven
 version: 1
-description: Default OpenSpec workflow - proposal → specs → design → tasks
+description: Default CodeSpec workflow - proposal → specs → design → tasks
 artifacts:
   - id: proposal
     generates: proposal.md

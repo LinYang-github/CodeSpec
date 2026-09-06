@@ -4,8 +4,8 @@ import os from 'os';
 import path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
 
-describe('openspec show --diff', () => {
-  const openspecBin = path.join(process.cwd(), 'bin', 'openspec.js');
+describe('codespec show --diff', () => {
+  const codespecBin = path.join(process.cwd(), 'bin', 'codespec.js');
   // A fresh temp directory per test keeps concurrent test files from sharing a
   // project, and lets every run pass `cwd` instead of chdir-ing the process.
   let testDir: string;
@@ -13,13 +13,13 @@ describe('openspec show --diff', () => {
   let specsDir: string;
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-show-diff-'));
-    changesDir = path.join(testDir, 'openspec', 'changes');
-    specsDir = path.join(testDir, 'openspec', 'specs');
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-show-diff-'));
+    changesDir = path.join(testDir, 'codespec', 'changes');
+    specsDir = path.join(testDir, 'codespec', 'specs');
     await fs.mkdir(changesDir, { recursive: true });
     await fs.mkdir(specsDir, { recursive: true });
     await fs.writeFile(
-      path.join(testDir, 'openspec', 'project.md'),
+      path.join(testDir, 'codespec', 'project.md'),
       '# Test project\n',
       'utf-8'
     );
@@ -110,7 +110,7 @@ describe('openspec show --diff', () => {
   // Arguments go through as an argv array: no shell, so a path or requirement
   // name with a space in it cannot be re-split or interpreted.
   function run(args: string[]): string {
-    return execFileSync(process.execPath, [openspecBin, ...args], {
+    return execFileSync(process.execPath, [codespecBin, ...args], {
       encoding: 'utf-8',
       cwd: testDir,
       env: { ...process.env, NO_COLOR: '1' },
@@ -118,7 +118,7 @@ describe('openspec show --diff', () => {
   }
 
   function runWithStderr(args: string[]): { stdout: string; stderr: string; status: number | null } {
-    const result = spawnSync(process.execPath, [openspecBin, ...args], {
+    const result = spawnSync(process.execPath, [codespecBin, ...args], {
       encoding: 'utf-8',
       cwd: testDir,
       env: { ...process.env, NO_COLOR: '1' },
@@ -330,7 +330,7 @@ describe('openspec show --diff', () => {
 
     const output = run(['show', 'no-main-spec', '--type', 'change', '--diff']);
     expect(output).toContain('MODIFIED: Billing');
-    expect(output).toContain('No main spec at openspec/specs/billing/spec.md');
+    expect(output).toContain('No main spec at codespec/specs/billing/spec.md');
     // The requirement text is still shown, but not dressed up as a diff.
     expect(output).toContain('The system SHALL bill monthly.');
     expect(output).not.toContain('+The system SHALL bill monthly.');
@@ -338,7 +338,7 @@ describe('openspec show --diff', () => {
     const json = JSON.parse(run(['show', 'no-main-spec', '--type', 'change', '--diff', '--json']));
     const modified = json.deltas.find((d: any) => d.operation === 'MODIFIED');
     expect(modified.diff).toBeUndefined();
-    expect(modified.warning).toContain('No main spec at openspec/specs/billing/spec.md');
+    expect(modified.warning).toContain('No main spec at codespec/specs/billing/spec.md');
   });
 
   it('diffs a nested capability (specs/<area>/<id>/spec.md)', async () => {

@@ -8,7 +8,7 @@ import { loadSchema } from '../../../src/core/artifact-graph/schema.js';
 import { resolveCurrentPlanningHomeSync } from '../../../src/core/planning-home.js';
 
 // #1702: the `specs` instruction sent main-spec reads and edits to
-// `openspec/specs/<capability-path>/spec.md`, a cwd-relative path. When the
+// `codespec/specs/<capability-path>/spec.md`, a cwd-relative path. When the
 // change lives in a registered store the main spec is under the store root, so
 // the read either misses or - when a local capability shares the name - lands
 // on a different capability and the MODIFIED workflow copies the wrong
@@ -31,12 +31,12 @@ function instructionFor(artifactId: string): string {
 /**
  * Lines that operate on a main spec file. A mention that only describes the
  * shape of a capability path ("use the exact existing path under
- * `openspec/specs/`") is not a file operation and is out of scope.
+ * `codespec/specs/`") is not a file operation and is out of scope.
  */
 function mainSpecOperations(instruction: string): string[] {
   return instruction
     .split('\n')
-    .filter(line => /openspec\/specs\/<capability-path>\/spec\.md/.test(line))
+    .filter(line => /codespec\/specs\/<capability-path>\/spec\.md/.test(line))
     .filter(line => /\b(edit|Locate)\b/.test(line));
 }
 
@@ -51,7 +51,7 @@ describe('main spec paths in the specs instruction (#1702)', () => {
       expect(
         line,
         `main-spec operation uses a cwd-relative path: ${line.trim()}`
-      ).toContain(`${STORE_AWARE_ROOT}/openspec/specs/`);
+      ).toContain(`${STORE_AWARE_ROOT}/codespec/specs/`);
     }
   });
 
@@ -59,7 +59,7 @@ describe('main spec paths in the specs instruction (#1702)', () => {
     // Naming `planningHome.root` is not enough on its own: it is a field of the
     // instructions JSON, and an agent that does not know that cannot use it.
     const instruction = instructionFor('specs');
-    expect(instruction).toContain('openspec instructions');
+    expect(instruction).toContain('codespec instructions');
     expect(instruction).toContain('store-aware root');
   });
 
@@ -77,13 +77,13 @@ describe('main spec paths in the specs instruction (#1702)', () => {
     });
 
     it('lands on the main spec when the placeholder is substituted', () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-main-spec-path-'));
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-main-spec-path-'));
       tempDirs.push(tempDir);
 
       const capability = 'identity/user-auth';
-      const specDir = path.join(tempDir, 'openspec', 'specs', ...capability.split('/'));
+      const specDir = path.join(tempDir, 'codespec', 'specs', ...capability.split('/'));
       fs.mkdirSync(specDir, { recursive: true });
-      fs.mkdirSync(path.join(tempDir, 'openspec', 'changes'), { recursive: true });
+      fs.mkdirSync(path.join(tempDir, 'codespec', 'changes'), { recursive: true });
       fs.writeFileSync(path.join(specDir, 'spec.md'), '# spec\n');
 
       const planningHome = resolveCurrentPlanningHomeSync({ startPath: tempDir });

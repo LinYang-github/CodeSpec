@@ -10,14 +10,14 @@ import { escapeYamlValue } from '../yaml.js';
 
 /**
  * Auggie adapter for command generation.
- * File path: .augment/commands/opsx-<id>.md
+ * File path: .augment/commands/codespec-<id>.md
  * Frontmatter: description, argument-hint
  */
 export const auggieAdapter: ToolCommandAdapter = {
   toolId: 'auggie',
 
   getFilePath(commandId: string): string {
-    return path.join('.augment', 'commands', `opsx-${commandId}.md`);
+    return path.join('.augment', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

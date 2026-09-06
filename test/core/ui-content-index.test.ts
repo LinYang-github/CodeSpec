@@ -12,27 +12,26 @@ describe('buildUiIndex', () => {
     await Promise.all(tempRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
   });
 
-  it('indexes only OpenSpec content and Superpowers plans', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+  it('indexes only CodeSpec content and Superpowers plans', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
-    await fs.mkdir(path.join(root, 'openspec', 'changes', 'CHG-001'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-001'), { recursive: true });
     await fs.mkdir(path.join(root, 'docs', 'superpowers', 'plans'), { recursive: true });
     await fs.mkdir(path.join(root, 'docs'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'business.md'), '# 业务说明\n\n核心业务内容。');
-    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-001', 'proposal.md'), '# 发布计划\n\n变更内容。');
+    await fs.writeFile(path.join(root, 'codespec', 'business.md'), '# 业务说明\n\n核心业务内容。');
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-001', 'proposal.md'), '# 发布计划\n\n变更内容。');
     await fs.writeFile(path.join(root, 'docs', 'superpowers', 'plans', 'release.md'), '# 发布实施计划\n\n执行步骤。');
     await fs.writeFile(path.join(root, 'docs', 'other.md'), '# 不应显示\n\n范围外内容。');
 
     const index = await buildUiIndex(root);
-
     expect(index.documents.map((document) => document.relativePath)).toEqual([
+      'codespec/business.md',
+      'codespec/changes/CHG-001/proposal.md',
       'docs/superpowers/plans/release.md',
-      'openspec/business.md',
-      'openspec/changes/CHG-001/proposal.md',
     ]);
-    expect(index.documents.find((document) => document.relativePath === 'openspec/business.md')).toMatchObject({
-      source: 'openspec',
+    expect(index.documents.find((document) => document.relativePath === 'codespec/business.md')).toMatchObject({
+      source: 'codespec',
       category: '业务说明',
       contentType: 'markdown',
       title: '业务说明',
@@ -41,24 +40,24 @@ describe('buildUiIndex', () => {
   });
 
   it('ranks title matches before body matches and extracts YAML metadata labels', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'body.md'), '# 概览\n\n发布准备事项。');
-    await fs.writeFile(path.join(root, 'openspec', 'title.md'), '# 发布计划\n\n其他内容。');
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'body.md'), '# 概览\n\n发布准备事项。');
+    await fs.writeFile(path.join(root, 'codespec', 'title.md'), '# 发布计划\n\n其他内容。');
     await fs.writeFile(
-      path.join(root, 'openspec', 'metadata.yaml'),
+      path.join(root, 'codespec', 'metadata.yaml'),
       'id: CHG-001\nstatus: PLAN\nupdated_at: 2026-09-04\n'
     );
 
     const index = await buildUiIndex(root);
     const results = searchUiIndex(index, '发布');
-    const metadata = index.documents.find((document) => document.relativePath === 'openspec/metadata.yaml');
+    const metadata = index.documents.find((document) => document.relativePath === 'codespec/metadata.yaml');
 
     expect(results.map((document) => document.relativePath)).toEqual([
-      'openspec/title.md',
-      'openspec/body.md',
+      'codespec/title.md',
+      'codespec/body.md',
     ]);
     expect(metadata).toMatchObject({
       contentType: 'yaml',
@@ -67,25 +66,25 @@ describe('buildUiIndex', () => {
   });
 
   it('skips unsafe files while resolving indexed documents by opaque ID', async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
-    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-outside-'));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-outside-'));
     tempRoots.push(root, outsideRoot);
 
-    await fs.mkdir(path.join(root, 'openspec'), { recursive: true });
-    await fs.writeFile(path.join(root, 'openspec', 'safe.md'), '# 安全文档');
-    await fs.writeFile(path.join(root, 'openspec', 'binary.md'), Buffer.from([0x61, 0x00, 0x62]));
-    await fs.writeFile(path.join(root, 'openspec', 'large.md'), 'a'.repeat(1_048_577));
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'safe.md'), '# 安全文档');
+    await fs.writeFile(path.join(root, 'codespec', 'binary.md'), Buffer.from([0x61, 0x00, 0x62]));
+    await fs.writeFile(path.join(root, 'codespec', 'large.md'), 'a'.repeat(1_048_577));
     await fs.writeFile(path.join(outsideRoot, 'outside.md'), '# 范围外');
-    await fs.symlink(path.join(outsideRoot, 'outside.md'), path.join(root, 'openspec', 'outside.md'));
+    await fs.symlink(path.join(outsideRoot, 'outside.md'), path.join(root, 'codespec', 'outside.md'));
 
     const index = await buildUiIndex(root);
-    const safeDocument = index.documents.find((document) => document.relativePath === 'openspec/safe.md');
+    const safeDocument = index.documents.find((document) => document.relativePath === 'codespec/safe.md');
 
-    expect(index.documents.map((document) => document.relativePath)).toEqual(['openspec/safe.md']);
+    expect(index.documents.map((document) => document.relativePath)).toEqual(['codespec/safe.md']);
     expect(index.skipped).toEqual([
-      { relativePath: 'openspec/binary.md', reason: 'binary' },
-      { relativePath: 'openspec/large.md', reason: 'too_large' },
-      { relativePath: 'openspec/outside.md', reason: 'outside_root' },
+      { relativePath: 'codespec/binary.md', reason: 'binary' },
+      { relativePath: 'codespec/large.md', reason: 'too_large' },
+      { relativePath: 'codespec/outside.md', reason: 'outside_root' },
     ]);
     expect(safeDocument).toBeDefined();
     expect(findUiDocument(index, safeDocument!.id)).toEqual(safeDocument);

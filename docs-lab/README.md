@@ -1,4 +1,4 @@
-# docs-lab: parallel rebuild of the OpenSpec docs
+# docs-lab: parallel rebuild of the CodeSpec docs
 
 **Status: prose is landing page by page; the rest are skeletons** (real headings plus a
 one-line `>` job statement the site lifts into the page description). The live site
@@ -8,8 +8,8 @@ pages, and the old `docs/` tree is no longer used by the site.
 This README owns the structure: which pages exist and which page teaches what. The
 reverse view, from a job or message to the page that owns it, is
 [message-map.md](message-map.md). How to
-write them (style, voice, formatting) is the `write-openspec-docs` skill's
-[writing.md](../.agents/skills/write-openspec-docs/writing.md).
+write them (style, voice, formatting) is the `write-codespec-docs` skill's
+[writing.md](../.agents/skills/write-codespec-docs/writing.md).
 
 ## The bar for every page
 
@@ -30,7 +30,7 @@ it or cut it.
 `guides/`, `customize/`, `multi-repo/`, `reference/`, `help/`); the root holds only this
 README, `message-map.md`, and `sources.md`. Most folders publish as one
 sidebar group; `guides/` publishes as the Guides group, holding three collapsible
-subgroups (Understanding OpenSpec, Using OpenSpec, Adopting OpenSpec), all expanded
+subgroups (Understanding CodeSpec, Using CodeSpec, Adopting CodeSpec), all expanded
 by default (held back from the site until the pages are drafted: the whole section is
 commented out in `website/docs.sync.config.mjs`, and links to a guide fall back to its
 source on GitHub until it's re-listed). Reference holds three nested
@@ -94,8 +94,8 @@ the page or rewriting the goal in both places, never letting them drift.
 | Page | Goal |
 |---|---|
 | [Overview](start/overview.md) | _TODO: emptied 2026-08-21 for a from-scratch rewrite and pulled from the site (`/docs` redirects to Installation meanwhile); the old goal line was dropped as too weak a pitch. Brief in Notes.md._ |
-| [Installation](start/installation.md) | Install the `openspec` CLI on your machine, update it, and uninstall it. |
-| [Set up your project](start/setup.md) | Add OpenSpec to a project: run init, see what it wrote, and adjust it. |
+| [Installation](start/installation.md) | Install the `codespec` CLI on your machine, update it, and uninstall it. |
+| [Set up your project](start/setup.md) | Add CodeSpec to a project: run init, see what it wrote, and adjust it. |
 | [Quickstart](start/quickstart.md) | Your first change on your existing repo, from idea to archived. |
 
 ### Guides: understand the system, use it well, bring it to your codebase and team
@@ -107,17 +107,17 @@ the page or rewriting the goal in both places, never letting them drift.
 | [Using › Review the plan](guides/review-the-plan.md) | The two-minute pass that catches wrong turns before they're code. |
 | [Using › Apply a change](guides/apply.md) | Run the plan: pacing, context windows, and picking up where you left off. |
 | [Using › Change course](guides/change-course.md) | Revise a change in flight, or decide it's cleaner to start fresh. |
-| [Adopting › Existing codebases](guides/existing-codebases.md) | Bring OpenSpec to a codebase with a lot of code and no specs: where to start, what to backfill, and how specs grow from there. |
-| [Adopting › Teams](guides/teams.md) | Run OpenSpec as a team: what to commit, how a change rides its PR, and when to archive. |
+| [Adopting › Existing codebases](guides/existing-codebases.md) | Bring CodeSpec to a codebase with a lot of code and no specs: where to start, what to backfill, and how specs grow from there. |
+| [Adopting › Teams](guides/teams.md) | Run CodeSpec as a team: what to commit, how a change rides its PR, and when to archive. |
 
 ### Customize: make the workflows fit your project
 
 | Page | Goal |
 |---|---|
-| [Overview](customize/overview.md) | Your options for customizing OpenSpec. |
+| [Overview](customize/overview.md) | Your options for customizing CodeSpec. |
 | [Profiles](customize/profiles.md) | Choose which workflows are installed, and whether they install as skills, commands, or both. |
 | [Project configuration](customize/project-config.md) | Make the workflows plan changes the way you want with a few lines in config.yaml. |
-| [Schemas](customize/schemas.md) | Change what OpenSpec produces: the artifacts, their order, and their templates. |
+| [Schemas](customize/schemas.md) | Change what CodeSpec produces: the artifacts, their order, and their templates. |
 
 ### Multi-repo (beta): plan across repository boundaries
 
@@ -130,35 +130,35 @@ the page or rewriting the goal in both places, never letting them drift.
 
 | Page | Goal |
 |---|---|
-| [Skills](reference/skills.md) | Every OpenSpec skill: arguments, what it creates, and what it responds with. |
-| [CLI](reference/cli.md) | The `openspec` terminal commands. |
+| [Skills](reference/skills.md) | Every CodeSpec skill: arguments, what it creates, and what it responds with. |
+| [CLI](reference/cli.md) | The `codespec` terminal commands. |
 | [Schemas](reference/schemas/index.md) | Every available workflow schema and the artifacts it defines. |
 | [Schemas › schema.yaml](reference/schemas/schema-yaml.md) | Every field of a schema definition, for reading or writing one. |
 | [Schemas › spec-driven](reference/schemas/spec-driven/index.md) | The default workflow's artifacts: their order, their formats, and the change folder they produce. |
-| [Configuration](reference/configuration/index.md) | Every file and setting that changes how OpenSpec behaves, and where each lives. |
-| [Configuration › Project configuration (config.yaml)](reference/configuration/config-yaml.md) | Every field of openspec/config.yaml: the schema, context, and rules this project plans with. |
-| [Configuration › Change metadata (.openspec.yaml)](reference/configuration/change-metadata.md) | The supported fields and validation rules for the metadata stored with each change. |
-| [Configuration › CLI settings (config.json)](reference/configuration/config-json.md) | Every field of config.json: how the openspec CLI behaves on your machine. |
-| [Configuration › Environment variables](reference/configuration/environment-variables.md) | Every environment variable OpenSpec reads. |
+| [Configuration](reference/configuration/index.md) | Every file and setting that changes how CodeSpec behaves, and where each lives. |
+| [Configuration › Project configuration (config.yaml)](reference/configuration/config-yaml.md) | Every field of codespec/config.yaml: the schema, context, and rules this project plans with. |
+| [Configuration › Change metadata (.codespec.yaml)](reference/configuration/change-metadata.md) | The supported fields and validation rules for the metadata stored with each change. |
+| [Configuration › CLI settings (config.json)](reference/configuration/config-json.md) | Every field of config.json: how the codespec CLI behaves on your machine. |
+| [Configuration › Environment variables](reference/configuration/environment-variables.md) | Every environment variable CodeSpec reads. |
 | [Configuration › Stores](reference/configuration/stores.md) | The files behind multi-repo stores: registry.yaml and store.yaml, and which root a command uses. |
-| [Supported tools](reference/supported-tools.md) | Which AI coding tools OpenSpec supports, and each one's command syntax. |
-| [Glossary](reference/glossary.md) | Every OpenSpec term, one line each. |
-| [Architecture](reference/architecture/index.md) (held back from the site until drafted) | How OPSX is built: internals for the curious. |
+| [Supported tools](reference/supported-tools.md) | Which AI coding tools CodeSpec supports, and each one's command syntax. |
+| [Glossary](reference/glossary.md) | Every CodeSpec term, one line each. |
+| [Architecture](reference/architecture/index.md) (held back from the site until drafted) | How CodeSpec is built: internals for the curious. |
 | [Architecture › Workflow runs](reference/architecture/workflow-runs.md) | How a workflow run executes, from invocation to written artifacts. |
-| [Architecture › Design decisions](reference/architecture/design-decisions.md) | Why OPSX works the way it does. |
+| [Architecture › Design decisions](reference/architecture/design-decisions.md) | Why CodeSpec works the way it does. |
 
 ### Help: get unstuck (held back from the site until drafted, see Open TODOs)
 
 | Page | Goal |
 |---|---|
 | [FAQ](help/faq.md) | Short answers to the questions that don't need a page. |
-| [Troubleshooting](help/troubleshooting.md) | When OpenSpec doesn't do what you expected: symptoms and their fixes. |
+| [Troubleshooting](help/troubleshooting.md) | When CodeSpec doesn't do what you expected: symptoms and their fixes. |
 
 ### Legacy: land the old workflow safely (held back from the site until drafted, see Open TODOs)
 
 | Page | Goal |
 |---|---|
-| [Migrating from the legacy workflow](help/legacy/migration.md) | Moving from the legacy `/openspec:*` commands to OPSX. |
+| [Migrating from the legacy workflow](help/legacy/migration.md) | Moving from the legacy `/codespec:*` commands to CodeSpec. |
 
 ## Old docs
 
@@ -190,7 +190,7 @@ file's [Cutover](sources.md#cutover) section.
 - Not started: `start/overview.md` is empty on purpose. We cleared the skeleton
   (headings, narrative beats, diagram gallery) on 2026-08-21 to rewrite the landing page
   from scratch. The old pitch ("a shared, reviewable plan before code is written")
-  undersells OpenSpec now that plan mode is everywhere; the rewrite should sell keeping
+  undersells CodeSpec now that plan mode is everywhere; the rewrite should sell keeping
   larger features on track and aligned (teams, git-native, intended vs implemented
   behavior, control-loop framing). Brief in `Notes.md` ("Start > Overview"); the diagram
   candidates went with the gallery and live in git history. Until the rewrite lands the
@@ -203,22 +203,22 @@ file's [Cutover](sources.md#cutover) section.
   `schemas/spec-driven/templates/design.md` carries only four headers. The docs show
   both verbatim; the mismatch belongs upstream. Noted 2026-08-14 while consolidating
   the spec-driven page.
-- Product feedback, not a docs task: `openspec store setup --remote` writes the URL
+- Product feedback, not a docs task: `codespec store setup --remote` writes the URL
   into `store.yaml` but never configures a git `origin`, so "setup --remote, then
   `git push -u origin main`" fails as written; the Stores page shows `git remote add`
-  instead. The pasteable missing-store fix in `openspec doctor` is powered by
+  instead. The pasteable missing-store fix in `codespec doctor` is powered by
   `references:` remotes, not `store.yaml`. Noted 2026-08-21 while porting the Stores
   page.
-- Style guide follow-up (`.agents/skills/write-openspec-docs/writing.md`), from the
+- Style guide follow-up (`.agents/skills/write-codespec-docs/writing.md`), from the
   Stores page's review rounds, 2026-08-21: never use a term the page hasn't shown
   (say "the `store:` line", not "the pointer"; define by showing the artifact first);
   when behavior depends on the reader's starting state, enumerate the states and walk
-  each to its outcome; sentence subjects are you, OpenSpec, or your agent, never an
+  each to its outcome; sentence subjects are you, CodeSpec, or your agent, never an
   implementation unit ("the resolver picks") or a class of things ("store-only
   projects make..."); when a defined term is reused a section later, re-gloss it in
   one parenthetical at the point of use.
 - Fence convention follow-up, 2026-08-21: the Stores page puts commands in `bash`
-  fences with a one-line `#` comment and OpenSpec output in a separate `yaml` fence.
+  fences with a one-line `#` comment and CodeSpec output in a separate `yaml` fence.
   `customize/schemas.md` still uses `console` fences with `$` prompts (lines 78, 114,
   137, 145; prompts at 24 and 115); the style guide should name the convention and
   that page should adopt it.
@@ -230,8 +230,8 @@ file's [Cutover](sources.md#cutover) section.
   start/setup.md's "Skills, commands, or both" section sets appears there only as
   command output; its field-level home, `reference/configuration/config-json.md`, is
   drafted (2026-08-14).
-- Telemetry is undocumented. `OPENSPEC_TELEMETRY=0` appears nowhere in the tree; the
-  Deno install command grants `--allow-net=edge.openspec.dev` with no explanation (the
+- Telemetry is undocumented. `CODESPEC_TELEMETRY=0` appears nowhere in the tree; the
+  Deno install command grants `--allow-net=edge.codespec.dev` with no explanation (the
   telemetry gloss was deliberately pulled pending a real home). The home now exists:
   write `reference/configuration/environment-variables.md` (the env var, what's
   collected, the opt-out, the CI auto-disable), then have the Deno section link to it
@@ -261,14 +261,14 @@ file's [Cutover](sources.md#cutover) section.
   workflows.md is unverified. Noted 2026-08-11. Related: message-map row 29 words
   apply.md's pacing question as drafting-time pacing, the same creation-stage choice;
   fix that row's wording or owner when this guide lands. Noted 2026-08-14.
-- Missing guide: working with git. OpenSpec never touches git, so every git decision
+- Missing guide: working with git. CodeSpec never touches git, so every git decision
   lands on the reader with no page to answer it: do you branch before or after propose,
   does a task get its own commit, what goes in the PR, where does the archive commit
   land. `guides/teams.md` owns the archive-vs-PR ordering; the rest is unowned. Likely a
   `guides/` file in the Adoption group. Noted 2026-08-08.
 - `customize/skills.md` is parked: the skeleton stays on disk but is out of the page
   index, the sidebar, and the sync config. Editing installed skill prompts has no good
-  answer yet (`openspec update` overwrites edits); the message map keeps the question as
+  answer yet (`codespec update` overwrites edits); the message map keeps the question as
   a Gap. Revive when the product has a real story for surviving updates. Parked 2026-08-14.
 - `guides/examples.md` is parked: the skeleton stays on disk but is out of the page
   index, the sidebar, and the sync config. Contrived examples teach the wrong lesson for
@@ -279,7 +279,7 @@ file's [Cutover](sources.md#cutover) section.
   update workflow is unlabeled in the picker. The only stored profile values are core
   and custom, but `src/core/templates/workflows/update-change.ts` says "expanded-profile
   workflow", and `WORKFLOW_PROMPT_META` (`src/commands/config.ts`) has no `update` entry,
-  so the `openspec config` workflow picker renders a core workflow as raw `update` /
+  so the `codespec config` workflow picker renders a core workflow as raw `update` /
   "Workflow: update". Docs standardized on core/custom with "expand the set" as a verb
   (2026-08-12). Noted 2026-08-12 during the glossary product sweep.
 - Product feedback, not a docs task: converge on skills only, soon. A workflow's skill and

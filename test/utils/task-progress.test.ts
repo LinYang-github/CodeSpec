@@ -12,7 +12,7 @@ import { resolveArtifactOutputs } from '../../src/core/artifact-graph/index.js';
 
 /**
  * #1202 — task progress is resolved through the tracked-tasks artifact's
- * `generates` glob (the same file-resolution `openspec status` uses), not a
+ * `generates` glob (the same file-resolution `codespec status` uses), not a
  * fixed `changes/<name>/tasks.md` path.
  */
 describe('getTaskProgressForChange (#1202 tracked-tasks resolution)', () => {
@@ -41,8 +41,8 @@ describe('getTaskProgressForChange (#1202 tracked-tasks resolution)', () => {
   ].join('\n');
 
   beforeEach(async () => {
-    projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-taskprogress-'));
-    changesDir = path.join(projectRoot, 'openspec', 'changes');
+    projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-taskprogress-'));
+    changesDir = path.join(projectRoot, 'codespec', 'changes');
     await fs.mkdir(changesDir, { recursive: true });
   });
 
@@ -51,7 +51,7 @@ describe('getTaskProgressForChange (#1202 tracked-tasks resolution)', () => {
   });
 
   async function writeGlobSchema(): Promise<void> {
-    const schemaDir = path.join(projectRoot, 'openspec', 'schemas', 'glob-tasks');
+    const schemaDir = path.join(projectRoot, 'codespec', 'schemas', 'glob-tasks');
     await fs.mkdir(schemaDir, { recursive: true });
     await fs.writeFile(path.join(schemaDir, 'schema.yaml'), GLOB_SCHEMA, 'utf-8');
   }
@@ -60,7 +60,7 @@ describe('getTaskProgressForChange (#1202 tracked-tasks resolution)', () => {
     const changeDir = path.join(changesDir, name);
     await fs.mkdir(changeDir, { recursive: true });
     if (schema) {
-      await fs.writeFile(path.join(changeDir, '.openspec.yaml'), `schema: ${schema}\n`, 'utf-8');
+      await fs.writeFile(path.join(changeDir, '.codespec.yaml'), `schema: ${schema}\n`, 'utf-8');
     }
     for (const [rel, content] of Object.entries(files)) {
       const full = path.join(changeDir, rel);
@@ -136,7 +136,7 @@ describe('getTaskProgressForChange (#1202 tracked-tasks resolution)', () => {
   });
 
   it('identifies the tracked artifact by apply.tracks even when it is not named "tasks"', async () => {
-    const schemaDir = path.join(projectRoot, 'openspec', 'schemas', 'custom-track');
+    const schemaDir = path.join(projectRoot, 'codespec', 'schemas', 'custom-track');
     await fs.mkdir(schemaDir, { recursive: true });
     await fs.writeFile(
       path.join(schemaDir, 'schema.yaml'),
@@ -175,7 +175,7 @@ describe('getTaskProgressForChange (#1202 tracked-tasks resolution)', () => {
   });
 
   it('counts a single top-level tasks.md unchanged under the default schema', async () => {
-    // No project-local schema, no .openspec.yaml -> default spec-driven (tracks tasks.md).
+    // No project-local schema, no .codespec.yaml -> default spec-driven (tracks tasks.md).
     await writeChange('plain', { 'tasks.md': '- [x] a\n- [x] b\n- [ ] c\n' }, '');
 
     const progress = await getTaskProgressForChange(changesDir, 'plain', projectRoot);
@@ -336,8 +336,8 @@ describe('getTaskProgressDetailForChange (#205 unreadable reporting)', () => {
   let changesDir: string;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-taskdetail-'));
-    changesDir = path.join(root, 'openspec', 'changes');
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-taskdetail-'));
+    changesDir = path.join(root, 'codespec', 'changes');
     await fs.mkdir(changesDir, { recursive: true });
   });
 

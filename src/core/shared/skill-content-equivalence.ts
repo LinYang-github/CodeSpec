@@ -1,10 +1,9 @@
-import { LEGACY_OPENSPEC_SKILL_NAMES, OPENSPEC_SKILL_NAMES } from '../config.js';
+import { CODESPEC_SKILL_NAMES } from '../config.js';
 
 const GENERATED_VERSION =
   /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
-const OPENSPEC_SKILL_NAME_SET = new Set<string>([
-  ...OPENSPEC_SKILL_NAMES,
-  ...LEGACY_OPENSPEC_SKILL_NAMES,
+const CODESPEC_SKILL_NAME_SET = new Set<string>([
+  ...CODESPEC_SKILL_NAMES,
 ]);
 
 /**
@@ -43,9 +42,9 @@ function normalizeGeneratedSkill(content: string): string {
  */
 function toLegacyCodexReferences(content: string): string {
   return content.replace(
-    /\$(openspec-[a-z0-9-]+) \(Codex\) or \/\1 \(other agents\)/g,
+    /\$(codespec-[a-z0-9-]+) \(Codex\) or \/\1 \(other agents\)/g,
     (match, skillName: string) =>
-      OPENSPEC_SKILL_NAME_SET.has(skillName) ? `$${skillName}` : match
+      CODESPEC_SKILL_NAME_SET.has(skillName) ? `$${skillName}` : match
   );
 }
 

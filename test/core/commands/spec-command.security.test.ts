@@ -10,8 +10,8 @@ describe('SpecCommand path boundaries', () => {
 
   beforeEach(async () => {
     originalCwd = process.cwd();
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-spec-command-security-'));
-    await fs.mkdir(path.join(tempDir, 'openspec', 'specs'), { recursive: true });
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-spec-command-security-'));
+    await fs.mkdir(path.join(tempDir, 'codespec', 'specs'), { recursive: true });
     process.chdir(tempDir);
   });
 
@@ -34,7 +34,7 @@ describe('SpecCommand path boundaries', () => {
     'rejects a spec file symlink that leaves the specs root',
     async () => {
       const outsideSpec = path.join(tempDir, 'outside.md');
-      const linkedSpec = path.join(tempDir, 'openspec', 'specs', 'linked', 'spec.md');
+      const linkedSpec = path.join(tempDir, 'codespec', 'specs', 'linked', 'spec.md');
       await fs.writeFile(outsideSpec, '# Outside sentinel');
       await fs.mkdir(path.dirname(linkedSpec), { recursive: true });
       await fs.symlink(outsideSpec, linkedSpec);
@@ -56,7 +56,7 @@ describe('SpecCommand path boundaries', () => {
       );
       await fs.symlink(
         sharedCapability,
-        path.join(tempDir, 'openspec', 'specs', 'shared')
+        path.join(tempDir, 'codespec', 'specs', 'shared')
       );
 
       await expect(new SpecCommand().show('shared')).resolves.toBeUndefined();
@@ -66,7 +66,7 @@ describe('SpecCommand path boundaries', () => {
   it.skipIf(process.platform === 'win32')(
     'allows a spec file symlink elsewhere in the specs root',
     async () => {
-      const specsDir = path.join(tempDir, 'openspec', 'specs');
+      const specsDir = path.join(tempDir, 'codespec', 'specs');
       const sharedSpec = path.join(specsDir, 'shared.md');
       const linkedSpec = path.join(specsDir, 'linked', 'spec.md');
       await fs.writeFile(

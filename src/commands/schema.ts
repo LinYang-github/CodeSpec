@@ -390,7 +390,7 @@ async function prepareDefaultConfigUpdate(
 ): Promise<PreparedConfigUpdate> {
   const configPath =
     resolveConfigFilePath(projectRoot) ??
-    path.join(projectRoot, 'openspec', 'config.yaml');
+    path.join(projectRoot, 'codespec', 'config.yaml');
   FileSystemUtils.assertProjectArtifactPath(projectRoot, configPath);
 
   if (fs.existsSync(configPath)) {
@@ -1063,11 +1063,11 @@ export function registerSchemaCommand(program: Command): void {
               console.log(JSON.stringify({
                 created: false,
                 error: `Schema '${name}' 已存在`,
-                suggestion: '使用 --force 覆盖，或使用 "openspec schema fork" 复制',
+                suggestion: '使用 --force 覆盖，或使用 "codespec schema fork" 复制',
               }, null, 2));
             } else {
               console.error(`错误：Schema '${name}' 已存在于 ${schemaDir}`);
-              console.error('使用 --force 覆盖，或使用 "openspec schema fork" 复制');
+              console.error('使用 --force 覆盖，或使用 "codespec schema fork" 复制');
             }
             process.exitCode = 1;
             return;
@@ -1389,7 +1389,7 @@ export function registerSchemaCommand(program: Command): void {
           console.log(`\n下一步：`);
           console.log(`  1. 编辑 ${schemaDir}/schema.yaml 定制产物`);
           console.log(`  2. 修改 Schema 目录中的模板`);
-          console.log(`  3. 使用方式：openspec new --schema ${name}`);
+          console.log(`  3. 使用方式：codespec new --schema ${name}`);
         }
       } catch (error) {
         if (spinner) spinner.fail(`Schema 创建失败`);

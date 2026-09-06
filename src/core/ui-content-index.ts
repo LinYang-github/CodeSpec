@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { parse as parseYaml } from 'yaml';
 
-export type UiSource = 'openspec' | 'superpowers-plans';
+export type UiSource = 'codespec' | 'superpowers-plans';
 export type UiContentType = 'markdown' | 'yaml' | 'text';
 
 export interface UiDocument {
@@ -49,12 +49,11 @@ function getContentType(filePath: string): UiContentType {
 
 function getCategory(relativePath: string, source: UiSource): string {
   if (source === 'superpowers-plans') return 'Superpowers Plans';
-  if (relativePath === 'openspec/business.md') return '业务说明';
-  if (relativePath.startsWith('openspec/archive/changes/')) return '归档 Change';
-  if (relativePath.startsWith('openspec/archive/specs/')) return '归档 Spec';
-  if (relativePath.startsWith('openspec/changes/')) return '活动 Change';
-  if (relativePath.startsWith('openspec/specs/')) return '当前 Spec';
-  return '其他 OpenSpec 文件';
+  if (relativePath === 'codespec/business.md') return '业务说明';
+  if (relativePath.startsWith('codespec/archive/changes/')) return '归档 Change';
+  if (relativePath.startsWith('codespec/changes/')) return '活动 Change';
+  if (relativePath.startsWith('codespec/specs/')) return '当前 Spec';
+  return '其他 CodeSpec 文件';
 }
 
 function getTitle(content: string, filePath: string, contentType: UiContentType): string {
@@ -151,7 +150,7 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   const skipped: UiIndex['skipped'] = [];
 
   for (const [relativePath, source] of [
-    ['openspec', 'openspec'],
+    ['codespec', 'codespec'],
     [path.join('docs', 'superpowers', 'plans'), 'superpowers-plans'],
   ] as const) {
     const directory = path.join(root, relativePath);

@@ -46,7 +46,7 @@ describe('Validation Schemas', () => {
       const result = ScenarioSchema.safeParse(scenario);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0].message).toBe('Scenario text cannot be empty');
+        expect(result.error.issues[0].message).toBe('Scenario 文本不能为空');
       }
     });
   });
@@ -93,7 +93,7 @@ describe('Validation Schemas', () => {
       const result = RequirementSchema.safeParse(requirement);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0].message).toBe('Requirement must have at least one scenario');
+        expect(result.error.issues[0].message).toBe('Requirement 至少需要一个 Scenario');
       }
     });
   });
@@ -129,7 +129,7 @@ describe('Validation Schemas', () => {
       const result = SpecSchema.safeParse(spec);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0].message).toBe('Spec must have at least one requirement');
+        expect(result.error.issues[0].message).toBe('Spec 至少需要一个 Requirement');
       }
     });
   });
@@ -170,7 +170,7 @@ describe('Validation Schemas', () => {
       const result = ChangeSchema.safeParse(change);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0].message).toBe('Why section must be at least 50 characters');
+        expect(result.error.issues[0].message).toBe('Why 部分至少需要 50 个字符');
       }
     });
 
@@ -191,7 +191,7 @@ describe('Validation Schemas', () => {
       const result = ChangeSchema.safeParse(change);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0].message).toBe('Consider splitting changes with more than 10 deltas');
+        expect(result.error.issues[0].message).toBe('包含超过 10 个 delta，建议拆分 Change');
       }
     });
   });
@@ -695,7 +695,7 @@ The system will log all events.
       expect(report.summary.warnings).toBe(1);
       expect(
         report.issues.some(
-          i => i.level === 'WARNING' && i.message.includes('should contain SHALL or MUST')
+          i => i.level === 'WARNING' && i.message.includes('包含 SHALL 或 MUST')
         )
       ).toBe(true);
     });
@@ -756,7 +756,7 @@ Error handling logic goes here.
       const report = await validator.validateChangeDeltaSpecs(changeDir);
 
       expect(report.valid).toBe(false);
-      const shallMessage = report.issues.find(i => i.message.includes('should contain SHALL or MUST'));
+      const shallMessage = report.issues.find(i => i.message.includes('包含 SHALL 或 MUST'));
       expect(shallMessage?.level).toBe('WARNING');
       expect(shallMessage?.message).toContain('not only in the header');
       expect(shallMessage?.message).toContain('### Requirement:');
@@ -786,7 +786,7 @@ Please describe how validation should work here.
       const report = await validator.validateChangeDeltaSpecs(changeDir);
 
       expect(report.valid).toBe(false);
-      const shallMessage = report.issues.find(i => i.message.includes('should contain SHALL or MUST'));
+      const shallMessage = report.issues.find(i => i.message.includes('包含 SHALL 或 MUST'));
       expect(shallMessage?.level).toBe('WARNING');
       expect(shallMessage?.message).toContain('not only in the header');
       expect(shallMessage?.message).toContain('### Requirement:');
@@ -816,7 +816,7 @@ The system will log all events.
       const report = await validator.validateChangeDeltaSpecs(changeDir);
 
       expect(report.valid).toBe(false);
-      const shallMessage = report.issues.find(i => i.message.includes('should contain SHALL or MUST'));
+      const shallMessage = report.issues.find(i => i.message.includes('包含 SHALL 或 MUST'));
       expect(shallMessage?.level).toBe('WARNING');
       expect(shallMessage?.message).not.toContain('not only in the header');
     });
@@ -982,7 +982,7 @@ The system MUST support mixed case delta headers.
   // actionable sentence byte-identical to the change-delta path, emitted once.
   describe('main-spec SHALL/MUST body-keyword hint (#1156)', () => {
     const ACTIONABLE_SENTENCE =
-      'should contain SHALL or MUST in the requirement body, not only in the header. Move the SHALL/MUST statement to the line immediately after the "### Requirement: ..." header. (RFC 2119 best practice for English specs)';
+      'in the requirement body, not only in the header. Move the SHALL/MUST statement to the line immediately after the "### Requirement: ..." header.（英文 Spec 的 RFC 2119 最佳实践）';
 
     const buildSpec = (requirementBlock: string): string =>
       [
@@ -997,7 +997,7 @@ The system MUST support mixed case delta headers.
       ].join('\n');
 
     const shallIssues = (issues: { message: string }[]) =>
-      issues.filter(i => i.message.includes('SHALL or MUST'));
+      issues.filter(i => i.message.includes('SHALL 或 MUST'));
 
     it('emits the targeted hint when the keyword is in the header only (with a body line)', async () => {
       const content = buildSpec(
@@ -1046,13 +1046,13 @@ The system MUST support mixed case delta headers.
         '### Requirement: 事件记录\n系统必须记录应用程序中的重要事件。\n\n#### Scenario: 事件发生\n- **WHEN** 应用程序生成重要事件\n- **THEN** 系统保存该事件'
       );
       const report = await new Validator().validateSpecContent('demo', content);
-      const issues = report.issues.filter(i => i.message.includes('SHALL or MUST'));
+      const issues = report.issues.filter(i => i.message.includes('SHALL 或 MUST'));
 
       expect(report.valid).toBe(true);
       expect(report.summary.errors).toBe(0);
       expect(issues).toHaveLength(1);
       expect(issues[0].level).toBe('WARNING');
-      expect(issues[0].message).toContain('best practice for English specs');
+      expect(issues[0].message).toContain('英文 Spec 的 RFC 2119 最佳实践');
     });
 
     it('does not flag a requirement whose body line contains the keyword', async () => {
@@ -1323,7 +1323,7 @@ ${body}`;
       // the missing keyword, not missing text.
       expect(
         report.issues.some(
-          i => i.level === 'WARNING' && i.message.includes('should contain SHALL or MUST')
+          i => i.level === 'WARNING' && i.message.includes('包含 SHALL 或 MUST')
         )
       ).toBe(true);
     });
@@ -1412,7 +1412,7 @@ These notes explain that the system MUST NOT be read as requirement text.
       expect(report.valid).toBe(false);
       expect(
         report.issues.some(
-          i => i.level === 'WARNING' && i.message.includes('should contain SHALL or MUST')
+          i => i.level === 'WARNING' && i.message.includes('包含 SHALL 或 MUST')
         )
       ).toBe(true);
       expect(

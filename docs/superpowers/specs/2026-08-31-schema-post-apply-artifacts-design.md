@@ -2,7 +2,7 @@
 
 ## Problem
 
-OpenSpec currently treats every schema artifact as a planning artifact. An artifact becomes ready as soon as the files named in `requires` exist, while `apply` is tracked separately.
+CodeSpec currently treats every schema artifact as a planning artifact. An artifact becomes ready as soon as the files named in `requires` exist, while `apply` is tracked separately.
 
 That model cannot accurately represent `forward-docs`:
 
@@ -34,9 +34,9 @@ The existing lifecycle also gives `reverse-docs` an implementation step even tho
 
 ## Non-goals
 
-- Rename OpenSpec or its CLI.
+- Rename CodeSpec or its CLI.
 - Add a general workflow engine with arbitrary named phases.
-- Invoke a language model from `openspec archive`.
+- Invoke a language model from `codespec archive`.
 - Merge or concatenate arbitrary natural-language material.
 - Rebuild the complete project material set for every archived change.
 - Add a new release-management command.
@@ -64,7 +64,7 @@ Change-local materials are publication inputs and archived evidence. They are no
 The planning home owns the canonical current state:
 
 ```text
-<planningHome.root>/openspec/materials/
+<planningHome.root>/codespec/materials/
   <capability-path>/material.md
 ```
 
@@ -114,7 +114,7 @@ archive:
     sourceRoot: materials
 ```
 
-The declaration must reference a post-apply artifact whose `generates` path is the same manifest. `manifest` and `sourceRoot` are relative to the active change directory. The canonical target is fixed at `<planningHome.root>/openspec/materials/`; schemas cannot redirect it into specs, changes, or another OpenSpec-managed directory. Stores and repository-local planning homes therefore behave the same way.
+The declaration must reference a post-apply artifact whose `generates` path is the same manifest. `manifest` and `sourceRoot` are relative to the active change directory. The canonical target is fixed at `<planningHome.root>/codespec/materials/`; schemas cannot redirect it into specs, changes, or another CodeSpec-managed directory. Stores and repository-local planning homes therefore behave the same way.
 
 Schemas that omit `archive.materials` retain current archive behavior.
 
@@ -191,11 +191,11 @@ For `forward-docs`, generated apply guidance performs these steps:
 5. Write `documentation-impact.yaml` with update and removal entries.
 6. Validate the manifest, referenced files, and capability coverage.
 
-The change reaches `all_done` only when every tracked task and every post-apply artifact is complete. Successful artifact completion does not replace content validation; `openspec validate` and archive validate the manifest and referenced material files.
+The change reaches `all_done` only when every tracked task and every post-apply artifact is complete. Successful artifact completion does not replace content validation; `codespec validate` and archive validate the manifest and referenced material files.
 
 ### Documentation-only completion
 
-For `apply: false`, `openspec instructions apply` returns a disabled response instead of generic implementation guidance. Once all artifacts are complete, status directs the user to review or archive the change.
+For `apply: false`, `codespec instructions apply` returns a disabled response instead of generic implementation guidance. Once all artifacts are complete, status directs the user to review or archive the change.
 
 ### Archive transaction
 
@@ -222,7 +222,7 @@ The project-level material directory is incrementally current after each success
 
 ## Command behavior
 
-`openspec status --json` gains additive fields:
+`codespec status --json` gains additive fields:
 
 - `applyEnabled: boolean`;
 - `phase` on each artifact;
@@ -231,11 +231,11 @@ The project-level material directory is incrementally current after each success
 
 Existing fields remain. `isComplete` means every artifact in every phase is complete. `isPlanningComplete` means every planning artifact is complete.
 
-`openspec instructions <artifact>` refuses to issue creation instructions for a deferred post-apply artifact and reports remaining task counts.
+`codespec instructions <artifact>` refuses to issue creation instructions for a deferred post-apply artifact and reports remaining task counts.
 
-`openspec instructions apply --json` gains the `post_apply` and `disabled` states. Human-readable output carries the same meaning.
+`codespec instructions apply --json` gains the `post_apply` and `disabled` states. Human-readable output carries the same meaning.
 
-`openspec archive` previews canonical material replacements and removals next to spec changes. JSON archive results add:
+`codespec archive` previews canonical material replacements and removals next to spec changes. JSON archive results add:
 
 - `materialsUpdated: boolean`;
 - `materialUpdates: string[]`;
@@ -246,10 +246,10 @@ Existing fields remain. `isComplete` means every artifact in every phase is comp
 
 ### `forward-docs`
 
-- Replace every `openspec-cn` command reference with `openspec`.
+- Replace every `codespec-cn` command reference with `codespec`.
 - Replace the change-local `document-materials.md` artifact with the post-apply `documentation-impact` artifact.
 - Generate `documentation-impact.yaml` and complete replacement files under `materials/<capability-path>/material.md` only after tracked tasks and applicable verification are complete.
-- Declare archive material publication from the change's `materials/` directory to the planning home's canonical `openspec/materials/` directory.
+- Declare archive material publication from the change's `materials/` directory to the planning home's canonical `codespec/materials/` directory.
 - Set `skipSpecs: forbidden`.
 - Keep `apply.requires: [tasks]` and `tracks: tasks.md`.
 
@@ -306,7 +306,7 @@ Use test-driven development and add coverage at these levels:
    - `--skip-specs` is rejected when publication coverage depends on deltas;
    - JSON and human output report every material mutation.
 6. Built-in schemas and CLI
-   - `openspec schemas --json` lists all three built-ins;
+   - `codespec schemas --json` lists all three built-ins;
    - both documentation schemas expose every expected template;
    - new changes persist either schema name;
    - both end-to-end artifact orders are covered.

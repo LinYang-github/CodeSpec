@@ -10,14 +10,14 @@ import { escapeYamlValue } from '../yaml.js';
 
 /**
  * Trae adapter for command generation.
- * File path: .trae/commands/opsx-<id>.md
+ * File path: .trae/commands/codespec-<id>.md
  * Frontmatter: name, description
  */
 export const traeAdapter: ToolCommandAdapter = {
   toolId: 'trae',
 
   getFilePath(commandId: string): string {
-    return path.join('.trae', 'commands', `opsx-${commandId}.md`);
+    return path.join('.trae', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

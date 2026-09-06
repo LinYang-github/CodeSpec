@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { getGlobalDataDir, registerStore } from '../../src/core/index.js';
 import { getWorksetsDir } from '../../src/core/worksets.js';
 import { runCLI, type RunCLIResult } from '../helpers/run-cli.js';
-import { createOpenSpecRoot } from '../helpers/openspec-fixtures.js';
+import { createCodeSpecRoot } from '../helpers/codespec-fixtures.js';
 import {
   createFakeTool,
   envWithFakeTools,
@@ -30,22 +30,22 @@ describe('workset journey (7.1 e2e)', () => {
   let scratchFolder: string;
 
   beforeEach(async () => {
-    process.env.OPENSPEC_ENABLE_CLI_AGENT_OPENERS = '1';
+    process.env.CODESPEC_ENABLE_CLI_AGENT_OPENERS = '1';
     tempDir = fs.realpathSync.native(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-workset-e2e-'))
+      fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-workset-e2e-'))
     );
     env = {
       XDG_DATA_HOME: path.join(tempDir, 'data'),
       XDG_CONFIG_HOME: path.join(tempDir, 'config'),
       OPEN_SPEC_INTERACTIVE: '0',
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
       PATH: path.dirname(process.execPath),
     };
     globalDataDir = getGlobalDataDir({ env });
 
     // A real relationship topology so independence is provable.
     storeRoot = path.join(tempDir, 'team-context');
-    createOpenSpecRoot(storeRoot);
+    createCodeSpecRoot(storeRoot);
     await registerStore({
       id: 'team-context',
       localPath: storeRoot,
@@ -53,9 +53,9 @@ describe('workset journey (7.1 e2e)', () => {
     });
 
     appRepo = path.join(tempDir, 'web-app');
-    createOpenSpecRoot(appRepo);
+    createCodeSpecRoot(appRepo);
     fs.writeFileSync(
-      path.join(appRepo, 'openspec', 'config.yaml'),
+      path.join(appRepo, 'codespec', 'config.yaml'),
       'schema: spec-driven\nreferences:\n  - team-context\n'
     );
 
@@ -65,7 +65,7 @@ describe('workset journey (7.1 e2e)', () => {
   });
 
   afterEach(() => {
-    delete process.env.OPENSPEC_ENABLE_CLI_AGENT_OPENERS;
+    delete process.env.CODESPEC_ENABLE_CLI_AGENT_OPENERS;
     // Windows can hold a brief handle on a just-exited spawned CLI/opener;
     // retry the recursive remove so EBUSY during teardown does not flake.
     fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });

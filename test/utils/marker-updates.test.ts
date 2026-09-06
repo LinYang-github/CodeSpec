@@ -6,11 +6,11 @@ import { FileSystemUtils, removeMarkerBlock } from '../../src/utils/file-system.
 
 describe('FileSystemUtils.updateFileWithMarkers', () => {
   let testDir: string;
-  const START_MARKER = '<!-- OPENSPEC:START -->';
-  const END_MARKER = '<!-- OPENSPEC:END -->';
+  const START_MARKER = '<!-- CODESPEC:START -->';
+  const END_MARKER = '<!-- CODESPEC:END -->';
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-marker-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-marker-test-'));
   });
 
   afterEach(async () => {
@@ -20,7 +20,7 @@ describe('FileSystemUtils.updateFileWithMarkers', () => {
   describe('new file creation', () => {
     it('should create new file with markers and content', async () => {
       const filePath = path.join(testDir, 'new-file.md');
-      const content = 'OpenSpec content';
+      const content = 'CodeSpec content';
       
       await FileSystemUtils.updateFileWithMarkers(
         filePath,
@@ -40,7 +40,7 @@ describe('FileSystemUtils.updateFileWithMarkers', () => {
       const existingContent = '# Existing Content\nUser content here';
       await fs.writeFile(filePath, existingContent);
       
-      const newContent = 'OpenSpec content';
+      const newContent = 'CodeSpec content';
       await FileSystemUtils.updateFileWithMarkers(
         filePath,
         newContent,
@@ -59,13 +59,13 @@ describe('FileSystemUtils.updateFileWithMarkers', () => {
     it('should replace content between markers', async () => {
       const filePath = path.join(testDir, 'with-markers.md');
       const beforeContent = '# Before\nSome content before';
-      const oldManagedContent = 'Old OpenSpec content';
+      const oldManagedContent = 'Old CodeSpec content';
       const afterContent = '# After\nSome content after';
       
       const existingFile = `${beforeContent}\n${START_MARKER}\n${oldManagedContent}\n${END_MARKER}\n${afterContent}`;
       await fs.writeFile(filePath, existingFile);
       
-      const newContent = 'New OpenSpec content';
+      const newContent = 'New CodeSpec content';
       await FileSystemUtils.updateFileWithMarkers(
         filePath,
         newContent,
@@ -286,14 +286,14 @@ ${END_MARKER}
 });
 
 describe('removeMarkerBlock', () => {
-  const START_MARKER = '<!-- OPENSPEC:START -->';
-  const END_MARKER = '<!-- OPENSPEC:END -->';
+  const START_MARKER = '<!-- CODESPEC:START -->';
+  const END_MARKER = '<!-- CODESPEC:END -->';
 
   describe('basic removal', () => {
     it('should remove marker block and preserve content before', () => {
       const content = `User content before
 ${START_MARKER}
-OpenSpec content
+CodeSpec content
 ${END_MARKER}`;
       const result = removeMarkerBlock(content, START_MARKER, END_MARKER);
       expect(result).toBe('User content before\n');
@@ -303,7 +303,7 @@ ${END_MARKER}`;
 
     it('should remove marker block and preserve content after', () => {
       const content = `${START_MARKER}
-OpenSpec content
+CodeSpec content
 ${END_MARKER}
 User content after`;
       const result = removeMarkerBlock(content, START_MARKER, END_MARKER);
@@ -313,7 +313,7 @@ User content after`;
     it('should remove marker block and preserve content before and after', () => {
       const content = `User content before
 ${START_MARKER}
-OpenSpec content
+CodeSpec content
 ${END_MARKER}
 User content after`;
       const result = removeMarkerBlock(content, START_MARKER, END_MARKER);
@@ -324,7 +324,7 @@ User content after`;
 
     it('should return empty string when only markers remain', () => {
       const content = `${START_MARKER}
-OpenSpec content
+CodeSpec content
 ${END_MARKER}`;
       const result = removeMarkerBlock(content, START_MARKER, END_MARKER);
       expect(result).toBe('');
@@ -368,7 +368,7 @@ ${START_MARKER}`;
 
 
 ${START_MARKER}
-OpenSpec content
+CodeSpec content
 ${END_MARKER}
 
 
@@ -380,7 +380,7 @@ Line 2`;
     it('should handle markers with whitespace on same line', () => {
       const content = `User content
   ${START_MARKER}
-OpenSpec content
+CodeSpec content
   ${END_MARKER}
 More content`;
       const result = removeMarkerBlock(content, START_MARKER, END_MARKER);
@@ -423,16 +423,16 @@ After block content`;
   });
 
   describe('shell markers', () => {
-    const SHELL_START = '# OPENSPEC:START';
-    const SHELL_END = '# OPENSPEC:END';
+    const SHELL_START = '# CODESPEC:START';
+    const SHELL_END = '# CODESPEC:END';
 
     it('should work with shell-style markers', () => {
       const content = `# User config
 export PATH="/usr/local/bin:$PATH"
 
 ${SHELL_START}
-# OpenSpec managed
-alias openspec="npx openspec"
+# CodeSpec managed
+alias codespec="npx codespec"
 ${SHELL_END}
 
 # More user config
@@ -440,7 +440,7 @@ export EDITOR="vim"`;
       const result = removeMarkerBlock(content, SHELL_START, SHELL_END);
       expect(result).toContain('export PATH');
       expect(result).toContain('export EDITOR');
-      expect(result).not.toContain('alias openspec');
+      expect(result).not.toContain('alias codespec');
       expect(result).not.toContain(SHELL_START);
     });
   });

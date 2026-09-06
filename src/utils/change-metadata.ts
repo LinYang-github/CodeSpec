@@ -5,14 +5,20 @@ import { ChangeMetadataSchema, type ChangeMetadata } from '../core/change-metada
 import { listSchemas, resolveSchema } from '../core/artifact-graph/resolver.js';
 import { readProjectConfig, type ProjectConfig } from '../core/project-config.js';
 
-export const METADATA_FILENAME = '.openspec.yaml';
+export const METADATA_FILENAME = '.codespec.yaml';
 export const CANONICAL_METADATA_FILENAME = 'metadata.yaml';
+const LEGACY_OPENSPEC_METADATA_FILENAME = '.openspec.yaml';
 
 function isCanonicalCodeSpecChange(changeDir: string, projectRoot?: string): boolean {
-  if (path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/) && fs.existsSync(path.join(changeDir, METADATA_FILENAME)) && !fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME))) return true;
+  if (
+    path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/) &&
+    !fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME)) &&
+    (fs.existsSync(path.join(changeDir, METADATA_FILENAME)) ||
+      fs.existsSync(path.join(changeDir, LEGACY_OPENSPEC_METADATA_FILENAME)))
+  ) return true;
   if (!projectRoot) return false;
   try {
-    const config = yaml.parse(fs.readFileSync(path.join(projectRoot, 'openspec', 'config.yaml'), 'utf8')) as { schema?: unknown };
+    const config = yaml.parse(fs.readFileSync(path.join(projectRoot, 'codespec', 'config.yaml'), 'utf8')) as { schema?: unknown };
     return config?.schema === 'code-spec';
   } catch {
     return false;
@@ -21,10 +27,10 @@ function isCanonicalCodeSpecChange(changeDir: string, projectRoot?: string): boo
 
 function rejectLegacyCodeSpecChange(changeDir: string, projectRoot?: string): void {
   if (!isCanonicalCodeSpecChange(changeDir, projectRoot)) return;
-  const legacyPath = path.join(changeDir, METADATA_FILENAME);
+  const legacyPath = path.join(changeDir, LEGACY_OPENSPEC_METADATA_FILENAME);
   if (fs.existsSync(legacyPath) && !fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME))) {
     throw new ChangeMetadataError(
-      `Legacy Change metadata is unsupported. Create a canonical Change with 'openspec new change <title>' (CHG-YYYYMMDD-NNN).`,
+      `Legacy Change metadata is unsupported. Create a canonical Change with 'codespec new change <title>' (CHG-YYYYMMDD-NNN).`,
       legacyPath
     );
   }
@@ -80,7 +86,7 @@ export function writeChangeMetadata(
 ): void {
   if (isCanonicalCodeSpecChange(changeDir, projectRoot) || path.basename(changeDir).match(/^CHG-\d{8}-\d{3}$/)) {
     throw new ChangeMetadataError(
-      "Canonical code-spec Changes use metadata.yaml; .openspec.yaml is unsupported. Use 'openspec new change <title>'.",
+      "Canonical code-spec Changes use metadata.yaml; .codespec.yaml is unsupported. Use 'codespec new change <title>'.",
       path.join(changeDir, METADATA_FILENAME)
     );
   }
@@ -198,7 +204,7 @@ export interface ResolveSchemaForChangeOptions {
  * Resolution order:
  * 1. Explicit schema (if provided)
  * 2. Schema from legacy metadata (if present for a generic workspace)
- * 3. Schema from openspec/config.yaml (if exists)
+ * 3. Schema from codespec/config.yaml (if exists)
  * 4. Default 'code-spec'
  *
  * @param changeDir - The path to the change directory
@@ -216,7 +222,7 @@ export function resolveSchemaForChange(
       fs.existsSync(path.join(changeDir, CANONICAL_METADATA_FILENAME))) {
     throw new Error("Canonical code-spec Changes use metadata.yaml; legacy schema resolution is unavailable.");
   }
-  // Derive project root from changeDir (changeDir is typically projectRoot/openspec/changes/change-name)
+  // Derive project root from changeDir (changeDir is typically projectRoot/codespec/changes/change-name)
   const projectRoot = projectRootOverride ?? path.resolve(changeDir, '../../..');
 
   // 1. Explicit override wins
@@ -276,7 +282,7 @@ export type SkipSpecsMarker = MetadataMarker;
  * Validate and archive must never honor metadata the rest of the CLI rejects,
  * in either direction. The project root for schema resolution is derived from
  * changeDir exactly like resolveSchemaForChange (changeDir is
- * <root>/openspec/changes/<name> for every root type, including store roots).
+ * <root>/codespec/changes/<name> for every root type, including store roots).
  * Missing metadata means "not declared"; a marker that cannot be honored
  * yields invalidReason so callers can say why.
  */
@@ -288,7 +294,7 @@ export function readSkipSpecsMarker(changeDir: string): MetadataMarker {
  * Non-throwing read of the retire_capabilities marker, with exactly the
  * semantics `readSkipSpecsMarker` documents above.
  *
- * Gates the one archive action that removes a file from `openspec/specs/`: when
+ * Gates the one archive action that removes a file from `codespec/specs/`: when
  * a change's REMOVED entries take a capability's last requirement, archive
  * deletes the emptied main spec rather than aborting on a spec it cannot write
  * (#1302). Declared rather than inferred because the delete is recoverable only
@@ -308,7 +314,7 @@ export function readRetireCapabilitiesMarker(changeDir: string): MetadataMarker 
  *
  * Every reason quotes something the author wrote - a schema name, a parser
  * message carrying one, a filesystem error carrying a path - and callers print
- * it straight to a terminal (`openspec archive`, `openspec validate`). A raw CR
+ * it straight to a terminal (`codespec archive`, `codespec validate`). A raw CR
  * could forge a line of its own and an ESC could redraw the screen, so control
  * characters never leave this function.
  */

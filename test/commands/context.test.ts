@@ -5,13 +5,13 @@ import * as path from 'node:path';
 
 import { getGlobalDataDir, registerStore } from '../../src/core/index.js';
 import { runCLI, type RunCLIResult } from '../helpers/run-cli.js';
-import { createOpenSpecRoot } from '../helpers/openspec-fixtures.js';
+import { createCodeSpecRoot } from '../helpers/codespec-fixtures.js';
 import { snapshotDirectory as snapshot } from '../helpers/fs-snapshot.js';
 import { cleanupTempPath } from '../helpers/temp-cleanup.js';
 
 const CONTEXT_MATRIX_TIMEOUT_MS = 30_000;
 
-describe('openspec context (4.1)', () => {
+describe('codespec context (4.1)', () => {
   let tempDir: string;
   let globalDataDir: string;
   let env: NodeJS.ProcessEnv;
@@ -19,25 +19,25 @@ describe('openspec context (4.1)', () => {
   let upstream: string;
 
   beforeEach(async () => {
-    tempDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-context-')));
+    tempDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-context-')));
     env = {
       XDG_DATA_HOME: path.join(tempDir, 'data'),
       XDG_CONFIG_HOME: path.join(tempDir, 'config'),
       OPEN_SPEC_INTERACTIVE: '0',
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
     globalDataDir = getGlobalDataDir({ env });
 
     storeRoot = path.join(tempDir, 'team-context');
-    createOpenSpecRoot(storeRoot);
+    createCodeSpecRoot(storeRoot);
     await registerStore({ id: 'team-context', localPath: storeRoot, globalDataDir });
 
     upstream = path.join(tempDir, 'upstream-context');
-    createOpenSpecRoot(upstream);
+    createCodeSpecRoot(upstream);
     await registerStore({ id: 'upstream-context', localPath: upstream, globalDataDir });
 
     fs.writeFileSync(
-      path.join(storeRoot, 'openspec', 'config.yaml'),
+      path.join(storeRoot, 'codespec', 'config.yaml'),
       'schema: spec-driven\n' +
         'references:\n  - upstream-context\n  - { id: design-system, remote: https://192.0.2.1/ds.git }\n'
     );
@@ -62,14 +62,14 @@ describe('openspec context (4.1)', () => {
       path: storeRoot,
       source: 'store',
       store_id: 'team-context',
-      role: 'openspec_root',
+      role: 'codespec_root',
     });
     expect(workingSet.members).toEqual([
       {
         role: 'referenced_store',
         id: 'upstream-context',
         path: upstream,
-        fetch: 'openspec show <spec-id> --type spec --store upstream-context',
+        fetch: 'codespec show <spec-id> --type spec --store upstream-context',
         status: [],
       },
       {
@@ -89,7 +89,7 @@ describe('openspec context (4.1)', () => {
     expect(human.exitCode).toBe(0);
     expect(human.stdout).toContain(`工作上下文：team-context（${storeRoot}）`);
     expect(human.stdout).toContain(`  upstream-context  ${upstream}`);
-    expect(human.stdout).toContain('获取：openspec show <spec-id> --type spec --store upstream-context');
+    expect(human.stdout).toContain('获取：codespec show <spec-id> --type spec --store upstream-context');
     expect(human.stdout).toContain('本机不可用');
     expect(human.stdout).toContain('修复：git clone --');
 
@@ -99,8 +99,8 @@ describe('openspec context (4.1)', () => {
 
     // Declared-pointer session.
     const pointerRepo = path.join(tempDir, 'app-repo');
-    fs.mkdirSync(path.join(pointerRepo, 'openspec'), { recursive: true });
-    fs.writeFileSync(path.join(pointerRepo, 'openspec', 'config.yaml'), 'store: team-context\n');
+    fs.mkdirSync(path.join(pointerRepo, 'codespec'), { recursive: true });
+    fs.writeFileSync(path.join(pointerRepo, 'codespec', 'config.yaml'), 'store: team-context\n');
     const declared = await runCLI(['context', '--json'], { cwd: pointerRepo, env });
     expect(parseJson(declared).root.source).toBe('declared');
     expect(parseJson(declared).root.path).toBe(storeRoot);
@@ -108,9 +108,9 @@ describe('openspec context (4.1)', () => {
 
     // Global-default session: no root, no pointer — provenance must name
     // the machine-level default, not masquerade as a repo pointer.
-    fs.mkdirSync(path.join(tempDir, 'config', 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'config', 'codespec'), { recursive: true });
     fs.writeFileSync(
-      path.join(tempDir, 'config', 'openspec', 'config.json'),
+      path.join(tempDir, 'config', 'codespec', 'config.json'),
       JSON.stringify({ defaultStore: 'team-context' }) + '\n'
     );
     const scratch = path.join(tempDir, 'no-root-here');
@@ -124,7 +124,7 @@ describe('openspec context (4.1)', () => {
 
   it('distinguishes self-reference omission from nothing declared', async () => {
     fs.writeFileSync(
-      path.join(storeRoot, 'openspec', 'config.yaml'),
+      path.join(storeRoot, 'codespec', 'config.yaml'),
       'schema: spec-driven\nreferences:\n  - team-context\n'
     );
     const human = await runCLI(['context', '--store', 'team-context'], { cwd: tempDir, env });
@@ -133,7 +133,7 @@ describe('openspec context (4.1)', () => {
   });
 
   it('says so plainly when nothing is declared', async () => {
-    fs.writeFileSync(path.join(storeRoot, 'openspec', 'config.yaml'), 'schema: spec-driven\n');
+    fs.writeFileSync(path.join(storeRoot, 'codespec', 'config.yaml'), 'schema: spec-driven\n');
     const human = await runCLI(['context', '--store', 'team-context'], { cwd: tempDir, env });
     expect(human.stdout).toContain('工作集仅包含此根目录');
     const json = await runCLI(['context', '--json', '--store', 'team-context'], {

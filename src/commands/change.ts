@@ -69,13 +69,13 @@ export class ChangeCommand {
   }
 
   private getChangesPath(): string {
-    return path.join(this.rootPath ?? process.cwd(), 'openspec', 'changes');
+    return path.join(this.rootPath ?? process.cwd(), 'codespec', 'changes');
   }
 
   // Main specs resolve against the same root as changes, so `--diff` reads the
   // selected store's specs rather than whatever sits under the cwd.
   private getSpecsPath(): string {
-    return path.join(this.rootPath ?? process.cwd(), 'openspec', 'specs');
+    return path.join(this.rootPath ?? process.cwd(), 'codespec', 'specs');
   }
 
   /**
@@ -106,7 +106,7 @@ export class ChangeCommand {
         } else {
           console.error(`未指定 Change。可用 ID：${changes.join('、')}`);
         }
-        console.error('提示：使用 "openspec change list" 查看可用 Change。');
+        console.error('提示：使用 "codespec change list" 查看可用 Change。');
         process.exitCode = 1;
         return;
       }
@@ -122,8 +122,8 @@ export class ChangeCommand {
     try {
       await fs.access(proposalPath);
     } catch {
-      // A change can exist without a proposal: `openspec new change` scaffolds
-      // only .openspec.yaml, and a custom schema need not define a proposal
+      // A change can exist without a proposal: `codespec new change` scaffolds
+      // only .codespec.yaml, and a custom schema need not define a proposal
       // artifact. Say which of the two cases this is instead of reporting a
       // change that does exist as missing. A stray file under changes/ is not a
       // change, and naming it one would point the user at a `status --change`
@@ -135,7 +135,7 @@ export class ChangeCommand {
       if (isChangeDirectory) {
         throw new Error(
           `Change "${changeName}" 尚未创建 proposal.md。` +
-            `运行 "openspec status --change ${changeName}" 查看下一步需要完成的产物。`
+            `运行 "codespec status --change ${changeName}" 查看下一步需要完成的产物。`
         );
       }
       throw new Error(`在 ${proposalPath} 未找到 Change "${changeName}"`);
@@ -271,7 +271,7 @@ export class ChangeCommand {
           // missing main spec is an authoring error, not a new capability.
           // Rendering it as all-additions would hide what archive will reject.
           entry.warning =
-            `No main spec at openspec/specs/${capability}/spec.md, ` +
+            `No main spec at codespec/specs/${capability}/spec.md, ` +
             `so MODIFIED requirement "${block.name}" has nothing to diff against`;
         }
 
@@ -411,9 +411,9 @@ export class ChangeCommand {
    * - JSON: array of { id, title, deltaCount, taskStatus }, sorted by id
    */
   async list(options?: { json?: boolean; long?: boolean }): Promise<void> {
-    const changesPath = path.join(process.cwd(), 'openspec', 'changes');
+    const changesPath = path.join(process.cwd(), 'codespec', 'changes');
     
-    // Same directory-based resolution as `openspec list`, the command this
+    // Same directory-based resolution as `codespec list`, the command this
     // deprecated alias points users at. Every output path below already
     // tolerates a change whose proposal.md is missing or unreadable.
     const changes = await getActiveChangeIds();
@@ -496,7 +496,7 @@ export class ChangeCommand {
   }
 
   async validate(changeName?: string, options?: { strict?: boolean; json?: boolean; noInteractive?: boolean }): Promise<void> {
-    const changesPath = path.join(process.cwd(), 'openspec', 'changes');
+    const changesPath = path.join(process.cwd(), 'codespec', 'changes');
     
     if (!changeName) {
       const canPrompt = isInteractive(options);
@@ -514,7 +514,7 @@ export class ChangeCommand {
         } else {
           console.error(`未指定 Change。可用 ID：${changes.join('、')}`);
         }
-        console.error('提示：使用 "openspec change list" 查看可用 Change。');
+        console.error('提示：使用 "codespec change list" 查看可用 Change。');
         process.exitCode = 1;
         return;
       }
@@ -575,15 +575,15 @@ export class ChangeCommand {
       i.message.includes(VALIDATION_MESSAGES.CHANGE_SKIP_SPECS_INVALID_METADATA)
     );
     if (conflictIssue) {
-      bullets.push('- This change declares skip_specs (no spec deltas): delete the files under specs/, or remove skip_specs from .openspec.yaml if requirements do change');
-      bullets.push('- skip_specs is only honored when .openspec.yaml is valid change metadata (schema: <name> is required)');
+      bullets.push('- This change declares skip_specs (no spec deltas): delete the files under specs/, or remove skip_specs from .codespec.yaml if requirements do change');
+      bullets.push('- skip_specs is only honored when .codespec.yaml is valid change metadata (schema: <name> is required)');
     } else if (invalidMarkerIssue) {
-      bullets.push('- Fix .openspec.yaml so the skip_specs marker can be honored (schema: <name> is required)');
-      bullets.push('- Or remove skip_specs from .openspec.yaml and add delta specs instead');
+      bullets.push('- Fix .codespec.yaml so the skip_specs marker can be honored (schema: <name> is required)');
+      bullets.push('- Or remove skip_specs from .codespec.yaml and add delta specs instead');
     } else {
       bullets.push('- Ensure change has deltas in specs/: use headers ## ADDED/MODIFIED/REMOVED/RENAMED Requirements');
       bullets.push('- Each requirement MUST include at least one #### Scenario: block');
-      bullets.push('- Debug parsed deltas: openspec change show <id> --json --deltas-only');
+      bullets.push('- Debug parsed deltas: codespec change show <id> --json --deltas-only');
     }
     console.error('下一步：');
     bullets.forEach(b => console.error(`  ${b}`));

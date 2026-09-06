@@ -6,16 +6,16 @@
 
 import {
   getArchiveChangeSkillTemplate,
-  getOpsxArchiveCommandTemplate,
-  getOpsxRebaseCommandTemplate,
-  getOpsxWorkflowCommandTemplate,
+  getCodespecArchiveCommandTemplate,
+  getCodespecRebaseCommandTemplate,
+  getCodespecWorkflowCommandTemplate,
   getRebaseChangeSkillTemplate,
-  getOpenSpecWorkflowSkillTemplate,
-  withOpenSpecWorkflowGuidance,
+  getCodeSpecWorkflowSkillTemplate,
+  withCodeSpecWorkflowGuidance,
   type SkillTemplate,
 } from '../templates/skill-templates.js';
 import type { CommandContent } from '../command-generation/index.js';
-import { OPENSPEC_CLI_ALLOWED_TOOLS } from './allowed-tools.js';
+import { CODESPEC_CLI_ALLOWED_TOOLS } from './allowed-tools.js';
 import { normalizeWorkflowId, type PublicWorkflowId } from '../profiles.js';
 
 /**
@@ -31,7 +31,7 @@ export interface SkillTemplateEntry {
  * Command template with ID mapping.
  */
 export interface CommandTemplateEntry {
-  template: ReturnType<typeof getOpsxWorkflowCommandTemplate>;
+  template: ReturnType<typeof getCodespecWorkflowCommandTemplate>;
   id: string;
 }
 
@@ -47,9 +47,9 @@ function normalizePublicFilter(workflowFilter?: readonly string[]): Set<PublicWo
 const CHINESE_USER_GUIDANCE = '## 中文用户体验约定\n\n所有面向用户的解释、提问、进度、总结和生成产物正文使用中文。命令名、选项名、路径、YAML/JSON key、schema 名称、稳定 ID、状态枚举和 DSL Token 保持英文，确保协议可以执行和解析。状态展示使用中文标签并在括号中保留英文协议值，例如“状态：分析（ANALYZE）”。';
 
 const CHINESE_DESCRIPTIONS: Record<string, string> = {
-  'openspec-workflow': '将 OpenSpec code-spec 工作流路由到 canonical Change 流程。',
-  'openspec-rebase-change': '处理 STALE、多 Change 冲突和基线重建。',
-  'openspec-archive-change': '校验完成的 Change 并归档。',
+  'codespec-workflow': '将 CodeSpec code-spec 工作流路由到 canonical Change 流程。',
+  'codespec-rebase-change': '处理 STALE、多 Change 冲突和基线重建。',
+  'codespec-archive-change': '校验完成的 Change 并归档。',
 };
 
 function localizeTemplateDescription(name: string, fallback: string): string {
@@ -63,9 +63,9 @@ function localizeTemplateDescription(name: string, fallback: string): string {
  */
 export function getSkillTemplates(workflowFilter?: readonly string[]): SkillTemplateEntry[] {
   const all: SkillTemplateEntry[] = [
-    { template: getOpenSpecWorkflowSkillTemplate(), dirName: 'openspec-workflow', workflowId: 'workflow' },
-    { template: getRebaseChangeSkillTemplate(), dirName: 'openspec-rebase-change', workflowId: 'rebase' },
-    { template: getArchiveChangeSkillTemplate(), dirName: 'openspec-archive-change', workflowId: 'archive' },
+    { template: getCodeSpecWorkflowSkillTemplate(), dirName: 'codespec-workflow', workflowId: 'workflow' },
+    { template: getRebaseChangeSkillTemplate(), dirName: 'codespec-rebase-change', workflowId: 'rebase' },
+    { template: getArchiveChangeSkillTemplate(), dirName: 'codespec-archive-change', workflowId: 'archive' },
   ];
 
   const routed = all.map((entry) => ({
@@ -89,16 +89,16 @@ export function getSkillTemplates(workflowFilter?: readonly string[]): SkillTemp
  */
 export function getCommandTemplates(workflowFilter?: readonly string[]): CommandTemplateEntry[] {
   const all: CommandTemplateEntry[] = [
-    { template: getOpsxWorkflowCommandTemplate(), id: 'workflow' },
-    { template: getOpsxRebaseCommandTemplate(), id: 'rebase' },
-    { template: getOpsxArchiveCommandTemplate(), id: 'archive' },
+    { template: getCodespecWorkflowCommandTemplate(), id: 'workflow' },
+    { template: getCodespecRebaseCommandTemplate(), id: 'rebase' },
+    { template: getCodespecArchiveCommandTemplate(), id: 'archive' },
   ];
 
   const localized = all.map(({ template, ...entry }) => ({
     ...entry,
     template: {
       ...template,
-      description: localizeTemplateDescription(`openspec-${entry.id}`, template.description),
+      description: localizeTemplateDescription(`codespec-${entry.id}`, template.description),
       content: `${CHINESE_USER_GUIDANCE}\n\n${template.content}`,
     },
   }));
@@ -121,7 +121,7 @@ export function getCommandContents(workflowFilter?: readonly string[]): CommandC
     description: template.description,
     category: template.category,
     tags: template.tags,
-    body: withOpenSpecWorkflowGuidance(template.content),
+    body: withCodeSpecWorkflowGuidance(template.content),
   }));
 }
 
@@ -130,7 +130,7 @@ export function getCommandContents(workflowFilter?: readonly string[]): CommandC
  * Generates skill file content with YAML frontmatter.
  *
  * @param template - The skill template
- * @param generatedByVersion - The OpenSpec version to embed in the file
+ * @param generatedByVersion - The CodeSpec version to embed in the file
  * @param transformInstructions - Optional callback to transform the instructions content
  */
 export function generateSkillContent(
@@ -145,11 +145,11 @@ export function generateSkillContent(
   return `---
 name: ${template.name}
 description: ${template.description}
-allowed-tools: ${OPENSPEC_CLI_ALLOWED_TOOLS}
+allowed-tools: ${CODESPEC_CLI_ALLOWED_TOOLS}
 license: ${template.license || 'MIT'}
-compatibility: ${template.compatibility || 'Requires openspec CLI.'}
+compatibility: ${template.compatibility || 'Requires codespec CLI.'}
 metadata:
-  author: ${template.metadata?.author || 'openspec'}
+  author: ${template.metadata?.author || 'codespec'}
   version: "${template.metadata?.version || '1.0'}"
   generatedBy: "${generatedByVersion}"
 ---

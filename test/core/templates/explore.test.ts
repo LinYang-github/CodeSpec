@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getExploreSkillTemplate,
-  getOpsxExploreCommandTemplate,
+  getCodespecExploreCommandTemplate,
 } from '../../../src/core/templates/skill-templates.js';
 
 const skill = getExploreSkillTemplate();
-const command = getOpsxExploreCommandTemplate();
+const command = getCodespecExploreCommandTemplate();
 
 // Both delivery surfaces must carry the same contract; every behavioral
 // assertion below runs against each body.
@@ -52,9 +52,9 @@ describe('explore templates', () => {
   // Regression for #696: explore never loaded the project's declared
   // context, so it reasoned without the tech stack, conventions, and
   // rules every artifact-creating workflow already receives.
-  it('loads project context from the OpenSpec config at startup (#696)', () => {
+  it('loads project context from the CodeSpec config at startup (#696)', () => {
     for (const [label, body] of bodies) {
-      expect(body, label).toContain('openspec/config.yaml');
+      expect(body, label).toContain('codespec/config.yaml');
       expect(body, label).toContain('`context`: project background');
       expect(body, label).toContain('`rules`: keyed by artifact id');
     }
@@ -62,14 +62,14 @@ describe('explore templates', () => {
 
   it('resolves the config through the reported root rather than assuming a repo-local path (#696)', () => {
     for (const [label, body] of bodies) {
-      expect(body, label).toContain('openspec list --json');
-      expect(body, label).toContain('<root.path>/openspec/config.yaml');
+      expect(body, label).toContain('codespec list --json');
+      expect(body, label).toContain('<root.path>/codespec/config.yaml');
       expect(body, label).toContain('root.path');
     }
   });
 
   // resolveConfigFilePath() probes config.yaml then config.yml, and
-  // `openspec init` leaves a .yml project on .yml forever - naming only
+  // `codespec init` leaves a .yml project on .yml forever - naming only
   // .yaml would silently skip context for those projects.
   it('accepts config.yml as well as config.yaml (#696)', () => {
     for (const [label, body] of bodies) {
@@ -120,13 +120,13 @@ describe('explore templates', () => {
   it('treats workflow configuration and write-capable commands as changes (#1715)', () => {
     for (const [label, body] of bodies) {
       expect(body, label).toContain(
-        'creating or editing schemas, templates, or `openspec/config.yaml` is a change'
+        'creating or editing schemas, templates, or `codespec/config.yaml` is a change'
       );
       expect(body, label).toContain(
-        'including `openspec new change` or another command that writes files'
+        'including `codespec new change` or another command that writes files'
       );
       expect(body, label).toContain(
-        'Creating or updating OpenSpec change artifacts within the confirmed scope is fine, writing anything else is not'
+        'Creating or updating CodeSpec change artifacts within the confirmed scope is fine, writing anything else is not'
       );
     }
   });
@@ -135,13 +135,13 @@ describe('explore templates', () => {
     for (const [label, body] of bodies) {
       const transition = newChangeTransition(body, label);
 
-      expect(transition, label).toContain('openspec new change "<name>"');
+      expect(transition, label).toContain('codespec new change "<name>"');
       expect(transition, label).toContain(
-        'Never create a new change directory under `openspec/changes/` by hand'
+        'Never create a new change directory under `codespec/changes/` by hand'
       );
-      expect(transition, label).toContain('`.openspec.yaml`');
+      expect(transition, label).toContain('`.codespec.yaml`');
       expect(transition, label).not.toContain(
-        'Never create files or directories directly under `openspec/changes/`'
+        'Never create files or directories directly under `codespec/changes/`'
       );
     }
   });
@@ -149,12 +149,12 @@ describe('explore templates', () => {
   it('retains the selected store throughout the capture transition (#668, #720)', () => {
     for (const [label, body] of bodies) {
       const transition = newChangeTransition(body, label);
-      const scaffold = transition.indexOf('1. Run `openspec new change "<name>"`');
+      const scaffold = transition.indexOf('1. Run `codespec new change "<name>"`');
       const retainStore = transition.indexOf(
         'Keep the selected `--store <id>` on every applicable follow-up `status` and `instructions` command'
       );
       const initialStatus = transition.indexOf(
-        '2. Run `openspec status --change "<name>" --json`'
+        '2. Run `codespec status --change "<name>" --json`'
       );
 
       expect(retainStore, label).toBeGreaterThan(scaffold);
@@ -173,9 +173,9 @@ describe('explore templates', () => {
     for (const [label, body] of bodies) {
       const transition = newChangeTransition(body, label);
 
-      expect(transition, label).toContain('openspec status --change "<name>" --json');
+      expect(transition, label).toContain('codespec status --change "<name>" --json');
       expect(transition, label).toContain(
-        'openspec instructions "<artifact-id>" --change "<name>" --json'
+        'codespec instructions "<artifact-id>" --change "<name>" --json'
       );
       expect(transition, label).toContain('Capture the artifact(s) the user requested');
       expect(transition, label).toContain(
@@ -185,7 +185,7 @@ describe('explore templates', () => {
         'process the requested artifacts in dependency order'
       );
       expect(transition, label).toContain(
-        'After creating each artifact, re-run `openspec status --change "<name>" --json`'
+        'After creating each artifact, re-run `codespec status --change "<name>" --json`'
       );
       expect(transition, label).toContain(
         'If the instruction delegates creation to a specific skill or command'
@@ -199,18 +199,18 @@ describe('explore templates', () => {
   it('keeps the seamless capture steps ordered (#668, #720)', () => {
     for (const [label, body] of bodies) {
       const transition = newChangeTransition(body, label);
-      const scaffold = transition.indexOf('1. Run `openspec new change "<name>"`');
+      const scaffold = transition.indexOf('1. Run `codespec new change "<name>"`');
       const initialStatus = transition.indexOf(
-        '2. Run `openspec status --change "<name>" --json`'
+        '2. Run `codespec status --change "<name>" --json`'
       );
       const readyInstructions = transition.indexOf(
-        'For each requested artifact that is `ready`, run `openspec instructions'
+        'For each requested artifact that is `ready`, run `codespec instructions'
       );
       const verifyOutput = transition.indexOf(
         'Verify that the selected concrete output exists'
       );
       const refreshStatus = transition.indexOf(
-        'After creating each artifact, re-run `openspec status'
+        'After creating each artifact, re-run `codespec status'
       );
 
       expect(scaffold, label).toBeGreaterThanOrEqual(0);
@@ -218,17 +218,17 @@ describe('explore templates', () => {
       expect(readyInstructions, label).toBeGreaterThan(initialStatus);
       expect(verifyOutput, label).toBeGreaterThan(readyInstructions);
       expect(refreshStatus, label).toBeGreaterThan(verifyOutput);
-      expect(occurrenceCount(transition, 'openspec new change "<name>"'), label).toBe(1);
+      expect(occurrenceCount(transition, 'codespec new change "<name>"'), label).toBe(1);
       expect(
-        occurrenceCount(transition, 'openspec status --change "<name>" --json'),
+        occurrenceCount(transition, 'codespec status --change "<name>" --json'),
         label
       ).toBe(2);
       expect(
-        occurrenceCount(transition, 'openspec instructions "<artifact-id>"'),
+        occurrenceCount(transition, 'codespec instructions "<artifact-id>"'),
         label
       ).toBe(2);
       expect(
-        occurrenceCount(transition, 'openspec instructions "<prerequisite-id>"'),
+        occurrenceCount(transition, 'codespec instructions "<prerequisite-id>"'),
         label
       ).toBe(1);
       expect(
@@ -236,7 +236,7 @@ describe('explore templates', () => {
         label
       ).toBe(1);
       expect(
-        occurrenceCount(transition, 'After creating each artifact, re-run `openspec status'),
+        occurrenceCount(transition, 'After creating each artifact, re-run `codespec status'),
         label
       ).toBe(1);
     }
@@ -289,13 +289,13 @@ describe('explore templates', () => {
     for (const [label, body] of bodies) {
       const transition = newChangeTransition(body, label);
       const requestedInstructions = transition.indexOf(
-        'For each requested artifact that is `ready`, run `openspec instructions'
+        'For each requested artifact that is `ready`, run `codespec instructions'
       );
       const evaluateRequestedCondition = transition.indexOf(
         'Before creating a requested artifact, evaluate any condition in its own `instruction`'
       );
       const inspectPrerequisite = transition.indexOf(
-        'run `openspec instructions "<prerequisite-id>"'
+        'run `codespec instructions "<prerequisite-id>"'
       );
       const evaluateCondition = transition.indexOf(
         'evaluate that condition against the explored change'
@@ -311,7 +311,7 @@ describe('explore templates', () => {
       );
 
       expect(transition, label).toContain(
-        'run `openspec instructions "<prerequisite-id>" --change "<name>" --json` (append the confirmed `--store "<id>"` only for a registered standalone store) for that prerequisite whether it is `ready` or `blocked`'
+        'run `codespec instructions "<prerequisite-id>" --change "<name>" --json` (append the confirmed `--store "<id>"` only for a registered standalone store) for that prerequisite whether it is `ready` or `blocked`'
       );
       expect(transition, label).toContain(
         'record a deliberate skip instead when the condition does not apply'
@@ -329,7 +329,7 @@ describe('explore templates', () => {
       expect(transition, label).toContain('remember it, and do not reconsider it');
       expect(transition, label).toContain('Dependencies are enablers, not gates');
       expect(transition, label).toContain(
-        'run `openspec instructions "<artifact-id>" --change "<name>" --json` (append the confirmed `--store "<id>"` only for a registered standalone store) despite the blocked status'
+        'run `codespec instructions "<artifact-id>" --change "<name>" --json` (append the confirmed `--store "<id>"` only for a registered standalone store) despite the blocked status'
       );
       expect(transition, label).toContain(
         'only when those recorded conditional skips are its sole missing dependencies'

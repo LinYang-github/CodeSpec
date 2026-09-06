@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getUpdateChangeSkillTemplate,
-  getOpsxUpdateCommandTemplate,
+  getCodespecUpdateCommandTemplate,
 } from '../../../src/core/templates/skill-templates.js';
 import { STORE_SELECTION_GUIDANCE } from '../../../src/core/templates/workflows/store-selection.js';
 
 const skill = getUpdateChangeSkillTemplate();
-const command = getOpsxUpdateCommandTemplate();
+const command = getCodespecUpdateCommandTemplate();
 
 // Both delivery surfaces must carry the same contract; every behavioral
 // assertion below runs against each body.
@@ -18,22 +18,22 @@ const bodies: Array<[string, string]> = [
 
 describe('update-change templates', () => {
   it('generates the expected skill and command shape (3.1)', () => {
-    expect(skill.name).toBe('openspec-update-change');
+    expect(skill.name).toBe('codespec-update-change');
     expect(skill.description).toContain('Never edits code');
     expect(skill.license).toBe('MIT');
-    expect(skill.compatibility).toBe('Requires openspec CLI.');
-    expect(skill.metadata).toEqual({ author: 'openspec', version: '1.0' });
+    expect(skill.compatibility).toBe('Requires codespec CLI.');
+    expect(skill.metadata).toEqual({ author: 'codespec', version: '1.0' });
 
-    expect(command.name).toBe('OPSX: Update');
+    expect(command.name).toBe('CODESPEC: Update');
     expect(command.category).toBe('Workflow');
     expect(command.tags).toEqual(['workflow', 'artifacts', 'experimental']);
-    expect(command.content).toContain('/opsx:update add-auth');
+    expect(command.content).toContain('/codespec:update add-auth');
 
     for (const [label, body] of bodies) {
       expect(body, label).toContain(STORE_SELECTION_GUIDANCE);
-      expect(body, label).toContain('openspec list --json');
-      expect(body, label).toContain('openspec status --change "<name>" --json');
-      expect(body, label).toContain('openspec instructions "<artifact-id>" --change "<name>" --json');
+      expect(body, label).toContain('codespec list --json');
+      expect(body, label).toContain('codespec status --change "<name>" --json');
+      expect(body, label).toContain('codespec instructions "<artifact-id>" --change "<name>" --json');
     }
   });
 
@@ -49,11 +49,11 @@ describe('update-change templates', () => {
     }
   });
 
-  it('edits planning artifacts only, hands code off to /opsx:apply, never advances the frontier (3.3)', () => {
+  it('edits planning artifacts only, hands code off to /codespec:apply, never advances the frontier (3.3)', () => {
     for (const [label, body] of bodies) {
       expect(body, label).toContain('Never edit code');
       expect(body, label).toContain('NEVER edit implementation code');
-      expect(body, label).toContain('stop and point to `/opsx:apply`');
+      expect(body, label).toContain('stop and point to `/codespec:apply`');
       expect(body, label).toContain('Do not advance the build frontier');
       expect(body, label).toContain('Do NOT create artifacts that don\'t exist yet');
     }
@@ -70,9 +70,9 @@ describe('update-change templates', () => {
   it('ends with next-step guidance and never acts on it (3.5)', () => {
     for (const [label, body] of bodies) {
       expect(body, label).toContain('guidance only - NEVER act on it');
-      expect(body, label).toContain('suggest `/opsx:continue`');
-      expect(body, label).toContain('suggest `/opsx:apply`');
-      expect(body, label).toContain('suggest `/opsx:archive`');
+      expect(body, label).toContain('suggest `/codespec:continue`');
+      expect(body, label).toContain('suggest `/codespec:apply`');
+      expect(body, label).toContain('suggest `/codespec:archive`');
       expect(body, label).toContain('the code may no longer match the revised plan');
     }
   });
@@ -80,41 +80,41 @@ describe('update-change templates', () => {
   it('explains the optional continue workflow before suggesting it', () => {
     for (const [label, body] of bodies) {
       const availabilityGuidance = body.indexOf(
-        '`/opsx:continue` is an optional workflow and may not be installed'
+        '`/codespec:continue` is an optional workflow and may not be installed'
       );
       const firstSuggestion = body.indexOf(
-        '`/opsx:continue`',
-        availabilityGuidance + '`/opsx:continue`'.length
+        '`/codespec:continue`',
+        availabilityGuidance + '`/codespec:continue`'.length
       );
 
       expect(availabilityGuidance, label).toBeGreaterThanOrEqual(0);
-      expect(body.indexOf('`/opsx:continue`'), label).toBe(availabilityGuidance);
+      expect(body.indexOf('`/codespec:continue`'), label).toBe(availabilityGuidance);
       expect(firstSuggestion, label).toBeGreaterThan(availabilityGuidance);
       expect(body, label).toContain(
-        'If it is unavailable, `openspec status --change "<name>" --json` shows the next artifact'
+        'If it is unavailable, `codespec status --change "<name>" --json` shows the next artifact'
       );
       expect(body, label).toContain(
-        '`openspec instructions "<artifact-id>" --change "<name>" --json` explains how to create it'
+        '`codespec instructions "<artifact-id>" --change "<name>" --json` explains how to create it'
       );
     }
   });
 
-  it('confirms every edit and redirects intent changes to /opsx:new', () => {
+  it('confirms every edit and redirects intent changes to /codespec:new', () => {
     for (const [label, body] of bodies) {
       expect(body, label).toContain('Write only after the user confirms');
       expect(body, label).toContain('If the user rejects a revision, do not write it');
-      expect(body, label).toContain('recommend starting fresh with `/opsx:new`');
+      expect(body, label).toContain('recommend starting fresh with `/codespec:new`');
       expect(body, label).toContain('Update vs. Start Fresh');
       expect(body, label).toContain('ask for a distinct unused change name');
-      expect(body, label).toContain('openspec new change "<new-change-name>"');
-      expect(body, label).not.toContain('openspec new change "<name>"');
+      expect(body, label).toContain('codespec new change "<new-change-name>"');
+      expect(body, label).not.toContain('codespec new change "<name>"');
 
       const newAvailabilityCheck = body.indexOf(
-        'first verify whether the optional `/opsx:new` workflow is available'
+        'first verify whether the optional `/codespec:new` workflow is available'
       );
-      const newRecommendation = body.indexOf('recommend starting fresh with `/opsx:new`');
+      const newRecommendation = body.indexOf('recommend starting fresh with `/codespec:new`');
       expect(newAvailabilityCheck, label).toBeGreaterThanOrEqual(0);
-      expect(body.slice(0, newAvailabilityCheck), label).not.toContain('`/opsx:new`');
+      expect(body.slice(0, newAvailabilityCheck), label).not.toContain('`/codespec:new`');
       expect(newRecommendation, label).toBeGreaterThan(newAvailabilityCheck);
     }
   });

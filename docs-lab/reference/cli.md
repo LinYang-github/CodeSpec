@@ -1,6 +1,6 @@
 # CLI
 
-> The `openspec` terminal commands.
+> The `codespec` terminal commands.
 
 <!-- Installing, updating, and uninstalling the CLI itself live in installation.md. -->
 
@@ -10,19 +10,19 @@
 
 | Command | What it does |
 |---|---|
-| [`openspec init`](#openspec-init) | Initialize OpenSpec in a project. |
-| [`openspec update`](#openspec-update) | Update OpenSpec's installed instruction files. |
-| [`openspec config`](#openspec-config) | View and change global configuration. |
+| [`codespec init`](#codespec-init) | Initialize CodeSpec in a project. |
+| [`codespec update`](#codespec-update) | Update CodeSpec's installed instruction files. |
+| [`codespec config`](#codespec-config) | View and change global configuration. |
 
 **Changes and specs**
 
 | Command | What it does |
 |---|---|
-| [`openspec list`](#openspec-list) | List changes, or specs with `--specs`. |
-| [`openspec show`](#openspec-show) | Print a change or spec, as markdown or JSON. |
-| [`openspec view`](#openspec-view) | One-screen dashboard of specs and changes. |
-| [`openspec validate`](#openspec-validate) | Check changes and specs for structural issues. |
-| [`openspec archive`](#openspec-archive) | Move a completed change to the archive and update the main specs. |
+| [`codespec list`](#codespec-list) | List changes, or specs with `--specs`. |
+| [`codespec show`](#codespec-show) | Print a change or spec, as markdown or JSON. |
+| [`codespec view`](#codespec-view) | One-screen dashboard of specs and changes. |
+| [`codespec validate`](#codespec-validate) | Check changes and specs for structural issues. |
+| [`codespec archive`](#codespec-archive) | Move a completed change to the archive and update the main specs. |
 
 **Workflows and schemas**
 
@@ -30,49 +30,49 @@ Your agent runs most of these during the workflow.
 
 | Command | What it does |
 |---|---|
-| [`openspec new`](#openspec-new) | Create a new change directory. |
-| [`openspec status`](#openspec-status) | Artifact completion status for one or every active change. |
-| [`openspec instructions`](#openspec-instructions) | Instructions for creating an artifact, applying, or archiving. |
-| [`openspec templates`](#openspec-templates) | Resolved template paths for a schema's artifacts. |
-| [`openspec schemas`](#openspec-schemas) | List available workflow schemas. |
-| [`openspec schema`](#openspec-schema) | Inspect, fork, or create a schema (experimental). |
+| [`codespec new`](#codespec-new) | Create a new change directory. |
+| [`codespec status`](#codespec-status) | Artifact completion status for one or every active change. |
+| [`codespec instructions`](#codespec-instructions) | Instructions for creating an artifact, applying, or archiving. |
+| [`codespec templates`](#codespec-templates) | Resolved template paths for a schema's artifacts. |
+| [`codespec schemas`](#codespec-schemas) | List available workflow schemas. |
+| [`codespec schema`](#codespec-schema) | Inspect, fork, or create a schema (experimental). |
 
 **Multi-repo (beta)**
 
 | Command | What it does |
 |---|---|
-| [`openspec store`](#openspec-store) | Create and manage stores: standalone OpenSpec repos registered on your machine. |
-| [`openspec doctor`](#openspec-doctor) | Report relationship health for the resolved OpenSpec root. |
-| [`openspec context`](#openspec-context) | Print the working context for the resolved OpenSpec root. |
-| [`openspec workset`](#openspec-workset) | Compose, keep, and open personal working views. |
+| [`codespec store`](#codespec-store) | Create and manage stores: standalone CodeSpec repos registered on your machine. |
+| [`codespec doctor`](#codespec-doctor) | Report relationship health for the resolved CodeSpec root. |
+| [`codespec context`](#codespec-context) | Print the working context for the resolved CodeSpec root. |
+| [`codespec workset`](#codespec-workset) | Compose, keep, and open personal working views. |
 
 **Utilities**
 
 | Command | What it does |
 |---|---|
-| [`openspec feedback`](#openspec-feedback) | Submit feedback about OpenSpec. |
-| [`openspec completion`](#openspec-completion) | Install or generate shell completions. |
+| [`codespec feedback`](#codespec-feedback) | Submit feedback about CodeSpec. |
+| [`codespec completion`](#codespec-completion) | Install or generate shell completions. |
 
 **Deprecated**
 
 | Command | What it does |
 |---|---|
-| [`openspec change`](#openspec-change) | Noun form of show, list, and validate for changes. The CLI warns and points to the verb-first commands. |
-| [`openspec spec`](#openspec-spec) | Noun form of show, list, and validate for specs, with the same warning. |
+| [`codespec change`](#codespec-change) | Noun form of show, list, and validate for changes. The CLI warns and points to the verb-first commands. |
+| [`codespec spec`](#codespec-spec) | Noun form of show, list, and validate for specs, with the same warning. |
 
-Every command takes `-h, --help`. The bare `openspec` command also takes:
+Every command takes `-h, --help`. The bare `codespec` command also takes:
 
 - `-V, --version`: print the CLI version.
 - `--no-color`: disable colored output.
 
-## openspec init
+## codespec init
 
-Initializes OpenSpec in a project.
+Initializes CodeSpec in a project.
 
 ```bash
-openspec init                        # current directory, interactive tool picker
-openspec init --tools claude,cursor  # set up specific tools, no prompts
-openspec init --tools none           # openspec/ structure only, no tool files
+codespec init                        # current directory, interactive tool picker
+codespec init --tools claude,cursor  # set up specific tools, no prompts
+codespec init --tools none           # codespec/ structure only, no tool files
 ```
 
 With no `--tools`, init prompts you to pick tools in an interactive terminal. Outside one, it sets up the tools it detects in the project. With none detected it exits 1 and lists the valid ids.
@@ -88,47 +88,47 @@ With no `--tools`, init prompts you to pick tools in an interactive terminal. Ou
 | Flag | Effect |
 |---|---|
 | `--tools <tools>` | Comma-separated tool ids, `all`, or `none`. Skips the picker. Ids are listed in [Supported tools](supported-tools.md). |
-| `--force` | Remove files from older OpenSpec layouts without asking. Interactive runs otherwise confirm the cleanup first. |
+| `--force` | Remove files from older CodeSpec layouts without asking. Interactive runs otherwise confirm the cleanup first. |
 | `--profile <profile>` | Override the global config profile for this run: `core` (the standard workflow set) or `custom` (the workflows saved in global config). |
 | `--no-animation` | Show a static welcome screen instead of the animated one. |
 
 **Output**
 
-Each selected tool gets OpenSpec's skills and commands in its own directory:
+Each selected tool gets CodeSpec's skills and commands in its own directory:
 
 ```
-▌ OpenSpec structure created
+▌ CodeSpec structure created
 ✔ Setup complete for Claude Code
 
-OpenSpec Setup Complete
+CodeSpec Setup Complete
 
 Created: Claude Code
 6 skills and 6 commands in .claude/
-Config: openspec/config.yaml (schema: spec-driven)
+Config: codespec/config.yaml (schema: spec-driven)
 
 Getting started:
-  Start your first change: /opsx:propose "your idea"
+  Start your first change: /codespec:propose "your idea"
 
 Restart your IDE for the new commands to take effect.
 ```
 
-`--tools none` creates only `openspec/config.yaml`. On an already-initialized project, init rewrites the installed files in place and the summary reads `Refreshed: Claude Code` with `Config: openspec/config.yaml (exists)`.
+`--tools none` creates only `codespec/config.yaml`. On an already-initialized project, init rewrites the installed files in place and the summary reads `Refreshed: Claude Code` with `Config: codespec/config.yaml (exists)`.
 
 **Exit codes**
 
 - `0`: setup completed.
 - `1`: invalid `--tools` or `--profile` value, or a non-interactive run with no tools detected and no `--tools`.
 
-## openspec update
+## codespec update
 
-Updates OpenSpec's installed instruction files.
+Updates CodeSpec's installed instruction files.
 
 ```bash
-openspec update           # refresh tools whose files are older than the CLI
-openspec update --force   # rewrite files even when they're current
+codespec update           # refresh tools whose files are older than the CLI
+codespec update --force   # rewrite files even when they're current
 ```
 
-update finds the tools init configured and compares their generated files against the CLI's version. When a newer OpenSpec release exists, it first offers to upgrade the CLI, then reruns with the upgraded version. Set `OPENSPEC_NO_UPDATE_CHECK=1` to skip the check.
+update finds the tools init configured and compares their generated files against the CLI's version. When a newer CodeSpec release exists, it first offers to upgrade the CLI, then reruns with the upgraded version. Set `CODESPEC_NO_UPDATE_CHECK=1` to skip the check.
 
 **Arguments**
 
@@ -166,25 +166,25 @@ Tools: Claude Code
 Restart your IDE for changes to take effect.
 ```
 
-In a directory without OpenSpec, update refuses:
+In a directory without CodeSpec, update refuses:
 
 ```
-✖ Error: No OpenSpec directory found. Run 'openspec init' first.
+✖ Error: No CodeSpec directory found. Run 'codespec init' first.
 ```
 
 **Exit codes**
 
 - `0`: files updated, or everything already up to date.
-- `1`: no OpenSpec directory at the path, or the update failed.
+- `1`: no CodeSpec directory at the path, or the update failed.
 
-## openspec config
+## codespec config
 
 Views and changes global configuration.
 
 ```bash
-openspec config list                  # see current settings
-openspec config set delivery skills   # change one value
-openspec config profile               # interactive workflow picker
+codespec config list                  # see current settings
+codespec config set delivery skills   # change one value
+codespec config profile               # interactive workflow picker
 ```
 
 | Subcommand | What it does |
@@ -198,23 +198,23 @@ openspec config profile               # interactive workflow picker
 | `edit` | Open the config file in `$EDITOR`. |
 | `profile [preset]` | Configure delivery mode and workflows. |
 
-Config is global to your machine, stored as JSON where `config path` points: `$XDG_CONFIG_HOME/openspec/config.json` if set, else `~/.config/openspec/config.json` (macOS, Linux) or `%APPDATA%\openspec\config.json` (Windows). Every subcommand accepts `--scope <scope>`, but only `global` works today. Any other scope exits 1 with `Error: Project-local config is not yet implemented`.
+Config is global to your machine, stored as JSON where `config path` points: `$XDG_CONFIG_HOME/codespec/config.json` if set, else `~/.config/codespec/config.json` (macOS, Linux) or `%APPDATA%\codespec\config.json` (Windows). Every subcommand accepts `--scope <scope>`, but only `global` works today. Any other scope exits 1 with `Error: Project-local config is not yet implemented`.
 
-### openspec config path
-
-```bash
-openspec config path
-```
-
-```
-/Users/you/.config/openspec/config.json
-```
-
-### openspec config list
+### codespec config path
 
 ```bash
-openspec config list          # readable settings plus profile summary
-openspec config list --json   # raw config as JSON
+codespec config path
+```
+
+```
+/Users/you/.config/codespec/config.json
+```
+
+### codespec config list
+
+```bash
+codespec config list          # readable settings plus profile summary
+codespec config list --json   # raw config as JSON
 ```
 
 **Options**
@@ -238,10 +238,10 @@ Profile settings:
   workflows: propose, explore, apply, update, sync, archive (from core profile)
 ```
 
-### openspec config get
+### codespec config get
 
 ```bash
-openspec config get delivery
+codespec config get delivery
 ```
 
 **Arguments**
@@ -263,11 +263,11 @@ both
 - `0`: value printed.
 - `1`: key has no value, and nothing is printed.
 
-### openspec config set
+### codespec config set
 
 ```bash
-openspec config set delivery skills
-openspec config set featureFlags.workspaces true
+codespec config set delivery skills
+codespec config set featureFlags.workspaces true
 ```
 
 **Arguments**
@@ -294,7 +294,7 @@ Unknown keys and invalid values fail with exit 1 before anything is saved:
 
 ```
 Error: Invalid configuration key "bogus.key". Unknown top-level key "bogus".
-Use "openspec config list" to see available keys.
+Use "codespec config list" to see available keys.
 Pass --allow-unknown to bypass this check.
 ```
 
@@ -302,10 +302,10 @@ Pass --allow-unknown to bypass this check.
 Error: Invalid configuration - delivery: Invalid option: expected one of "both"|"skills"|"commands"
 ```
 
-### openspec config unset
+### codespec config unset
 
 ```bash
-openspec config unset delivery
+codespec config unset delivery
 ```
 
 Removes the key so the default applies again. Keys with built-in defaults always count as set, so this reports success even if you never set them:
@@ -316,11 +316,11 @@ Unset delivery (reverted to default)
 
 A key with no value at all prints `Key "featureFlags.nothere" was not set`. Both cases exit 0.
 
-### openspec config reset
+### codespec config reset
 
 ```bash
-openspec config reset --all      # asks for confirmation
-openspec config reset --all -y   # no prompt
+codespec config reset --all      # asks for confirmation
+codespec config reset --all -y   # no prompt
 ```
 
 **Options**
@@ -344,10 +344,10 @@ Without `--all` it exits 1 and prints the usage line.
 - `1`: `--all` missing.
 - `130`: prompt cancelled with Ctrl-C.
 
-### openspec config edit
+### codespec config edit
 
 ```bash
-openspec config edit
+codespec config edit
 ```
 
 Opens the config file in `$EDITOR` (falling back to `$VISUAL`), creating it with defaults first if missing. When the editor closes, the file is validated. Invalid JSON or an invalid config exits 1. With no editor configured it exits 1:
@@ -358,11 +358,11 @@ Set the EDITOR or VISUAL environment variable to your preferred editor
 Example: export EDITOR=vim
 ```
 
-### openspec config profile
+### codespec config profile
 
 ```bash
-openspec config profile        # interactive picker (needs a terminal)
-openspec config profile core   # apply the core preset directly
+codespec config profile        # interactive picker (needs a terminal)
+codespec config profile core   # apply the core preset directly
 ```
 
 **Arguments**
@@ -371,10 +371,10 @@ openspec config profile core   # apply the core preset directly
 |---|---|
 | `preset` | Optional preset name. Only `core` exists. It selects the core workflows and keeps your delivery setting. |
 
-With no preset, an interactive picker shows your current delivery and workflows, lets you change either or both (delivery: both, skills only, or commands only; workflows: a checkbox list), prints the diff, and inside an OpenSpec project offers to run `openspec update` for you. Outside a terminal it exits 1:
+With no preset, an interactive picker shows your current delivery and workflows, lets you change either or both (delivery: both, skills only, or commands only; workflows: a checkbox list), prints the diff, and inside an CodeSpec project offers to run `codespec update` for you. Outside a terminal it exits 1:
 
 ```
-Interactive mode required. Use `openspec config profile core` or set config via environment/flags.
+Interactive mode required. Use `codespec config profile core` or set config via environment/flags.
 ```
 
 **Output**
@@ -382,26 +382,26 @@ Interactive mode required. Use `openspec config profile core` or set config via 
 Changed config doesn't reach projects until they update:
 
 ```
-Config updated. Run `openspec update` in your projects to apply.
+Config updated. Run `codespec update` in your projects to apply.
 ```
 
 **Exit codes**
 
 - `0`: profile saved, or you kept current settings.
-- `1`: unknown preset, no terminal, or the offered `openspec update` failed.
+- `1`: unknown preset, no terminal, or the offered `codespec update` failed.
 - `130`: picker cancelled with Ctrl-C.
 
-## openspec list
+## codespec list
 
 Lists changes, or specs with `--specs`.
 
 ```bash
-openspec list           # changes, most recently modified first
-openspec list --specs   # specs with requirement counts
-openspec list --json    # machine-readable, includes the resolved root
+codespec list           # changes, most recently modified first
+codespec list --specs   # specs with requirement counts
+codespec list --json    # machine-readable, includes the resolved root
 ```
 
-Rows come from `openspec/changes/` and `openspec/specs/` under the resolved root. The `archive/` folder is skipped.
+Rows come from `codespec/changes/` and `codespec/specs/` under the resolved root. The `archive/` folder is skipped.
 
 **Options**
 
@@ -411,7 +411,7 @@ Rows come from `openspec/changes/` and `openspec/specs/` under the resolved root
 | `--changes` | List changes. This is the default. |
 | `--sort <order>` | `recent` (last modified first) or `name`. Default: `recent`. Specs always sort by name. |
 | `--json` | Print JSON instead of the table. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
@@ -452,17 +452,17 @@ An empty listing prints `No active changes found.` or `No specs found.` and stil
 **Exit codes**
 
 - `0`: listing printed, even when empty.
-- `1`: no OpenSpec root found (outside a project, no `--store`).
+- `1`: no CodeSpec root found (outside a project, no `--store`).
 
-## openspec show
+## codespec show
 
 Prints a change or spec, as markdown or JSON.
 
 ```bash
-openspec show add-rate-limit              # change: prints proposal.md
-openspec show add-rate-limit --diff       # change: append requirement diffs
-openspec show api                         # spec: prints spec.md
-openspec show api --json --no-scenarios   # spec JSON without scenario text
+codespec show add-rate-limit              # change: prints proposal.md
+codespec show add-rate-limit --diff       # change: append requirement diffs
+codespec show api                         # spec: prints spec.md
+codespec show api --json --no-scenarios   # spec JSON without scenario text
 ```
 
 With no name, show asks change or spec, then lists items to pick from. Outside an interactive terminal it exits 1 and prints the direct forms instead.
@@ -486,7 +486,7 @@ With no name, show asks change or spec, then lists items to pick from. Outside a
 | `--requirements` | JSON, spec: keep requirement text, empty the `scenarios` arrays. |
 | `--no-scenarios` | JSON, spec: same output as `--requirements`. |
 | `-r, --requirement <id>` | JSON, spec: output one requirement by 1-based position. Can't combine with `--requirements`. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 Flags that don't apply to the resolved type are ignored with a warning on stderr.
 
@@ -560,7 +560,7 @@ A spec with `--json` lists its requirements with scenarios:
   ],
   "metadata": {
     "version": "1.0.0",
-    "format": "openspec"
+    "format": "codespec"
   },
   "root": {
     "path": "/Users/you/projects/my-app",
@@ -576,12 +576,12 @@ An unknown name suggests near matches: `Unknown item 'does-not-exist'. Did you m
 - `0`: item printed.
 - `1`: unknown or ambiguous name, no name outside a terminal, an out-of-range `-r` index, `--requirements` combined with `-r`, or a delta or main spec cannot be read for `--diff`.
 
-## openspec view
+## codespec view
 
 Prints a one-screen dashboard of specs and changes.
 
 ```bash
-openspec view   # project summary in one screen
+codespec view   # project summary in one screen
 ```
 
 view prints the dashboard once and exits. It reads no keystrokes. Changes group by task progress: Draft (no tasks yet), Active (tasks underway, with a progress bar and percent), Completed (every task checked). Specs list with requirement counts, largest first.
@@ -590,12 +590,12 @@ view prints the dashboard once and exits. It reads no keystrokes. Changes group 
 
 | Flag | Effect |
 |---|---|
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
 ```
-OpenSpec Dashboard
+CodeSpec Dashboard
 
 ════════════════════════════════════════════════════════════
 Summary:
@@ -614,7 +614,7 @@ Specifications
 
 ════════════════════════════════════════════════════════════
 
-Use openspec list --changes or openspec list --specs for detailed views
+Use codespec list --changes or codespec list --specs for detailed views
 ```
 
 A `Task Progress` summary line appears when any change has tasks underway.
@@ -622,15 +622,15 @@ A `Task Progress` summary line appears when any change has tasks underway.
 **Exit codes**
 
 - `0`: dashboard printed.
-- `1`: no OpenSpec root found (outside a project, no `--store`).
+- `1`: no CodeSpec root found (outside a project, no `--store`).
 
-## openspec validate
+## codespec validate
 
 Checks changes and specs for structural issues.
 
 ```bash
-openspec validate add-rate-limit   # one change or spec, by name
-openspec validate --all            # every change and spec
+codespec validate add-rate-limit   # one change or spec, by name
+codespec validate --all            # every change and spec
 ```
 
 With no name and no bulk flag, validate prompts you to pick items. Outside an interactive terminal it exits 1 and prints the bulk flags instead.
@@ -651,9 +651,9 @@ With no name and no bulk flag, validate prompts you to pick items. Outside an in
 | `--strict` | Treat warnings as failures. |
 | `--type <change\|spec>` | Pick the type when a change and a spec share a name. |
 | `--json` | Print a structured report instead of text. |
-| `--concurrency <n>` | Max parallel validations in bulk runs. Default: `OPENSPEC_CONCURRENCY`, else 6. |
+| `--concurrency <n>` | Max parallel validations in bulk runs. Default: `CODESPEC_CONCURRENCY`, else 6. |
 | `--no-interactive` | Never prompt: a missing or ambiguous name becomes an error. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
@@ -673,7 +673,7 @@ Change 'add-rate-limit' has issues
 Next steps:
   - Ensure change has deltas in specs/: use headers ## ADDED/MODIFIED/REMOVED/RENAMED Requirements
   - Each requirement MUST include at least one #### Scenario: block
-  - Debug parsed deltas: openspec show add-rate-limit --json --deltas-only
+  - Debug parsed deltas: codespec show add-rate-limit --json --deltas-only
 ```
 
 `--json` prints one report for the run:
@@ -718,13 +718,13 @@ Next steps:
 - `0`: every validated item passed.
 - `1`: an item failed, or the run couldn't validate anything (unknown name, nothing to validate).
 
-## openspec archive
+## codespec archive
 
 Moves a completed change to the archive and updates the main specs.
 
 ```bash
-openspec archive add-rate-limit -y                # archive one change, merge its deltas
-openspec archive add-rate-limit -y --skip-specs   # archive without touching the specs
+codespec archive add-rate-limit -y                # archive one change, merge its deltas
+codespec archive add-rate-limit -y --skip-specs   # archive without touching the specs
 ```
 
 With no name, archive prompts you to pick a change. Outside an interactive terminal it exits 1 and prints the rerun command instead.
@@ -743,7 +743,7 @@ With no name, archive prompts you to pick a change. Outside an interactive termi
 | `--skip-specs` | Archive without touching the main specs (infrastructure, tooling, or doc-only changes). |
 | `--no-validate` | Skip validation. Archive asks you to confirm first, and `-y` answers it. |
 | `--json` | Print a structured result instead of text. Needs `--yes` to confirm spec updates. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
@@ -754,14 +754,14 @@ Task status: ✓ Complete
 
 Specs to update:
   api: update
-Applying changes to openspec/specs/api/spec.md:
+Applying changes to codespec/specs/api/spec.md:
   + 1 added
 Totals: + 1, ~ 0, - 0, → 0
 Specs updated successfully.
 Change 'add-rate-limit' archived as '2026-08-11-add-rate-limit'.
 ```
 
-The change folder moves whole to `openspec/changes/archive/2026-08-11-add-rate-limit/`, today's date prefixed to its name. Each delta merges into its main spec: the ADDED requirement above was appended to `openspec/specs/api/spec.md`. Without `-y`, archive shows the preview and asks before updating. Declining still archives the change and leaves the specs alone.
+The change folder moves whole to `codespec/changes/archive/2026-08-11-add-rate-limit/`, today's date prefixed to its name. Each delta merges into its main spec: the ADDED requirement above was appended to `codespec/specs/api/spec.md`. Without `-y`, archive shows the preview and asks before updating. Declining still archives the change and leaves the specs alone.
 
 With `--json --yes`:
 
@@ -770,7 +770,7 @@ With `--json --yes`:
   "archive": {
     "change": "add-rate-limit",
     "archivedAs": "2026-08-11-add-rate-limit",
-    "path": "/Users/you/projects/my-app/openspec/changes/archive/2026-08-11-add-rate-limit",
+    "path": "/Users/you/projects/my-app/codespec/changes/archive/2026-08-11-add-rate-limit",
     "specsUpdated": true,
     "totals": {
       "added": 1,
@@ -808,23 +808,23 @@ Warning: 1 incomplete task(s) found. Continuing due to --yes flag.
 - `0`: the change was archived, with or without spec updates.
 - `1`: validation failed, the change name is unknown, or a confirmation was needed and no answer could be read.
 
-## openspec new
+## codespec new
 
 Creates a new change directory.
 
 ```bash
-openspec new change add-caching                                # metadata only
-openspec new change add-search --goal "Users can search docs"  # record a goal
+codespec new change add-caching                                # metadata only
+codespec new change add-search --goal "Users can search docs"  # record a goal
 ```
 
-`new` has one subcommand, `new change <name>`. It creates `openspec/changes/<name>/` containing a single [`.openspec.yaml` metadata file](configuration/change-metadata.md):
+`new` has one subcommand, `new change <name>`. It creates `codespec/changes/<name>/` containing a single [`.codespec.yaml` metadata file](configuration/change-metadata.md):
 
 ```yaml
 schema: spec-driven
 created: 2026-08-11
 ```
 
-Artifacts (proposal, specs, design, tasks) aren't scaffolded here. You write them later, and `openspec status` tells you which one is next.
+Artifacts (proposal, specs, design, tasks) aren't scaffolded here. You write them later, and `codespec status` tells you which one is next.
 
 **Arguments**
 
@@ -837,17 +837,17 @@ Artifacts (proposal, specs, design, tasks) aren't scaffolded here. You write the
 | Flag | Effect |
 |---|---|
 | `--description <text>` | Also create a `README.md` in the change directory with this text. |
-| `--goal <text>` | Store a `goal:` line in `.openspec.yaml`. |
+| `--goal <text>` | Store a `goal:` line in `.codespec.yaml`. |
 | `--schema <name>` | Workflow schema for the change. Default: `spec-driven`, the only schema that ships. |
 | `--json` | Print the created change as JSON instead of text. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
 ```
-Created change 'add-caching' at openspec/changes/add-caching/
+Created change 'add-caching' at codespec/changes/add-caching/
 Schema: spec-driven
-Next: openspec status --change add-caching
+Next: codespec status --change add-caching
 ```
 
 With `--json`:
@@ -856,8 +856,8 @@ With `--json`:
 {
   "change": {
     "id": "add-caching",
-    "path": "/Users/you/projects/my-app/openspec/changes/add-caching",
-    "metadataPath": "/Users/you/projects/my-app/openspec/changes/add-caching/.openspec.yaml",
+    "path": "/Users/you/projects/my-app/codespec/changes/add-caching",
+    "metadataPath": "/Users/you/projects/my-app/codespec/changes/add-caching/.codespec.yaml",
     "schema": "spec-driven"
   },
   "root": {
@@ -872,15 +872,15 @@ With `--json`:
 - `0`: change created.
 - `1`: the change already exists, or the schema is unknown.
 
-## openspec status
+## codespec status
 
 Reports artifact completion status for one change or every active change.
 
 ```bash
-openspec status --change add-rate-limit          # checklist view
-openspec status --change add-rate-limit --json   # structured report
-openspec status --all                            # every active change
-openspec status --all --json                     # one batch report
+codespec status --change add-rate-limit          # checklist view
+codespec status --change add-rate-limit --json   # structured report
+codespec status --all                            # every active change
+codespec status --all --json                     # one batch report
 ```
 
 When active changes exist, use exactly one of `--change` or `--all`. Without either, status exits 1 and lists the available changes, even when only one exists:
@@ -890,7 +890,7 @@ When active changes exist, use exactly one of `--change` or `--all`. Without eit
   add-rate-limit
 ```
 
-When the project has no active changes, status prints `No active changes. Create one with: openspec new change <name>` and exits 0 even without either flag. With `--all --json`, the same empty state is `{ "changes": [], "message": "No active changes.", "root": ... }`.
+When the project has no active changes, status prints `No active changes. Create one with: codespec new change <name>` and exits 0 even without either flag. With `--all --json`, the same empty state is `{ "changes": [], "message": "No active changes.", "root": ... }`.
 
 **Options**
 
@@ -898,9 +898,9 @@ When the project has no active changes, status prints `No active changes. Create
 |---|---|
 | `--change <id>` | The change to report on, by folder name. |
 | `--all` | Report every active change, sorted by name. Can't be combined with `--change`. |
-| `--schema <name>` | Override the schema auto-detected from `openspec/config.yaml`. An unknown name is an error. |
+| `--schema <name>` | Override the schema auto-detected from `codespec/config.yaml`. An unknown name is an error. |
 | `--json` | Print a structured report instead of text. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
@@ -909,7 +909,7 @@ A checklist of the schema's artifacts: `[x]` done, `[ ]` ready to write, `[-]` b
 ```
 Change: add-rate-limit
 Schema: spec-driven
-Change root: /Users/you/projects/my-app/openspec/changes/add-rate-limit
+Change root: /Users/you/projects/my-app/codespec/changes/add-rate-limit
 Progress: 2/4 artifacts complete
 
 [x] proposal
@@ -926,7 +926,7 @@ Progress: 2/4 artifacts complete
   "schemaName": "spec-driven",
   "isComplete": false,
   "nextSteps": [
-    "Run openspec instructions design --change \"add-rate-limit\" --json before writing that artifact."
+    "Run codespec instructions design --change \"add-rate-limit\" --json before writing that artifact."
   ],
   "artifacts": [
     {
@@ -984,14 +984,14 @@ If one change can't load, the batch continues. Its entry contains `changeName` a
 - `0`: every requested status printed; an empty `--all` report also exits 0.
 - `1`: a requested change failed to load, `--change` or `--all` is missing, the two flags were combined, the change doesn't exist, or the schema override is unknown.
 
-## openspec instructions
+## codespec instructions
 
 Prints instructions for creating an artifact, applying, or archiving. Your agent runs this during the workflow to fetch the instruction text for its next step.
 
 ```bash
-openspec instructions proposal --change add-rate-limit   # how to write one artifact
-openspec instructions apply --change add-rate-limit      # how to implement the change
-openspec instructions archive --change add-rate-limit    # inputs for archiving
+codespec instructions proposal --change add-rate-limit   # how to write one artifact
+codespec instructions apply --change add-rate-limit      # how to implement the change
+codespec instructions archive --change add-rate-limit    # inputs for archiving
 ```
 
 **Arguments**
@@ -1007,7 +1007,7 @@ openspec instructions archive --change add-rate-limit    # inputs for archiving
 | `--change <id>` | The change to generate instructions for. Required. |
 | `--schema <name>` | Override the schema. Auto-detected from `config.yaml` otherwise. |
 | `--json` | Print a structured object instead of text. |
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 
 **Output**
 
@@ -1022,7 +1022,7 @@ Initial proposal document outlining the change
 </task>
 
 <output>
-Write to: /Users/you/projects/my-app/openspec/changes/add-rate-limit/proposal.md
+Write to: /Users/you/projects/my-app/codespec/changes/add-rate-limit/proposal.md
 </output>
 
 <instruction>
@@ -1037,9 +1037,9 @@ Create the proposal document that establishes WHY this change is needed.
 Schema: spec-driven
 
 ### Context Files
-- proposal: /Users/you/projects/my-app/openspec/changes/add-rate-limit/proposal.md
-- specs: /Users/you/projects/my-app/openspec/changes/add-rate-limit/specs/api/spec.md
-- tasks: /Users/you/projects/my-app/openspec/changes/add-rate-limit/tasks.md
+- proposal: /Users/you/projects/my-app/codespec/changes/add-rate-limit/proposal.md
+- specs: /Users/you/projects/my-app/codespec/changes/add-rate-limit/specs/api/spec.md
+- tasks: /Users/you/projects/my-app/codespec/changes/add-rate-limit/tasks.md
 
 ### Progress
 1/3 complete
@@ -1065,7 +1065,7 @@ With `--json`, each form returns one object. The artifact form starts:
   "changeName": "add-rate-limit",
   "artifactId": "proposal",
   "schemaName": "spec-driven",
-  "changeDir": "/Users/you/projects/my-app/openspec/changes/add-rate-limit",
+  "changeDir": "/Users/you/projects/my-app/codespec/changes/add-rate-limit",
   ...
 ```
 
@@ -1076,13 +1076,13 @@ and continues with `outputPath`, `existingOutputPaths`, the full `instruction` a
 - `0`: instructions printed.
 - `1`: unknown artifact, unknown change, unknown schema, or missing `--change`. Each error lists the valid values.
 
-## openspec templates
+## codespec templates
 
 Prints the resolved template paths for a schema's artifacts.
 
 ```bash
-openspec templates          # default schema: spec-driven
-openspec templates --json   # map of artifact ids to paths
+codespec templates          # default schema: spec-driven
+codespec templates --json   # map of artifact ids to paths
 ```
 
 **Options**
@@ -1099,33 +1099,33 @@ Schema: spec-driven
 Source: package
 
 proposal:
-  /usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/proposal.md
+  /usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/proposal.md
 specs:
-  /usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/spec.md
+  /usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/spec.md
 design:
-  /usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/design.md
+  /usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/design.md
 tasks:
-  /usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/tasks.md
+  /usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/tasks.md
 ```
 
-`Source` names where the schema resolved from: `project` (`openspec/schemas/` in your project), `user` (a global override), or `package` (built into the CLI). Project wins over user, user over package.
+`Source` names where the schema resolved from: `project` (`codespec/schemas/` in your project), `user` (a global override), or `package` (built into the CLI). Project wins over user, user over package.
 
 ```json
 {
   "proposal": {
-    "path": "/usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/proposal.md",
+    "path": "/usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/proposal.md",
     "source": "package"
   },
   "specs": {
-    "path": "/usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/spec.md",
+    "path": "/usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/spec.md",
     "source": "package"
   },
   "design": {
-    "path": "/usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/design.md",
+    "path": "/usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/design.md",
     "source": "package"
   },
   "tasks": {
-    "path": "/usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven/templates/tasks.md",
+    "path": "/usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven/templates/tasks.md",
     "source": "package"
   }
 }
@@ -1136,13 +1136,13 @@ tasks:
 - `0`: paths printed.
 - `1`: unknown schema. The error lists available schemas.
 
-## openspec schemas
+## codespec schemas
 
 Lists available workflow schemas.
 
 ```bash
-openspec schemas          # names, descriptions, artifact order
-openspec schemas --json   # machine-readable, for agent use
+codespec schemas          # names, descriptions, artifact order
+codespec schemas --json   # machine-readable, for agent use
 ```
 
 **Options**
@@ -1157,7 +1157,7 @@ openspec schemas --json   # machine-readable, for agent use
 Available schemas:
 
   spec-driven
-    Default OpenSpec workflow - proposal → specs → design → tasks
+    Default CodeSpec workflow - proposal → specs → design → tasks
     Artifacts: proposal → specs → design → tasks
 ```
 
@@ -1167,7 +1167,7 @@ Schemas from your project are labeled `(project)`, and global overrides are labe
 [
   {
     "name": "spec-driven",
-    "description": "Default OpenSpec workflow - proposal → specs → design → tasks",
+    "description": "Default CodeSpec workflow - proposal → specs → design → tasks",
     "artifacts": [
       "proposal",
       "specs",
@@ -1184,14 +1184,14 @@ Schemas from your project are labeled `(project)`, and global overrides are labe
 - `0`: schemas listed.
 - `1`: the schema list couldn't be read.
 
-## openspec schema
+## codespec schema
 
 Inspects, forks, or creates a schema (experimental). Every subcommand first prints `Note: Schema commands are experimental and may change.` on stderr.
 
 ```bash
-openspec schema which spec-driven          # where a schema resolves from
-openspec schema fork spec-driven my-flow   # copy a schema into the project
-openspec schema init my-schema             # create a schema from scratch
+codespec schema which spec-driven          # where a schema resolves from
+codespec schema fork spec-driven my-flow   # copy a schema into the project
+codespec schema init my-schema             # create a schema from scratch
 ```
 
 | Subcommand | What it does |
@@ -1205,17 +1205,17 @@ Schemas resolve from three locations. The first match wins:
 
 | Source | Location |
 |---|---|
-| `project` | `openspec/schemas/` in the current project. |
-| `user` | `~/.local/share/openspec/schemas/` (`XDG_DATA_HOME` and Windows `%LOCALAPPDATA%` respected). |
+| `project` | `codespec/schemas/` in the current project. |
+| `user` | `~/.local/share/codespec/schemas/` (`XDG_DATA_HOME` and Windows `%LOCALAPPDATA%` respected). |
 | `package` | The schemas shipped with the CLI. `spec-driven` lives here. |
 
-### openspec schema which
+### codespec schema which
 
 Shows which copy of a schema the CLI will use.
 
 ```bash
-openspec schema which spec-driven
-openspec schema which --all        # every schema, grouped by source
+codespec schema which spec-driven
+codespec schema which --all        # every schema, grouped by source
 ```
 
 **Arguments**
@@ -1236,7 +1236,7 @@ openspec schema which --all        # every schema, grouped by source
 ```
 Schema: spec-driven
 Source: package
-Path: /usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven
+Path: /usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven
 ```
 
 When a higher-priority copy hides another, a `Shadows:` section lists the hidden copies. With `--json`:
@@ -1245,20 +1245,20 @@ When a higher-priority copy hides another, a `Shadows:` section lists the hidden
 {
   "name": "my-flow",
   "source": "project",
-  "path": "/Users/you/projects/my-app/openspec/schemas/my-flow",
+  "path": "/Users/you/projects/my-app/codespec/schemas/my-flow",
   "shadows": []
 }
 ```
 
 An unknown name exits 1 and lists the available schemas.
 
-### openspec schema validate
+### codespec schema validate
 
 Checks a schema's structure and templates.
 
 ```bash
-openspec schema validate spec-driven   # one schema, from any source
-openspec schema validate               # every project-local schema
+codespec schema validate spec-driven   # one schema, from any source
+codespec schema validate               # every project-local schema
 ```
 
 It verifies that `schema.yaml` exists and parses, that the structure matches the schema format, that every artifact's template file exists inside the schema's `templates/` directory, and that the dependency graph has no cycles or unknown references.
@@ -1283,12 +1283,12 @@ With no name, each project schema gets one line under a `Validation Results:` he
   error: Template file 'tasks.md' not found for artifact 'tasks'
 ```
 
-### openspec schema fork
+### codespec schema fork
 
 Copies an existing schema into the project so you can customize it.
 
 ```bash
-openspec schema fork spec-driven my-flow
+codespec schema fork spec-driven my-flow
 ```
 
 **Arguments**
@@ -1310,14 +1310,14 @@ openspec schema fork spec-driven my-flow
 ```
 ✔ Forked 'spec-driven' to 'my-flow'
 
-Source: /usr/local/lib/node_modules/@fission-ai/openspec/schemas/spec-driven (package)
-Destination: /Users/you/projects/my-app/openspec/schemas/my-flow
+Source: /usr/local/lib/node_modules/@fission-ai/codespec/schemas/spec-driven (package)
+Destination: /Users/you/projects/my-app/codespec/schemas/my-flow
 ```
 
-The fork lands in `openspec/schemas/`, and the `name:` field in its `schema.yaml` is rewritten to the new name:
+The fork lands in `codespec/schemas/`, and the `name:` field in its `schema.yaml` is rewritten to the new name:
 
 ```
-openspec/schemas/my-flow/
+codespec/schemas/my-flow/
 ├── schema.yaml
 └── templates/
     ├── design.md
@@ -1328,12 +1328,12 @@ openspec/schemas/my-flow/
 
 An existing destination is an error unless you pass `--force`. A fork that keeps the source's name shadows the original.
 
-### openspec schema init
+### codespec schema init
 
 Creates a new project-local schema with starter templates.
 
 ```bash
-openspec schema init my-schema --description "Lightweight flow" --artifacts proposal,tasks
+codespec schema init my-schema --description "Lightweight flow" --artifacts proposal,tasks
 ```
 
 With no `--description` and no `--artifacts` in an interactive terminal, init prompts for a description, an artifact checklist, and whether to make the schema the project default. Outside a terminal it uses the defaults below.
@@ -1350,19 +1350,19 @@ With no `--description` and no `--artifacts` in an interactive terminal, init pr
 |---|---|
 | `--description <text>` | Schema description. Default: `Custom workflow schema for <name>`. |
 | `--artifacts <list>` | Comma-separated artifact IDs from `proposal`, `specs`, `design`, `tasks`. Default: all four. |
-| `--default` | Writes `schema: <name>` to the existing `openspec/config.yaml` or `openspec/config.yml`. Creates `openspec/config.yaml` if neither exists. New changes use this schema. |
+| `--default` | Writes `schema: <name>` to the existing `codespec/config.yaml` or `codespec/config.yml`. Creates `codespec/config.yaml` if neither exists. New changes use this schema. |
 | `--no-default` | Skip the prompt about the default. |
 | `--force` | Overwrite an existing schema with the same name. |
 | `--json` | Print the result as JSON. |
 
-Schema creation and the `--default` config update are one operation. If OpenSpec cannot validate or write the config, it leaves both the config and any existing schema unchanged.
+Schema creation and the `--default` config update are one operation. If CodeSpec cannot validate or write the config, it leaves both the config and any existing schema unchanged.
 
 **Output**
 
 ```
 ✔ Created schema 'my-schema'
 
-Schema created at: /Users/you/projects/my-app/openspec/schemas/my-schema
+Schema created at: /Users/you/projects/my-app/codespec/schemas/my-schema
 
 Artifacts: proposal, tasks
 ```
@@ -1370,26 +1370,26 @@ Artifacts: proposal, tasks
 The layout on disk:
 
 ```
-openspec/schemas/my-schema/
+codespec/schemas/my-schema/
 ├── schema.yaml
 └── templates/
     ├── proposal.md
     └── tasks.md
 ```
 
-`schema.yaml` wires the selected artifacts with their dependencies. When `tasks` is included it also gets an `apply` phase that tracks `tasks.md`. Use the schema with `openspec new --schema my-schema`.
+`schema.yaml` wires the selected artifacts with their dependencies. When `tasks` is included it also gets an `apply` phase that tracks `tasks.md`. Use the schema with `codespec new --schema my-schema`.
 
-## openspec store
+## codespec store
 
-Creates and manages stores: standalone OpenSpec repos registered on your machine.
+Creates and manages stores: standalone CodeSpec repos registered on your machine.
 
 ```bash
-openspec store setup team-context --path ~/openspec/team-context   # create and register
-openspec store register ~/stores/design-system                     # register an existing checkout
-openspec store list                                                # see what's registered
+codespec store setup team-context --path ~/codespec/team-context   # create and register
+codespec store register ~/stores/design-system                     # register an existing checkout
+codespec store list                                                # see what's registered
 ```
 
-Registrations live in a per-machine registry: `~/.local/share/openspec/stores/registry.yaml`, or `$XDG_DATA_HOME/openspec/stores/registry.yaml` when `XDG_DATA_HOME` is set. Every subcommand takes `--json` to print a structured report instead of text. Running `openspec store` with a missing or unknown subcommand exits 1 and lists the subcommands.
+Registrations live in a per-machine registry: `~/.local/share/codespec/stores/registry.yaml`, or `$XDG_DATA_HOME/codespec/stores/registry.yaml` when `XDG_DATA_HOME` is set. Every subcommand takes `--json` to print a structured report instead of text. Running `codespec store` with a missing or unknown subcommand exits 1 and lists the subcommands.
 
 | Subcommand | What it does |
 |---|---|
@@ -1400,12 +1400,12 @@ Registrations live in a per-machine registry: `~/.local/share/openspec/stores/re
 | `list` (alias `ls`) | List registered stores. |
 | `doctor [id]` | Check registration, metadata, and Git state for registered stores. |
 
-### openspec store setup
+### codespec store setup
 
 Creates a store folder and registers it.
 
 ```bash
-openspec store setup team-context --path ~/openspec/team-context
+codespec store setup team-context --path ~/codespec/team-context
 ```
 
 In an interactive terminal, setup prompts for a missing name and location and confirms before creating anything. Outside one, a missing name or `--path` exits 1 with the flag to pass. Rerunning setup for a registered store reports `Registry: already registered`.
@@ -1430,11 +1430,11 @@ In an interactive terminal, setup prompts for a missing name and location and co
 ```
 Store ready: team-context
 Location: /Users/you/stores/team-context
-OpenSpec root: ready
+CodeSpec root: ready
 Registry: registered
 
-Next: run normal OpenSpec commands against this store, for example:
-  openspec new change <change-id> --store team-context
+Next: run normal CodeSpec commands against this store, for example:
+  codespec new change <change-id> --store team-context
 Share this store by committing and pushing it like any Git repo.
 ```
 
@@ -1445,10 +1445,10 @@ Share this store by committing and pushing it like any Git repo.
   "store": {
     "id": "design-system",
     "root": "/Users/you/stores/design-system",
-    "metadata_path": "/Users/you/stores/design-system/.openspec-store/store.yaml"
+    "metadata_path": "/Users/you/stores/design-system/.codespec-store/store.yaml"
   },
   "registry": {
-    "path": "/Users/you/.local/share/openspec/stores/registry.yaml",
+    "path": "/Users/you/.local/share/codespec/stores/registry.yaml",
     "registered": true,
     "already_registered": false
   },
@@ -1458,28 +1458,28 @@ Share this store by committing and pushing it like any Git repo.
     "committed": true
   },
   "created_files": [
-    "openspec/",
-    "openspec/specs/",
-    "openspec/changes/",
-    "openspec/changes/archive/",
-    "openspec/config.yaml",
-    "openspec/specs/.gitkeep",
-    "openspec/changes/archive/.gitkeep",
-    ".openspec-store/store.yaml"
+    "codespec/",
+    "codespec/specs/",
+    "codespec/changes/",
+    "codespec/changes/archive/",
+    "codespec/config.yaml",
+    "codespec/specs/.gitkeep",
+    "codespec/changes/archive/.gitkeep",
+    ".codespec-store/store.yaml"
   ],
   "status": []
 }
 ```
 
-### openspec store register
+### codespec store register
 
 Registers an existing store folder, for example a teammate's store you cloned.
 
 ```bash
-openspec store register ~/stores/design-system
+codespec store register ~/stores/design-system
 ```
 
-The folder must contain a healthy `openspec/` root. With `.openspec-store/store.yaml` present, register reuses the recorded id. Without it, register asks before creating that metadata. Outside an interactive terminal, pass `--yes` instead. A machine can register one checkout per store id. A second path under the same id, or the same path under a second id, exits 1.
+The folder must contain a healthy `codespec/` root. With `.codespec-store/store.yaml` present, register reuses the recorded id. Without it, register asks before creating that metadata. Outside an interactive terminal, pass `--yes` instead. A machine can register one checkout per store id. A second path under the same id, or the same path under a second id, exits 1.
 
 **Arguments**
 
@@ -1492,25 +1492,25 @@ The folder must contain a healthy `openspec/` root. With `.openspec-store/store.
 | Flag | Effect |
 |---|---|
 | `--id <id>` | Store id. Defaults to metadata or folder name. |
-| `--yes` | Confirm creating store identity metadata for a healthy OpenSpec root. |
+| `--yes` | Confirm creating store identity metadata for a healthy CodeSpec root. |
 
 **Output**
 
 ```
 Store registered: design-system
 Location: /Users/you/stores/design-system
-OpenSpec root: ready
+CodeSpec root: ready
 Registry: registered
 ```
 
 `--json` prints the same document shape as `store setup --json`.
 
-### openspec store unregister
+### codespec store unregister
 
 Forgets the registration. The folder stays on disk.
 
 ```bash
-openspec store unregister design-system
+codespec store unregister design-system
 ```
 
 ```
@@ -1518,19 +1518,19 @@ Unregistered store: design-system
 Files kept at: /Users/you/stores/design-system
 ```
 
-### openspec store remove
+### codespec store remove
 
 Forgets the registration and deletes the folder.
 
 ```bash
-openspec store remove design-system --yes
+codespec store remove design-system --yes
 ```
 
 Interactively, remove asks before deleting. With `--json` or outside an interactive terminal, deletion requires `--yes`:
 
 ```
 Error: Pass --yes to delete store files non-interactively.
-Fix: openspec store remove design-system --yes
+Fix: codespec store remove design-system --yes
 ```
 
 **Options**
@@ -1546,16 +1546,16 @@ Removed store: design-system
 Deleted: /Users/you/stores/design-system
 ```
 
-### openspec store list
+### codespec store list
 
 Lists registered stores. `ls` is an alias.
 
 ```bash
-openspec store list
+codespec store list
 ```
 
 ```
-OpenSpec stores (2)
+CodeSpec stores (2)
 
 ID              Location
 design-system   /Users/you/stores/design-system
@@ -1564,13 +1564,13 @@ team-context    /Users/you/stores/team-context
 
 With nothing registered, list prints `No stores registered.` and the setup and register commands to run next.
 
-### openspec store doctor
+### codespec store doctor
 
 Checks registration, metadata, and Git state for registered stores.
 
 ```bash
-openspec store doctor                # every registered store
-openspec store doctor team-context  # one store
+codespec store doctor                # every registered store
+codespec store doctor team-context  # one store
 ```
 
 **Output**
@@ -1580,7 +1580,7 @@ Store doctor
 
 team-context
   Location: /Users/you/stores/team-context
-  OpenSpec root: ok
+  CodeSpec root: ok
   Metadata: ok
   Git: repository detected (commits: yes, uncommitted changes: no, remote: none)
   Issues: none
@@ -1591,22 +1591,22 @@ team-context
 - `0`: the report printed, even when a store reports issues.
 - `1`: the report couldn't run (for example an unknown store id).
 
-## openspec doctor
+## codespec doctor
 
-Reports relationship health for the resolved OpenSpec root.
+Reports relationship health for the resolved CodeSpec root.
 
 ```bash
-openspec doctor                       # nearest openspec/ root above your cwd
-openspec doctor --store team-context  # a registered store as the root
+codespec doctor                       # nearest codespec/ root above your cwd
+codespec doctor --store team-context  # a registered store as the root
 ```
 
-Doctor is read-only: it never clones, syncs, or repairs. It reports whether the root is healthy and whether each reference declared in `openspec/config.yaml` resolves on this machine. With no root above your cwd and no `--store`, it exits 1 and names your registered stores.
+Doctor is read-only: it never clones, syncs, or repairs. It reports whether the root is healthy and whether each reference declared in `codespec/config.yaml` resolves on this machine. With no root above your cwd and no `--store`, it exits 1 and names your registered stores.
 
 **Options**
 
 | Flag | Effect |
 |---|---|
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 | `--json` | Print the health report as JSON. |
 
 **Output**
@@ -1616,7 +1616,7 @@ Doctor
 
 Root
   Location: /Users/you/projects/my-app
-  OpenSpec root: ok
+  CodeSpec root: ok
 
 References
   - team-context: ok (/Users/you/stores/team-context)
@@ -1625,12 +1625,12 @@ References
 With `--store`, the root is the store and the report adds a store line:
 
 ```
-Using OpenSpec root: team-context (/Users/you/stores/team-context)
+Using CodeSpec root: team-context (/Users/you/stores/team-context)
 Doctor
 
 Root
   Location: /Users/you/stores/team-context
-  OpenSpec root: ok
+  CodeSpec root: ok
   Store: team-context (metadata ok)
 
 References
@@ -1660,16 +1660,16 @@ References
 **Exit codes**
 
 - `0`: the report printed, including when it lists issues.
-- `1`: no root resolved (no `openspec/` above your cwd and no `--store`), or an unknown `--store` id.
+- `1`: no root resolved (no `codespec/` above your cwd and no `--store`), or an unknown `--store` id.
 
-## openspec context
+## codespec context
 
-Prints the working context for the resolved OpenSpec root: the root plus every referenced store declared in `openspec/config.yaml`, each with a fetch command.
+Prints the working context for the resolved CodeSpec root: the root plus every referenced store declared in `codespec/config.yaml`, each with a fetch command.
 
 ```bash
-openspec context                       # nearest openspec/ root above your cwd
-openspec context --store team-context  # a registered store as the root
-openspec context --json                # agent brief
+codespec context                       # nearest codespec/ root above your cwd
+codespec context --store team-context  # a registered store as the root
+codespec context --json                # agent brief
 ```
 
 References that don't resolve on this machine land in a `Not available on this machine` section, each with a fix.
@@ -1678,7 +1678,7 @@ References that don't resolve on this machine land in a `Not available on this m
 
 | Flag | Effect |
 |---|---|
-| `--store <id>` | Use a registered store as the OpenSpec root instead of the current project. |
+| `--store <id>` | Use a registered store as the CodeSpec root instead of the current project. |
 | `--json` | Print the agent brief as JSON. |
 | `--code-workspace <path>` | Also write a VS Code workspace file for the set. |
 | `--force` | Overwrite an existing `--code-workspace` file. |
@@ -1688,21 +1688,21 @@ References that don't resolve on this machine land in a `Not available on this m
 ```
 Working context for my-app (/Users/you/projects/my-app)
 
-OpenSpec root
+CodeSpec root
   my-app  /Users/you/projects/my-app
 
 Referenced stores
   team-context  /Users/you/stores/team-context
-    Fetch: openspec show <spec-id> --type spec --store team-context
+    Fetch: codespec show <spec-id> --type spec --store team-context
 ```
 
 With `--store`, the store is the whole set:
 
 ```
-Using OpenSpec root: team-context (/Users/you/stores/team-context)
+Using CodeSpec root: team-context (/Users/you/stores/team-context)
 Working context for team-context (/Users/you/stores/team-context)
 
-OpenSpec root
+CodeSpec root
   team-context  /Users/you/stores/team-context
 
 No references declared; the working set is this root alone.
@@ -1713,14 +1713,14 @@ No references declared; the working set is this root alone.
   "root": {
     "path": "/Users/you/projects/my-app",
     "source": "nearest",
-    "role": "openspec_root"
+    "role": "codespec_root"
   },
   "members": [
     {
       "role": "referenced_store",
       "id": "team-context",
       "path": "/Users/you/stores/team-context",
-      "fetch": "openspec show <spec-id> --type spec --store team-context",
+      "fetch": "codespec show <spec-id> --type spec --store team-context",
       "status": []
     }
   ],
@@ -1730,7 +1730,7 @@ No references declared; the working set is this root alone.
 
 **Writing a workspace file**
 
-`--code-workspace` writes a VS Code workspace file at the path you give: one folder for the root, one `ref:<id>` folder per available referenced store. Unavailable references are skipped and named in the summary line, `Wrote /Users/you/projects/my-app/openspec.code-workspace (2 folders)`. The summary prints on stderr, so `--json` stdout stays one JSON document. An existing file exits 1 unless you pass `--force`.
+`--code-workspace` writes a VS Code workspace file at the path you give: one folder for the root, one `ref:<id>` folder per available referenced store. Unavailable references are skipped and named in the summary line, `Wrote /Users/you/projects/my-app/codespec.code-workspace (2 folders)`. The summary prints on stderr, so `--json` stdout stays one JSON document. An existing file exits 1 unless you pass `--force`.
 
 ```json
 {
@@ -1750,16 +1750,16 @@ No references declared; the working set is this root alone.
 **Exit codes**
 
 - `0`: the report printed.
-- `1`: no root resolved (no `openspec/` above your cwd and no `--store`), or the `--code-workspace` write was refused.
+- `1`: no root resolved (no `codespec/` above your cwd and no `--store`), or the `--code-workspace` write was refused.
 
-## openspec workset
+## codespec workset
 
 Composes, keeps, and opens personal working views. A workset is a saved, named list of folders you work across together.
 
 ```bash
-openspec workset create checkout --member ~/projects/checkout-api --member web=~/projects/checkout-web
-openspec workset list
-openspec workset remove checkout --yes
+codespec workset create checkout --member ~/projects/checkout-api --member web=~/projects/checkout-web
+codespec workset list
+codespec workset remove checkout --yes
 ```
 
 | Subcommand | What it does |
@@ -1771,16 +1771,16 @@ openspec workset remove checkout --yes
 
 A workset is purely local:
 
-- Its state lives in one folder: `~/.local/share/openspec/worksets/` (`$XDG_DATA_HOME/openspec/worksets/` when set; `%LOCALAPPDATA%\openspec\worksets\` on Windows).
+- Its state lives in one folder: `~/.local/share/codespec/worksets/` (`$XDG_DATA_HOME/codespec/worksets/` when set; `%LOCALAPPDATA%\codespec\worksets\` on Windows).
 - Nothing is written into the member folders, and nothing is committed or shared.
 - Deleting that one folder removes every trace.
 
-### openspec workset create
+### codespec workset create
 
 Saves a named working view of folders.
 
 ```bash
-openspec workset create checkout \
+codespec workset create checkout \
   --member ~/projects/checkout-api \
   --member web=~/projects/checkout-web
 ```
@@ -1805,15 +1805,15 @@ In an interactive terminal, create prompts for whatever the flags didn't provide
 
 ```
 Saved workset 'checkout' (2 members) to your machine.
-Open it any time with: openspec workset open checkout
+Open it any time with: codespec workset open checkout
 ```
 
-### openspec workset list
+### codespec workset list
 
 Shows saved worksets with their members, sorted by name.
 
 ```bash
-openspec workset list   # alias: ls
+codespec workset list   # alias: ls
 ```
 
 **Options**
@@ -1824,7 +1824,7 @@ openspec workset list   # alias: ls
 
 **Output**
 
-One block per workset: the name, its tool when it has one, then one `name  path` row per member. With nothing saved, list prints `No worksets saved. Create one with: openspec workset create`.
+One block per workset: the name, its tool when it has one, then one `name  path` row per member. With nothing saved, list prints `No worksets saved. Create one with: codespec workset create`.
 
 ```
 checkout
@@ -1857,13 +1857,13 @@ With `--json`:
 }
 ```
 
-### openspec workset open
+### codespec workset open
 
 Opens a saved workset in your tool. Editor tools (`code`, `cursor`) get a generated `.code-workspace` file. A window opens and the command returns. CLI agent tools (`claude`, `codex`) would take over this terminal with every member attached. They are temporarily disabled while that flow is reworked, so worksets open in an IDE for now.
 
 ```bash
-openspec workset open checkout                # saved tool, or a prompt
-openspec workset open checkout --tool cursor  # this tool just this once
+codespec workset open checkout                # saved tool, or a prompt
+codespec workset open checkout --tool cursor  # this tool just this once
 ```
 
 **Arguments**
@@ -1889,12 +1889,12 @@ With no `--tool` and no saved tool, open prompts you to pick an installed tool. 
 - Mirrors the tool: the command exits with the tool's own exit code, and a signal becomes `128+n` (`130` after Ctrl-C).
 - `1`: unknown workset, no member folder available, or no usable tool.
 
-### openspec workset remove
+### codespec workset remove
 
 Deletes a saved workset and its generated `.code-workspace` file. Member folders are never touched.
 
 ```bash
-openspec workset remove checkout --yes
+codespec workset remove checkout --yes
 ```
 
 In an interactive terminal, remove shows the workset and asks you to confirm. With `--json`, or outside a terminal, it requires `--yes` and exits 1 without it.
@@ -1912,16 +1912,16 @@ In an interactive terminal, remove shows the workset and asks you to confirm. Wi
 Removed workset 'checkout'. Member folders were not touched.
 ```
 
-## openspec feedback
+## codespec feedback
 
-Submits feedback about OpenSpec.
+Submits feedback about CodeSpec.
 
 ```bash
-openspec feedback "Validate output is hard to scan"
-openspec feedback "Archive fails on Windows" --body "Steps: init, propose, archive. Error: EPERM."
+codespec feedback "Validate output is hard to scan"
+codespec feedback "Archive fails on Windows" --body "Steps: init, propose, archive. Error: EPERM."
 ```
 
-The CLI files your message as a GitHub issue on the `Fission-AI/OpenSpec` repo through your `gh` CLI. The title becomes `Feedback: <message>`. The body holds your `--body` text plus a footer with CLI version, platform, and timestamp. The issue gets the `feedback` label. If the repo doesn't define that label, the CLI retries without it and says so.
+The CLI files your message as a GitHub issue on the `Fission-AI/CodeSpec` repo through your `gh` CLI. The title becomes `Feedback: <message>`. The body holds your `--body` text plus a footer with CLI version, platform, and timestamp. The issue gets the `feedback` label. If the repo doesn't define that label, the CLI retries without it and says so.
 
 **Arguments**
 
@@ -1941,7 +1941,7 @@ On success:
 
 ```
 ✓ Feedback submitted successfully!
-Issue URL: https://github.com/Fission-AI/OpenSpec/issues/1234
+Issue URL: https://github.com/Fission-AI/CodeSpec/issues/1234
 ```
 
 Without `gh` installed, or with `gh` not logged in, nothing is submitted. The CLI prints your formatted feedback between `--- FORMATTED FEEDBACK ---` markers, then a prefilled new-issue URL to open in the browser. The not-logged-in path adds `To auto-submit in the future: gh auth login`.
@@ -1952,13 +1952,13 @@ Without `gh` installed, or with `gh` not logged in, nothing is submitted. The CL
 - `1`: no message given.
 - `gh`'s own code: `gh` failed after authentication (network, rate limit, issues disabled). The CLI reprints your feedback and the manual-submission URL first.
 
-## openspec completion
+## codespec completion
 
 Installs or generates shell completions.
 
 ```bash
-openspec completion install        # detect your shell, install, wire up config
-openspec completion generate zsh   # print the script to stdout
+codespec completion install        # detect your shell, install, wire up config
+codespec completion generate zsh   # print the script to stdout
 ```
 
 Supported shells: `zsh`, `bash`, `fish`, `powershell`. Every subcommand takes an optional shell argument. Omit it and the CLI detects your shell from the environment.
@@ -1969,34 +1969,34 @@ Supported shells: `zsh`, `bash`, `fish`, `powershell`. Every subcommand takes an
 | `install [shell]` | Write the script and configure your shell startup file. |
 | `uninstall [shell]` | Remove the script and the config block. |
 
-### openspec completion generate
+### codespec completion generate
 
 Prints the script and writes nothing.
 
 ```
-#compdef openspec
+#compdef codespec
 
-# Zsh completion script for OpenSpec CLI
+# Zsh completion script for CodeSpec CLI
 # Auto-generated - do not edit manually
 
-_openspec() {
+_codespec() {
   local context state line
   typeset -A opt_args
 ...
 ```
 
-### openspec completion install
+### codespec completion install
 
-Writes the script and edits your shell config. Config edits sit between `# OPENSPEC:START` and `# OPENSPEC:END` markers. An existing script is backed up first (`.backup-<timestamp>` copy).
+Writes the script and edits your shell config. Config edits sit between `# CodeSpec:START` and `# CodeSpec:END` markers. An existing script is backed up first (`.backup-<timestamp>` copy).
 
 | Shell | Script location | Config edited |
 |---|---|---|
-| zsh | `~/.zsh/completions/_openspec` | `~/.zshrc` |
-| bash | `~/.local/share/bash-completion/completions/openspec` | `~/.bashrc` |
-| fish | `~/.config/fish/completions/openspec.fish` | None: fish auto-loads it. |
-| powershell | `OpenSpecCompletion.ps1` beside your profile | `$PROFILE` |
+| zsh | `~/.zsh/completions/_codespec` | `~/.zshrc` |
+| bash | `~/.local/share/bash-completion/completions/codespec` | `~/.bashrc` |
+| fish | `~/.config/fish/completions/codespec.fish` | None: fish auto-loads it. |
+| powershell | `CodeSpecCompletion.ps1` beside your profile | `$PROFILE` |
 
-With Oh My Zsh installed, the script lands in `$ZSH_CUSTOM/completions/_openspec` instead (default `~/.oh-my-zsh/custom/completions/_openspec`).
+With Oh My Zsh installed, the script lands in `$ZSH_CUSTOM/completions/_codespec` instead (default `~/.oh-my-zsh/custom/completions/_codespec`).
 
 **Options**
 
@@ -2012,7 +2012,7 @@ With Oh My Zsh installed, the script lands in `$ZSH_CUSTOM/completions/_openspec
 Restart your shell or run: exec zsh
 ```
 
-### openspec completion uninstall
+### codespec completion uninstall
 
 Removes the script and the marked config block. It asks before touching your config (default: No).
 
@@ -2025,7 +2025,7 @@ Removes the script and the marked config block. It asks before touching your con
 **Output**
 
 ```
-✓ Completion script removed from /Users/you/.zsh/completions/_openspec. Removed OpenSpec configuration from ~/.zshrc
+✓ Completion script removed from /Users/you/.zsh/completions/_codespec. Removed CodeSpec configuration from ~/.zshrc
 ```
 
 **Exit codes**
@@ -2033,37 +2033,37 @@ Removes the script and the marked config block. It asks before touching your con
 - `0`: script generated, installed, or removed. A cancelled uninstall also exits 0.
 - `1`: shell not supported or not detected, or an install or uninstall step failed.
 
-## openspec change
+## codespec change
 
 Deprecated noun form of `show`, `list`, and `validate`. Every run warns and points to the verb-first commands, then runs anyway:
 
 ```
-Warning: The "openspec change ..." commands are deprecated. Prefer verb-first commands (e.g., "openspec list", "openspec validate --changes").
-Warning: "openspec change list" is deprecated. Use "openspec list".
+Warning: The "codespec change ..." commands are deprecated. Prefer verb-first commands (e.g., "codespec list", "codespec validate --changes").
+Warning: "codespec change list" is deprecated. Use "codespec list".
 add-rate-limit
 ```
 
 | Deprecated | Use instead |
 |---|---|
-| `openspec change show <name>` | `openspec show <name>` |
-| `openspec change list` | `openspec list` |
-| `openspec change validate <name>` | `openspec validate <name>` (all changes: `openspec validate --changes`) |
+| `codespec change show <name>` | `codespec show <name>` |
+| `codespec change list` | `codespec list` |
+| `codespec change validate <name>` | `codespec validate <name>` (all changes: `codespec validate --changes`) |
 
 The verb-first sections document the flags.
 
-## openspec spec
+## codespec spec
 
 Deprecated noun form of `show`, `list`, and `validate`. Every run warns and points to the verb-first commands, then runs anyway:
 
 ```
-Warning: The "openspec spec ..." commands are deprecated. Prefer verb-first commands (e.g., "openspec show", "openspec validate --specs").
+Warning: The "codespec spec ..." commands are deprecated. Prefer verb-first commands (e.g., "codespec show", "codespec validate --specs").
 api
 ```
 
 | Deprecated | Use instead |
 |---|---|
-| `openspec spec show <id>` | `openspec show <id>` |
-| `openspec spec list` | `openspec list --specs` |
-| `openspec spec validate <id>` | `openspec validate <id>` (all specs: `openspec validate --specs`) |
+| `codespec spec show <id>` | `codespec show <id>` |
+| `codespec spec list` | `codespec list --specs` |
+| `codespec spec validate <id>` | `codespec validate <id>` (all specs: `codespec validate --specs`) |
 
 The verb-first sections document the flags.

@@ -9,8 +9,8 @@ describe('item discovery', () => {
   let changesDir: string;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-item-discovery-'));
-    changesDir = path.join(root, 'openspec', 'changes');
+    root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-item-discovery-'));
+    changesDir = path.join(root, 'codespec', 'changes');
     await fs.mkdir(changesDir, { recursive: true });
   });
 
@@ -28,8 +28,8 @@ describe('item discovery', () => {
 
   describe('getActiveChangeIds', () => {
     it('resolves a scaffolded change that has no proposal.md', async () => {
-      // What `openspec new change <name>` leaves on disk: metadata only.
-      await makeChange('scaffolded', { '.openspec.yaml': 'schema: spec-driven\n' });
+      // What `codespec new change <name>` leaves on disk: metadata only.
+      await makeChange('scaffolded', { '.codespec.yaml': 'schema: spec-driven\n' });
       await makeChange('with-proposal', { 'proposal.md': '# With proposal' });
 
       expect(await getActiveChangeIds(root)).toEqual(['scaffolded', 'with-proposal']);
@@ -37,7 +37,7 @@ describe('item discovery', () => {
 
     it('resolves a change whose schema defines no proposal artifact', async () => {
       await makeChange('no-proposal-schema', {
-        '.openspec.yaml': 'schema: custom\n',
+        '.codespec.yaml': 'schema: custom\n',
         'tasks.md': '## 1. Work\n\n- [ ] 1.1 do it\n',
       });
 

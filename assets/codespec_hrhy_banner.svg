@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1152" height="192" viewBox="0 0 1152 192" role="img" aria-labelledby="title desc">
+  <title id="title">HRHY CodeSpec</title>
+  <desc id="desc">HRHY CodeSpec, a lightweight framework for code-spec change management.</desc>
+  <defs>
+    <pattern id="dots" width="8" height="8" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#a7a7a7"/>
+    </pattern>
+  </defs>
+  <rect width="1152" height="192" fill="#050505"/>
+  <path d="M0 0h54l102 192H0z" fill="url(#dots)" opacity=".9"/>
+  <path d="M82 0h28l102 192h-28z" fill="#d5d5d5" opacity=".5"/>
+  <path d="M360 192 456 0h252l-96 192z" fill="url(#dots)" opacity=".38"/>
+  <g fill="#f8f8f8" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" text-anchor="end">
+    <text x="1092" y="64" font-size="38" font-weight="800" letter-spacing="2">HRHY</text>
+    <text x="1092" y="112" font-size="22" letter-spacing="1">A LIGHTWEIGHT FRAMEWORK FOR</text>
+    <text x="1092" y="146" font-size="22" letter-spacing="1">CODE-SPEC CHANGE MANAGEMENT</text>
+  </g>
+</svg>

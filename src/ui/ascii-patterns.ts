@@ -1,137 +1,26 @@
 /**
- * ASCII art animation patterns for the welcome screen.
- * OpenSpec logo animation - diamond/rhombus shape with hollow center "O".
+ * ASCII wordmark animation patterns for the welcome screen.
+ *
+ * The product mark is deliberately plain ASCII so it renders consistently in
+ * every terminal and does not inherit the retired diamond animation.
  */
 
-// Detect if full Unicode is supported
-const supportsUnicode =
-  process.platform !== 'win32' ||
-  !!process.env.WT_SESSION || // Windows Terminal
-  !!process.env.TERM_PROGRAM; // Modern terminal
-
-// Character set based on Unicode support
-// Block characters for pixel-art aesthetic
-const CHARS = supportsUnicode
-  ? { full: '██', dim: '░░', empty: '  ' }
-  : { full: '##', dim: '++', empty: '  ' };
-
-const _ = CHARS.empty;
-const F = CHARS.full;
-const D = CHARS.dim;
+const HRHY_WORDMARK = [
+  'H   H RRR  H   H Y   Y',
+  'H   H R  R H   H  Y Y ',
+  'HHHHH RRR  HHHHH   Y  ',
+  'H   H R R  H   H   Y  ',
+  'H   H R  R H   H   Y  ',
+];
 
 /**
- * Welcome animation frames - OpenSpec logo building from center
- * 7 rows × 6 columns diamond with hollow center "O"
- * Center bar is 2 cols × 3 rows (rows 3,4,5 cols 3,4)
- * Each frame is an array of strings (lines of ASCII art)
- * Grid: 6 cols × 2 chars = 12 chars wide
+ * Welcome animation frames. Every frame keeps the textual HRHY identity
+ * visible while progressively revealing the five-line wordmark.
  */
 export const WELCOME_ANIMATION = {
   interval: 120,
-  frames: [
-    // Frame 1: Empty
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-    ],
-    // Frame 2: Center blocks appear (dim) - 2x3 center bar
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${D}${D}${_}${_}`,
-      `${_}${_}${_}${_}${D}${D}${_}${_}`,
-      `${_}${_}${_}${_}${D}${D}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-    ],
-    // Frame 3: Center blocks solidify
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-    ],
-    // Frame 4: Top and bottom points appear
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${D}${D}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${_}${_}${_}${_}`,
-      `${_}${_}${_}${_}${D}${D}${_}${_}`,
-    ],
-    // Frame 5: Inner ring forming
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${D}${_}${_}${D}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${D}${_}${_}${D}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-    ],
-    // Frame 6: Outer ring appearing
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${F}${_}${_}${F}${_}`,
-      `${_}${_}${D}${_}${F}${F}${_}${D}`,
-      `${_}${_}${D}${_}${F}${F}${_}${D}`,
-      `${_}${_}${D}${_}${F}${F}${_}${D}`,
-      `${_}${_}${_}${F}${_}${_}${F}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-    ],
-    // Frame 7: Full logo
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${F}${_}${_}${F}${_}`,
-      `${_}${_}${F}${_}${F}${F}${_}${F}`,
-      `${_}${_}${F}${_}${F}${F}${_}${F}`,
-      `${_}${_}${F}${_}${F}${F}${_}${F}`,
-      `${_}${_}${_}${F}${_}${_}${F}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-    ],
-    // Frame 8: Hold complete logo
-    [
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 1
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 2
-      `${_}${_}${_}${_}${_}${_}${_}${_}`, // padding row 3
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-      `${_}${_}${_}${F}${_}${_}${F}${_}`,
-      `${_}${_}${F}${_}${F}${F}${_}${F}`,
-      `${_}${_}${F}${_}${F}${F}${_}${F}`,
-      `${_}${_}${F}${_}${F}${F}${_}${F}`,
-      `${_}${_}${_}${F}${_}${_}${F}${_}`,
-      `${_}${_}${_}${_}${F}${F}${_}${_}`,
-    ],
-  ],
+  frames: Array.from({ length: HRHY_WORDMARK.length }, (_, visibleLines) => [
+    'HRHY',
+    ...HRHY_WORDMARK.map((line, index) => (index <= visibleLines ? line : '')),
+  ]),
 };

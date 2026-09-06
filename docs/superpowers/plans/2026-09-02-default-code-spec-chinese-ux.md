@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让 `openspec init` 默认创建并迁移到 canonical `code-spec` 项目，同时将 OpenSpec 的所有面向用户自然语言统一为中文。
+**Goal:** 让 `codespec init` 默认创建并迁移到 canonical `code-spec` 项目，同时将 CodeSpec 的所有面向用户自然语言统一为中文。
 
 **Architecture:** 抽取唯一的 canonical 配置/骨架渲染器，由初始化和 store 根目录共用；初始化先识别配置状态，再以原子操作执行 code-spec 覆盖和旧索引隔离。用户界面通过统一的中文状态标签、诊断文案和模板源文件实现，机器协议值、命令、路径、ID 和 DSL 保持英文。
 
@@ -12,8 +12,8 @@
 
 ## Global Constraints
 
-- `openspec init` 默认写入 `schema: code-spec`。
-- 已有 `openspec/config.yaml` 时，`init` 自动覆盖为 canonical 配置，不再等待交互确认。
+- `codespec init` 默认写入 `schema: code-spec`。
+- 已有 `codespec/config.yaml` 时，`init` 自动覆盖为 canonical 配置，不再等待交互确认。
 - 已有旧文件不删除、不移动，但不再参与 Change、状态、校验、归档和索引解析。
 - 已有 `code-spec` 配置和有效活动 Change 不重置；只有从旧配置切换时才重建 canonical 空索引。
 - CLI、Skill、模板和文档的自然语言使用中文；命令名、参数名、环境变量、路径、YAML/JSON key、schema 名称、稳定 ID、状态枚举和 DSL Token 保持英文。
@@ -26,17 +26,17 @@
 ### Task 1: 统一 canonical 默认配置渲染器
 
 **Files:**
-- Create: `src/core/openspec-workflow/default-config.ts`
+- Create: `src/core/codespec-workflow/default-config.ts`
 - Modify: `src/core/init.ts:90-130,1141-1162`
-- Modify: `src/core/openspec-root.ts:1-20,250-275`
+- Modify: `src/core/codespec-root.ts:1-20,250-275`
 - Modify: `src/commands/workflow/shared.ts:70-72`
-- Test: `test/core/openspec-default-config.test.ts`
-- Test: `test/core/openspec-root.test.ts`
+- Test: `test/core/codespec-default-config.test.ts`
+- Test: `test/core/codespec-root.test.ts`
 
 **Interfaces:**
 - Produces `CANONICAL_SCHEMA = 'code-spec'`、`renderCanonicalWorkspaceConfig(projectName, context?)`、`renderBusinessTemplate()`、`renderEmptyChangeIndex()`。
 - `renderCanonicalWorkspaceConfig` 必须输出 `version`、`schema`、`project.name`、六个 `paths` 字段、`workflow`、`requirements`、`changes` 和 `archive` 配置，路径与设计文档中的 canonical 结构一致。
-- `src/core/init.ts` 和 `src/core/openspec-root.ts` 不再各自维护默认 schema 或重复的 YAML 文本。
+- `src/core/init.ts` 和 `src/core/codespec-root.ts` 不再各自维护默认 schema 或重复的 YAML 文本。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -60,24 +60,24 @@ it('renders a complete canonical code-spec config', () => {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `pnpm vitest run test/core/openspec-default-config.test.ts test/core/openspec-root.test.ts`
+Run: `pnpm vitest run test/core/codespec-default-config.test.ts test/core/codespec-root.test.ts`
 
 Expected: FAIL because the shared renderer and `code-spec` default are not yet present.
 
 - [ ] **Step 3: 实现最小配置抽取**
 
-将 `renderCanonicalWorkspaceConfig` 移入 `default-config.ts`，把项目名作为参数而不是固定 `demo`；将 `DEFAULT_SCHEMA` 与 `DEFAULT_OPENSPEC_SCHEMA` 指向 `CANONICAL_SCHEMA`。store 根目录使用 `path.basename(storeRoot)` 作为项目名，并调用同一 renderer。
+将 `renderCanonicalWorkspaceConfig` 移入 `default-config.ts`，把项目名作为参数而不是固定 `demo`；将 `DEFAULT_SCHEMA` 与 `DEFAULT_CODESPEC_SCHEMA` 指向 `CANONICAL_SCHEMA`。store 根目录使用 `path.basename(storeRoot)` 作为项目名，并调用同一 renderer。
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `pnpm vitest run test/core/openspec-default-config.test.ts test/core/openspec-root.test.ts`
+Run: `pnpm vitest run test/core/codespec-default-config.test.ts test/core/codespec-root.test.ts`
 
-Expected: PASS，且 `ensureOpenSpecRoot` 生成的配置能通过 `parseWorkspaceConfig`。
+Expected: PASS，且 `ensureCodeSpecRoot` 生成的配置能通过 `parseWorkspaceConfig`。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/core/openspec-workflow/default-config.ts src/core/init.ts src/core/openspec-root.ts src/commands/workflow/shared.ts test/core/openspec-default-config.test.ts test/core/openspec-root.test.ts
+git add src/core/codespec-workflow/default-config.ts src/core/init.ts src/core/codespec-root.ts src/commands/workflow/shared.ts test/core/codespec-default-config.test.ts test/core/codespec-root.test.ts
 git commit -m "feat: make code-spec the canonical default"
 ```
 
@@ -116,7 +116,7 @@ Expected: FAIL because existing config is currently reported as `exists` and not
 
 在写入前读取并分类配置；仅把明确解析为旧 `spec-driven` 的配置视为可自动覆盖。通过现有 `FileSystemUtils.writeFile`/原子写入路径写入 canonical 配置。旧配置切换时先将 canonical 空索引写入临时文件再替换，业务文件只在缺失时创建；已有 canonical 配置不清空索引。
 
-增加 `openspec init --schema <code-spec|spec-driven>`，默认值为 `code-spec`。显式选择 `spec-driven` 时保留通用 schema 初始化；默认路径和自动迁移路径只进入 canonical code-spec。
+增加 `codespec init --schema <code-spec|spec-driven>`，默认值为 `code-spec`。显式选择 `spec-driven` 时保留通用 schema 初始化；默认路径和自动迁移路径只进入 canonical code-spec。
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -141,8 +141,8 @@ git commit -m "feat: migrate initialized projects to code-spec"
 - Modify: `src/commands/validate.ts:210-330`
 - Modify: `src/cli/index.ts:380-560,700-780`
 - Test: `test/commands/artifact-workflow.test.ts`
-- Test: `test/core/openspec-workflow/legacy-rejection.test.ts`
-- Test: `test/cli-e2e/openspec-workflow-journeys.test.ts`
+- Test: `test/core/codespec-workflow/legacy-rejection.test.ts`
+- Test: `test/cli-e2e/codespec-workflow-journeys.test.ts`
 
 **Interfaces:**
 - 默认 root/schema 解析为 `code-spec`；canonical workspace 通过 `schema: code-spec` 和完整 paths 进入新 loader。
@@ -155,7 +155,7 @@ git commit -m "feat: migrate initialized projects to code-spec"
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `pnpm vitest run test/commands/artifact-workflow.test.ts test/core/openspec-workflow/legacy-rejection.test.ts test/cli-e2e/openspec-workflow-journeys.test.ts`
+Run: `pnpm vitest run test/commands/artifact-workflow.test.ts test/core/codespec-workflow/legacy-rejection.test.ts test/cli-e2e/codespec-workflow-journeys.test.ts`
 
 Expected: FAIL on default schema or old root routing.
 
@@ -165,14 +165,14 @@ Expected: FAIL on default schema or old root routing.
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `pnpm vitest run test/commands/artifact-workflow.test.ts test/core/openspec-workflow/legacy-rejection.test.ts test/cli-e2e/openspec-workflow-journeys.test.ts`
+Run: `pnpm vitest run test/commands/artifact-workflow.test.ts test/core/codespec-workflow/legacy-rejection.test.ts test/cli-e2e/codespec-workflow-journeys.test.ts`
 
 Expected: PASS，且 legacy rejection、路径安全和 JSON 契约保持有效。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/commands/workflow/shared.ts src/commands/workflow/new-change.ts src/commands/workflow/status.ts src/commands/show.ts src/commands/validate.ts src/cli/index.ts test/commands/artifact-workflow.test.ts test/core/openspec-workflow/legacy-rejection.test.ts test/cli-e2e/openspec-workflow-journeys.test.ts
+git add src/commands/workflow/shared.ts src/commands/workflow/new-change.ts src/commands/workflow/status.ts src/commands/show.ts src/commands/validate.ts src/cli/index.ts test/commands/artifact-workflow.test.ts test/core/codespec-workflow/legacy-rejection.test.ts test/cli-e2e/codespec-workflow-journeys.test.ts
 git commit -m "feat: route CLI commands through canonical code-spec"
 ```
 
@@ -181,11 +181,11 @@ git commit -m "feat: route CLI commands through canonical code-spec"
 **Files:**
 - Create: `src/ui/user-facing-messages.ts`
 - Modify: `src/commands/shared-output.ts`
-- Modify: `src/core/openspec-workflow/types.ts`
-- Modify: `src/core/openspec-workflow/state-machine.ts`
-- Modify: `src/core/openspec-workflow/gates.ts`
-- Modify: `src/core/openspec-workflow/verification.ts`
-- Modify: `src/core/openspec-workflow/archive-transaction.ts`
+- Modify: `src/core/codespec-workflow/types.ts`
+- Modify: `src/core/codespec-workflow/state-machine.ts`
+- Modify: `src/core/codespec-workflow/gates.ts`
+- Modify: `src/core/codespec-workflow/verification.ts`
+- Modify: `src/core/codespec-workflow/archive-transaction.ts`
 - Test: `test/core/user-facing-messages.test.ts`
 - Test: `test/commands/artifact-workflow.test.ts`
 
@@ -223,7 +223,7 @@ Expected: PASS，且 JSON stdout 仍能被 `JSON.parse` 解析。
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/ui/user-facing-messages.ts src/commands/shared-output.ts src/core/openspec-workflow/types.ts src/core/openspec-workflow/state-machine.ts src/core/openspec-workflow/gates.ts src/core/openspec-workflow/verification.ts src/core/openspec-workflow/archive-transaction.ts test/core/user-facing-messages.test.ts test/commands/artifact-workflow.test.ts
+git add src/ui/user-facing-messages.ts src/commands/shared-output.ts src/core/codespec-workflow/types.ts src/core/codespec-workflow/state-machine.ts src/core/codespec-workflow/gates.ts src/core/codespec-workflow/verification.ts src/core/codespec-workflow/archive-transaction.ts test/core/user-facing-messages.test.ts test/commands/artifact-workflow.test.ts
 git commit -m "feat: localize canonical workflow output to Chinese"
 ```
 
@@ -247,13 +247,13 @@ git commit -m "feat: localize canonical workflow output to Chinese"
 - Test: `test/commands/workset.test.ts`
 
 **Interfaces:**
-- init 输出使用中文，例如“正在创建 OpenSpec 结构……”“已为 Codex 安装 6 个技能；该工具使用技能，不生成命令文件”。
+- init 输出使用中文，例如“正在创建 CodeSpec 结构……”“已为 Codex 安装 6 个技能；该工具使用技能，不生成命令文件”。
 - 配置、store、workset、schema 和 update 的人类错误包含中文说明和中文 `Fix:`/`修复：` 标签；可复制命令原样保留。
 - `--help` 的描述、参数说明和示例改为中文，但命令名、选项名和路径保持英文。
 
 - [ ] **Step 1: 写失败测试**
 
-将现有 init/workset/config/store 人类输出测试增加中文断言，并新增一个命令帮助快照断言：`openspec init --help` 包含中文描述、`--schema <code-spec|spec-driven>` 和英文命令语法。
+将现有 init/workset/config/store 人类输出测试增加中文断言，并新增一个命令帮助快照断言：`codespec init --help` 包含中文描述、`--schema <code-spec|spec-driven>` 和英文命令语法。
 
 - [ ] **Step 2: 运行测试确认失败**
 
@@ -263,7 +263,7 @@ Expected: FAIL on current English copy.
 
 - [ ] **Step 3: 翻译并保留协议**
 
-逐文件替换用户自然语言；不翻译 `schema`、`code-spec`、`spec-driven`、命令、选项、稳定 ID、文件名、URL 和外部工具原生语法。修复建议采用“修复：`openspec ...`”格式。
+逐文件替换用户自然语言；不翻译 `schema`、`code-spec`、`spec-driven`、命令、选项、稳定 ID、文件名、URL 和外部工具原生语法。修复建议采用“修复：`codespec ...`”格式。
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -275,7 +275,7 @@ Expected: PASS；Codex 仍只生成 skills，但提示和帮助内容均为中�
 
 ```bash
 git add src/core/init.ts src/core/update.ts src/ui/welcome-screen.ts src/cli/index.ts src/commands/config.ts src/commands/schema.ts src/commands/store.ts src/commands/workset.ts src/core/store/errors.ts src/core/project-config.ts test/core/init.test.ts test/core/update.test.ts test/commands/config.test.ts test/commands/store.test.ts test/commands/workset.test.ts test/cli-e2e/basic.test.ts
-git commit -m "feat: translate OpenSpec CLI user surfaces to Chinese"
+git commit -m "feat: translate CodeSpec CLI user surfaces to Chinese"
 ```
 
 ### Task 6: 中文化生成的 Skill、模板、README 和工作流文档
@@ -283,7 +283,7 @@ git commit -m "feat: translate OpenSpec CLI user surfaces to Chinese"
 **Files:**
 - Modify: `src/core/templates/**/*.ts`
 - Modify: `src/core/templates/workflows/**/*.ts`
-- Modify: `src/core/templates/workflows/openspec-workflow.ts`
+- Modify: `src/core/templates/workflows/codespec-workflow.ts`
 - Modify: `src/core/templates/workflows/onboard.ts`
 - Modify: `src/core/templates/workflows/propose.ts`
 - Modify: `src/core/templates/workflows/apply-change.ts`
@@ -293,22 +293,22 @@ git commit -m "feat: translate OpenSpec CLI user surfaces to Chinese"
 - Modify: `src/core/templates/workflows/archive.ts`
 - Modify: `docs/**/*.md`
 - Test: `test/core/templates/skill-content-equivalence.test.ts`
-- Test: `test/core/templates/openspec-workflow.test.ts`
+- Test: `test/core/templates/codespec-workflow.test.ts`
 - Test: `test/core/templates/skillssh-parity.test.ts`
 - Test: `test/vocabulary-sweep.test.ts`
 
 **Interfaces:**
 - 生成的自然语言标题、正文、步骤、错误引导和示例说明使用中文。
-- Skill 中的 `$openspec-*`、`/opsx:*`、`CHG-*`、`MOD-*`、状态枚举和 DSL Token 保留英文并可直接复制执行。
+- Skill 中的 `$codespec-*`、`/codespec:*`、`CHG-*`、`MOD-*`、状态枚举和 DSL Token 保留英文并可直接复制执行。
 - 文档中的 canonical 目录结构、配置 YAML key 和协议示例保持原样；解释文字改为中文。
 
 - [ ] **Step 1: 写失败测试**
 
-扩展模板测试，渲染 `openspec-workflow`、propose、apply、archive 和 onboard，断言关键标题包含中文，同时断言 `CHG-YYYYMMDD-NNN`、`MOD-###-REQ-###`、`ANALYZE`、`ADDED` 和命令 token 未被翻译。更新 parity 测试的期望哈希输入。
+扩展模板测试，渲染 `codespec-workflow`、propose、apply、archive 和 onboard，断言关键标题包含中文，同时断言 `CHG-YYYYMMDD-NNN`、`MOD-###-REQ-###`、`ANALYZE`、`ADDED` 和命令 token 未被翻译。更新 parity 测试的期望哈希输入。
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `pnpm vitest run test/core/templates/skill-content-equivalence.test.ts test/core/templates/openspec-workflow.test.ts test/core/templates/skillssh-parity.test.ts`
+Run: `pnpm vitest run test/core/templates/skill-content-equivalence.test.ts test/core/templates/codespec-workflow.test.ts test/core/templates/skillssh-parity.test.ts`
 
 Expected: FAIL on English template content or stale parity hashes.
 
@@ -318,15 +318,15 @@ Expected: FAIL on English template content or stale parity hashes.
 
 - [ ] **Step 4: 运行测试确认通过**
 
-Run: `pnpm vitest run test/core/templates/skill-content-equivalence.test.ts test/core/templates/openspec-workflow.test.ts test/core/templates/skillssh-parity.test.ts test/vocabulary-sweep.test.ts`
+Run: `pnpm vitest run test/core/templates/skill-content-equivalence.test.ts test/core/templates/codespec-workflow.test.ts test/core/templates/skillssh-parity.test.ts test/vocabulary-sweep.test.ts`
 
 Expected: PASS，且不出现协议 token 被误翻译或中文文案漂移。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/core/templates docs test/core/templates/skill-content-equivalence.test.ts test/core/templates/openspec-workflow.test.ts test/core/templates/skillssh-parity.test.ts test/vocabulary-sweep.test.ts
-git commit -m "docs: provide Chinese OpenSpec workflow guidance"
+git add src/core/templates docs test/core/templates/skill-content-equivalence.test.ts test/core/templates/codespec-workflow.test.ts test/core/templates/skillssh-parity.test.ts test/vocabulary-sweep.test.ts
+git commit -m "docs: provide Chinese CodeSpec workflow guidance"
 ```
 
 ### Task 7: 完成全量回归与发布前验证
@@ -335,10 +335,10 @@ git commit -m "docs: provide Chinese OpenSpec workflow guidance"
 - Modify: `test/cli-e2e/basic.test.ts`
 - Modify: `test/commands/artifact-workflow.test.ts`
 - Modify: `test/core/init.test.ts`
-- Modify: `test/core/openspec-root.test.ts`
-- Create: `test/fixtures/code-spec-default/openspec/config.yaml`
-- Create: `test/fixtures/code-spec-default/openspec/business.md`
-- Create: `test/fixtures/code-spec-default/openspec/changes/index.yaml`
+- Modify: `test/core/codespec-root.test.ts`
+- Create: `test/fixtures/code-spec-default/codespec/config.yaml`
+- Create: `test/fixtures/code-spec-default/codespec/business.md`
+- Create: `test/fixtures/code-spec-default/codespec/changes/index.yaml`
 
 **Interfaces:**
 - Fixture 必须是可加载的完整 canonical workspace，并包含至少一个 `MOD-001` 模块行。
@@ -346,11 +346,11 @@ git commit -m "docs: provide Chinese OpenSpec workflow guidance"
 
 - [ ] **Step 1: 添加端到端 fixture 与失败断言**
 
-使用 `runCLI(['init', '--tools', 'none', '--no-animation'])` 初始化空 fixture，再运行 `openspec new change "中文变更" --json`；断言配置 schema、目录、Change ID、输出语言和旧目录隔离结果。
+使用 `runCLI(['init', '--tools', 'none', '--no-animation'])` 初始化空 fixture，再运行 `codespec new change "中文变更" --json`；断言配置 schema、目录、Change ID、输出语言和旧目录隔离结果。
 
 - [ ] **Step 2: 运行定向回归**
 
-Run: `pnpm vitest run test/core/init.test.ts test/core/openspec-root.test.ts test/commands/artifact-workflow.test.ts test/cli-e2e/basic.test.ts`
+Run: `pnpm vitest run test/core/init.test.ts test/core/codespec-root.test.ts test/commands/artifact-workflow.test.ts test/cli-e2e/basic.test.ts`
 
 Expected: PASS。
 

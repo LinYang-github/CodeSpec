@@ -10,14 +10,14 @@ import { escapeYamlValue } from '../yaml.js';
 
 /**
  * Junie adapter for command generation.
- * File path: .junie/commands/opsx-<id>.md
+ * File path: .junie/commands/codespec-<id>.md
  * Frontmatter: description
  */
 export const junieAdapter: ToolCommandAdapter = {
   toolId: 'junie',
 
   getFilePath(commandId: string): string {
-    return path.join('.junie', 'commands', `opsx-${commandId}.md`);
+    return path.join('.junie', 'commands', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

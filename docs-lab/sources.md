@@ -15,7 +15,7 @@ and the redirect list at cutover. The target structure is the page index in
 | concepts.md | `guides/concepts.md` (core) · delta format to `reference/schemas/spec-driven/index.md` (Delta specs section) · embedded glossary table deleted |
 | explore.md | `guides/explore.md` |
 | workflows.md | `guides/apply.md` (execution patterns, continue/ff) · `reference/skills.md` |
-| opsx.md | split four ways: config to `customize/project-config.md` · commands to `reference/skills.md` · philosophy to `guides/concepts.md` · architecture to `reference/architecture/` |
+| codespec.md | split four ways: config to `customize/project-config.md` · commands to `reference/skills.md` · philosophy to `guides/concepts.md` · architecture to `reference/architecture/` |
 | reviewing-changes.md + writing-specs.md | `guides/review-the-plan.md` (merged) |
 | editing-changes.md | `guides/change-course.md` |
 | team-workflow.md | `guides/teams.md` |
@@ -23,7 +23,7 @@ and the redirect list at cutover. The target structure is the page index in
 | customization.md | `customize/project-config.md` + `customize/schemas.md` + `customize/overview.md` (decision ladder) · schema.yaml fields to `reference/schemas/schema-yaml.md` |
 | multi-language.md | `customize/project-config.md` §context, the "Another language" note |
 | stores-beta/user-guide.md | `multi-repo/stores.md` · worksets section to `multi-repo/worksets.md` |
-| commands.md | `reference/skills.md` (legacy `/openspec:*` section removed) |
+| commands.md | `reference/skills.md` (legacy `/codespec:*` section removed) |
 | cli.md | `reference/cli.md` (minus install, which moves to `start/installation.md`) |
 | supported-tools.md | `reference/supported-tools.md` |
 | glossary.md | `reference/glossary.md` |

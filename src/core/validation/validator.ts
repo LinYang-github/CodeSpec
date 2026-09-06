@@ -35,8 +35,8 @@ import { resolveTaskFilesForChange } from '../../utils/task-progress.js';
 import { findTaskNumberingIssues } from './task-numbering.js';
 import { findPurposePlaceholderIssue } from './purpose-placeholder.js';
 import { getPackageSchemasDir, getSchemaDir } from '../artifact-graph/index.js';
-import { parseDeltaSpec as parseCanonicalDeltaSpec } from '../openspec-workflow/delta-parser.js';
-import { collectEmptyScenarioErrorIssues } from '../openspec-workflow/scenario-parser.js';
+import { parseDeltaSpec as parseCanonicalDeltaSpec } from '../codespec-workflow/delta-parser.js';
+import { collectEmptyScenarioErrorIssues } from '../codespec-workflow/scenario-parser.js';
 
 export class Validator {
   private strictMode: boolean;
@@ -198,7 +198,7 @@ export class Validator {
 
       // A spec.md directly at the specs/ root has no capability folder, so the
       // merge path drops it: without this error the change validates clean and
-      // archives while its requirements never reach openspec/specs/ (#1385).
+      // archives while its requirements never reach codespec/specs/ (#1385).
       // Only a regular file counts — a *directory* named spec.md is a capability
       // folder like any other, and discoverSpecFiles reads it normally.
       const rootSpecStat = await fs.stat(path.join(specsDir, 'spec.md')).catch(() => null);
@@ -844,7 +844,7 @@ export class Validator {
    * When the SHALL/MUST keyword already appears in the requirement header (e.g.
    * `### Requirement: The system SHALL ...`) the original generic error
    * ("must contain SHALL or MUST") is confusing because the keyword is visibly
-   * present in the spec. Per the OpenSpec conventions the keyword has to live
+   * present in the spec. Per the CodeSpec conventions the keyword has to live
    * on the requirement body line (the line right after the header), so we point
    * the author at that exact fix when the keyword is found in the header only.
    */

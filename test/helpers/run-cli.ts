@@ -143,7 +143,7 @@ export async function runCLI(args: string[] = [], options: RunCLIOptions = {}): 
   const isolatedConfigHome =
     explicitConfigHome !== undefined
       ? undefined
-      : await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-cli-config-'));
+      : await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-cli-config-'));
 
   return new Promise<RunCLIResult>((resolve, reject) => {
     const timeoutMs = options.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
@@ -152,7 +152,7 @@ export async function runCLI(args: string[] = [], options: RunCLIOptions = {}): 
       env: mergeEnv(
         process.env,
         {
-          OPENSPEC_TELEMETRY: '0',
+          CODESPEC_TELEMETRY: '0',
           OPEN_SPEC_INTERACTIVE: '0',
           XDG_CONFIG_HOME: explicitConfigHome ?? isolatedConfigHome,
         },

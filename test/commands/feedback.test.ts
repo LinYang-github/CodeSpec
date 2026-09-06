@@ -46,7 +46,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/123\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/123\n');
 
       await feedbackCommand.execute('Test');
 
@@ -72,7 +72,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/123\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/123\n');
 
       await feedbackCommand.execute('Test');
 
@@ -100,17 +100,17 @@ describe('FeedbackCommand', () => {
 
       // Should display warning
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('GitHub CLI not found')
+        expect.stringContaining('未找到 GitHub CLI')
       );
 
       // Should show formatted feedback
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('--- FORMATTED FEEDBACK ---')
+        expect.stringContaining('--- 格式化反馈 ---')
       );
 
       // Should show manual submission URL
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('https://github.com/Fission-AI/OpenSpec/issues/new')
+        expect.stringContaining('https://github.com/LinYang-github/CodeSpec/issues/new')
       );
     });
 
@@ -134,24 +134,24 @@ describe('FeedbackCommand', () => {
 
       // Should display warning
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('GitHub authentication required')
+        expect.stringContaining('需要完成 GitHub 身份验证')
       );
 
       // Should show auth instructions
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('To auto-submit in the future: gh auth login')
+        expect.stringContaining('以后如需自动提交，请运行：gh auth login')
       );
 
       // Should show formatted feedback
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('--- FORMATTED FEEDBACK ---')
+        expect.stringContaining('--- 格式化反馈 ---')
       );
     });
   });
 
   describe('successful feedback submission', () => {
     it('should submit feedback via gh CLI when authenticated', async () => {
-      const issueUrl = 'https://github.com/Fission-AI/OpenSpec/issues/123';
+      const issueUrl = 'https://github.com/LinYang-github/CodeSpec/issues/123';
 
       // Simulate gh installed and authenticated
       mockExecSync.mockImplementation((cmd: string, options?: any) => {
@@ -175,11 +175,11 @@ describe('FeedbackCommand', () => {
           'issue',
           'create',
           '--repo',
-          'Fission-AI/OpenSpec',
+          'LinYang-github/CodeSpec',
           '--title',
-          'Feedback: Great tool!',
+          '反馈：Great tool!',
           '--body',
-          expect.stringContaining('Submitted via OpenSpec CLI'),
+          expect.stringContaining('通过 CodeSpec CLI'),
           '--label',
           'feedback',
         ],
@@ -191,7 +191,7 @@ describe('FeedbackCommand', () => {
 
       // Should display success message
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Feedback submitted successfully')
+        expect.stringContaining('反馈提交成功')
       );
 
       // Should display issue URL
@@ -202,12 +202,12 @@ describe('FeedbackCommand', () => {
       // Only one attempt, and no note about a dropped label
       expect(mockExecFileSync).toHaveBeenCalledTimes(1);
       expect(consoleLogSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("without the 'feedback' label")
+        expect.stringContaining("提示：仓库未定义 'feedback' 标签")
       );
     });
 
     it('should preserve message and body whitespace in the issue body', async () => {
-      const issueUrl = 'https://github.com/Fission-AI/OpenSpec/issues/124';
+      const issueUrl = 'https://github.com/LinYang-github/CodeSpec/issues/124';
 
       mockExecSync.mockImplementation((cmd: string, options?: any) => {
         if (cmd === 'which gh' || cmd === 'where gh') {
@@ -228,7 +228,7 @@ describe('FeedbackCommand', () => {
       const args = mockExecFileSync.mock.calls[0][1] as string[];
       const body = args[args.indexOf('--body') + 1];
       expect(body).toContain(
-        `## Summary\n\n${message}\n\n## Details\n\n${details}\n\n---`
+        `## 摘要\n\n${message}\n\n## 详情\n\n${details}\n\n---`
       );
     });
 
@@ -243,7 +243,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/125\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/125\n');
 
       const message =
         'Generated workflows declare too few allowed tools,\nso headless runs cannot write files and silently fail.';
@@ -253,12 +253,10 @@ describe('FeedbackCommand', () => {
       const title = args[args.indexOf('--title') + 1];
       const body = args[args.indexOf('--body') + 1];
 
-      expect(title).toBe(
-        'Feedback: Generated workflows declare too few allowed tools, so…'
-      );
+      expect(title).toContain('反馈：Generated workflows declare too few allowed tools');
       expect(title.length).toBeLessThanOrEqual(72);
       expect(title).not.toMatch(/[\r\n]/);
-      expect(body).toContain(`## Summary\n\n${message}`);
+      expect(body).toContain(`## 摘要\n\n${message}`);
     });
 
     it('should not split Unicode grapheme clusters when shortening a title', async () => {
@@ -272,7 +270,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/125\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/125\n');
 
       const family = '👨‍👩‍👧‍👦';
       const message = family.repeat(20);
@@ -280,7 +278,7 @@ describe('FeedbackCommand', () => {
 
       const args = mockExecFileSync.mock.calls[0][1] as string[];
       const title = args[args.indexOf('--title') + 1];
-      const summary = title.slice('Feedback: '.length, -1);
+      const summary = title.slice('反馈：'.length, -1);
 
       expect(Array.from(title).length).toBeLessThanOrEqual(72);
       expect(title.endsWith('…')).toBe(true);
@@ -298,19 +296,19 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/125\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/125\n');
 
-      await feedbackCommand.execute('x'.repeat(62));
-      await feedbackCommand.execute('x'.repeat(63));
+      await feedbackCommand.execute('x'.repeat(69));
+      await feedbackCommand.execute('x'.repeat(70));
 
       const exactArgs = mockExecFileSync.mock.calls[0][1] as string[];
       const shortenedArgs = mockExecFileSync.mock.calls[1][1] as string[];
       const exactTitle = exactArgs[exactArgs.indexOf('--title') + 1];
       const shortenedTitle = shortenedArgs[shortenedArgs.indexOf('--title') + 1];
 
-      expect(exactTitle).toBe(`Feedback: ${'x'.repeat(62)}`);
+      expect(exactTitle).toBe(`反馈：${'x'.repeat(69)}`);
       expect(Array.from(exactTitle)).toHaveLength(72);
-      expect(shortenedTitle).toBe(`Feedback: ${'x'.repeat(61)}…`);
+      expect(shortenedTitle).toBe(`反馈：${'x'.repeat(68)}…`);
       expect(Array.from(shortenedTitle)).toHaveLength(72);
     });
 
@@ -325,7 +323,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/125\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/125\n');
 
       await feedbackCommand.execute('Test message');
 
@@ -334,7 +332,7 @@ describe('FeedbackCommand', () => {
         'gh',
         expect.arrayContaining([
           '--title',
-          'Feedback: Test message',
+          '反馈：Test message',
         ]),
         expect.any(Object)
       );
@@ -351,7 +349,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/126\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/126\n');
 
       await feedbackCommand.execute('Test', { body: 'Body text' });
 
@@ -360,7 +358,7 @@ describe('FeedbackCommand', () => {
         'gh',
         expect.arrayContaining([
           '--body',
-          expect.stringMatching(/Submitted via OpenSpec CLI[\s\S]*Version:[\s\S]*Platform:[\s\S]*Timestamp:/),
+          expect.stringMatching(/通过 CodeSpec CLI[\s\S]*版本：[\s\S]*平台：[\s\S]*时间：/),
         ]),
         expect.any(Object)
       );
@@ -377,7 +375,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/127\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/127\n');
 
       await feedbackCommand.execute('Test');
 
@@ -429,10 +427,10 @@ describe('FeedbackCommand', () => {
       // fallback (formatted text + pre-filled URL) is shown like the
       // missing-gh and unauthenticated flows.
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Please submit your feedback manually:')
+        expect.stringContaining('请手动提交反馈：')
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('github.com/Fission-AI/OpenSpec/issues/new')
+        expect.stringContaining('github.com/LinYang-github/CodeSpec/issues/new')
       );
     });
 
@@ -465,12 +463,12 @@ describe('FeedbackCommand', () => {
 
       expect(mockExecFileSync).toHaveBeenCalledTimes(1);
       expect(consoleLogSpy).not.toHaveBeenCalledWith(
-        expect.stringContaining("without the 'feedback' label")
+        expect.stringContaining("提示：仓库未定义 'feedback' 标签")
       );
     });
 
     it('should retry without the label when the repo does not define it', async () => {
-      const issueUrl = 'https://github.com/Fission-AI/OpenSpec/issues/129';
+      const issueUrl = 'https://github.com/LinYang-github/CodeSpec/issues/129';
 
       mockExecSync.mockImplementation((cmd: string, options?: any) => {
         if (cmd === 'which gh' || cmd === 'where gh') {
@@ -519,13 +517,13 @@ describe('FeedbackCommand', () => {
       // The feedback still lands as an issue, and the user is told the label
       // was not applied
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Feedback submitted successfully')
+        expect.stringContaining('反馈提交成功')
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining(issueUrl)
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining("without the 'feedback' label")
+        expect.stringContaining("提示：仓库未定义 'feedback' 标签")
       );
     });
 
@@ -577,7 +575,7 @@ describe('FeedbackCommand', () => {
         return '';
       });
 
-      mockExecFileSync.mockReturnValue('https://github.com/Fission-AI/OpenSpec/issues/128\n');
+      mockExecFileSync.mockReturnValue('https://github.com/LinYang-github/CodeSpec/issues/128\n');
 
       await feedbackCommand.execute('Test with "quotes"', {
         body: 'Body with "quotes"',
@@ -588,7 +586,7 @@ describe('FeedbackCommand', () => {
         'gh',
         expect.arrayContaining([
           '--title',
-          'Feedback: Test with "quotes"',
+          '反馈：Test with "quotes"',
           '--body',
           expect.stringContaining('Body with "quotes"'),
         ]),
@@ -616,24 +614,24 @@ describe('FeedbackCommand', () => {
 
       // Verify formatted output structure
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('--- FORMATTED FEEDBACK ---')
+        expect.stringContaining('--- 格式化反馈 ---')
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          'Title: Feedback: Generated workflows declare too few allowed tools, so…'
+          '标题：反馈：Generated workflows declare'
         )
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Labels: feedback')
+        expect.stringContaining('标签：feedback')
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('--- END FEEDBACK ---')
+        expect.stringContaining('--- 反馈结束 ---')
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`## Summary\n\n${message}`)
+        expect.stringContaining(`## 摘要\n\n${message}`)
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        expect.stringContaining('## Details\n\nTest body')
+        expect.stringContaining('## 详情\n\nTest body')
       );
     });
 
@@ -661,7 +659,7 @@ describe('FeedbackCommand', () => {
           const parsed = new URL(found[0]);
           return (
             parsed.origin === 'https://github.com' &&
-            parsed.pathname === '/Fission-AI/OpenSpec/issues/new'
+            parsed.pathname === '/LinYang-github/CodeSpec/issues/new'
           );
         } catch {
           return false;

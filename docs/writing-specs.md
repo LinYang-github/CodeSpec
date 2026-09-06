@@ -1,6 +1,6 @@
 # Writing Good Specs
 
-You rarely write a spec from a blank page. You describe a change in plain language, `/opsx:workflow` routes planning through Core and Superpowers, and then you review the requirements and scenarios.
+You rarely write a spec from a blank page. You describe a change in plain language, `/codespec:workflow` routes planning through Core and Superpowers, and then you review the requirements and scenarios.
 
 It's the companion to [Reviewing a Change](reviewing-changes.md): reviewing is catching the weak spots in a draft, writing is knowing what a strong one is made of.
 
@@ -26,7 +26,7 @@ A good requirement is one behavior, stated so plainly you could hand it to someo
 
 - **One statement, one `SHALL`/`MUST`.** If a requirement has three "and also" clauses, it's really three requirements. Split them.
 - **Observable.** Someone outside the code should be able to tell whether it holds. "The system SHALL show an error banner when the upload exceeds 10 MB" is observable. "The system SHALL handle large uploads gracefully" is not.
-- **The right strength.** OpenSpec uses the RFC 2119 keywords, and they mean different things:
+- **The right strength.** CodeSpec uses the RFC 2119 keywords, and they mean different things:
 
   | Keyword | Meaning |
   |---------|---------|
@@ -58,9 +58,9 @@ A change describes its edits to the specs with three section types. Using the ri
 - **`## MODIFIED Requirements`** — behavior that already existed and is changing. Include the full new version; a short note on what changed helps a reviewer.
 - **`## REMOVED Requirements`** — behavior going away, with a line on why.
 
-On archive, ADDED gets appended to Current Specification, MODIFIED replaces the old version, and REMOVED is dropped from it. Remove the last requirement a capability has and you retire it: rather than leave a spec with nothing in it, archive deletes `openspec/archive/specs/<capability>/spec.md`. Because that is the one archive step that removes a file, it has to be asked for — add `retire_capabilities: true` to the Change's `.openspec.yaml`, alongside the `schema:` that file already needs. Without it the archive aborts and tells you so. If you mark a real Change as ADDED, you end up with two competing requirements; if you describe new behavior as MODIFIED, there's nothing to replace. When in doubt, open the current spec and see whether the requirement is already there.
+On archive, ADDED gets appended to Current Specification, MODIFIED replaces the old version, and REMOVED is dropped from it. Remove the last requirement a capability has and you retire it: rather than leave a spec with nothing in it, archive deletes `codespec/specs/<capability>/spec.md`. Because that is the one archive step that removes a file, it has to be asked for — add `retire_capabilities: true` to the Change's `.codespec.yaml`, alongside the `schema:` that file already needs. Without it the archive aborts and tells you so. If you mark a real Change as ADDED, you end up with two competing requirements; if you describe new behavior as MODIFIED, there's nothing to replace. When in doubt, open the current spec and see whether the requirement is already there.
 
-One more section is worth knowing about. When your delta creates a capability that doesn't exist yet, open it with `## Purpose` — a sentence or two on what the capability is for. Archive uses it as the Purpose of the Current Specification it creates; skip it and you get a `TBD` placeholder to fill in by hand. An existing spec already has a Purpose, so a delta's is ignored there — edit `openspec/archive/specs/<capability-path>/spec.md` directly to change one. Here, `<capability-path>` is the directory relative to `archive/specs/`, such as `user-auth` in a flat project or `identity/user-auth` in a project organized by domain.
+One more section is worth knowing about. When your delta creates a capability that doesn't exist yet, open it with `## Purpose` — a sentence or two on what the capability is for. Archive uses it as the Purpose of the Current Specification it creates; skip it and you get a `TBD` placeholder to fill in by hand. An existing spec already has a Purpose, so a delta's is ignored there — edit `codespec/specs/<capability-path>/spec.md` directly to change one. Here, `<capability-path>` is the directory relative to `specs/`, such as `user-auth` in a flat project or `identity/user-auth` in a project organized by domain.
 
 ## Right-size the change
 

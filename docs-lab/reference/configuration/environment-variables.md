@@ -1,13 +1,13 @@
 # Environment variables
 
-> Every environment variable OpenSpec reads.
+> Every environment variable CodeSpec reads.
 
 <!-- Skeleton: headings only. This page is the telemetry opt-out's home
-(README TODO): OPENSPEC_TELEMETRY=0, DO_NOT_TRACK=1, auto-disabled in CI, plus
+(README TODO): CODESPEC_TELEMETRY=0, DO_NOT_TRACK=1, auto-disabled in CI, plus
 what's collected. start/installation.md's Deno section links here to explain
 its network-permission flag. XDG vars move the config/data directories. -->
 
-## OPENSPEC_TELEMETRY
+## CODESPEC_TELEMETRY
 
 ## DO_NOT_TRACK
 

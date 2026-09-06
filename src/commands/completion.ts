@@ -24,7 +24,7 @@ interface CompleteOptions {
 }
 
 /**
- * Command for managing shell completions for OpenSpec CLI
+ * Command for managing shell completions for CodeSpec CLI
  */
 export class CompletionCommand {
   private completionProvider: CompletionProvider;
@@ -58,7 +58,7 @@ export class CompletionCommand {
 
       // No shell specified and cannot auto-detect
       console.error('错误：无法自动检测 Shell。请明确指定 Shell。');
-      console.error(`用法：openspec completion ${operationName} [shell]`);
+      console.error(`用法：codespec completion ${operationName} [shell]`);
       console.error(`当前支持：${CompletionFactory.getSupportedShells().join('、')}`);
       process.exitCode = 1;
       return null;
@@ -224,7 +224,7 @@ export class CompletionCommand {
       const configPath = configPaths[shell] || `${shell} configuration`;
 
       const confirmed = await confirm({
-        message: `Remove OpenSpec configuration from ${configPath}?`,
+        message: `Remove CodeSpec configuration from ${configPath}?`,
         default: false,
       });
 

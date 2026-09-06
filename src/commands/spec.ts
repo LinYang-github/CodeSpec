@@ -10,7 +10,7 @@ import { getSpecIds } from '../utils/item-discovery.js';
 import { discoverSpecFiles } from '../utils/spec-discovery.js';
 import { FileSystemUtils } from '../utils/file-system.js';
 
-const SPECS_DIR = 'openspec/specs';
+const SPECS_DIR = 'codespec/specs';
 
 function assertSpecPath(specsDir: string, specPath: string): void {
   const relativePath = path.relative(path.resolve(specsDir), path.resolve(specPath));
@@ -70,7 +70,7 @@ function filterSpec(spec: Spec, options: ShowOptions): Spec {
     scenarios: includeScenarios ? req.scenarios : [],
   }));
 
-  const metadata = spec.metadata ?? { version: '1.0.0', format: 'openspec' as const };
+  const metadata = spec.metadata ?? { version: '1.0.0', format: 'codespec' as const };
 
   return {
     name: spec.name,
@@ -98,7 +98,7 @@ export class SpecCommand {
   // deprecated noun-form commands stay cwd-based.
   constructor(rootPath?: string) {
     this.rootPath = rootPath;
-    this.specsDir = rootPath ? join(rootPath, 'openspec', 'specs') : SPECS_DIR;
+    this.specsDir = rootPath ? join(rootPath, 'codespec', 'specs') : SPECS_DIR;
   }
 
   async show(specId?: string, options: ShowOptions = {}): Promise<void> {
@@ -121,7 +121,7 @@ export class SpecCommand {
     if (!existsSync(specPath)) {
       // Root-aware callers get the absolute path; the cwd-based noun form
       // keeps its historical forward-slash relative message on all platforms.
-      const displayPath = this.rootPath ? specPath : `openspec/specs/${specId}/spec.md`;
+      const displayPath = this.rootPath ? specPath : `codespec/specs/${specId}/spec.md`;
       throw new Error(`未找到 Spec '${specId}'：${displayPath}`);
     }
 
@@ -137,7 +137,7 @@ export class SpecCommand {
         overview: parsed.overview,
         requirementCount: filtered.requirements.length,
         requirements: filtered.requirements,
-        metadata: parsed.metadata ?? { version: '1.0.0', format: 'openspec' as const },
+        metadata: parsed.metadata ?? { version: '1.0.0', format: 'codespec' as const },
         ...(options.rootOutput ? { root: options.rootOutput } : {}),
       };
       console.log(JSON.stringify(output, null, 2));
@@ -150,11 +150,11 @@ export class SpecCommand {
 export function registerSpecCommand(rootProgram: typeof program) {
   const specCommand = rootProgram
     .command('spec')
-    .description('管理和查看 OpenSpec Spec');
+    .description('管理和查看 CodeSpec Spec');
 
   // Deprecation notice for noun-based commands
   specCommand.hook('preAction', () => {
-    console.error('警告："openspec spec ..." 命令已弃用。建议使用动词优先命令（例如 "openspec show"、"openspec validate --specs"）。');
+    console.error('警告："codespec spec ..." 命令已弃用。建议使用动词优先命令（例如 "codespec show"、"codespec validate --specs"）。');
   });
 
   specCommand
@@ -256,7 +256,7 @@ export function registerSpecCommand(rootProgram: typeof program) {
         assertSpecPath(SPECS_DIR, specPath);
         
         if (!existsSync(specPath)) {
-          throw new Error(`未找到 Spec '${specId}'：openspec/specs/${specId}/spec.md`);
+          throw new Error(`未找到 Spec '${specId}'：codespec/specs/${specId}/spec.md`);
         }
 
         const validator = new Validator(options.strict);

@@ -1,7 +1,7 @@
 /**
  * Init Command
  *
- * Sets up OpenSpec with Agent Skills and /opsx:* slash commands.
+ * Sets up CodeSpec with Agent Skills and /codespec:* slash commands.
  * This is the unified setup command that replaces both the old init and experimental commands.
  */
 
@@ -13,7 +13,7 @@ import { parse as parseYaml } from 'yaml';
 import { createRequire } from 'module';
 import { FileSystemUtils } from '../utils/file-system.js';
 import {
-  classifyOpenSpecDir,
+  classifyCodeSpecDir,
   MAX_CONTEXT_SIZE,
   readProjectConfig,
   storePointerProblem,
@@ -22,7 +22,7 @@ import { findRepoPlanningRootSync } from './planning-home.js';
 import { getSkillReferenceTransformer, getTransformerForTool, usesNaturalLanguageSkillReferences } from '../utils/command-references.js';
 import {
   AI_TOOLS,
-  OPENSPEC_DIR_NAME,
+  CODESPEC_DIR_NAME,
   AIToolOption,
   resolveToolIdAlias,
 } from './config.js';
@@ -33,8 +33,8 @@ import {
   renderBusinessTemplate,
   renderCanonicalWorkspaceConfig,
   renderEmptyChangeIndex,
-} from './openspec-workflow/default-config.js';
-import { parseWorkspaceConfig } from './openspec-workflow/schemas.js';
+} from './codespec-workflow/default-config.js';
+import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
 import {
   generateCommands,
   CommandAdapterRegistry,
@@ -64,7 +64,7 @@ import {
   type ToolSkillStatus,
 } from './shared/index.js';
 import { getGlobalConfig, type Delivery, type Profile } from './global-config.js';
-import { getPublicProfileWorkflows, PUBLIC_WORKFLOWS, CORE_WORKFLOWS, ALL_WORKFLOWS } from './profiles.js';
+import { getPublicProfileWorkflows, normalizeWorkflowId, PUBLIC_WORKFLOWS, CORE_WORKFLOWS, ALL_WORKFLOWS } from './profiles.js';
 import { getAvailableTools } from './available-tools.js';
 import {
   resolveSharedSkillWriters,
@@ -91,7 +91,7 @@ import {
 } from './github-copilot/cloud-agent.js';
 
 const require = createRequire(import.meta.url);
-const { version: OPENSPEC_VERSION } = require('../../package.json');
+const { version: CODESPEC_VERSION } = require('../../package.json');
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -160,7 +160,7 @@ function formatLanguageContext(language: string): string {
   return [
     `语言：${language}`,
     `所有产物必须使用 ${language} 编写。`,
-    '保留 OpenSpec 结构标题以及 SHALL/MUST 关键词为英文。',
+    '保留 CodeSpec 结构标题以及 SHALL/MUST 关键词为英文。',
   ].join('\n');
 }
 
@@ -170,18 +170,18 @@ const PROGRESS_SPINNER = {
 };
 
 const WORKFLOW_TO_SKILL_DIR: Record<string, string> = {
-  'explore': 'openspec-explore',
-  'new': 'openspec-new-change',
-  'continue': 'openspec-continue-change',
-  'apply': 'openspec-apply-change',
-  'update': 'openspec-update-change',
-  'ff': 'openspec-ff-change',
-  'sync': 'openspec-sync-specs',
-  'archive': 'openspec-archive-change',
-  'bulk-archive': 'openspec-bulk-archive-change',
-  'verify': 'openspec-verify-change',
-  'onboard': 'openspec-onboard',
-  'propose': 'openspec-propose',
+  'explore': 'codespec-explore',
+  'new': 'codespec-new-change',
+  'continue': 'codespec-continue-change',
+  'apply': 'codespec-apply-change',
+  'update': 'codespec-update-change',
+  'ff': 'codespec-ff-change',
+  'sync': 'codespec-sync-specs',
+  'archive': 'codespec-archive-change',
+  'bulk-archive': 'codespec-bulk-archive-change',
+  'verify': 'codespec-verify-change',
+  'onboard': 'codespec-onboard',
+  'propose': 'codespec-propose',
 };
 
 // -----------------------------------------------------------------------------
@@ -255,13 +255,13 @@ export class InitCommand {
 
   async execute(targetPath: string): Promise<void> {
     const projectPath = path.resolve(targetPath);
-    const openspecDir = OPENSPEC_DIR_NAME;
-    const openspecPath = path.join(projectPath, openspecDir);
+    const codespecDir = CODESPEC_DIR_NAME;
+    const codespecPath = path.join(projectPath, codespecDir);
 
     // Validation happens silently in the background
-    const extendMode = await this.validate(projectPath, openspecPath);
+    const extendMode = await this.validate(projectPath, codespecPath);
 
-    // Pointer guard (slice 3.2): a config-only openspec/ with a store:
+    // Pointer guard (slice 3.2): a config-only codespec/ with a store:
     // declaration is externalized planning, not a root to extend — and a
     // subdirectory of such a repo must not silently grow a nested root.
     // Refuse before legacy cleanup, migration, or prompts touch anything.
@@ -270,19 +270,19 @@ export class InitCommand {
     // refuse exactly where a normal command would resolve the pointer).
     const guardRoot = findRepoPlanningRootSync(projectPath);
     if (guardRoot) {
-      const { hasPlanningShape, pointer } = classifyOpenSpecDir(guardRoot);
+      const { hasPlanningShape, pointer } = classifyCodeSpecDir(guardRoot);
       if (!hasPlanningShape) {
         if (pointer.malformed) {
           throw new Error(
             `The store declaration in ${pointer.filePath} is invalid (` +
               storePointerProblem(pointer.malformed) +
-              `). Fix or remove the store: line before running openspec init.`
+              `). Fix or remove the store: line before running codespec init.`
           );
         }
         if (pointer.value !== undefined) {
           throw new Error(
             `This repo's planning is externalized to store '${pointer.value}' (${pointer.filePath}). ` +
-              `Remove the store: line first to convert this repo to a local OpenSpec root.`
+              `Remove the store: line first to convert this repo to a local CodeSpec root.`
           );
         }
       }
@@ -291,12 +291,12 @@ export class InitCommand {
     // Inspect the project protocol before any tool or directory writes. A
     // malformed or unknown config must fail closed and leave the project
     // untouched; an old spec-driven config is migrated later as one transaction.
-    const configPlan = await this.inspectConfigPlan(openspecPath);
+    const configPlan = await this.inspectConfigPlan(codespecPath);
 
     // Check for legacy artifacts and handle cleanup
     const deferredLegacyCleanup = await this.handleLegacyCleanup(projectPath, extendMode);
 
-    // Migrate OpenSpec-managed skills left in renamed tool directories
+    // Migrate CodeSpec-managed skills left in renamed tool directories
     // (e.g. .kimi -> .kimi-code) before detection so they stay recognized.
     migrateLegacyToolDirs(projectPath);
 
@@ -331,7 +331,7 @@ export class InitCommand {
     const validatedTools = this.validateTools(selectedToolIds, toolStates, projectPath);
 
     // Selecting a renamed tool is consent to leave its former directory:
-    // init is about to write the current one, and leaving OpenSpec content
+    // init is about to write the current one, and leaving CodeSpec content
     // behind would give the user two installs of the same tool.
     for (const migration of migrateLegacyToolDirs(
       projectPath,
@@ -353,11 +353,11 @@ export class InitCommand {
 
     // Create directory structure and config
     try {
-      await this.createDirectoryStructure(openspecPath, extendMode);
+      await this.createDirectoryStructure(codespecPath, extendMode);
     } catch (error) {
       if (this.language) {
         const reason = error instanceof Error ? `: ${error.message}` : `: ${String(error)}`;
-        throw new Error(`Failed to create openspec/config.yaml for --language${reason}`);
+        throw new Error(`Failed to create codespec/config.yaml for --language${reason}`);
       }
       // Config/workspace creation is best effort when no language was requested.
     }
@@ -378,16 +378,16 @@ export class InitCommand {
     // Create config.yaml if needed
     let configStatus: ConfigStatus;
     try {
-      configStatus = await this.createConfig(openspecPath, configPlan);
+      configStatus = await this.createConfig(codespecPath, configPlan);
     } catch (error) {
       if (this.language) {
         const reason = error instanceof Error ? `：${error.message}` : `：${String(error)}`;
-        throw new Error(`创建 openspec/config.yaml 失败${reason}`);
+        throw new Error(`创建 codespec/config.yaml 失败${reason}`);
       }
       configStatus = 'skipped';
     }
 
-    // Persist an explicit Copilot cloud decision so `openspec update` (which
+    // Persist an explicit Copilot cloud decision so `codespec update` (which
     // never prompts) honors it. Best-effort: a config-write failure must not
     // fail an otherwise-successful init.
     if (copilotDecision.persist !== undefined) {
@@ -399,7 +399,7 @@ export class InitCommand {
     }
 
     // An explicit opt-out means "no cloud files here": clean up any that a
-    // previous run (or an older OpenSpec) generated. Only OpenSpec-managed
+    // previous run (or an older CodeSpec) generated. Only CodeSpec-managed
     // files are removed — a user-customized file is preserved.
     let copilotRemoved = 0;
     if (copilotDecision.optedOut) {
@@ -407,7 +407,7 @@ export class InitCommand {
         copilotRemoved = await removeCopilotCloudFiles(projectPath);
       } catch {
         // Non-fatal: removal targets files from a prior run; a failure here
-        // just leaves them for the next `openspec update` to clean up.
+        // just leaves them for the next `codespec update` to clean up.
       }
     }
 
@@ -432,7 +432,7 @@ export class InitCommand {
     });
     if (results.failedTools.length > 0) {
       throw new Error(
-        `OpenSpec setup failed for: ${results.failedTools.map((tool) => tool.name).join(', ')}`
+        `CodeSpec setup failed for: ${results.failedTools.map((tool) => tool.name).join(', ')}`
       );
     }
   }
@@ -443,9 +443,9 @@ export class InitCommand {
 
   private async validate(
     projectPath: string,
-    openspecPath: string
+    codespecPath: string
   ): Promise<boolean> {
-    const extendMode = await FileSystemUtils.directoryExists(openspecPath);
+    const extendMode = await FileSystemUtils.directoryExists(codespecPath);
 
     // Check write permissions
     if (!(await FileSystemUtils.ensureWritePermissions(projectPath))) {
@@ -516,7 +516,7 @@ export class InitCommand {
         message:
           '是否设置 GitHub Copilot 云端编码代理文件？此设置用于 GitHub 托管的 ' +
           'Copilot 编码代理（github.com），而非编辑器中的 Copilot。它会写入两个文件：' +
-          '.github/workflows/copilot-setup-steps.yml and .github/agents/openspec.agent.md.',
+          '.github/workflows/copilot-setup-steps.yml and .github/agents/codespec.agent.md.',
         default: false,
       });
       return { write: answer, persist: answer, optedOut: !answer, skippedUndecided: false };
@@ -587,7 +587,7 @@ export class InitCommand {
 
     if (this.force || !canPrompt) {
       // --force flag or non-interactive mode: proceed with cleanup automatically.
-      // Legacy slash commands are 100% OpenSpec-managed, and config file cleanup
+      // Legacy slash commands are 100% CodeSpec-managed, and config file cleanup
       // only removes markers (never deletes files), so auto-cleanup is safe.
       await this.performImmediateLegacyCleanup(projectPath, detection);
       return detection.globalSlashCommandFiles.length > 0 ? { detection } : null;
@@ -636,7 +636,9 @@ export class InitCommand {
   ): Promise<void> {
     const availableCodexWorkflows = await this.getInstalledWorkflowsForTool(projectPath, 'codex');
     const removableMatches = getLegacyGlobalPromptMatches(deferredCleanup.detection)
-      .filter((prompt) => prompt.workflowIds.every((workflowId) => availableCodexWorkflows.has(workflowId)));
+      .filter((prompt) => prompt.workflowIds.every((workflowId) =>
+        availableCodexWorkflows.has(normalizeWorkflowId(workflowId) ?? workflowId)
+      ));
 
     if (removableMatches.length > 0) {
       await this.performLegacyCleanup(
@@ -764,7 +766,7 @@ export class InitCommand {
       .map((toolId) => AI_TOOLS.find((t) => t.value === toolId)?.name || toolId);
 
     if (configuredNames.length > 0) {
-      console.log(`已配置 OpenSpec：${configuredNames.join(', ')}（已预选）`);
+      console.log(`已配置 CodeSpec：${configuredNames.join(', ')}（已预选）`);
     }
 
     const detectedOnlyNames = detectedTools
@@ -945,8 +947,8 @@ export class InitCommand {
   // DIRECTORY STRUCTURE
   // ═══════════════════════════════════════════════════════════
 
-  private async createDirectoryStructure(openspecPath: string, extendMode: boolean): Promise<void> {
-    const projectRoot = path.dirname(openspecPath);
+  private async createDirectoryStructure(codespecPath: string, extendMode: boolean): Promise<void> {
+    const projectRoot = path.dirname(codespecPath);
     if (this.schema === 'spec-driven') {
       await initializeGenericWorkspace(projectRoot);
       return;
@@ -956,12 +958,12 @@ export class InitCommand {
       return;
     }
 
-    const spinner = this.startSpinner('正在创建 OpenSpec 结构...');
+    const spinner = this.startSpinner('正在创建 CodeSpec 结构...');
     await initializeCodeSpecWorkspace(projectRoot);
 
     spinner.stopAndPersist({
       symbol: PALETTE.white('▌'),
-      text: PALETTE.white('OpenSpec 结构已创建'),
+      text: PALETTE.white('CodeSpec 结构已创建'),
     });
   }
 
@@ -1031,7 +1033,7 @@ export class InitCommand {
               resolveCommandSurfaceCapability(tool.value),
               resolveCommandInvocation(tool.value)
             );
-            const skillContent = generateSkillContent(template, OPENSPEC_VERSION, transformer);
+            const skillContent = generateSkillContent(template, CODESPEC_VERSION, transformer);
 
             // Write the skill file
             FileSystemUtils.assertPathWithin(tool.skillsRoot, skillFile);
@@ -1132,7 +1134,7 @@ export class InitCommand {
     const serializedContext = `${formatLanguageContext(normalized)}\n`;
     if (Buffer.byteLength(serializedContext, 'utf8') > MAX_CONTEXT_SIZE) {
       throw new Error(
-        `The --language option is too long for OpenSpec's ${MAX_CONTEXT_SIZE / 1024}KB project context limit.`
+        `The --language option is too long for CodeSpec's ${MAX_CONTEXT_SIZE / 1024}KB project context limit.`
       );
     }
     return normalized;
@@ -1143,9 +1145,9 @@ export class InitCommand {
     return formatLanguageContext(this.language);
   }
 
-  private async inspectConfigPlan(openspecPath: string): Promise<ConfigPlan> {
-    const configPath = path.join(openspecPath, 'config.yaml');
-    const configYmlPath = path.join(openspecPath, 'config.yml');
+  private async inspectConfigPlan(codespecPath: string): Promise<ConfigPlan> {
+    const configPath = path.join(codespecPath, 'config.yaml');
+    const configYmlPath = path.join(codespecPath, 'config.yml');
     const pathExists = (filePath: string): boolean => {
       try {
         fs.lstatSync(filePath);
@@ -1170,13 +1172,13 @@ export class InitCommand {
       } catch {
         // Fall through to the fail-closed diagnostic below.
       }
-      throw new Error('openspec/config.yaml 与 openspec/config.yml 同时存在，且 canonical config.yaml 无效；为保护原文件，已停止初始化。');
+      throw new Error('codespec/config.yaml 与 codespec/config.yml 同时存在，且 canonical config.yaml 无效；为保护原文件，已停止初始化。');
     }
     if (!yamlExists && !ymlExists) {
       if (this.language) {
-        FileSystemUtils.assertProjectArtifactPath(path.dirname(openspecPath), configPath);
+        FileSystemUtils.assertProjectArtifactPath(path.dirname(codespecPath), configPath);
         if (!(await FileSystemUtils.canWriteFile(configPath))) {
-          throw new Error('无法为 --language 创建 openspec/config.yaml：目标不可写。');
+          throw new Error('无法为 --language 创建 codespec/config.yaml：目标不可写。');
         }
       }
       return { targetSchema: this.schema, status: 'created', resetIndex: false };
@@ -1190,7 +1192,7 @@ export class InitCommand {
     try {
       raw = parseYaml(fs.readFileSync(existingPath, 'utf8'));
     } catch (error) {
-      throw new Error(`无法解析 ${path.relative(path.dirname(openspecPath), existingPath)}：${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`无法解析 ${path.relative(path.dirname(codespecPath), existingPath)}：${error instanceof Error ? error.message : String(error)}`);
     }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
       throw new Error(`配置 ${existingPath} 不是有效的 YAML 对象，已停止初始化。`);
@@ -1217,10 +1219,10 @@ export class InitCommand {
     throw new Error(`无法识别 ${existingPath} 中的 schema：${String(schema ?? '(缺失)')}；为保护原文件，已停止初始化。`);
   }
 
-  private async createConfig(openspecPath: string, plan: ConfigPlan): Promise<ConfigStatus> {
+  private async createConfig(codespecPath: string, plan: ConfigPlan): Promise<ConfigStatus> {
     if (plan.status === 'preserved') return 'preserved';
-    const projectPath = path.dirname(openspecPath);
-    const configPath = path.join(openspecPath, 'config.yaml');
+    const projectPath = path.dirname(codespecPath);
+    const configPath = path.join(codespecPath, 'config.yaml');
     const configContent = plan.targetSchema === 'code-spec'
       ? renderCanonicalWorkspaceConfig(path.basename(projectPath), this.languageContext())
       : renderGenericWorkspaceConfig(this.languageContext());
@@ -1228,7 +1230,7 @@ export class InitCommand {
     try {
       FileSystemUtils.assertProjectArtifactPath(projectPath, configPath);
       if (plan.resetIndex) {
-        const indexPath = path.join(openspecPath, 'changes', 'index.yaml');
+        const indexPath = path.join(codespecPath, 'changes', 'index.yaml');
         FileSystemUtils.assertProjectArtifactPath(projectPath, indexPath);
         await replaceFilesAtomically([
           { path: configPath, content: configContent },
@@ -1240,7 +1242,7 @@ export class InitCommand {
       return plan.status;
     } catch (error) {
       if (this.language) {
-        throw new Error(`创建 openspec/config.yaml 失败：${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`创建 codespec/config.yaml 失败：${error instanceof Error ? error.message : String(error)}`);
       }
       return 'skipped';
     }
@@ -1274,7 +1276,7 @@ export class InitCommand {
     console.log();
     console.log(
       chalk.bold(
-        results.failedTools.length > 0 ? 'OpenSpec 设置未完成' : 'OpenSpec 设置完成'
+        results.failedTools.length > 0 ? 'CodeSpec 设置未完成' : 'CodeSpec 设置完成'
       )
     );
     console.log();
@@ -1388,8 +1390,8 @@ export class InitCommand {
       if (copilot.collisions.length > 0) {
         console.log(
           chalk.dim(
-            `保留了你现有的 ${copilot.collisions.join('、')}，未作修改。请手动添加 OpenSpec ` +
-              `安装步骤，以便 Copilot 云端编码代理运行 openspec。`
+            `保留了你现有的 ${copilot.collisions.join('、')}，未作修改。请手动添加 CodeSpec ` +
+              `安装步骤，以便 Copilot 云端编码代理运行 codespec。`
           )
         );
       }
@@ -1399,7 +1401,7 @@ export class InitCommand {
       );
     } else if (copilotSucceeded && copilot.skippedUndecided) {
       console.log(
-        chalk.dim("已跳过 GitHub Copilot 云端文件（需主动启用）。使用 'openspec init --copilot-cloud' 启用。")
+        chalk.dim("已跳过 GitHub Copilot 云端文件（需主动启用）。使用 'codespec init --copilot-cloud' 启用。")
       );
     }
 
@@ -1413,32 +1415,32 @@ export class InitCommand {
 
     // Config status
     if (configStatus === 'created') {
-      console.log(`配置：openspec/config.yaml（schema：${DEFAULT_SCHEMA}）`);
+      console.log(`配置：codespec/config.yaml（schema：${DEFAULT_SCHEMA}）`);
     } else if (configStatus === 'overwritten') {
-      console.log(`配置：openspec/config.yaml（已覆盖为 schema：${DEFAULT_SCHEMA}）`);
+      console.log(`配置：codespec/config.yaml（已覆盖为 schema：${DEFAULT_SCHEMA}）`);
     } else if (configStatus === 'preserved') {
       // Show actual filename (config.yaml or config.yml)
-      const configYaml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yaml');
-      const configYml = path.join(projectPath, OPENSPEC_DIR_NAME, 'config.yml');
+      const configYaml = path.join(projectPath, CODESPEC_DIR_NAME, 'config.yaml');
+      const configYml = path.join(projectPath, CODESPEC_DIR_NAME, 'config.yml');
       const configName = fs.existsSync(configYaml) ? 'config.yaml' : fs.existsSync(configYml) ? 'config.yml' : 'config.yaml';
-      console.log(`配置：openspec/${configName}（已存在，未重置）`);
+      console.log(`配置：codespec/${configName}（已存在，未重置）`);
     } else {
       console.log(chalk.dim('配置：已跳过（非交互模式）'));
     }
 
     // Getting started: advertise only the single public development entry.
     const activeWorkflows = this.getActiveWorkflows();
-    // When no tool got /opsx:* commands, point at the skill instead of a
+    // When no tool got /codespec:* commands, point at the skill instead of a
     // command that does not exist.
     const activeDelivery: Delivery = getGlobalConfig().delivery ?? 'both';
     const commandsGenerated = successfulTools.some((tool) => shouldGenerateCommandsForTool(tool.value, activeDelivery));
     const skillsGenerated = successfulTools.some((tool) => shouldGenerateSkillsForTool(tool.value, activeDelivery));
     // Each hint line must be a usable instruction for the tool it serves.
     // Tools that generated commands are told the command name their files
-    // answer to (/opsx:* when namespaced under opsx/, /opsx-* when the
+    // answer to (/codespec:* when namespaced under codespec/, /codespec-* when the
     // filename is the command); tools that only got skills are told their
-    // documented skill invocation (Kimi Code: /skill:openspec-*; Codex CLI:
-    // $openspec-*; others: /openspec-*). Tools that got no artifacts are
+    // documented skill invocation (Kimi Code: /skill:codespec-*; Codex CLI:
+    // $codespec-*; others: /codespec-*). Tools that got no artifacts are
     // covered by the configuration correction instead. When the selection
     // disagrees, print one line per distinct instruction, labeled with the
     // tools it applies to.
@@ -1457,7 +1459,7 @@ export class InitCommand {
         } else if (shouldGenerateSkillsForTool(tool.value, activeDelivery)) {
           const skillReference = getSkillReferenceTransformer(tool.value)(command);
           // Tools with no slash surface (e.g. Rovo Dev) reference skills as
-          // prose ("the openspec-workflow skill"); phrase the hint so it reads
+          // prose ("the codespec-workflow skill"); phrase the hint so it reads
           // as an instruction rather than a dead command with an argument.
           hint = usesNaturalLanguageSkillReferences(tool.value)
             ? `开始第一个变更：请让 ${tool.name} 使用 ${skillReference} 处理“你的想法”`
@@ -1498,7 +1500,7 @@ export class InitCommand {
         chalk.yellow(
           `未为 ${names} 生成技能或命令：delivery 已设为 'commands'，但` +
             `${zeroArtifactTools.length === 1 ? '它仅支持' : '它们仅支持'}技能。` +
-            `运行 'openspec config set delivery both' 以生成技能。`
+            `运行 'codespec config set delivery both' 以生成技能。`
         )
       );
     }
@@ -1506,9 +1508,9 @@ export class InitCommand {
       // Nothing was generated for any tool: the correction above is the
       // whole story, so don't advertise an invocation that doesn't exist.
     } else if (activeWorkflows.includes('workflow')) {
-      printStartHints('/opsx:workflow');
+      printStartHints('/codespec:workflow');
     } else {
-      console.log("完成。运行 'openspec config profile' 配置工作流。");
+      console.log("完成。运行 'codespec config profile' 配置工作流。");
     }
 
     // Restart instruction only when at least one IDE/editor-resident tool
@@ -1601,13 +1603,13 @@ export class InitCommand {
 }
 
 export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<void> {
-  const openspecPath = path.join(projectRoot, OPENSPEC_DIR_NAME);
+  const codespecPath = path.join(projectRoot, CODESPEC_DIR_NAME);
   const directories = [
-    openspecPath,
-    path.join(openspecPath, 'changes'),
-    path.join(openspecPath, 'archive'),
-    path.join(openspecPath, 'archive', 'specs'),
-    path.join(openspecPath, 'archive', 'changes'),
+    codespecPath,
+    path.join(codespecPath, 'changes'),
+    path.join(codespecPath, 'archive'),
+    path.join(codespecPath, 'archive', 'specs'),
+    path.join(codespecPath, 'archive', 'changes'),
   ];
 
   for (const dir of directories) {
@@ -1617,15 +1619,15 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
 
   const defaultFiles = [
     {
-      path: path.join(openspecPath, 'business.md'),
+      path: path.join(codespecPath, 'business.md'),
       content: renderBusinessTemplate(),
     },
     {
-      path: path.join(openspecPath, 'changes', 'index.yaml'),
+      path: path.join(codespecPath, 'changes', 'index.yaml'),
       content: renderEmptyChangeIndex(),
     },
     {
-      path: path.join(openspecPath, 'archive', 'README.md'),
+      path: path.join(codespecPath, 'archive', 'README.md'),
       content: '# 归档\n\n此目录保存已归档的规范和 Change。\n',
     },
   ];
@@ -1639,12 +1641,12 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
 }
 
 async function initializeGenericWorkspace(projectRoot: string): Promise<void> {
-  const openspecPath = path.join(projectRoot, OPENSPEC_DIR_NAME);
+  const codespecPath = path.join(projectRoot, CODESPEC_DIR_NAME);
   for (const directory of [
-    openspecPath,
-    path.join(openspecPath, 'specs'),
-    path.join(openspecPath, 'changes'),
-    path.join(openspecPath, 'changes', 'archive'),
+    codespecPath,
+    path.join(codespecPath, 'specs'),
+    path.join(codespecPath, 'changes'),
+    path.join(codespecPath, 'changes', 'archive'),
   ]) {
     FileSystemUtils.assertProjectArtifactPath(projectRoot, directory);
     await FileSystemUtils.createDirectory(directory);

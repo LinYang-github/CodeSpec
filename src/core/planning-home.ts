@@ -58,7 +58,7 @@ function findNearestAncestor(startPath: string, predicate: (dirPath: string) => 
 
 export function findRepoPlanningRootSync(startPath = process.cwd()): string | null {
   return findNearestAncestor(startPath, (dirPath) =>
-    pathExistsAsDirectory(path.join(dirPath, 'openspec'))
+    pathExistsAsDirectory(path.join(dirPath, 'codespec'))
   );
 }
 
@@ -66,7 +66,7 @@ function repoPlanningHome(repoRoot: string): PlanningHome {
   return {
     kind: 'repo',
     root: repoRoot,
-    changesDir: path.join(repoRoot, 'openspec', 'changes'),
+    changesDir: path.join(repoRoot, 'codespec', 'changes'),
     defaultSchema: REPO_DEFAULT_SCHEMA,
   };
 }
@@ -83,7 +83,7 @@ export function resolveCurrentPlanningHomeSync(
   }
 
   if (options.allowImplicitRepoRoot === false) {
-    throw new Error('从当前目录开始未找到 OpenSpec 规划目录。');
+    throw new Error('从当前目录开始未找到 CodeSpec 规划目录。');
   }
 
   return repoPlanningHome(FileSystemUtils.canonicalizeExistingPath(searchStart));

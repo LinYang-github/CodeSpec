@@ -24,18 +24,18 @@ function injectPiArgs(body: string): string {
 
 /**
  * Pi adapter for prompt template generation.
- * File path: .pi/prompts/opsx-<id>.md
+ * File path: .pi/prompts/codespec-<id>.md
  * Frontmatter: description
  *
  * Pi uses the filename (minus .md) as the slash command name, so
- * opsx-propose.md → /opsx-propose. generateCommand rewrites the body's
+ * codespec-propose.md → /codespec-propose. generateCommand rewrites the body's
  * command references to that form before this adapter formats it.
  */
 export const piAdapter: ToolCommandAdapter = {
   toolId: 'pi',
 
   getFilePath(commandId: string): string {
-    return path.join('.pi', 'prompts', `opsx-${commandId}.md`);
+    return path.join('.pi', 'prompts', `codespec-${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {

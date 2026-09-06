@@ -9,7 +9,7 @@ describe('FishInstaller', () => {
   let installer: FishInstaller;
 
   beforeEach(async () => {
-    testHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-fish-test-'));
+    testHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-fish-test-'));
     installer = new FishInstaller(testHomeDir);
   });
 
@@ -20,14 +20,14 @@ describe('FishInstaller', () => {
   describe('getInstallationPath', () => {
     it('should return standard fish completions path', () => {
       const result = installer.getInstallationPath();
-      expect(result).toBe(path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish'));
+      expect(result).toBe(path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish'));
     });
 
     it('should use homeDir from constructor', () => {
       const customHome = '/custom/home';
       const customInstaller = new FishInstaller(customHome);
       const result = customInstaller.getInstallationPath();
-      expect(result).toBe(path.join(customHome, '.config', 'fish', 'completions', 'openspec.fish'));
+      expect(result).toBe(path.join(customHome, '.config', 'fish', 'completions', 'codespec.fish'));
     });
   });
 
@@ -73,12 +73,12 @@ describe('FishInstaller', () => {
   });
 
   describe('install', () => {
-    const mockCompletionScript = `# Fish completion script for OpenSpec CLI
-function __fish_openspec
+    const mockCompletionScript = `# Fish completion script for CodeSpec CLI
+function __fish_codespec
     echo "test"
 end
 
-complete -c openspec -a 'init' -d 'Initialize OpenSpec'
+complete -c codespec -a 'init' -d 'Initialize CodeSpec'
 `;
 
     it('should install completion script for the first time', async () => {
@@ -86,7 +86,7 @@ complete -c openspec -a 'init' -d 'Initialize OpenSpec'
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Completion script installed successfully for Fish');
-      expect(result.installedPath).toBe(path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish'));
+      expect(result.installedPath).toBe(path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish'));
       expect(result.backupPath).toBeUndefined();
       expect(result.instructions).toHaveLength(2);
       expect(result.instructions![0]).toContain('Fish automatically loads completions');
@@ -97,7 +97,7 @@ complete -c openspec -a 'init' -d 'Initialize OpenSpec'
       const result = await installer.install(mockCompletionScript);
 
       expect(result.success).toBe(true);
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       const dirExists = await fs.access(path.dirname(targetPath)).then(() => true).catch(() => false);
       expect(dirExists).toBe(true);
     });
@@ -105,7 +105,7 @@ complete -c openspec -a 'init' -d 'Initialize OpenSpec'
     it('should write completion script content correctly', async () => {
       await installer.install(mockCompletionScript);
 
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       const content = await fs.readFile(targetPath, 'utf-8');
       expect(content).toBe(mockCompletionScript);
     });
@@ -128,13 +128,13 @@ complete -c openspec -a 'init' -d 'Initialize OpenSpec'
       await installer.install(mockCompletionScript);
 
       // Update with different content
-      const updatedScript = `# Fish completion script for OpenSpec CLI
-function __fish_openspec_new
+      const updatedScript = `# Fish completion script for CodeSpec CLI
+function __fish_codespec_new
     echo "updated"
 end
 
-complete -c openspec -a 'init' -d 'Initialize OpenSpec'
-complete -c openspec -a 'validate' -d 'Validate specs'
+complete -c codespec -a 'init' -d 'Initialize CodeSpec'
+complete -c codespec -a 'validate' -d 'Validate specs'
 `;
 
       const result = await installer.install(updatedScript);
@@ -160,7 +160,7 @@ complete -c openspec -a 'validate' -d 'Validate specs'
       expect(backupContent).toBe(originalScript);
 
       // Verify current file has updated content
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       const currentContent = await fs.readFile(targetPath, 'utf-8');
       expect(currentContent).toBe(updatedScript);
     });
@@ -177,13 +177,13 @@ complete -c openspec -a 'validate' -d 'Validate specs'
     });
 
     it('should handle installation with paths containing spaces', async () => {
-      const spacedHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec fish test '));
+      const spacedHomeDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec fish test '));
 
       const spacedInstaller = new FishInstaller(spacedHomeDir);
       const result = await spacedInstaller.install(mockCompletionScript);
 
       expect(result.success).toBe(true);
-      expect(result.installedPath).toContain('openspec fish test');
+      expect(result.installedPath).toContain('codespec fish test');
 
       // Cleanup
       await fs.rm(spacedHomeDir, { recursive: true, force: true });
@@ -220,14 +220,14 @@ complete -c openspec -a 'validate' -d 'Validate specs'
       const result = await installer.install('');
 
       expect(result.success).toBe(true);
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       const content = await fs.readFile(targetPath, 'utf-8');
       expect(content).toBe('');
     });
 
     it('should handle completion script with special characters', async () => {
       const specialScript = `# Fish completion script with special chars: ' " \` $ \\
-function __fish_openspec
+function __fish_codespec
     echo "test's \\"quoted\\" text"
 end
 `;
@@ -235,7 +235,7 @@ end
       const result = await installer.install(specialScript);
 
       expect(result.success).toBe(true);
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       const content = await fs.readFile(targetPath, 'utf-8');
       expect(content).toBe(specialScript);
     });
@@ -243,7 +243,7 @@ end
 
   describe('uninstall', () => {
     const mockCompletionScript = `# Fish completion script
-complete -c openspec -a 'init'
+complete -c codespec -a 'init'
 `;
 
     it('should successfully uninstall when completion script exists', async () => {
@@ -259,7 +259,7 @@ complete -c openspec -a 'init'
 
     it('should remove the completion file', async () => {
       await installer.install(mockCompletionScript);
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
 
       await installer.uninstall();
 
@@ -285,7 +285,7 @@ complete -c openspec -a 'init'
 
     it.skipIf(process.platform === 'win32')('should uninstall read-only file when parent directory is writable', async () => {
       await installer.install(mockCompletionScript);
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       await fs.chmod(targetPath, 0o444);
 
       let result: Awaited<ReturnType<FishInstaller['uninstall']>> | undefined;
@@ -304,7 +304,7 @@ complete -c openspec -a 'init'
     // Windows uses ACLs which Node.js chmod doesn't control
     it.skipIf(process.platform === 'win32')('should return failure on permission error', async () => {
       await installer.install(mockCompletionScript);
-      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'openspec.fish');
+      const targetPath = path.join(testHomeDir, '.config', 'fish', 'completions', 'codespec.fish');
       const parentDir = path.dirname(targetPath);
 
       // Make parent directory read-only to simulate permission error

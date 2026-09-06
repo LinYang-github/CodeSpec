@@ -2,7 +2,7 @@
 
 > Make the workflows plan changes the way you want with a few lines in config.yaml.
 
-`openspec/config.yaml` tells the workflows how you want changes planned.
+`codespec/config.yaml` tells the workflows how you want changes planned.
 
 For example, the following configuration updates the creation rules for the [tasks.md](../reference/schemas/spec-driven/index.md) artifact:
 
@@ -22,13 +22,13 @@ config.yaml holds instructions the agent receives when it creates artifacts or w
 
 Here's what happens on every run:
 
-1. You run a workflow (e.g. `/openspec-propose`).
-2. The agent calls the [`openspec instructions`](../reference/cli.md) command.
+1. You run a workflow (e.g. `/codespec-propose`).
+2. The agent calls the [`codespec instructions`](../reference/cli.md) command.
 3. The command reads your context and rules from config.yaml.
-4. OpenSpec's built-in instructions and your customizations are combined into a single prompt for the agent.
+4. CodeSpec's built-in instructions and your customizations are combined into a single prompt for the agent.
 5. The agent follows that prompt to write the artifact.
 
-For example, with a `context` field and the rule from the top of this page, here's what [`openspec instructions`](../reference/cli.md) returns for tasks.md (trimmed and annotated):
+For example, with a `context` field and the rule from the top of this page, here's what [`codespec instructions`](../reference/cli.md) returns for tasks.md (trimmed and annotated):
 
 ```xml
 <artifact id="tasks" change="add-dark-mode" schema="spec-driven">
@@ -44,7 +44,7 @@ For example, with a `context` field and the rule from the top of this page, here
     - End every task with a commit
   </rules>
 
-  <!-- From OpenSpec: the built-in guidance -->
+  <!-- From CodeSpec: the built-in guidance -->
   <instruction>
     ...how to write a good tasks.md...
   </instruction>
@@ -56,7 +56,7 @@ For example, with a `context` field and the rule from the top of this page, here
 </artifact>
 ```
 
-Your config arrives first, then OpenSpec's built-in instruction and template. Rules add to the built-ins and never replace them. Edits to config.yaml reach the agent on the next run.
+Your config arrives first, then CodeSpec's built-in instruction and template. Rules add to the built-ins and never replace them. Edits to config.yaml reach the agent on the next run.
 
 [Workflow runs](../reference/architecture/workflow-runs.md) covers the full run, from invocation to written artifacts.
 
@@ -70,7 +70,7 @@ Three fields shape what the agent receives. Each field's exact contract (types, 
 | `rules` | Extra instructions for one artifact | Only that artifact's creation |
 | `operations` | Guidance for how a workflow step is carried out | Only `apply` and `archive` |
 
-config.yaml's other fields (`schema`, `store`, `references`) select which schema and which OpenSpec root a project uses. The contract page covers them.
+config.yaml's other fields (`schema`, `store`, `references`) select which schema and which CodeSpec root a project uses. The contract page covers them.
 
 The last column is exact, so a field reaches only the steps listed there. In particular, `verify` never receives `rules`. It checks the implementation against the artifacts as written.
 

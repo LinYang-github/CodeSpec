@@ -1,14 +1,14 @@
 # Reviewing a Change
 
 Review the Change before implementation and again before archive. The public
-development entry is `/opsx:workflow`; Superpowers performs the engineering
-review and verification, while OpenSpec Core validates requirements,
+development entry is `/codespec:workflow`; Superpowers performs the engineering
+review and verification, while CodeSpec Core validates requirements,
 traceability, canonical specs, and baseline freshness.
 
 ```text
-/opsx:workflow ──► review artifacts ──► build + verify ──► /opsx:archive
+/codespec:workflow ──► review artifacts ──► build + verify ──► /codespec:archive
                          │                    │
-                         └── /opsx:rebase if baseline or conflict is stale
+                         └── /codespec:rebase if baseline or conflict is stale
 ```
 
 ## Before implementation
@@ -16,7 +16,7 @@ traceability, canonical specs, and baseline freshness.
 Open the active Change in this order:
 
 ```text
-openspec/changes/CHG-YYYYMMDD-NNN/
+codespec/changes/CHG-YYYYMMDD-NNN/
 ├── proposal.md       intent, scope, and non-goals
 ├── spec.md           requirement deltas and scenarios
 ├── design.md         technical approach when needed
@@ -34,12 +34,12 @@ Check that:
 
 Use Superpowers brainstorming, writing-plans, and requesting-code-review when
 the problem or design needs deeper engineering discussion. These methods do
-not create competing OpenSpec entry points.
+not create competing CodeSpec entry points.
 
 ## After implementation
 
 Superpowers verification-before-completion checks tests, behavior, and the
-implementation against the approved plan. OpenSpec Core then checks:
+implementation against the approved plan. CodeSpec Core then checks:
 
 | Check | Question |
 | --- | --- |
@@ -49,13 +49,13 @@ implementation against the approved plan. OpenSpec Core then checks:
 | Freshness | Was the Change built from the current baseline? |
 
 If the baseline is stale or multiple Changes conflict, stop and invoke
-`/opsx:rebase`. Do not archive a stale Change.
+`/codespec:rebase`. Do not archive a stale Change.
 
 ## Archive review
 
-Run `/opsx:archive` only after verification evidence is fresh and the Change is
+Run `/codespec:archive` only after verification evidence is fresh and the Change is
 ready to become part of the Current Specification. Archive is the only public
-entry allowed to write `openspec/archive/specs/`; its transaction must validate,
+entry allowed to write `codespec/specs/`; its transaction must validate,
 detect conflicts, apply the delta, and preserve immutable Change history.
 
 ## Quick checklist

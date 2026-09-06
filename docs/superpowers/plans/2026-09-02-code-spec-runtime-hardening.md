@@ -4,7 +4,7 @@
 
 **Goal:** Make a newly initialized empty code-spec workspace fail with a clear Chinese business-modeling prerequisite, accept language-independent business table headers, and restore the migrated test and generated-Skill baseline.
 
-**Architecture:** src/core/openspec-workflow/business-registry.ts remains the sole parser and domain-error boundary. It will recognize a Markdown header structurally rather than by translated text, ignore fenced example content, and throw a typed empty-registry error. Existing command error handling will render that error as Chinese human guidance while preserving JSON envelope fields, IDs, enums, and exit codes.
+**Architecture:** src/core/codespec-workflow/business-registry.ts remains the sole parser and domain-error boundary. It will recognize a Markdown header structurally rather than by translated text, ignore fenced example content, and throw a typed empty-registry error. Existing command error handling will render that error as Chinese human guidance while preserving JSON envelope fields, IDs, enums, and exit codes.
 
 **Tech Stack:** Node.js, TypeScript, Vitest 3, Commander CLI, pnpm, ESLint.
 
@@ -26,11 +26,11 @@
 
 | File | Responsibility |
 | --- | --- |
-| src/core/openspec-workflow/business-registry.ts | Structural table parsing and typed empty-registry error. |
-| src/core/openspec-workflow/default-config.ts | Chinese empty-registry template and fenced non-data example. |
+| src/core/codespec-workflow/business-registry.ts | Structural table parsing and typed empty-registry error. |
+| src/core/codespec-workflow/default-config.ts | Chinese empty-registry template and fenced non-data example. |
 | src/commands/shared-output.ts | Maps the typed error to the existing diagnostic envelope. |
-| test/core/openspec-workflow/loaders.test.ts | Header, fence, invalid-row, and empty-registry unit coverage. |
-| test/core/openspec-default-config.test.ts | Template content and non-fake-module coverage. |
+| test/core/codespec-workflow/loaders.test.ts | Header, fence, invalid-row, and empty-registry unit coverage. |
+| test/core/codespec-default-config.test.ts | Template content and non-fake-module coverage. |
 | test/cli-e2e/code-spec-empty-workspace.test.ts | Fresh init → status/validate lifecycle and no-side-effect regression. |
 | test/** failing output suites | Exact Chinese human-output and code-spec default assertions. |
 | skills/**/SKILL.md | Generated skills.sh distribution. |
@@ -39,8 +39,8 @@
 
 **Files:**
 
-- Modify: src/core/openspec-workflow/business-registry.ts:13-81
-- Modify: test/core/openspec-workflow/loaders.test.ts
+- Modify: src/core/codespec-workflow/business-registry.ts:13-81
+- Modify: test/core/codespec-workflow/loaders.test.ts
 
 **Interfaces:**
 
@@ -50,7 +50,7 @@
 
 - [ ] **Step 1: Write failing parser tests for Chinese, English, and custom headers.**
 
-Add a table-driven test in test/core/openspec-workflow/loaders.test.ts that writes each header variant followed by the same separator and module row, then asserts the registry contains MOD-001.
+Add a table-driven test in test/core/codespec-workflow/loaders.test.ts that writes each header variant followed by the same separator and module row, then asserts the registry contains MOD-001.
 
 ~~~ts
 for (const header of [
@@ -78,7 +78,7 @@ Assert header-only content and a fenced MOD-001 example reject with EmptyBusines
 Run:
 
 ~~~bash
-pnpm vitest run test/core/openspec-workflow/loaders.test.ts
+pnpm vitest run test/core/codespec-workflow/loaders.test.ts
 ~~~
 
 Expected: FAIL because the current parser recognizes only Module ID, reads fenced examples as data, and throws a generic missing-registry error.
@@ -108,9 +108,9 @@ Split the document into lines, track fences beginning with three or more backtic
 Run:
 
 ~~~bash
-pnpm vitest run test/core/openspec-workflow/loaders.test.ts
+pnpm vitest run test/core/codespec-workflow/loaders.test.ts
 pnpm exec tsc --noEmit
-git add src/core/openspec-workflow/business-registry.ts test/core/openspec-workflow/loaders.test.ts
+git add src/core/codespec-workflow/business-registry.ts test/core/codespec-workflow/loaders.test.ts
 git commit -m "fix: parse code-spec business headers structurally"
 ~~~
 
@@ -120,9 +120,9 @@ Expected: both checks exit 0 before committing.
 
 **Files:**
 
-- Modify: src/core/openspec-workflow/default-config.ts:41-50
+- Modify: src/core/codespec-workflow/default-config.ts:41-50
 - Modify: src/commands/shared-output.ts:1-52
-- Modify: test/core/openspec-default-config.test.ts
+- Modify: test/core/codespec-default-config.test.ts
 - Create: test/cli-e2e/code-spec-empty-workspace.test.ts
 
 **Interfaces:**
@@ -133,22 +133,22 @@ Expected: both checks exit 0 before committing.
 
 - [ ] **Step 1: Write failing template and fresh-CLI lifecycle tests.**
 
-In test/core/openspec-default-config.test.ts, assert renderBusinessTemplate() contains a Chinese prerequisite and fenced example, but no parseable module row outside the fence.
+In test/core/codespec-default-config.test.ts, assert renderBusinessTemplate() contains a Chinese prerequisite and fenced example, but no parseable module row outside the fence.
 
-Create test/cli-e2e/code-spec-empty-workspace.test.ts. Initialize a temporary directory with init . --tools none --force --no-animation. Assert status --all and validate --all --strict --no-interactive exit 1, mention 尚未定义业务模块, openspec/business.md, and MOD-001, and leave changes/index.yaml as the sole change entry. Append one real module row and assert status --all --json plus validate --all --strict --no-interactive exit 0.
+Create test/cli-e2e/code-spec-empty-workspace.test.ts. Initialize a temporary directory with init . --tools none --force --no-animation. Assert status --all and validate --all --strict --no-interactive exit 1, mention 尚未定义业务模块, codespec/business.md, and MOD-001, and leave changes/index.yaml as the sole change entry. Append one real module row and assert status --all --json plus validate --all --strict --no-interactive exit 0.
 
 ~~~ts
 expect(status.exitCode).toBe(1);
 expect(getOutput(status)).toContain('尚未定义业务模块');
-expect(getOutput(status)).toContain('openspec/business.md');
+expect(getOutput(status)).toContain('codespec/business.md');
 expect(getOutput(status)).toContain('MOD-001');
-expect(await fs.readdir(path.join(tempDir, 'openspec', 'changes'))).toEqual(['index.yaml']);
+expect(await fs.readdir(path.join(tempDir, 'codespec', 'changes'))).toEqual(['index.yaml']);
 ~~~
 
 - [ ] **Step 2: Run the new tests to verify initial failure.**
 
 ~~~bash
-pnpm vitest run test/core/openspec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts
+pnpm vitest run test/core/codespec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts
 ~~~
 
 Expected: FAIL because the template has no actionable example and the CLI only exposes generic or misclassified registry failure.
@@ -172,7 +172,7 @@ In src/commands/shared-output.ts, detect isEmptyBusinessRegistryError(error) bef
 
 ~~~bash
 pnpm run build
-pnpm vitest run test/core/openspec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts test/commands/artifact-workflow.test.ts
+pnpm vitest run test/core/codespec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts test/commands/artifact-workflow.test.ts
 ~~~
 
 In a disposable directory run init, status --all --json, and validate --all --strict --no-interactive. Expected: empty workspace fails nonzero with guidance and creates no Change; adding a module lets both commands exit 0.
@@ -180,7 +180,7 @@ In a disposable directory run init, status --all --json, and validate --all --st
 - [ ] **Step 5: Commit the template and CLI change.**
 
 ~~~bash
-git add src/core/openspec-workflow/default-config.ts src/commands/shared-output.ts test/core/openspec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts
+git add src/core/codespec-workflow/default-config.ts src/commands/shared-output.ts test/core/codespec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts
 git commit -m "fix: explain empty code-spec business registry"
 ~~~
 
@@ -209,7 +209,7 @@ Group each failure as English human text, spec-driven default assumption, obsole
 Replace every localization-only English assertion with the exact current Chinese output:
 
 ~~~ts
-expect(output).toContain('OpenSpec 设置完成');
+expect(output).toContain('CodeSpec 设置完成');
 expect(output).toContain("未知条目 'does-not-exist'");
 expect(output).toContain('健康检查');
 expect(output).toContain('可用 Schema：');
@@ -266,7 +266,7 @@ Expected: the first command fails before generation if committed output is stale
 ~~~bash
 pnpm vitest run test/core/templates/skillssh-parity.test.ts
 git add skills
-git commit -m "chore: regenerate localized OpenSpec skills"
+git commit -m "chore: regenerate localized CodeSpec skills"
 ~~~
 
 Expected: parity exits 0 and the commit contains only skills/**/SKILL.md files.
@@ -281,7 +281,7 @@ Expected: parity exits 0 and the commit contains only skills/**/SKILL.md files.
 pnpm exec tsc --noEmit
 pnpm run lint
 pnpm run build
-pnpm vitest run test/core/openspec-workflow/loaders.test.ts test/core/openspec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts test/core/templates/skillssh-parity.test.ts
+pnpm vitest run test/core/codespec-workflow/loaders.test.ts test/core/codespec-default-config.test.ts test/cli-e2e/code-spec-empty-workspace.test.ts test/core/templates/skillssh-parity.test.ts
 VITEST_MAX_WORKERS=1 pnpm vitest run --exclude test/core/version-check.test.ts
 git diff --check
 git status --short

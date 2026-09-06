@@ -6,12 +6,12 @@
 rather than hand-edited; documented so readers can inspect and repair them. The
 concept and workflow live in multi-repo/stores.md. Root resolution is the
 contract from src/core/root-selection.ts: --store flag, else nearest ancestor
-openspec/, else a config-only openspec/'s store: pointer, else the global
+codespec/, else a config-only codespec/'s store: pointer, else the global
 defaultStore, else error. This page owns the whole ladder including the
-everyday case (nearest openspec/ wins); the section's Overview only links
+everyday case (nearest codespec/ wins); the section's Overview only links
 here. Locations (store/foundation.ts): registry.yaml at <dataDir>/stores/
-(~/.local/share/openspec/stores/); store.yaml at .openspec-store/store.yaml
-inside each checkout. The glossary's "OpenSpec root" row links here. -->
+(~/.local/share/codespec/stores/); store.yaml at .codespec-store/store.yaml
+inside each checkout. The glossary's "CodeSpec root" row links here. -->
 
 ## registry.yaml
 

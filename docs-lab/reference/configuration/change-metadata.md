@@ -1,10 +1,10 @@
-# Change metadata (.openspec.yaml)
+# Change metadata (.codespec.yaml)
 
 > The supported fields and validation rules for the metadata stored with each change.
 
 ## Location
 
-Each change keeps its metadata at `openspec/changes/<change-name>/.openspec.yaml`, next to its artifacts. Creating a change writes the file with `schema` and `created` filled in.
+Each change keeps its metadata at `codespec/changes/<change-name>/.codespec.yaml`, next to its artifacts. Creating a change writes the file with `schema` and `created` filled in.
 
 ## Fields
 
@@ -20,7 +20,7 @@ Each change keeps its metadata at `openspec/changes/<change-name>/.openspec.yaml
 
 ### schema
 
-The workflow schema this change follows. It is set when the change is created and wins over the project config, so a change keeps its schema even if `openspec/config.yaml` changes afterwards. Valid names are listed in [Schemas](../schemas/index.md).
+The workflow schema this change follows. It is set when the change is created and wins over the project config, so a change keeps its schema even if `codespec/config.yaml` changes afterwards. Valid names are listed in [Schemas](../schemas/index.md).
 
 ### initiative
 
@@ -44,7 +44,7 @@ Authorizes archive to retire a capability. When this change's REMOVED deltas tak
 
 ## Example
 
-A filled-in .openspec.yaml:
+A filled-in .codespec.yaml:
 
 ```yaml
 schema: spec-driven

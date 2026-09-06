@@ -1,22 +1,22 @@
 /**
  * Command Invocation
  *
- * How a tool spells an OpenSpec command has two parts, and only one of them
+ * How a tool spells an CodeSpec command has two parts, and only one of them
  * can be read off the file the adapter writes:
  *
- * - The *name* comes from the file. `.../commands/opsx/<id>.md` is namespaced
- *   by its directory, so the tool registers `opsx:<id>` (Claude Code, Gemini,
- *   Crush, ...). `.../commands/opsx-<id>.md` names the command with the
- *   filename, so the tool registers `opsx-<id>` (Cursor, GitHub Copilot,
+ * - The *name* comes from the file. `.../commands/codespec/<id>.md` is namespaced
+ *   by its directory, so the tool registers `codespec:<id>` (Claude Code, Gemini,
+ *   Crush, ...). `.../commands/codespec-<id>.md` names the command with the
+ *   filename, so the tool registers `codespec-<id>` (Cursor, GitHub Copilot,
  *   OpenCode, ...).
  * - The *prefix* is the tool's own and cannot be derived. Almost every tool
  *   uses `/`; Amazon Q loads these files into its prompt library, which is
- *   invoked with `@` (`@opsx-propose`), so its adapter declares that prefix.
+ *   invoked with `@` (`@codespec-propose`), so its adapter declares that prefix.
  *
  * Deriving the name from `getFilePath` keeps generated cross-references and
- * onboarding hints in step with the files OpenSpec actually writes. A
+ * onboarding hints in step with the files CodeSpec actually writes. A
  * hand-maintained list drifted before: only OpenCode was rewritten when the
- * hyphen form was introduced (#727), and Cursor still advertised `/opsx:`
+ * hyphen form was introduced (#727), and Cursor still advertised `/codespec:`
  * commands its palette never registered (#1307). Carrying the prefix as
  * adapter metadata rather than inferring it keeps the one tool that does not
  * use a slash from being advertised as if it did.
@@ -28,7 +28,7 @@ import type { ToolCommandAdapter } from './types.js';
 export type CommandInvocationStyle = 'namespaced' | 'flat';
 
 /**
- * Everything needed to spell one of a tool's OpenSpec commands.
+ * Everything needed to spell one of a tool's CodeSpec commands.
  */
 export interface CommandInvocation {
   /** How the command file names the command. */
@@ -43,18 +43,18 @@ export const CANONICAL_INVOCATION: CommandInvocation = { style: 'namespaced', pr
 /**
  * Classifies a generated command file by the name the tool will answer to.
  *
- * The test is the filename, not the directory: an `opsx-` prefix means the
+ * The test is the filename, not the directory: an `codespec-` prefix means the
  * filename is the command. Every other shape is treated as namespaced, which
- * is what all seven `opsx/<id>.*` adapters need. An adapter that neither
- * prefixes the filename nor nests under `opsx/` would land here too — none
+ * is what all seven `codespec/<id>.*` adapters need. An adapter that neither
+ * prefixes the filename nor nests under `codespec/` would land here too — none
  * does, and the registry-wide test in invocation.test.ts fails if one appears.
  *
  * @param commandFilePath - Path returned by an adapter's `getFilePath`
- * @returns 'flat' when the filename carries the `opsx-` prefix, otherwise
+ * @returns 'flat' when the filename carries the `codespec-` prefix, otherwise
  *          'namespaced'
  */
 export function getInvocationStyleForPath(commandFilePath: string): CommandInvocationStyle {
-  return path.basename(commandFilePath).startsWith('opsx-') ? 'flat' : 'namespaced';
+  return path.basename(commandFilePath).startsWith('codespec-') ? 'flat' : 'namespaced';
 }
 
 /**
@@ -77,18 +77,18 @@ export function getInvocationForAdapter(adapter: ToolCommandAdapter): CommandInv
  *
  * @param invocation - The tool's invocation, from getInvocationForAdapter()
  * @param commandId - The command identifier (e.g. 'apply')
- * @returns What the user types, e.g. `/opsx:apply`, `/opsx-apply`, `@opsx-apply`
+ * @returns What the user types, e.g. `/codespec:apply`, `/codespec-apply`, `@codespec-apply`
  */
 export function formatCommandInvocation(
   invocation: CommandInvocation,
   commandId: string
 ): string {
   const separator = invocation.style === 'namespaced' ? ':' : '-';
-  return `${invocation.prefix}opsx${separator}${commandId}`;
+  return `${invocation.prefix}codespec${separator}${commandId}`;
 }
 
 /**
- * Whether a tool's invocation differs from the canonical `/opsx:<id>` that
+ * Whether a tool's invocation differs from the canonical `/codespec:<id>` that
  * command bodies and skill templates are authored in — that is, whether
  * generated text has to be rewritten for that tool at all.
  */

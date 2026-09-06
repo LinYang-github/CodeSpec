@@ -34,7 +34,7 @@ describe('store foundation', () => {
   let originalEnv: NodeJS.ProcessEnv;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-store-foundation-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-store-foundation-'));
     originalEnv = { ...process.env };
   });
 
@@ -53,7 +53,7 @@ describe('store foundation', () => {
 
   describe('path helpers', () => {
     it('exposes store constants', () => {
-      expect(STORE_METADATA_DIR_NAME).toBe('.openspec-store');
+      expect(STORE_METADATA_DIR_NAME).toBe('.codespec-store');
       expect(STORE_METADATA_FILE_NAME).toBe('store.yaml');
       expect(STORES_DIR_NAME).toBe('stores');
       expect(STORE_REGISTRY_FILE_NAME).toBe('registry.yaml');
@@ -63,15 +63,15 @@ describe('store foundation', () => {
       process.env.XDG_DATA_HOME = tempDir;
       const storeRoot = path.join(tempDir, 'acme-context');
 
-      expect(getStoresDir()).toBe(path.join(tempDir, 'openspec', 'stores'));
+      expect(getStoresDir()).toBe(path.join(tempDir, 'codespec', 'stores'));
       expect(getStoreRegistryPath()).toBe(
-        path.join(tempDir, 'openspec', 'stores', 'registry.yaml')
+        path.join(tempDir, 'codespec', 'stores', 'registry.yaml')
       );
       expect(getStoreMetadataDir(storeRoot)).toBe(
-        path.join(storeRoot, '.openspec-store')
+        path.join(storeRoot, '.codespec-store')
       );
       expect(getStoreMetadataPath(storeRoot)).toBe(
-        path.join(storeRoot, '.openspec-store', 'store.yaml')
+        path.join(storeRoot, '.codespec-store', 'store.yaml')
       );
     });
 
@@ -83,16 +83,16 @@ describe('store foundation', () => {
       });
 
       expect(getStoresDir({ globalDataDir: dataDir })).toBe(
-        '/home/tabish/.local/share/openspec/stores'
+        '/home/tabish/.local/share/codespec/stores'
       );
       expect(getStoreRegistryPath({ globalDataDir: dataDir })).toBe(
-        '/home/tabish/.local/share/openspec/stores/registry.yaml'
+        '/home/tabish/.local/share/codespec/stores/registry.yaml'
       );
     });
 
     it('preserves Windows-style store root strings when building metadata paths', () => {
       expect(getStoreMetadataPath('D:\\repos\\acme-context')).toBe(
-        'D:\\repos\\acme-context\\.openspec-store\\store.yaml'
+        'D:\\repos\\acme-context\\.codespec-store\\store.yaml'
       );
     });
   });

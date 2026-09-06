@@ -6,7 +6,7 @@ import {
   resolveRootForCommand,
   toRootOutput,
   withStoreFlag,
-  type ResolvedOpenSpecRoot,
+  type ResolvedCodeSpecRoot,
   isStoreSelectedRoot,
 } from '../core/root-selection.js';
 import { isInteractive, resolveNoInteractive } from '../utils/interactive.js';
@@ -17,9 +17,9 @@ import { promises as fs } from 'fs';
 import { getTaskProgressDetailForChange, type SchemaGlobCache } from '../utils/task-progress.js';
 import { FileSystemUtils } from '../utils/file-system.js';
 import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
-import { loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
-import { validateExitGate } from '../core/openspec-workflow/gates.js';
-import { validateCurrentSpec } from '../core/openspec-workflow/current-spec-parser.js';
+import { loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
+import { validateExitGate } from '../core/codespec-workflow/gates.js';
+import { validateCurrentSpec } from '../core/codespec-workflow/current-spec-parser.js';
 import { discoverSpecFiles, type DiscoveredSpec } from '../utils/spec-discovery.js';
 
 type ItemType = 'change' | 'spec';
@@ -106,12 +106,12 @@ export class ValidateCommand {
 
   /**
    * Resolve change IDs by directory existence within the resolved root — the
-   * same rule `openspec status`/`instructions` use (`getAvailableChanges`) —
+   * same rule `codespec status`/`instructions` use (`getAvailableChanges`) —
    * rather than requiring `proposal.md`. This lets `validate` resolve a
    * scaffolded or still-authoring change that the sibling commands already
    * resolve (#1182). Sorted to preserve the prior `getActiveChangeIds` ordering.
    */
-  private async listChangeIds(root: ResolvedOpenSpecRoot): Promise<string[]> {
+  private async listChangeIds(root: ResolvedCodeSpecRoot): Promise<string[]> {
     const ids = await getAvailableChanges(root.path, root.changesDir);
     return ids.sort();
   }
@@ -129,7 +129,7 @@ export class ValidateCommand {
     };
   }
 
-  private async runInteractiveSelector(root: ResolvedOpenSpecRoot, opts: { strict: boolean; json: boolean; concurrency?: string }): Promise<void> {
+  private async runInteractiveSelector(root: ResolvedCodeSpecRoot, opts: { strict: boolean; json: boolean; concurrency?: string }): Promise<void> {
     const { select } = await import('@inquirer/prompts');
     const choice = await select({
       message: '你想校验什么？',
@@ -165,16 +165,16 @@ export class ValidateCommand {
     await this.validateByType(root, picked.type, picked.id, opts);
   }
 
-  private printNonInteractiveHint(root: ResolvedOpenSpecRoot): void {
+  private printNonInteractiveHint(root: ResolvedCodeSpecRoot): void {
     console.error('没有可校验的内容。请尝试以下命令之一：');
-    console.error(`  ${withStoreFlag(root, 'openspec validate --all')}`);
-    console.error(`  ${withStoreFlag(root, 'openspec validate --changes')}`);
-    console.error(`  ${withStoreFlag(root, 'openspec validate --specs')}`);
-    console.error(`  ${withStoreFlag(root, 'openspec validate <item-name>')}`);
+    console.error(`  ${withStoreFlag(root, 'codespec validate --all')}`);
+    console.error(`  ${withStoreFlag(root, 'codespec validate --changes')}`);
+    console.error(`  ${withStoreFlag(root, 'codespec validate --specs')}`);
+    console.error(`  ${withStoreFlag(root, 'codespec validate <item-name>')}`);
     console.error('或者在交互式终端中运行。');
   }
 
-  private async validateDirectItem(root: ResolvedOpenSpecRoot, itemName: string, opts: { typeOverride?: ItemType; strict: boolean; json: boolean }): Promise<void> {
+  private async validateDirectItem(root: ResolvedCodeSpecRoot, itemName: string, opts: { typeOverride?: ItemType; strict: boolean; json: boolean }): Promise<void> {
     const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
     const [changes, specFiles] = await Promise.all([
       this.listChangeIds(root),
@@ -232,7 +232,7 @@ export class ValidateCommand {
       if (isStoreSelectedRoot(root)) {
         console.error('传入 --type change|spec。');
       } else {
-        console.error('传入 --type change|spec，或使用：openspec change validate / openspec spec validate');
+        console.error('传入 --type change|spec，或使用：codespec change validate / codespec spec validate');
       }
       process.exitCode = 1;
       return;
@@ -241,7 +241,7 @@ export class ValidateCommand {
     await this.validateByType(root, type, itemName, opts);
   }
 
-  private async validateByType(root: ResolvedOpenSpecRoot, type: ItemType, id: string, opts: { strict: boolean; json: boolean }): Promise<void> {
+  private async validateByType(root: ResolvedCodeSpecRoot, type: ItemType, id: string, opts: { strict: boolean; json: boolean }): Promise<void> {
     const validator = new Validator(opts.strict);
     const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
     if (type === 'change') {
@@ -249,7 +249,7 @@ export class ValidateCommand {
         if (!/^CHG-\d{8}-\d{3}$/u.test(id)) throw new Error(`Canonical code-spec Changes require IDs matching CHG-YYYYMMDD-NNN; '${id}' is unsupported.`);
         const start = Date.now();
         const artifacts = await loadChangeArtifacts(canonicalWorkspace.paths, id);
-        const gate = validateExitGate(canonicalWorkspace, artifacts, artifacts.metadata.change.status);
+        const gate = await validateExitGate(canonicalWorkspace, artifacts, artifacts.metadata.change.status);
         const report = { valid: gate.ok, issues: gate.errors.map((message) => ({ level: 'ERROR' as const, path: 'lifecycle', message })) };
         this.printReport('change', id, report, Date.now() - start, opts.json, root);
         process.exitCode = report.valid ? 0 : 1;
@@ -279,7 +279,7 @@ export class ValidateCommand {
     process.exitCode = report.valid ? 0 : 1;
   }
 
-  private printReport(type: ItemType, id: string, report: { valid: boolean; issues: any[] }, durationMs: number, json: boolean, root: ResolvedOpenSpecRoot): void {
+  private printReport(type: ItemType, id: string, report: { valid: boolean; issues: any[] }, durationMs: number, json: boolean, root: ResolvedCodeSpecRoot): void {
     if (json) {
       const out = { items: [{ id, type, valid: report.valid, issues: report.issues, durationMs }], summary: { totals: { items: 1, passed: report.valid ? 1 : 0, failed: report.valid ? 0 : 1 }, byType: { [type]: { items: 1, passed: report.valid ? 1 : 0, failed: report.valid ? 0 : 1 } } }, version: '1.0', root: toRootOutput(root) };
       console.log(JSON.stringify(out, null, 2));
@@ -298,7 +298,7 @@ export class ValidateCommand {
     }
   }
 
-  private printNextSteps(type: ItemType, id: string, root: ResolvedOpenSpecRoot, issues: Array<{ message: string }> = []): void {
+  private printNextSteps(type: ItemType, id: string, root: ResolvedCodeSpecRoot, issues: Array<{ message: string }> = []): void {
     const bullets: string[] = [];
     // The delta-authoring bullets contradict a marker-related error ("add
     // deltas" vs "remove skip_specs or the files"), so branch on the exact
@@ -311,15 +311,15 @@ export class ValidateCommand {
       i.message.includes(VALIDATION_MESSAGES.CHANGE_SKIP_SPECS_INVALID_METADATA)
     );
     if (type === 'change' && conflictIssue) {
-      bullets.push('- 此 Change 声明了 skip_specs（没有 Spec 增量）：删除 specs/ 下的文件，或者在需求确实变化时移除 .openspec.yaml 中的 skip_specs');
-      bullets.push('- 只有 .openspec.yaml 是有效 Change 元数据时才会采用 skip_specs（必须通过 schema: <name> 指定已知 Schema）');
+      bullets.push('- 此 Change 声明了 skip_specs（没有 Spec 增量）：删除 specs/ 下的文件，或者在需求确实变化时移除 .codespec.yaml 中的 skip_specs');
+      bullets.push('- 只有 .codespec.yaml 是有效 Change 元数据时才会采用 skip_specs（必须通过 schema: <name> 指定已知 Schema）');
     } else if (type === 'change' && invalidMarkerIssue) {
-      bullets.push('- 修复 .openspec.yaml，使 skip_specs 标记有效（必须通过 schema: <name> 指定已知 Schema）');
-      bullets.push('- 或从 .openspec.yaml 移除 skip_specs，改为添加 Spec 增量');
+      bullets.push('- 修复 .codespec.yaml，使 skip_specs 标记有效（必须通过 schema: <name> 指定已知 Schema）');
+      bullets.push('- 或从 .codespec.yaml 移除 skip_specs，改为添加 Spec 增量');
     } else if (type === 'change') {
       bullets.push('- 确保 Change 在 specs/ 中包含增量：使用 ## ADDED/MODIFIED/REMOVED/RENAMED Requirements 标题');
       bullets.push('- 每个 Requirement MUST 至少包含一个 #### Scenario: 块');
-      bullets.push(`- 调试解析后的增量：${withStoreFlag(root, `openspec show ${id} --json --deltas-only`)}`);
+      bullets.push(`- 调试解析后的增量：${withStoreFlag(root, `codespec show ${id} --json --deltas-only`)}`);
     } else {
       bullets.push('- 确保 Spec 包含 ## Purpose 和 ## Requirements 章节');
       bullets.push('- 每个 Requirement MUST 至少包含一个 #### Scenario: 块');
@@ -329,11 +329,11 @@ export class ValidateCommand {
     bullets.forEach(b => console.error(`  ${b}`));
   }
 
-  private async runBulkValidation(root: ResolvedOpenSpecRoot, scope: { changes: boolean; specs: boolean }, opts: { strict: boolean; json: boolean; concurrency?: string; noInteractive?: boolean }): Promise<void> {
+  private async runBulkValidation(root: ResolvedCodeSpecRoot, scope: { changes: boolean; specs: boolean }, opts: { strict: boolean; json: boolean; concurrency?: string; noInteractive?: boolean }): Promise<void> {
     const spinner = !opts.json && !opts.noInteractive ? ora('正在校验……').start() : undefined;
     const DEFAULT_CONCURRENCY = 6;
     const maxSuggestions = 5; // used by nearestMatches
-    const concurrency = normalizeConcurrency(opts.concurrency) ?? normalizeConcurrency(process.env.OPENSPEC_CONCURRENCY) ?? DEFAULT_CONCURRENCY;
+    const concurrency = normalizeConcurrency(opts.concurrency) ?? normalizeConcurrency(process.env.CODESPEC_CONCURRENCY) ?? DEFAULT_CONCURRENCY;
     const validator = new Validator(opts.strict);
     const queue: Array<() => Promise<BulkItemResult>> = [];
     const canonicalWorkspace = await tryLoadCanonicalWorkspace(root.path);
@@ -353,7 +353,7 @@ export class ValidateCommand {
         const changeDir = path.join(root.changesDir, id);
         if (canonicalWorkspace) {
           const artifacts = await loadChangeArtifacts(canonicalWorkspace.paths, id);
-          const gate = validateExitGate(canonicalWorkspace, artifacts, artifacts.metadata.change.status);
+          const gate = await validateExitGate(canonicalWorkspace, artifacts, artifacts.metadata.change.status);
           return { id, type: 'change' as const, valid: gate.ok, issues: gate.errors.map((message) => ({ level: 'ERROR' as const, path: 'lifecycle', message })), durationMs: Date.now() - start };
         }
         const report = await validator.validateChangeDeltaSpecs(changeDir, {
@@ -455,7 +455,7 @@ export class ValidateCommand {
       if (firstFailure) {
         const storeFlag = isStoreSelectedRoot(root) ? ` --store ${root.storeId}` : '';
         console.log(
-          `Details: openspec validate ${firstFailure.id} --type ${firstFailure.type}${storeFlag}`
+          `Details: codespec validate ${firstFailure.id} --type ${firstFailure.type}${storeFlag}`
         );
       }
     }
@@ -473,7 +473,7 @@ export class ValidateCommand {
    * failure and must not read as "no archived changes" — that would let a
    * pre-commit lint pass without inspecting anything (#205).
    */
-  private async listArchivedChangeIds(root: ResolvedOpenSpecRoot): Promise<string[]> {
+  private async listArchivedChangeIds(root: ResolvedCodeSpecRoot): Promise<string[]> {
     try {
       const entries = await fs.readdir(root.archiveDir, { withFileTypes: true });
       return entries
@@ -497,7 +497,7 @@ export class ValidateCommand {
    * tasks pass (nothing to complete).
    */
   private async runArchivedTaskValidation(
-    root: ResolvedOpenSpecRoot,
+    root: ResolvedCodeSpecRoot,
     opts: { json: boolean; noInteractive?: boolean }
   ): Promise<void> {
     // List first (may throw on a real archive-read failure), then start the

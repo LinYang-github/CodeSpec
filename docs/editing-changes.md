@@ -1,14 +1,14 @@
 # Editing and Iterating on a Change
 
 An active Change is a living, reviewable package. Edit its Markdown artifacts
-directly or ask `/opsx:workflow` to revise them. OpenSpec Core remains the
+directly or ask `/codespec:workflow` to revise them. CodeSpec Core remains the
 authority for Change identity, requirement IDs, baseline, stale state, and
 traceability.
 
 ## Revise an active Change
 
 ```text
-openspec/changes/CHG-YYYYMMDD-NNN/
+codespec/changes/CHG-YYYYMMDD-NNN/
 ├── proposal.md
 ├── spec.md
 ├── design.md
@@ -16,7 +16,7 @@ openspec/changes/CHG-YYYYMMDD-NNN/
 └── verification.md
 ```
 
-After a substantive edit, return to `/opsx:workflow`. It should resolve the
+After a substantive edit, return to `/codespec:workflow`. It should resolve the
 Change, recalculate the requirement delta, and continue through Superpowers'
 planning or implementation methods as appropriate.
 
@@ -25,11 +25,11 @@ planning or implementation methods as appropriate.
 - If the code is correct, update the delta and verification evidence to match
   what was actually shipped.
 - If the spec is correct, keep implementing until the code matches it.
-- If the baseline changed underneath the Change, use `/opsx:rebase` before
+- If the baseline changed underneath the Change, use `/codespec:rebase` before
   continuing.
 
-Never edit `openspec/archive/specs/` as a shortcut. The Current Specification
-is written only by `/opsx:archive`, after Core validation and conflict checks.
+Never edit `codespec/specs/` as a shortcut. The Current Specification
+is written only by `/codespec:archive`, after Core validation and conflict checks.
 
 ## Update or start another Change?
 

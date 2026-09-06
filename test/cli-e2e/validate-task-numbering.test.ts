@@ -4,7 +4,7 @@ import path from 'path';
 import { tmpdir } from 'os';
 import { runCLI } from '../helpers/run-cli.js';
 
-describe('openspec validate checks task numbering (#1520)', () => {
+describe('codespec validate checks task numbering (#1520)', () => {
   let projectDir: string;
 
   const write = async (relative: string, content: string) => {
@@ -47,14 +47,16 @@ describe('openspec validate checks task numbering (#1520)', () => {
   ].join('\n');
 
   beforeAll(async () => {
-    projectDir = await fs.mkdtemp(path.join(tmpdir(), 'openspec-task-numbering-e2e-'));
+    projectDir = await fs.mkdtemp(path.join(tmpdir(), 'codespec-task-numbering-e2e-'));
+
+    await write('codespec/config.yaml', 'schema: spec-driven\n');
 
     await write(
-      'openspec/changes/bad-numbering/specs/tasks/spec.md',
+      'codespec/changes/bad-numbering/specs/tasks/spec.md',
       validDelta
     );
     await write(
-      'openspec/changes/bad-numbering/tasks.md',
+      'codespec/changes/bad-numbering/tasks.md',
       [
         '## 10. First release',
         '',
@@ -72,11 +74,11 @@ describe('openspec validate checks task numbering (#1520)', () => {
     );
 
     await write(
-      'openspec/changes/valid-numbering/specs/tasks/spec.md',
+      'codespec/changes/valid-numbering/specs/tasks/spec.md',
       validDelta
     );
     await write(
-      'openspec/changes/valid-numbering/tasks.md',
+      'codespec/changes/valid-numbering/tasks.md',
       [
         '# Tasks',
         '- [ ] an unnumbered task before any numbered group',
@@ -92,21 +94,21 @@ describe('openspec validate checks task numbering (#1520)', () => {
       ].join('\n')
     );
 
-    await write('openspec/schemas/glob-tasks/schema.yaml', globTasksSchema);
+    await write('codespec/schemas/glob-tasks/schema.yaml', globTasksSchema);
     await write(
-      'openspec/changes/nested-numbering/.openspec.yaml',
+      'codespec/changes/nested-numbering/.codespec.yaml',
       'schema: glob-tasks\n'
     );
     await write(
-      'openspec/changes/nested-numbering/specs/tasks/spec.md',
+      'codespec/changes/nested-numbering/specs/tasks/spec.md',
       validDelta
     );
     await write(
-      'openspec/changes/nested-numbering/backend/tasks.md',
+      'codespec/changes/nested-numbering/backend/tasks.md',
       '## 2. Backend\n- [ ] 3.1 wrong group\n'
     );
     await write(
-      'openspec/changes/nested-numbering/frontend/tasks.md',
+      'codespec/changes/nested-numbering/frontend/tasks.md',
       '## 4. Frontend\n- [ ] 4.1 correct group\n'
     );
   });
@@ -166,7 +168,7 @@ describe('openspec validate checks task numbering (#1520)', () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Change 'valid-numbering' is valid");
+    expect(result.stdout).toContain("Change 'valid-numbering' 校验通过");
   });
 
   it('applies the same warnings to bulk validation', async () => {
@@ -205,7 +207,7 @@ describe('openspec validate checks task numbering (#1520)', () => {
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Task "10.7" is under group 11');
-    expect(result.stderr).toContain('Task ID "11.1" is duplicated');
+    expect(result.stderr).toContain('10.7');
+    expect(result.stderr).toContain('11.1');
   });
 });

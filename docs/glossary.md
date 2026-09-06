@@ -1,20 +1,20 @@
 # Glossary
 
-Every OpenSpec term in one place, defined in plain language. Skim it once and the rest of the docs read faster.
+Every CodeSpec term in one place, defined in plain language. Skim it once and the rest of the docs read faster.
 
 Terms are grouped by topic, then alphabetized within each group.
 
 ## The core nouns
 
-**Spec.** A document describing how part of your system behaves. In the canonical CodeSpec layout, specs live in `openspec/archive/specs/`, are organized by domain, and are made of requirements and scenarios. The spec is the agreed-upon answer to "what does this software do?" See [Concepts](concepts.md#specs).
+**Spec.** A document describing how part of your system behaves. In the canonical CodeSpec layout, specs live in `codespec/specs/`, are organized by domain, and are made of requirements and scenarios. The spec is the agreed-upon answer to "what does this software do?" See [Concepts](concepts.md#specs).
 
-**Source of truth.** The `openspec/archive/specs/` directory as a whole. It holds the current, agreed-upon behavior of your system. Changes propose edits to it; archiving applies them.
+**Source of truth.** The `codespec/specs/` directory as a whole. It holds the current, agreed-upon behavior of your system. Changes propose edits to it; archiving applies them.
 
-**Change.** One unit of work, packaged as a folder under `openspec/changes/<name>/`. A change holds everything about that work: its proposal, design, tasks, and the spec edits it introduces. One change, one feature or fix.
+**Change.** One unit of work, packaged as a folder under `codespec/changes/<name>/`. A change holds everything about that work: its proposal, design, tasks, and the spec edits it introduces. One change, one feature or fix.
 
 **Artifact.** A document inside a change. The standard artifacts are the proposal, the delta specs, the design, and the tasks. They're created in dependency order and feed into each other.
 
-**Delta spec.** A spec inside a change that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMOVED` sections, rather than restating the entire spec. This is what lets OpenSpec edit existing systems cleanly. See [Concepts](concepts.md#delta-specs).
+**Delta spec.** A spec inside a change that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMOVED` sections, rather than restating the entire spec. This is what lets CodeSpec edit existing systems cleanly. See [Concepts](concepts.md#delta-specs).
 
 **Domain.** A logical grouping for specs, like `auth/`, `payments/`, or `ui/`. You choose domains that match how you think about your system.
 
@@ -36,27 +36,27 @@ Terms are grouped by topic, then alphabetized within each group.
 
 ## The lifecycle
 
-**Archive.** The act of finishing a Change. Its delta merges into Current Specification, and the Change folder moves to `openspec/archive/changes/YYYY-MM-DD-<name>/`. After archiving, your specs describe the new reality. See [Concepts](concepts.md#archive).
+**Archive.** The act of finishing a Change. Its delta merges into Current Specification, and the Change folder moves to `codespec/archive/changes/YYYY-MM-DD-<name>/`. After archiving, your specs describe the new reality. See [Concepts](concepts.md#archive).
 
 **Sync.** An internal Core operation that applies a Change's delta to Current Specification during the archive transaction. It is not a public AI entry.
 
 ## Workflow and commands
 
-**OPSX.** The current standard OpenSpec workflow. Its three public entries are `workflow`, `rebase`, and `archive`; engineering methods are delegated to Superpowers. See [OPSX Workflow](opsx.md).
+**CodeSpec.** The current standard CodeSpec workflow. Its three public entries are `workflow`, `rebase`, and `archive`; engineering methods are delegated to Superpowers. See [CodeSpec Workflow](codespec.md).
 
-**AI entry.** An instruction you type into your AI assistant's chat, such as `/opsx:workflow`. It is not a terminal command. See [AI entries](commands.md).
+**AI entry.** An instruction you type into your AI assistant's chat, such as `/codespec:workflow`. It is not a terminal command. See [AI entries](commands.md).
 
-**Workflow (`openspec-workflow`).** The only public development entry. It routes repository understanding, brainstorming, planning, implementation, and verification through Core and Superpowers.
+**Workflow (`codespec-workflow`).** The only public development entry. It routes repository understanding, brainstorming, planning, implementation, and verification through Core and Superpowers.
 
-**CLI.** The `openspec` program you run in your terminal. It sets up projects, lists and validates changes, opens the dashboard, and archives. The terminal half of OpenSpec. See [CLI](cli.md).
+**CLI.** The `codespec` program you run in your terminal. It sets up projects, lists and validates changes, opens the dashboard, and archives. The terminal half of CodeSpec. See [CLI](cli.md).
 
-**Skill.** A folder of instructions (`.../skills/openspec-*/SKILL.md`) that your AI assistant auto-detects and follows. Skills are the emerging cross-tool standard for delivering the OpenSpec workflow to your assistant.
+**Skill.** A folder of instructions (`.../skills/codespec-*/SKILL.md`) that your AI assistant auto-detects and follows. Skills are the emerging cross-tool standard for delivering the CodeSpec workflow to your assistant.
 
-**Command file.** A per-tool slash command file (`.../commands/opsx-*`). The older delivery mechanism, still supported alongside skills. You rarely touch these directly.
+**Command file.** A per-tool slash command file (`.../commands/codespec-*`). The older delivery mechanism, still supported alongside skills. You rarely touch these directly.
 
-**Profile.** The set of public entries installed in your project. **Core** (the default) is `workflow`, `rebase`, and `archive`. Legacy CLI workflow IDs may be accepted for migration but are normalized before generation. Change it with `openspec config profile`.
+**Profile.** The set of public entries installed in your project. **Core** (the default) is `workflow`, `rebase`, and `archive`. Legacy CLI workflow IDs may be accepted for migration but are normalized before generation. Change it with `codespec config profile`.
 
-**Delivery.** Whether OpenSpec installs skills, command files, or both for your tools. Configured globally and applied with `openspec update`.
+**Delivery.** Whether CodeSpec installs skills, command files, or both for your tools. Configured globally and applied with `codespec update`.
 
 ## Customization
 
@@ -64,11 +64,11 @@ Terms are grouped by topic, then alphabetized within each group.
 
 **Template.** A Markdown file inside a schema that shapes what the AI generates for a given artifact. Editing a template changes the AI's output immediately, with no rebuild.
 
-**Project config (`openspec/config.yaml`).** Per-project settings: the default schema, the `context:` injected into every planning request, and per-artifact `rules:`. The easiest way to teach OpenSpec about your stack and conventions. See [Customization](customization.md#project-configuration).
+**Project config (`codespec/config.yaml`).** Per-project settings: the default schema, the `context:` injected into every planning request, and per-artifact `rules:`. The easiest way to teach CodeSpec about your stack and conventions. See [Customization](customization.md#project-configuration).
 
 **Context injection.** Putting project background in `config.yaml`'s `context:` field so it's automatically added to every artifact the AI generates. More reliable than hoping the AI reads a separate file.
 
-**Dependency graph.** The directed graph formed by artifact `requires:` relationships. It's a DAG (directed acyclic graph: arrows only point forward, never in a loop), and OpenSpec uses it to know what you can create next.
+**Dependency graph.** The directed graph formed by artifact `requires:` relationships. It's a DAG (directed acyclic graph: arrows only point forward, never in a loop), and CodeSpec uses it to know what you can create next.
 
 **Enablers, not gates.** The principle that artifact dependencies show what becomes *possible* next, not what's *required* next. You can revisit and edit any artifact at any time. See [Core Concepts at a Glance](overview.md#enablers-not-gates).
 
@@ -76,13 +76,13 @@ Terms are grouped by topic, then alphabetized within each group.
 
 These terms apply only if your planning spans more than one repo. They're in beta. Most users can ignore them. See the [Stores User Guide](stores-beta/user-guide.md).
 
-**Store.** A standalone repo whose whole job is planning. It has the same `openspec/` shape you already know (specs and changes) plus a small identity file. You register it on your machine once, by name, and then any OpenSpec command can work in it from anywhere.
+**Store.** A standalone repo whose whole job is planning. It has the same `codespec/` shape you already know (specs and changes) plus a small identity file. You register it on your machine once, by name, and then any CodeSpec command can work in it from anywhere.
 
-**Reference.** A declaration, in a code repo's `openspec/config.yaml`, of a store that repo draws on. References are read-only: the repo keeps its own root, and `openspec instructions` gains an index of the referenced store's specs, each with the exact command to fetch it.
+**Reference.** A declaration, in a code repo's `codespec/config.yaml`, of a store that repo draws on. References are read-only: the repo keeps its own root, and `codespec instructions` gains an index of the referenced store's specs, each with the exact command to fetch it.
 
-**Working context.** What `openspec context` assembles for the current repo: its OpenSpec root plus every store it references, each with how to fetch it. The answer to "what am I working with?"
+**Working context.** What `codespec context` assembles for the current repo: its CodeSpec root plus every store it references, each with how to fetch it. The answer to "what am I working with?"
 
-**Workset.** A personal, machine-local set of folders you open together (a store alongside the code repos you work on). Created explicitly with `openspec workset create`; nothing about those local paths is committed to the shared planning repo.
+**Workset.** A personal, machine-local set of folders you open together (a store alongside the code repos you work on). Created explicitly with `codespec workset create`; nothing about those local paths is committed to the shared planning repo.
 
 ## See also
 

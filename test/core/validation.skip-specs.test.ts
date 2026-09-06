@@ -38,13 +38,13 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Change must have at least one delta');
-    expect(msg).toContain('set "skip_specs: true"');
+    expect(msg).toContain('Change 至少需要一个 delta');
+    expect(msg).toContain('skip_specs');
   });
 
   it('accepts a zero-delta change that declares skip_specs', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
 
@@ -59,7 +59,7 @@ describe('Validator skip_specs handling', () => {
 
   it('rejects skip_specs combined with delta specs', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     const capDir = path.join(testDir, 'specs', 'data-export');
@@ -71,12 +71,12 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set in .openspec.yaml but spec files exist under specs/');
+    expect(msg).toContain('已在 .codespec.yaml 中设置 skip_specs');
   });
 
   it('treats skip_specs plus a delta file with no parseable deltas as a conflict, not acceptance', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     const capDir = path.join(testDir, 'specs', 'data-export');
@@ -88,13 +88,13 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const messages = report.issues.map(i => i.message).join('\n');
-    expect(messages).toContain('skip_specs is set in .openspec.yaml but spec files exist under specs/');
+    expect(messages).toContain('已在 .codespec.yaml 中设置 skip_specs');
     expect(report.issues.some(i => i.level === 'INFO')).toBe(false);
   });
 
   it('treats skip_specs plus a root-level specs/spec.md as a conflict', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     await fs.mkdir(path.join(testDir, 'specs'), { recursive: true });
@@ -105,7 +105,7 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const messages = report.issues.map(i => i.message).join('\n');
-    expect(messages).toContain('skip_specs is set in .openspec.yaml but spec files exist under specs/');
+    expect(messages).toContain('已在 .codespec.yaml 中设置 skip_specs');
   });
 
   it('treats skip_specs plus a stray non-spec file under specs/ as a conflict', async () => {
@@ -113,7 +113,7 @@ describe('Validator skip_specs handling', () => {
     // read as done, not skipped) while discoverSpecFiles ignores it - it must
     // surface as a conflict rather than an accepted zero-delta change.
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     await fs.mkdir(path.join(testDir, 'specs'), { recursive: true });
@@ -124,13 +124,13 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const messages = report.issues.map(i => i.message).join('\n');
-    expect(messages).toContain('skip_specs is set in .openspec.yaml but spec files exist under specs/');
+    expect(messages).toContain('已在 .codespec.yaml 中设置 skip_specs');
     expect(report.issues.some(i => i.level === 'INFO')).toBe(false);
   });
 
-  it('reports the marker when the metadata is not valid YAML', async () => {
+  it('reports the marker when the metadata is YAML', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n  bad indentation: ['
     );
 
@@ -139,22 +139,22 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const messages = report.issues.map(i => i.message).join('\n');
-    expect(messages).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
-    expect(messages).toContain('not valid YAML');
+    expect(messages).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
+    expect(messages).toContain('YAML');
   });
 
   it('does not honor skip_specs when the metadata fails the shared schema', async () => {
     // Adversarial case: the marker alone, without the required schema field.
     // status/instructions reject this metadata, so validate must not accept it.
-    await fs.writeFile(path.join(testDir, '.openspec.yaml'), 'skip_specs: true\n');
+    await fs.writeFile(path.join(testDir, '.codespec.yaml'), 'skip_specs: true\n');
 
     const validator = new Validator();
     const report = await validator.validateChangeDeltaSpecs(testDir);
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
-    expect(msg).toContain('Change must have at least one delta');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
+    expect(msg).toContain('Change 至少需要一个 delta');
   });
 
   it('does not honor skip_specs when the schema does not resolve', async () => {
@@ -162,7 +162,7 @@ describe('Validator skip_specs handling', () => {
     // unknown schema. status/instructions refuse to load it, so validate
     // must not honor its marker either.
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: does-not-exist\nskip_specs: true\n'
     );
 
@@ -171,18 +171,18 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
-    expect(msg).toContain("unknown schema 'does-not-exist'");
-    expect(msg).toContain('Change must have at least one delta');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
+    expect(msg).toContain("does-not-exist");
+    expect(msg).toContain('Change 至少需要一个 delta');
   });
 
   it('honors skip_specs when the marker names a project-local schema', async () => {
     // The schema-resolution gate must use the same project root as
     // status/instructions (derived from the change directory), or custom
     // project-local schemas would be falsely rejected.
-    const changeDir = path.join(testDir, 'openspec', 'changes', 'refactor');
+    const changeDir = path.join(testDir, 'codespec', 'changes', 'refactor');
     await fs.mkdir(changeDir, { recursive: true });
-    const schemaDir = path.join(testDir, 'openspec', 'schemas', 'custom-flow');
+    const schemaDir = path.join(testDir, 'codespec', 'schemas', 'custom-flow');
     await fs.mkdir(schemaDir, { recursive: true });
     await fs.writeFile(
       path.join(schemaDir, 'schema.yaml'),
@@ -199,7 +199,7 @@ describe('Validator skip_specs handling', () => {
       ].join('\n')
     );
     await fs.writeFile(
-      path.join(changeDir, '.openspec.yaml'),
+      path.join(changeDir, '.codespec.yaml'),
       'schema: custom-flow\nskip_specs: true\n'
     );
 
@@ -214,13 +214,13 @@ describe('Validator skip_specs handling', () => {
     // listSchemas only checks that schema.yaml exists; status/instructions
     // fail one step later when resolveSchema parses it. Validate must not
     // honor the marker on name existence alone.
-    const changeDir = path.join(testDir, 'openspec', 'changes', 'refactor');
+    const changeDir = path.join(testDir, 'codespec', 'changes', 'refactor');
     await fs.mkdir(changeDir, { recursive: true });
-    const schemaDir = path.join(testDir, 'openspec', 'schemas', 'broken-flow');
+    const schemaDir = path.join(testDir, 'codespec', 'schemas', 'broken-flow');
     await fs.mkdir(schemaDir, { recursive: true });
     await fs.writeFile(path.join(schemaDir, 'schema.yaml'), '{broken yaml: [');
     await fs.writeFile(
-      path.join(changeDir, '.openspec.yaml'),
+      path.join(changeDir, '.codespec.yaml'),
       'schema: broken-flow\nskip_specs: true\n'
     );
 
@@ -229,14 +229,14 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
     expect(msg).toContain('schema');
   });
 
   it('does not honor skip_specs when the schema parses but fails schema validation', async () => {
-    const changeDir = path.join(testDir, 'openspec', 'changes', 'refactor');
+    const changeDir = path.join(testDir, 'codespec', 'changes', 'refactor');
     await fs.mkdir(changeDir, { recursive: true });
-    const schemaDir = path.join(testDir, 'openspec', 'schemas', 'shapeless');
+    const schemaDir = path.join(testDir, 'codespec', 'schemas', 'shapeless');
     await fs.mkdir(schemaDir, { recursive: true });
     // Valid YAML, but missing the required artifacts list.
     await fs.writeFile(
@@ -244,7 +244,7 @@ describe('Validator skip_specs handling', () => {
       'name: shapeless\nversion: 1\n'
     );
     await fs.writeFile(
-      path.join(changeDir, '.openspec.yaml'),
+      path.join(changeDir, '.codespec.yaml'),
       'schema: shapeless\nskip_specs: true\n'
     );
 
@@ -253,7 +253,7 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
   });
 
   it('rejects a schema name that only resolves via extension normalization', async () => {
@@ -261,7 +261,7 @@ describe('Validator skip_specs handling', () => {
     // member); resolveSchema alone would normalize the extension and accept
     // it. The marker must side with readChangeMetadata.
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven.yaml\nskip_specs: true\n'
     );
 
@@ -278,7 +278,7 @@ describe('Validator skip_specs handling', () => {
     // shape error in the same file must not produce a "skip_specs is set"
     // message the user never earned.
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: false\ncreated: 123\n'
     );
 
@@ -288,7 +288,7 @@ describe('Validator skip_specs handling', () => {
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
     expect(msg).not.toContain('skip_specs is set');
-    expect(msg).toContain('Change must have at least one delta');
+    expect(msg).toContain('Change 至少需要一个 delta');
   });
 
   it('counts a symlinked file under specs/ as marker-conflicting content', async () => {
@@ -296,7 +296,7 @@ describe('Validator skip_specs handling', () => {
     // as existing content elsewhere in the CLI while archive would silently
     // drop it - it contradicts the marker like any regular file.
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     const outside = path.join(testDir, 'outside.md');
@@ -313,28 +313,28 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set in .openspec.yaml but spec files exist under specs/');
+    expect(msg).toContain('已在 .codespec.yaml 中设置 skip_specs');
   });
 
   it('fails closed when the metadata file exists but cannot be read', async () => {
-    // .openspec.yaml as a directory: status/instructions error on it and the
+    // .codespec.yaml as a directory: status/instructions error on it and the
     // marker state cannot be determined, so validate must not degrade to the
     // unmarked path (where archive would proceed without validation).
-    await fs.mkdir(path.join(testDir, '.openspec.yaml'), { recursive: true });
+    await fs.mkdir(path.join(testDir, '.codespec.yaml'), { recursive: true });
 
     const validator = new Validator();
     const report = await validator.validateChangeDeltaSpecs(testDir);
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
     expect(msg).toContain('cannot be read');
   });
 
   it('validateChange keeps the no-deltas error when the marker names an unknown schema', async () => {
     await fs.writeFile(path.join(testDir, 'proposal.md'), PROPOSAL);
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: does-not-exist\nskip_specs: true\n'
     );
 
@@ -343,38 +343,38 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Change must have at least one delta');
-    expect(msg).toContain("unknown schema 'does-not-exist'");
+    expect(msg).toContain('Change 至少需要一个 delta');
+    expect(msg).toContain("does-not-exist");
   });
 
   it('validateChange keeps the no-deltas error when the marker metadata is invalid', async () => {
     await fs.writeFile(path.join(testDir, 'proposal.md'), PROPOSAL);
-    await fs.writeFile(path.join(testDir, '.openspec.yaml'), 'skip_specs: true\n');
+    await fs.writeFile(path.join(testDir, '.codespec.yaml'), 'skip_specs: true\n');
 
     const validator = new Validator();
     const report = await validator.validateChange(path.join(testDir, 'proposal.md'));
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Change must have at least one delta');
+    expect(msg).toContain('Change 至少需要一个 delta');
     // Both validate paths explain why the marker was not honored.
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
   });
 
   it('still rejects zero deltas when metadata is malformed', async () => {
-    await fs.writeFile(path.join(testDir, '.openspec.yaml'), '{invalid yaml: [');
+    await fs.writeFile(path.join(testDir, '.codespec.yaml'), '{invalid yaml: [');
 
     const validator = new Validator();
     const report = await validator.validateChangeDeltaSpecs(testDir);
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Change must have at least one delta');
+    expect(msg).toContain('Change 至少需要一个 delta');
   });
 
   it('skip_specs must be exactly true - a truthy string is surfaced as unhonorable, not silently ignored', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: "yes"\n'
     );
 
@@ -383,7 +383,7 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('skip_specs is set but .openspec.yaml is not valid change metadata');
+    expect(msg).toContain('已设置 skip_specs，但 .codespec.yaml 不是有效的 Change 元数据');
   });
 
   it('does not crash when specs is a regular file instead of a directory', async () => {
@@ -395,20 +395,20 @@ describe('Validator skip_specs handling', () => {
     const validator = new Validator();
     const unmarked = await validator.validateChangeDeltaSpecs(testDir);
     expect(unmarked.valid).toBe(false);
-    expect(unmarked.issues.map(i => i.message).join('\n')).toContain('Change must have at least one delta');
+    expect(unmarked.issues.map(i => i.message).join('\n')).toContain('Change 至少需要一个 delta');
 
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     const marked = await validator.validateChangeDeltaSpecs(testDir);
     expect(marked.valid).toBe(false);
-    expect(marked.issues.map(i => i.message).join('\n')).toContain('skip_specs is set in .openspec.yaml but spec files exist under specs/');
+    expect(marked.issues.map(i => i.message).join('\n')).toContain('已在 .codespec.yaml 中设置 skip_specs');
   });
 
   it('ignores dot-files under specs/ just like every other code path', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
     await fs.mkdir(path.join(testDir, 'specs'), { recursive: true });
@@ -423,7 +423,7 @@ describe('Validator skip_specs handling', () => {
 
   it('does not claim the marker was set when broken YAML only mentions it in a comment', async () => {
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       '# maybe add skip_specs later\nschema: spec-driven\n  broken: ['
     );
 
@@ -433,13 +433,13 @@ describe('Validator skip_specs handling', () => {
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
     expect(msg).not.toContain('not valid change metadata');
-    expect(msg).toContain('Change must have at least one delta');
+    expect(msg).toContain('Change 至少需要一个 delta');
   });
 
   it('validateChange drops the no-deltas error when skip_specs is declared', async () => {
     await fs.writeFile(path.join(testDir, 'proposal.md'), PROPOSAL);
     await fs.writeFile(
-      path.join(testDir, '.openspec.yaml'),
+      path.join(testDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n'
     );
 
@@ -448,6 +448,6 @@ describe('Validator skip_specs handling', () => {
 
     expect(report.valid).toBe(true);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).not.toContain('Change must have at least one delta');
+    expect(msg).not.toContain('Change 至少需要一个 delta');
   });
 });

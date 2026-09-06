@@ -9,21 +9,21 @@ describe('getOnboardingCommands', () => {
   it('omits commands the profile does not install', () => {
     const commands = getOnboardingCommands(CORE_WORKFLOWS).map((c) => c.command);
 
-    expect(commands).toEqual(['/opsx:workflow', '/opsx:archive']);
-    expect(commands).not.toContain('/opsx:new');
-    expect(commands).not.toContain('/opsx:continue');
+    expect(commands).toEqual(['/codespec:workflow', '/codespec:archive']);
+    expect(commands).not.toContain('/codespec:new');
+    expect(commands).not.toContain('/codespec:continue');
   });
 
   it('includes expanded commands when a custom profile installs them', () => {
     const commands = getOnboardingCommands(['new', 'continue', 'apply']).map((c) => c.command);
 
-    expect(commands).toEqual(['/opsx:workflow']);
+    expect(commands).toEqual(['/codespec:workflow']);
   });
 
   it('returns lifecycle order regardless of the order workflows are given', () => {
     const commands = getOnboardingCommands(['apply', 'continue', 'propose']).map((c) => c.command);
 
-    expect(commands).toEqual(['/opsx:workflow']);
+    expect(commands).toEqual(['/codespec:workflow']);
   });
 
   it('returns nothing when no onboarding workflow is installed', () => {

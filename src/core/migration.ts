@@ -38,7 +38,7 @@ export interface LegacyToolRoot {
 }
 
 /**
- * Former tool roots whose OpenSpec-managed content belongs under the tool's
+ * Former tool roots whose CodeSpec-managed content belongs under the tool's
  * current skillsDir. User files are never touched.
  */
 export const LEGACY_TOOL_ROOTS: Record<string, LegacyToolRoot[]> = {
@@ -72,7 +72,7 @@ export interface LegacyToolMigration {
   /** Command files that moved, or would move */
   commandFiles: number;
   /**
-   * OpenSpec-managed files left under the legacy root because the copy there
+   * CodeSpec-managed files left under the legacy root because the copy there
    * differs materially from the one that survives, so it is reported rather
    * than dropped.
    */
@@ -82,7 +82,7 @@ export interface LegacyToolMigration {
 }
 
 /**
- * Classifies one OpenSpec-managed file. `move` is the fast path (nothing at
+ * Classifies one CodeSpec-managed file. `move` is the fast path (nothing at
  * the destination yet); `drop` means the destination already holds equivalent
  * generated content, so the legacy copy is redundant; `keep` means the two
  * differ materially and the legacy copy is not ours to discard.
@@ -109,7 +109,7 @@ function classifyManagedFile(source: string, destination: string): FileDispositi
 
 /**
  * Rewrites a generated command path from the tool's current root to a legacy
- * one, so `.devin/workflows/opsx-apply.md` locates its `.windsurf/` twin
+ * one, so `.devin/workflows/codespec-apply.md` locates its `.windsurf/` twin
  * without the migration hard-coding either layout.
  *
  * Returns undefined for adapters whose paths are absolute (global-scoped
@@ -129,7 +129,7 @@ function legacyCommandPath(
 }
 
 /**
- * Reports the OpenSpec content sitting under each tool's legacy root, without
+ * Reports the CodeSpec content sitting under each tool's legacy root, without
  * moving anything. Callers use this to ask before a move that needs consent.
  */
 export function findLegacyToolMigrations(
@@ -140,8 +140,8 @@ export function findLegacyToolMigrations(
 }
 
 /**
- * Moves OpenSpec-managed skill directories (openspec-*) and command files
- * (opsx-*) from a tool's legacy root to its current one. When the destination
+ * Moves CodeSpec-managed skill directories and command files (`codespec-*`)
+ * from a tool's legacy root to its current one. When the destination
  * already exists the legacy copy is removed instead. Legacy directories are
  * deleted only when left empty, so user files under the old location — a
  * hand-written Cascade workflow next to the generated ones — are preserved.
@@ -248,8 +248,8 @@ function migrateSkillDirs(
 
   const skillDirNames = new Set([
     ...ALL_WORKFLOWS.map((workflowId) => WORKFLOW_TO_SKILL_DIR[workflowId]),
-    'openspec-workflow',
-    'openspec-rebase-change',
+    'codespec-workflow',
+    'codespec-rebase-change',
   ]);
   for (const dirName of skillDirNames) {
     const source = path.join(legacySkillsDir, dirName);
@@ -279,7 +279,7 @@ function migrateSkillDirs(
     try {
       // Move the generated file, never the directory around it. A skill
       // directory can also hold files the user wrote, and this destination is
-      // one OpenSpec deletes on its own — commands-only delivery and a
+      // one CodeSpec deletes on its own — commands-only delivery and a
       // deselected workflow both remove the whole skill directory. Carrying a
       // user's file across would be handing it to that later removal.
       if (disposition === 'drop') {
@@ -324,7 +324,7 @@ function migrateCommandFiles(
       currentPath.split(/[\\/]/).join(path.sep)
     );
     // An after-generation move runs once the tool has written its replacement.
-    // No replacement means this command is not one OpenSpec installs now — a
+    // No replacement means this command is not one CodeSpec installs now — a
     // skills-only delivery or a deselected workflow — so relocating the legacy
     // file would resurrect it under the current root.
     if (requireDestination && !fs.existsSync(destination)) continue;
@@ -376,14 +376,14 @@ export function describeLegacyMigration(migration: LegacyToolMigration): string 
 }
 
 /**
- * Names OpenSpec-managed files the move deliberately left behind, so a user
+ * Names CodeSpec-managed files the move deliberately left behind, so a user
  * who customized one knows there are now two copies to reconcile.
  */
 export function keptInPlaceNotice(migration: LegacyToolMigration): string | undefined {
   if (migration.keptInPlace === 0) return undefined;
   const n = migration.keptInPlace;
   // Deliberately does not claim the difference came from an edit: an older
-  // OpenSpec version's output differs too. Either way nothing was overwritten,
+  // CodeSpec version's output differs too. Either way nothing was overwritten,
   // and the user is the one who decides which copy to keep.
   return (
     `Left ${n} file${n === 1 ? '' : 's'} in ${migration.from}/ that ` +
@@ -489,8 +489,8 @@ function scanInstalledWorkflowArtifacts(
       for (const workflowId of PUBLIC_WORKFLOWS) {
         const skillDirName =
           workflowId === 'workflow'
-            ? 'openspec-workflow'
-            : `openspec-${workflowId}-change`;
+            ? 'codespec-workflow'
+            : `codespec-${workflowId}-change`;
         const skillFile = path.join(skillsDir, skillDirName, 'SKILL.md');
         if (fs.existsSync(skillFile)) {
           installed.add(workflowId);
@@ -616,8 +616,8 @@ export function migrateIfNeeded(projectPath: string, tools: AIToolOption[]): voi
   console.log(`已迁移：自定义 Profile，包含 ${installedWorkflows.length} 个 workflow`);
   // Each detected tool resolves to a workflow reference for its surface: the
   // command name its generated files answer to when commands will exist for it
-  // under the effective delivery (/opsx:workflow when namespaced under opsx/,
-  // /opsx-workflow when the filename is the command), its documented skill
+  // under the effective delivery (/codespec:workflow when namespaced under codespec/,
+  // /codespec-workflow when the filename is the command), its documented skill
   // invocation otherwise. When the tools disagree — including command tools
   // mixed with skill-only tools — stay syntax-neutral rather than advertise a
   // form that is wrong for one of them.
@@ -631,12 +631,12 @@ export function migrateIfNeeded(projectPath: string, tools: AIToolOption[]): voi
           resolveCommandSurfaceCapability(tool.value),
           resolveCommandInvocation(tool.value)
         );
-        return transformer ? transformer('/opsx:workflow') : '/opsx:workflow';
+        return transformer ? transformer('/codespec:workflow') : '/codespec:workflow';
       }
-      return getSkillReferenceTransformer(tool.value)('/opsx:workflow');
+      return getSkillReferenceTransformer(tool.value)('/codespec:workflow');
     })
   );
   const workflowReference =
-    workflowReferences.size === 1 ? [...workflowReferences][0] : 'the openspec-workflow skill';
-  console.log(`此版本新增：${workflowReference}。运行 'openspec config profile core' 使用精简工作流。`);
+    workflowReferences.size === 1 ? [...workflowReferences][0] : 'the codespec-workflow skill';
+  console.log(`此版本新增：${workflowReference}。运行 'codespec config profile core' 使用精简工作流。`);
 }

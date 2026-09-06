@@ -1,15 +1,15 @@
-# OpenSpec 默认 code-spec 与中文用户体验设计
+# CodeSpec 默认 code-spec 与中文用户体验设计
 
 ## 1. 目标
 
-将 OpenSpec 的默认项目协议切换为 canonical `code-spec`，并将整个面向用户的体验统一为中文。新项目和通过 `openspec init` 初始化的已有项目都直接进入 canonical 流程；旧 `spec-driven` Change 不再被兼容读取。
+将 CodeSpec 的默认项目协议切换为 canonical `code-spec`，并将整个面向用户的体验统一为中文。新项目和通过 `codespec init` 初始化的已有项目都直接进入 canonical 流程；旧 `spec-driven` Change 不再被兼容读取。
 
 ## 2. 设计边界
 
 ### 2.1 默认协议
 
-- `openspec init` 默认写入 `schema: code-spec`。
-- 已有 `openspec/config.yaml` 时，`init` 自动覆盖为 canonical 配置，不再等待交互确认。
+- `codespec init` 默认写入 `schema: code-spec`。
+- 已有 `codespec/config.yaml` 时，`init` 自动覆盖为 canonical 配置，不再等待交互确认。
 - 已有旧文件不删除、不移动，但不再参与 Change、状态、校验、归档和索引解析。
 - 已有 `code-spec` 配置和有效活动 Change 不重置；只有从旧配置切换时才重建 canonical 空索引。
 - 新项目初始化时创建 `business.md`、`changes/index.yaml`、`archive/README.md` 以及 canonical 目录；已有用户文件仅在缺失时补建。
@@ -39,13 +39,13 @@
 初始化分为两个相互独立的阶段：
 
 1. 工具集成阶段：安装或更新各工具的 Skill/命令适配文件。Codex 继续使用 Skill，不生成命令文件，但提示改为中文。
-2. 项目协议阶段：确保项目根目录存在 canonical `openspec/config.yaml` 和完整目录骨架。
+2. 项目协议阶段：确保项目根目录存在 canonical `codespec/config.yaml` 和完整目录骨架。
 
 项目协议阶段根据现状执行：
 
 | 当前状态 | 处理方式 |
 | --- | --- |
-| 没有 `openspec/` | 创建 canonical 根目录、配置、索引、业务注册表和 archive 骨架 |
+| 没有 `codespec/` | 创建 canonical 根目录、配置、索引、业务注册表和 archive 骨架 |
 | 有旧 `spec-driven` 配置 | 覆盖配置为 `code-spec`，保留旧 Change 文件，重建空 canonical 索引 |
 | 已有 `code-spec` 配置 | 保留配置语义和有效索引，仅补齐缺失骨架，不清空活动 Change |
 | 配置损坏或无法解析 | 用中文报告阻塞原因；不得在无法判断旧状态时盲目覆盖 |
@@ -55,7 +55,7 @@
 ## 4. 配置与 CLI 行为
 
 - `DEFAULT_SCHEMA` 和根目录默认 schema 改为 `code-spec`。
-- `openspec new change "变更描述"` 在 canonical 根目录中自动分配 Change ID，不接受旧 slug Change ID。
+- `codespec new change "变更描述"` 在 canonical 根目录中自动分配 Change ID，不接受旧 slug Change ID。
 - `status`、`show`、`validate`、`instructions`、`archive`、`rebase`、`transition`、`abandon` 和 `allocate-requirements` 统一先检测 canonical workspace。
 - 面向用户的错误消息说明“发生了什么、影响什么、下一步怎么做”；协议值和可复制命令保持原样。
 - `--json` 输出保持机器契约，不把中文文本写入稳定 key、状态值或 ID；可读的 `message`、`fix` 字段使用中文。
@@ -65,8 +65,8 @@
 
 - 所有生成的自然语言正文、标题、步骤、说明和示例改为中文。
 - Skill 中的命令、路径、ID、状态和 DSL 保留英文，确保工具可执行和解析稳定。
-- `openspec-workflow` 作为薄编排层，负责上下文注入、Change 路由、状态门禁、追踪和证据；Superpowers 的方法论 Skill 不复制、不改写其核心协议。
-- 旧的 `docs/superpowers/specs/`、`docs/superpowers/plans/` 仅作为本次设计/实现过程文档，不作为 OpenSpec 长期事实源。
+- `codespec-workflow` 作为薄编排层，负责上下文注入、Change 路由、状态门禁、追踪和证据；Superpowers 的方法论 Skill 不复制、不改写其核心协议。
+- 旧的 `docs/superpowers/specs/`、`docs/superpowers/plans/` 仅作为本次设计/实现过程文档，不作为 CodeSpec 长期事实源。
 
 ## 6. 错误处理与安全边界
 

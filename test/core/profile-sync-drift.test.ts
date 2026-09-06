@@ -11,7 +11,9 @@ import { CORE_WORKFLOWS, PUBLIC_WORKFLOWS } from '../../src/core/profiles.js';
 import { CommandAdapterRegistry } from '../../src/core/command-generation/index.js';
 
 function writeSkill(projectDir: string, workflowId: string): void {
-  const skillDirName = WORKFLOW_TO_SKILL_DIR[workflowId as keyof typeof WORKFLOW_TO_SKILL_DIR];
+  const skillDirName = workflowId === 'workflow'
+    ? 'codespec-workflow'
+    : WORKFLOW_TO_SKILL_DIR[workflowId as keyof typeof WORKFLOW_TO_SKILL_DIR];
   const skillPath = path.join(projectDir, '.claude', 'skills', skillDirName, 'SKILL.md');
   fs.mkdirSync(path.dirname(skillPath), { recursive: true });
   fs.writeFileSync(skillPath, `name: ${skillDirName}\n`);
@@ -40,13 +42,12 @@ function setupCoreCommands(projectDir: string): void {
 
 function setupCodexCoreSkills(projectDir: string): string {
   const skillsDir = path.join(projectDir, '.agents', 'skills');
-  for (const workflow of CORE_WORKFLOWS) {
-    const skillDirName = WORKFLOW_TO_SKILL_DIR[workflow];
+  for (const skillDirName of ['codespec-workflow', 'codespec-rebase-change', 'codespec-archive-change']) {
     const skillPath = path.join(skillsDir, skillDirName, 'SKILL.md');
     fs.mkdirSync(path.dirname(skillPath), { recursive: true });
     fs.writeFileSync(skillPath, `name: ${skillDirName}\n`);
   }
-  fs.writeFileSync(path.join(skillsDir, '.openspec-target'), 'codex\n');
+  fs.writeFileSync(path.join(skillsDir, '.codespec-target'), 'codex\n');
   return skillsDir;
 }
 
@@ -54,8 +55,8 @@ describe('profile sync drift detection', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-profile-sync-drift-test-'));
-    fs.mkdirSync(path.join(tempDir, 'openspec'), { recursive: true });
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-profile-sync-drift-test-'));
+    fs.mkdirSync(path.join(tempDir, 'codespec'), { recursive: true });
     vi.stubEnv('HOME', path.join(tempDir, 'home'));
     vi.stubEnv('USERPROFILE', path.join(tempDir, 'home'));
   });
@@ -68,8 +69,8 @@ describe('profile sync drift detection', () => {
   it('accepts public entries and detects a missing public entry', () => {
     for (const workflow of PUBLIC_WORKFLOWS) {
       const skillName = workflow === 'workflow'
-        ? 'openspec-workflow'
-        : `openspec-${workflow}-change`;
+        ? 'codespec-workflow'
+        : `codespec-${workflow}-change`;
       const skillPath = path.join(tempDir, '.claude', 'skills', skillName, 'SKILL.md');
       fs.mkdirSync(path.dirname(skillPath), { recursive: true });
       fs.writeFileSync(skillPath, `name: ${skillName}\n`);
@@ -77,7 +78,7 @@ describe('profile sync drift detection', () => {
     }
 
     expect(hasProjectConfigDrift(tempDir, PUBLIC_WORKFLOWS, 'both')).toBe(false);
-    fs.rmSync(path.join(tempDir, '.claude', 'skills', 'openspec-rebase-change'), { recursive: true });
+    fs.rmSync(path.join(tempDir, '.claude', 'skills', 'codespec-rebase-change'), { recursive: true });
     expect(hasProjectConfigDrift(tempDir, ['workflow', 'archive'], 'both')).toBe(true);
   });
 
@@ -103,17 +104,17 @@ describe('profile sync drift detection', () => {
       'home',
       '.minimax',
       'skills',
-      'openspec-explore',
+      'codespec-workflow',
       'SKILL.md'
     );
     fs.mkdirSync(path.dirname(skillPath), { recursive: true });
-    fs.writeFileSync(skillPath, 'name: openspec-explore\n');
+    fs.writeFileSync(skillPath, 'name: codespec-workflow\n');
 
     expect(hasProjectConfigDrift(tempDir, CORE_WORKFLOWS, 'commands')).toBe(false);
   });
 
   it('detects drift when required profile workflow files are missing', () => {
-    writeSkill(tempDir, 'explore');
+    writeSkill(tempDir, 'workflow');
 
     const hasDrift = hasProjectConfigDrift(tempDir, CORE_WORKFLOWS, 'both');
     expect(hasDrift).toBe(true);
@@ -146,50 +147,50 @@ describe('profile sync drift detection', () => {
     );
 
     expect(
-      hasToolProfileOrDeliveryDrift(tempDir, 'codex', CORE_WORKFLOWS, 'skills')
+      hasToolProfileOrDeliveryDrift(tempDir, 'codex', PUBLIC_WORKFLOWS, 'skills')
     ).toBe(false);
   });
 
   it('reports an equal distinct legacy Codex copy that migration can remove', () => {
     const skillsDir = setupCodexCoreSkills(tempDir);
-    const currentSkill = path.join(skillsDir, 'openspec-explore', 'SKILL.md');
+    const currentSkill = path.join(skillsDir, 'codespec-workflow', 'SKILL.md');
     const legacySkill = path.join(
       tempDir,
       '.codex',
       'skills',
-      'openspec-explore',
+      'codespec-workflow',
       'SKILL.md'
     );
     fs.mkdirSync(path.dirname(legacySkill), { recursive: true });
     fs.copyFileSync(currentSkill, legacySkill);
 
     expect(
-      hasToolProfileOrDeliveryDrift(tempDir, 'codex', CORE_WORKFLOWS, 'skills')
+      hasToolProfileOrDeliveryDrift(tempDir, 'codex', PUBLIC_WORKFLOWS, 'skills')
     ).toBe(true);
   });
 
   it('reports generated-only Codex differences that migration can remove', () => {
     const skillsDir = setupCodexCoreSkills(tempDir);
-    const currentSkill = path.join(skillsDir, 'openspec-explore', 'SKILL.md');
+    const currentSkill = path.join(skillsDir, 'codespec-workflow', 'SKILL.md');
     const legacySkill = path.join(
       tempDir,
       '.codex',
       'skills',
-      'openspec-explore',
+      'codespec-workflow',
       'SKILL.md'
     );
     fs.writeFileSync(
       currentSkill,
-      '---\nmetadata:\n  generatedBy: "1.7.0"\n---\nUse $openspec-apply-change (Codex) or /openspec-apply-change (other agents).\n'
+      '---\nmetadata:\n  generatedBy: "1.7.0"\n---\nUse $codespec-workflow (Codex) or /codespec-workflow (other agents).\n'
     );
     fs.mkdirSync(path.dirname(legacySkill), { recursive: true });
     fs.writeFileSync(
       legacySkill,
-      '\uFEFF---\r\nmetadata:\r\n  generatedBy: "0.1.0"\r\n---\r\nUse $openspec-apply-change.\r\n'
+      '\uFEFF---\r\nmetadata:\r\n  generatedBy: "0.1.0"\r\n---\r\nUse $codespec-workflow.\r\n'
     );
 
     expect(
-      hasToolProfileOrDeliveryDrift(tempDir, 'codex', CORE_WORKFLOWS, 'skills')
+      hasToolProfileOrDeliveryDrift(tempDir, 'codex', PUBLIC_WORKFLOWS, 'skills')
     ).toBe(true);
   });
 
@@ -199,14 +200,14 @@ describe('profile sync drift detection', () => {
       tempDir,
       '.codex',
       'skills',
-      'openspec-explore',
+      'codespec-workflow',
       'SKILL.md'
     );
     fs.mkdirSync(path.dirname(legacySkill), { recursive: true });
     fs.writeFileSync(legacySkill, 'user customization\n');
 
     expect(
-      hasToolProfileOrDeliveryDrift(tempDir, 'codex', CORE_WORKFLOWS, 'skills')
+      hasToolProfileOrDeliveryDrift(tempDir, 'codex', PUBLIC_WORKFLOWS, 'skills')
     ).toBe(false);
   });
 });

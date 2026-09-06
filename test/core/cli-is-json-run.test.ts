@@ -10,28 +10,28 @@ import { isJsonRun, isCompletionRun, shouldDeferCompletionTip } from '../../src/
  */
 function buildProgram(capture: (command: Command) => void): Command {
   const program = new Command();
-  program.name('openspec').exitOverride();
+  program.name('codespec').exitOverride();
   program.configureOutput({ writeOut: () => {}, writeErr: () => {} });
   program.option('--no-color', 'Disable color output');
   program.hook('preAction', (_thisCommand, actionCommand) => {
     capture(actionCommand);
   });
 
-  // 1. Leaf declares --json (e.g. `openspec status --json`).
+  // 1. Leaf declares --json (e.g. `codespec status --json`).
   program
     .command('status')
     .option('--json', 'Output as JSON')
     .action(() => {});
 
   // 2. Permissive bare group that never declares --json and detects it from
-  //    residual args (e.g. `openspec store --json`).
+  //    residual args (e.g. `codespec store --json`).
   const store = program.command('store');
   store.allowExcessArguments(true);
   store.allowUnknownOption(true);
   store.action(() => {});
 
   // 3. Parent group declares --json (read via optsWithGlobals) with its own
-  //    subcommands (e.g. `openspec workset --json list`).
+  //    subcommands (e.g. `codespec workset --json list`).
   const workset = program.command('workset');
   workset.addOption(new Option('--json', 'Output as JSON').hideHelp());
   workset
@@ -51,7 +51,7 @@ describe('isJsonRun', () => {
     const program = buildProgram((command) => {
       captured = command;
     });
-    await program.parseAsync(['node', 'openspec', ...argv]);
+    await program.parseAsync(['node', 'codespec', ...argv]);
     if (!captured) throw new Error(`no action command captured for: ${argv.join(' ')}`);
     return captured;
   }

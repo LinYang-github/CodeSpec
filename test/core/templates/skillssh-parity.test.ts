@@ -15,7 +15,7 @@ import { SKILLS_DIR, stripVolatileFrontmatter } from '../../../scripts/skillssh-
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 // The committed `skills/<name>/SKILL.md` tree is the skills.sh distribution
-// (`npx skills add Fission-AI/OpenSpec`). It must match what the generator
+// (`npx skills add LinYang-github/CodeSpec`). It must match what the generator
 // would produce from the live templates; regenerate with `pnpm generate:skills`.
 describe('skills.sh distribution parity', () => {
   it('keeps committed skills/ in sync with the workflow templates', () => {

@@ -14,7 +14,7 @@ async function runConfigCommand(args: string[]): Promise<void> {
   const { registerConfigCommand } = await import('../../src/commands/config.js');
   const program = new Command();
   registerConfigCommand(program);
-  await program.parseAsync(['node', 'openspec', 'config', ...args]);
+  await program.parseAsync(['node', 'codespec', 'config', ...args]);
 }
 
 async function getPromptMocks(): Promise<{
@@ -40,7 +40,7 @@ describe('diffProfileState workflow formatting', () => {
     );
 
     expect(diff.hasChanges).toBe(true);
-    expect(diff.lines).toEqual(['workflows: removed sync']);
+    expect(diff.lines).toEqual(['workflows：移除 sync']);
   });
 
   it('uses explicit labels when workflows are added and removed', async () => {
@@ -52,7 +52,7 @@ describe('diffProfileState workflow formatting', () => {
     );
 
     expect(diff.hasChanges).toBe(true);
-    expect(diff.lines).toEqual(['workflows: added verify; removed sync']);
+    expect(diff.lines).toEqual(['workflows：新增 verify；移除 sync']);
   });
 });
 
@@ -83,21 +83,21 @@ describe('config profile interactive flow', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   function setupDriftedProjectArtifacts(projectDir: string): void {
-    fs.mkdirSync(path.join(projectDir, 'openspec'), { recursive: true });
-    const exploreSkillPath = path.join(projectDir, '.claude', 'skills', 'openspec-explore', 'SKILL.md');
+    fs.mkdirSync(path.join(projectDir, 'codespec'), { recursive: true });
+    const exploreSkillPath = path.join(projectDir, '.claude', 'skills', 'codespec-workflow', 'SKILL.md');
     fs.mkdirSync(path.dirname(exploreSkillPath), { recursive: true });
-    fs.writeFileSync(exploreSkillPath, 'name: openspec-explore\n', 'utf-8');
+    fs.writeFileSync(exploreSkillPath, 'name: codespec-workflow\n', 'utf-8');
   }
 
   function setupSyncedCoreBothArtifacts(projectDir: string): void {
-    fs.mkdirSync(path.join(projectDir, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(projectDir, 'codespec'), { recursive: true });
     const coreSkillDirs = [
-      'openspec-propose',
-      'openspec-explore',
-      'openspec-apply-change',
-      'openspec-update-change',
-      'openspec-sync-specs',
-      'openspec-archive-change',
+      'codespec-propose',
+      'codespec-explore',
+      'codespec-apply-change',
+      'codespec-update-change',
+      'codespec-sync-specs',
+      'codespec-archive-change',
     ];
     for (const dirName of coreSkillDirs) {
       const skillPath = path.join(projectDir, '.claude', 'skills', dirName, 'SKILL.md');
@@ -107,18 +107,18 @@ describe('config profile interactive flow', () => {
 
     const coreCommands = ['propose', 'explore', 'apply', 'update', 'sync', 'archive'];
     for (const commandId of coreCommands) {
-      const commandPath = path.join(projectDir, '.claude', 'commands', 'opsx', `${commandId}.md`);
+      const commandPath = path.join(projectDir, '.claude', 'commands', 'codespec', `${commandId}.md`);
       fs.mkdirSync(path.dirname(commandPath), { recursive: true });
       fs.writeFileSync(commandPath, `# ${commandId}\n`, 'utf-8');
     }
   }
 
   function addExtraVerifyWorkflowArtifacts(projectDir: string): void {
-    const verifySkillPath = path.join(projectDir, '.claude', 'skills', 'openspec-verify-change', 'SKILL.md');
+    const verifySkillPath = path.join(projectDir, '.claude', 'skills', 'codespec-verify-change', 'SKILL.md');
     fs.mkdirSync(path.dirname(verifySkillPath), { recursive: true });
-    fs.writeFileSync(verifySkillPath, 'name: openspec-verify-change\n', 'utf-8');
+    fs.writeFileSync(verifySkillPath, 'name: codespec-verify-change\n', 'utf-8');
 
-    const verifyCommandPath = path.join(projectDir, '.claude', 'commands', 'opsx', 'verify.md');
+    const verifyCommandPath = path.join(projectDir, '.claude', 'commands', 'codespec', 'verify.md');
     fs.mkdirSync(path.dirname(verifyCommandPath), { recursive: true });
     fs.writeFileSync(verifyCommandPath, '# verify\n', 'utf-8');
   }
@@ -126,7 +126,7 @@ describe('config profile interactive flow', () => {
   beforeEach(() => {
     vi.resetModules();
 
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-config-profile-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-config-profile-test-'));
 
     originalEnv = { ...process.env };
     originalCwd = process.cwd();
@@ -180,19 +180,19 @@ describe('config profile interactive flow', () => {
     await runConfigCommand(['profile']);
 
     const firstCall = select.mock.calls[0][0];
-    expect(firstCall.message).toBe('What do you want to configure?');
+    expect(firstCall.message).toBe('要配置什么？');
     expect(firstCall.choices).toEqual(expect.arrayContaining([
       expect.objectContaining({
         value: 'delivery',
-        description: 'Change where workflows are installed',
+        description: '修改工作流安装位置',
       }),
       expect.objectContaining({
         value: 'workflows',
-        description: 'Change which workflow actions are available',
+        description: '修改可用的工作流操作',
       }),
       expect.objectContaining({
         value: 'keep',
-        name: 'Keep current settings (exit)',
+        name: '保留当前设置（退出）',
       }),
     ]));
   });
@@ -238,7 +238,7 @@ describe('config profile interactive flow', () => {
     expect(select).toHaveBeenCalledTimes(2);
     const secondCall = select.mock.calls[1][0];
     expect(secondCall.choices).toEqual(expect.arrayContaining([
-      expect.objectContaining({ value: 'commands', name: 'Commands only [current]' }),
+      expect.objectContaining({ value: 'commands', name: '仅 commands [current]' }),
     ]));
   });
 
@@ -253,17 +253,17 @@ describe('config profile interactive flow', () => {
     await runConfigCommand(['profile']);
 
     const checkboxCall = checkbox.mock.calls[0][0];
-    expect(checkboxCall.message).toBe('Select workflows to make available:');
+    expect(checkboxCall.message).toBe('选择要启用的 Workflows：');
     expect(checkboxCall.choices).toEqual(expect.arrayContaining([
       expect.objectContaining({
         value: 'propose',
-        name: 'Propose change',
-        description: 'Create proposal, design, and tasks from a request',
+        name: '提出 Change',
+        description: '根据需求创建 proposal、design 和 tasks',
       }),
       expect.objectContaining({
         value: 'verify',
-        name: 'Verify change',
-        description: 'Run verification checks against a change',
+        name: '验证 Change',
+        description: '对 Change 执行验证检查',
       }),
     ]));
   });
@@ -276,7 +276,7 @@ describe('config profile interactive flow', () => {
     const configPath = getGlobalConfigPath();
     const beforeContent = fs.readFileSync(configPath, 'utf-8');
 
-    fs.mkdirSync(path.join(tempDir, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'codespec'), { recursive: true });
     select.mockResolvedValueOnce('delivery');
     select.mockResolvedValueOnce('both');
 
@@ -285,7 +285,7 @@ describe('config profile interactive flow', () => {
     const afterContent = fs.readFileSync(configPath, 'utf-8');
     expect(afterContent).toBe(beforeContent);
     expect(confirm).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith('No config changes.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('配置没有变化。');
   });
 
   it('should preserve a custom profile when dependency expansion matches the core set', async () => {
@@ -309,7 +309,7 @@ describe('config profile interactive flow', () => {
     expect(getGlobalConfig().profile).toBe('custom');
     expect(fs.readFileSync(configPath, 'utf-8')).toBe(beforeContent);
     expect(confirm).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith('No config changes.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('配置没有变化。');
   });
 
   it.each(['delivery', 'both'] as const)(
@@ -357,8 +357,8 @@ describe('config profile interactive flow', () => {
 
     await runConfigCommand(['profile']);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('No config changes.');
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Warning: Global config is not applied to this project.'));
+    expect(consoleLogSpy).toHaveBeenCalledWith('配置没有变化。');
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('警告：全局配置尚未应用到此项目。'));
   });
 
   it('keep action should not warn when project files are already synced', async () => {
@@ -372,7 +372,7 @@ describe('config profile interactive flow', () => {
     await runConfigCommand(['profile']);
 
     const allLogs = consoleLogSpy.mock.calls.map((args) => args.map(String).join(' '));
-    expect(allLogs.some((line) => line.includes('Warning: Global config is not applied to this project.'))).toBe(false);
+    expect(allLogs.some((line) => line.includes('警告：全局配置尚未应用到此项目。'))).toBe(false);
   });
 
   it('effective no-op after prompts should warn when project files drift', async () => {
@@ -386,9 +386,9 @@ describe('config profile interactive flow', () => {
 
     await runConfigCommand(['profile']);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('No config changes.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('配置没有变化。');
     expect(confirm).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Warning: Global config is not applied to this project.'));
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('警告：全局配置尚未应用到此项目。'));
   });
 
   it('keep action should warn when project has extra workflows beyond global config', async () => {
@@ -402,8 +402,8 @@ describe('config profile interactive flow', () => {
 
     await runConfigCommand(['profile']);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('No config changes.');
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Warning: Global config is not applied to this project.'));
+    expect(consoleLogSpy).toHaveBeenCalledWith('配置没有变化。');
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('警告：全局配置尚未应用到此项目。'));
   });
 
   it('changed config should save and ask apply when inside project', async () => {
@@ -411,7 +411,7 @@ describe('config profile interactive flow', () => {
     const { select, confirm } = await getPromptMocks();
 
     saveGlobalConfig({ featureFlags: {}, profile: 'core', delivery: 'both', workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'] });
-    fs.mkdirSync(path.join(tempDir, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'codespec'), { recursive: true });
 
     select.mockResolvedValueOnce('delivery');
     select.mockResolvedValueOnce('skills');
@@ -421,17 +421,17 @@ describe('config profile interactive flow', () => {
 
     expect(getGlobalConfig().delivery).toBe('skills');
     expect(confirm).toHaveBeenCalledWith({
-      message: 'Apply changes to this project now?',
+      message: '立即将变更应用到此项目？',
       default: true,
     });
   });
 
-  it('confirmed project apply should update in process without resolving openspec from PATH', async () => {
+  it('confirmed project apply should update in process without resolving codespec from PATH', async () => {
     const { saveGlobalConfig, getGlobalConfig } = await import('../../src/core/global-config.js');
     const { select, confirm } = await getPromptMocks();
 
     saveGlobalConfig({ featureFlags: {}, profile: 'core', delivery: 'both', workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'] });
-    fs.mkdirSync(path.join(tempDir, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'codespec'), { recursive: true });
     const emptyBinDir = path.join(tempDir, 'empty-bin');
     fs.mkdirSync(emptyBinDir);
     vi.stubEnv('PATH', emptyBinDir);
@@ -445,8 +445,8 @@ describe('config profile interactive flow', () => {
     expect(getGlobalConfig().delivery).toBe('skills');
     expect(process.exitCode).toBeUndefined();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith('No configured tools found.');
-    expect(consoleLogSpy).toHaveBeenCalledWith('Run `openspec update` in your other projects to apply.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('未找到已配置的工具。');
+    expect(consoleLogSpy).toHaveBeenCalledWith('请在其他项目中运行 `codespec update` 应用配置。');
   });
 
   it('confirmed project apply should report the update failure reason', async () => {
@@ -455,7 +455,7 @@ describe('config profile interactive flow', () => {
     const { select, confirm } = await getPromptMocks();
 
     saveGlobalConfig({ featureFlags: {}, profile: 'core', delivery: 'both', workflows: ['propose', 'explore', 'apply', 'update', 'sync', 'archive'] });
-    fs.mkdirSync(path.join(tempDir, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'codespec'), { recursive: true });
     const executeSpy = vi.spyOn(UpdateCommand.prototype, 'execute')
       .mockRejectedValueOnce(new Error('permission denied'));
 
@@ -469,8 +469,8 @@ describe('config profile interactive flow', () => {
       executeSpy.mockRestore();
     }
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('`openspec update` failed: permission denied');
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Please run it manually to apply the profile changes.');
+    expect(consoleErrorSpy).toHaveBeenCalledWith('`codespec update` 失败：permission denied');
+    expect(consoleErrorSpy).toHaveBeenCalledWith('请手动运行该命令应用 Profile 变更。');
     expect(process.exitCode).toBe(1);
   });
 
@@ -500,7 +500,7 @@ describe('config profile interactive flow', () => {
 
     await expect(runConfigCommand(['profile'])).resolves.toBeUndefined();
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Config profile cancelled.');
+    expect(consoleLogSpy).toHaveBeenCalledWith('已取消 Profile 配置。');
     expect(process.exitCode).toBe(130);
     expect(checkbox).not.toHaveBeenCalled();
     expect(confirm).not.toHaveBeenCalled();

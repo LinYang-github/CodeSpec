@@ -13,7 +13,7 @@ async function runSchemaCommand(
     schemaModule ?? (await import('../../src/commands/schema.js'));
   const program = new Command();
   registerSchemaCommand(program);
-  await program.parseAsync(['node', 'openspec', 'schema', ...args]);
+  await program.parseAsync(['node', 'codespec', 'schema', ...args]);
 }
 
 function snapshotTree(root: string): Array<{ path: string; type: string; content?: string }> | null {
@@ -58,10 +58,10 @@ describe('schema command', () => {
 
   beforeEach(() => {
     // Create unique temp directory for each test
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-schema-test-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-schema-test-'));
 
-    // Create openspec directory structure
-    fs.mkdirSync(path.join(tempDir, 'openspec', 'schemas'), { recursive: true });
+    // Create codespec directory structure
+    fs.mkdirSync(path.join(tempDir, 'codespec', 'schemas'), { recursive: true });
 
     // Save original cwd and env
     originalCwd = process.cwd();
@@ -115,7 +115,7 @@ describe('schema command', () => {
 
     it('should detect project schema shadowing package', async () => {
       // Create a project-local spec-driven schema
-      const projectSchemaDir = path.join(tempDir, 'openspec', 'schemas', 'spec-driven');
+      const projectSchemaDir = path.join(tempDir, 'codespec', 'schemas', 'spec-driven');
       fs.mkdirSync(projectSchemaDir, { recursive: true });
       fs.writeFileSync(
         path.join(projectSchemaDir, 'schema.yaml'),
@@ -150,7 +150,7 @@ artifacts:
   describe('schema validate', () => {
     it('should validate a valid schema', async () => {
       // Create a valid project schema
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'test-schema');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'test-schema');
       fs.mkdirSync(schemaDir, { recursive: true });
       fs.writeFileSync(
         path.join(schemaDir, 'schema.yaml'),
@@ -175,7 +175,7 @@ artifacts:
     });
 
     it('should detect missing template file', async () => {
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'bad-schema');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'bad-schema');
       fs.mkdirSync(schemaDir, { recursive: true });
       fs.writeFileSync(
         path.join(schemaDir, 'schema.yaml'),
@@ -198,7 +198,7 @@ artifacts:
     it('should reject a template symlink outside the runtime templates directory', async () => {
       if (process.platform === 'win32') return;
 
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'linked-template');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'linked-template');
       const templatesDir = path.join(schemaDir, 'templates');
       fs.mkdirSync(templatesDir, { recursive: true });
       fs.writeFileSync(
@@ -287,7 +287,7 @@ artifacts:
       expect(sourceDir).not.toBeNull();
 
       // Copy manually to simulate fork
-      const destDir = path.join(tempDir, 'openspec', 'schemas', 'my-custom');
+      const destDir = path.join(tempDir, 'codespec', 'schemas', 'my-custom');
       fs.mkdirSync(destDir, { recursive: true });
 
       // Copy files
@@ -325,10 +325,10 @@ artifacts:
     it('should reject linked files without copying their contents', async () => {
       if (process.platform === 'win32') return;
 
-      const sourceDir = path.join(tempDir, 'openspec', 'schemas', 'linked-source');
+      const sourceDir = path.join(tempDir, 'codespec', 'schemas', 'linked-source');
       const templatesDir = path.join(sourceDir, 'templates');
       const secretPath = path.join(tempDir, 'secret.txt');
-      const destinationDir = path.join(tempDir, 'openspec', 'schemas', 'linked-copy');
+      const destinationDir = path.join(tempDir, 'codespec', 'schemas', 'linked-copy');
       fs.mkdirSync(templatesDir, { recursive: true });
       fs.writeFileSync(
         path.join(sourceDir, 'schema.yaml'),
@@ -358,9 +358,9 @@ artifacts:
     it('should dereference a confined template link into an independent fork', async () => {
       if (process.platform === 'win32') return;
 
-      const sourceDir = path.join(tempDir, 'openspec', 'schemas', 'linked-source');
+      const sourceDir = path.join(tempDir, 'codespec', 'schemas', 'linked-source');
       const templatesDir = path.join(sourceDir, 'templates');
-      const destinationDir = path.join(tempDir, 'openspec', 'schemas', 'linked-copy');
+      const destinationDir = path.join(tempDir, 'codespec', 'schemas', 'linked-copy');
       fs.mkdirSync(templatesDir, { recursive: true });
       fs.writeFileSync(
         path.join(sourceDir, 'schema.yaml'),
@@ -388,12 +388,12 @@ artifacts:
       const realSourceDir = path.join(tempDir, 'shared-schema');
       const linkedSourceDir = path.join(
         tempDir,
-        'openspec',
+        'codespec',
         'schemas',
         'linked-source'
       );
       const templatesDir = path.join(realSourceDir, 'templates');
-      const destinationDir = path.join(tempDir, 'openspec', 'schemas', 'linked-copy');
+      const destinationDir = path.join(tempDir, 'codespec', 'schemas', 'linked-copy');
       fs.mkdirSync(templatesDir, { recursive: true });
       fs.mkdirSync(path.dirname(linkedSourceDir), { recursive: true });
       fs.writeFileSync(
@@ -433,7 +433,7 @@ artifacts:
       schemaDir: string;
       before: ReturnType<typeof snapshotTree>;
     } {
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'my-workflow');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'my-workflow');
       if (force) {
         fs.mkdirSync(path.join(schemaDir, 'nested'), { recursive: true });
         fs.writeFileSync(path.join(schemaDir, 'schema.yaml'), 'original schema bytes\n');
@@ -481,7 +481,7 @@ artifacts:
       expect(created.exitCode).toBe(0);
       expect(
         fs.readFileSync(
-          path.join(tempDir, 'openspec', 'changes', 'uses-default', '.openspec.yaml'),
+          path.join(tempDir, 'codespec', 'changes', 'uses-default', '.codespec.yaml'),
           'utf-8'
         )
       ).toContain('schema: my-workflow');
@@ -490,7 +490,7 @@ artifacts:
     describe.each(failureModes)('$label with --default', ({ force }) => {
       it('preserves the schema and invalid YAML config byte-for-byte', async () => {
         const { schemaDir, before } = prepareSchemaForFailure(force);
-        const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+        const configPath = path.join(tempDir, 'codespec', 'config.yaml');
         const configBytes = Buffer.from('schema: [unterminated\n');
         fs.writeFileSync(configPath, configBytes);
 
@@ -503,7 +503,7 @@ artifacts:
 
       it('preserves the schema and scalar YAML config byte-for-byte', async () => {
         const { schemaDir, before } = prepareSchemaForFailure(force);
-        const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+        const configPath = path.join(tempDir, 'codespec', 'config.yaml');
         const configBytes = Buffer.from('not-an-object\n');
         fs.writeFileSync(configPath, configBytes);
 
@@ -516,7 +516,7 @@ artifacts:
 
       it('preserves the schema when the config path is a directory', async () => {
         const { schemaDir, before } = prepareSchemaForFailure(force);
-        const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+        const configPath = path.join(tempDir, 'codespec', 'config.yaml');
         fs.mkdirSync(configPath);
         fs.writeFileSync(path.join(configPath, 'keep.txt'), 'keep me');
 
@@ -537,7 +537,7 @@ artifacts:
         if (process.platform === 'win32') return;
 
         const { schemaDir, before } = prepareSchemaForFailure(force);
-        const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+        const configPath = path.join(tempDir, 'codespec', 'config.yaml');
         const configBytes = Buffer.from('schema: existing\n');
         fs.writeFileSync(configPath, configBytes, { mode: 0o444 });
 
@@ -556,9 +556,9 @@ artifacts:
         if (process.platform === 'win32') return;
 
         const { schemaDir, before } = prepareSchemaForFailure(force);
-        const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-schema-config-'));
+        const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-schema-config-'));
         const outsideConfig = path.join(outsideDir, 'config.yaml');
-        const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+        const configPath = path.join(tempDir, 'codespec', 'config.yaml');
         const configBytes = Buffer.from('schema: untouched\n');
         fs.writeFileSync(outsideConfig, configBytes);
         fs.symlinkSync(outsideConfig, configPath, 'file');
@@ -578,7 +578,7 @@ artifacts:
 
     it('rolls back a forced schema replacement when installing the config fails', async () => {
       const { schemaDir, before } = prepareSchemaForFailure(true);
-      const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+      const configPath = path.join(tempDir, 'codespec', 'config.yaml');
       const configBytes = Buffer.from('schema: existing\ncontext: keep me\n');
       fs.writeFileSync(configPath, configBytes);
       const schemaModule = await import('../../src/commands/schema.js');
@@ -602,7 +602,7 @@ artifacts:
       expect(process.exitCode).toBe(1);
       expect(renameCalls[3]).toEqual([
         expect.stringContaining('.schema-init-config-'),
-        expect.stringMatching(/[/\\]openspec[/\\]config\.yaml$/),
+        expect.stringMatching(/[/\\]codespec[/\\]config\.yaml$/),
       ]);
       expect(snapshotTree(schemaDir)).toEqual(before);
       expect(fs.readFileSync(configPath)).toEqual(configBytes);
@@ -629,7 +629,7 @@ artifacts:
 
     it('keeps the rest of an existing config when --default rewrites it', async () => {
       const { readProjectConfig } = await import('../../src/core/project-config.js');
-      const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+      const configPath = path.join(tempDir, 'codespec', 'config.yaml');
       fs.writeFileSync(configPath, 'schema: spec-driven\ncontext: keep me\n');
 
       await runSchemaCommand([
@@ -648,7 +648,7 @@ artifacts:
 
     it('updates config.yml in place without hiding its settings behind a new config.yaml', async () => {
       const { readProjectConfig } = await import('../../src/core/project-config.js');
-      const configPath = path.join(tempDir, 'openspec', 'config.yml');
+      const configPath = path.join(tempDir, 'codespec', 'config.yml');
       fs.writeFileSync(
         configPath,
         '# project context\nschema: spec-driven\ncontext: keep me\n'
@@ -663,7 +663,7 @@ artifacts:
         '--json',
       ]);
 
-      expect(fs.existsSync(path.join(tempDir, 'openspec', 'config.yaml'))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, 'codespec', 'config.yaml'))).toBe(false);
       expect(fs.readFileSync(configPath, 'utf-8')).toContain('# project context');
       expect(readProjectConfig(tempDir)).toMatchObject({
         schema: 'my-workflow',
@@ -672,9 +672,9 @@ artifacts:
     });
 
     it('does not set the default through a config symlink outside the project', async () => {
-      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-schema-config-'));
+      const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-schema-config-'));
       const outsideConfig = path.join(outsideDir, 'config.yaml');
-      const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+      const configPath = path.join(tempDir, 'codespec', 'config.yaml');
       fs.writeFileSync(outsideConfig, 'schema: untouched\n');
       fs.symlinkSync(outsideConfig, configPath, 'file');
 
@@ -696,7 +696,7 @@ artifacts:
     });
 
     it('clears the dead defaultSchema key a previous run left behind', async () => {
-      const configPath = path.join(tempDir, 'openspec', 'config.yaml');
+      const configPath = path.join(tempDir, 'codespec', 'config.yaml');
       fs.writeFileSync(configPath, 'defaultSchema: stale-workflow\n');
 
       await runSchemaCommand([
@@ -716,7 +716,7 @@ artifacts:
     });
 
     it('should preserve an existing schema when forced init rejects an artifact', async () => {
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'tdd-driven');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'tdd-driven');
       const schemaPath = path.join(schemaDir, 'schema.yaml');
       const sentinelPath = path.join(schemaDir, 'keep.bin');
       const existingSchema = 'name: tdd-driven\nversion: 1\n';
@@ -748,7 +748,7 @@ artifacts:
     });
 
     it('should replace an existing schema after forced init validates its artifacts', async () => {
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'tdd-driven');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'tdd-driven');
       const sentinelPath = path.join(schemaDir, 'keep.txt');
 
       fs.mkdirSync(schemaDir, { recursive: true });
@@ -780,7 +780,7 @@ artifacts:
     });
 
     it('should create schema directory with schema.yaml', async () => {
-      const schemaDir = path.join(tempDir, 'openspec', 'schemas', 'new-schema');
+      const schemaDir = path.join(tempDir, 'codespec', 'schemas', 'new-schema');
       fs.mkdirSync(schemaDir, { recursive: true });
 
       const { stringify: stringifyYaml } = await import('yaml');
@@ -874,7 +874,7 @@ artifacts:
         '    requires: []',
         '',
       ].join('\n');
-      const schemasDir = path.join(tempDir, 'openspec', 'schemas');
+      const schemasDir = path.join(tempDir, 'codespec', 'schemas');
       const realSchema = path.join(schemasDir, 'real-schema');
       fs.mkdirSync(realSchema, { recursive: true });
       fs.writeFileSync(path.join(realSchema, 'schema.yaml'), validSchema);

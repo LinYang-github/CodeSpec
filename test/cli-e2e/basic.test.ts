@@ -17,7 +17,7 @@ async function fileExists(filePath: string): Promise<boolean> {
 const tempRoots: string[] = [];
 
 async function prepareFixture(fixtureName: string): Promise<string> {
-  const base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-cli-e2e-'));
+  const base = await fs.mkdtemp(path.join(tmpdir(), 'codespec-cli-e2e-'));
   tempRoots.push(base);
   const projectDir = path.join(base, 'project');
   await fs.mkdir(projectDir, { recursive: true });
@@ -36,11 +36,11 @@ afterAll(async () => {
   await Promise.all(tempRoots.map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
-describe('openspec CLI e2e basics', () => {
+describe('codespec CLI e2e basics', () => {
   it('shows help output', async () => {
     const result = await runCLI(['--help']);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('Usage: openspec');
+    expect(result.stdout).toContain('Usage: codespec');
     expect(result.stderr).toBe('');
 
   });
@@ -138,15 +138,15 @@ describe('openspec CLI e2e basics', () => {
 
       expect(result.exitCode).toBe(0);
       const config = await fs.readFile(
-        path.join(emptyProjectDir, 'openspec', 'config.yaml'),
+        path.join(emptyProjectDir, 'codespec', 'config.yaml'),
         'utf-8',
       );
       expect(config).toContain('语言：French');
       expect(config).toContain('所有产物必须使用 French 编写。');
-      expect(config).toContain('保留 OpenSpec 结构标题以及 SHALL/MUST 关键词为英文。');
+      expect(config).toContain('保留 CodeSpec 结构标题以及 SHALL/MUST 关键词为英文。');
 
       await fs.appendFile(
-        path.join(emptyProjectDir, 'openspec', 'business.md'),
+        path.join(emptyProjectDir, 'codespec', 'business.md'),
         '\n| MOD-001 | 语言设置 | 管理产物语言 | 配置语言 | 用户 |\n',
         'utf-8'
       );
@@ -178,14 +178,14 @@ describe('openspec CLI e2e basics', () => {
       });
       expect(result.timedOut).toBe(false);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec 设置完成');
+      expect(result.stdout).toContain('CodeSpec 设置完成');
 
       // Check that skills were created for multiple tools
-      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
-      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/openspec-explore/SKILL.md');
+      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/codespec-workflow/SKILL.md');
+      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/codespec-workflow/SKILL.md');
       const minimaxSkillPath = path.join(
         testHome,
-        '.minimax/skills/openspec-explore/SKILL.md'
+        '.minimax/skills/codespec-workflow/SKILL.md'
       );
       expect(await fileExists(claudeSkillPath)).toBe(true);
       expect(await fileExists(cursorSkillPath)).toBe(true);
@@ -199,12 +199,12 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'claude'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec 设置完成');
+      expect(result.stdout).toContain('CodeSpec 设置完成');
       expect(result.stdout).toContain('Claude Code');
 
       // New init creates skills, not CLAUDE.md
-      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
-      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/openspec-explore/SKILL.md');
+      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/codespec-workflow/SKILL.md');
+      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/codespec-workflow/SKILL.md');
       expect(await fileExists(claudeSkillPath)).toBe(true);
       expect(await fileExists(cursorSkillPath)).toBe(false); // Not selected
     });
@@ -216,9 +216,9 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'agents'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec 设置完成');
+      expect(result.stdout).toContain('CodeSpec 设置完成');
 
-      const skillPath = path.join(emptyProjectDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md');
+      const skillPath = path.join(emptyProjectDir, '.agents', 'skills', 'codespec-workflow', 'SKILL.md');
       expect(await fileExists(skillPath)).toBe(true);
     });
 
@@ -229,26 +229,27 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'zed'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec 设置完成');
+      expect(result.stdout).toContain('CodeSpec 设置完成');
       expect(result.stdout).toContain('Zed Agent');
       expect(result.stdout).not.toContain('Restart your IDE');
 
-      const skillPath = path.join(emptyProjectDir, '.agents', 'skills', 'openspec-explore', 'SKILL.md');
+      const skillPath = path.join(emptyProjectDir, '.agents', 'skills', 'codespec-workflow', 'SKILL.md');
       expect(await fileExists(skillPath)).toBe(true);
       expect(await fs.readFile(
-        path.join(emptyProjectDir, '.agents', 'skills', '.openspec-target'),
+        path.join(emptyProjectDir, '.agents', 'skills', '.codespec-target'),
         'utf-8'
       )).toBe('zed\n');
 
       const updateResult = await runCLI(['update'], { cwd: emptyProjectDir });
       expect(updateResult.exitCode).toBe(0);
       expect(await fs.readFile(
-        path.join(emptyProjectDir, '.agents', 'skills', '.openspec-target'),
+        path.join(emptyProjectDir, '.agents', 'skills', '.codespec-target'),
         'utf-8'
       )).toBe('zed\n');
-      const updatedSkill = await fs.readFile(skillPath, 'utf-8');
-      expect(updatedSkill).toContain('/openspec-explore');
-      expect(updatedSkill).not.toContain('$openspec-explore');
+      const installedSkills = await fs.readdir(path.join(emptyProjectDir, '.agents', 'skills'), { withFileTypes: true });
+      expect(installedSkills.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort()).toEqual([
+        'codespec-archive-change', 'codespec-rebase-change', 'codespec-workflow',
+      ]);
     });
 
     it('initializes with --tools none option', async () => {
@@ -258,11 +259,11 @@ describe('openspec CLI e2e basics', () => {
 
       const result = await runCLI(['init', '--tools', 'none'], { cwd: emptyProjectDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('OpenSpec 设置完成');
+      expect(result.stdout).toContain('CodeSpec 设置完成');
 
       // With --tools none, no tool skills should be created
-      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/openspec-explore/SKILL.md');
-      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/openspec-explore/SKILL.md');
+      const claudeSkillPath = path.join(emptyProjectDir, '.claude/skills/codespec-workflow/SKILL.md');
+      const cursorSkillPath = path.join(emptyProjectDir, '.cursor/skills/codespec-workflow/SKILL.md');
 
       expect(await fileExists(claudeSkillPath)).toBe(false);
       expect(await fileExists(cursorSkillPath)).toBe(false);
@@ -294,11 +295,11 @@ describe('openspec CLI e2e basics', () => {
     // runCLI closes the child's stdin, which is exactly how an AI agent or a
     // CI script invokes the CLI.
     async function prepareChange(options: { tasksComplete?: boolean } = {}): Promise<string> {
-      const base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-archive-e2e-'));
+      const base = await fs.mkdtemp(path.join(tmpdir(), 'codespec-archive-e2e-'));
       tempRoots.push(base);
-      const changeDir = path.join(base, 'openspec', 'changes', 'add-greeting');
+      const changeDir = path.join(base, 'codespec', 'changes', 'add-greeting');
       await fs.mkdir(path.join(changeDir, 'specs', 'greeting'), { recursive: true });
-      await fs.mkdir(path.join(base, 'openspec', 'specs'), { recursive: true });
+      await fs.mkdir(path.join(base, 'codespec', 'specs'), { recursive: true });
       await fs.writeFile(
         path.join(changeDir, 'proposal.md'),
         '## Why\nThis change exists to document greeting behavior for the team, which is long enough.\n\n## What Changes\n- Add a greeting requirement.\n'
@@ -324,8 +325,8 @@ describe('openspec CLI e2e basics', () => {
       expect(output).not.toContain('no answer could be read from stdin');
 
       // The change is untouched: nothing was archived or merged.
-      expect(await fileExists(path.join(projectDir, 'openspec', 'changes', 'add-greeting', 'proposal.md'))).toBe(true);
-      expect(await fileExists(path.join(projectDir, 'openspec', 'specs', 'greeting', 'spec.md'))).toBe(false);
+      expect(await fileExists(path.join(projectDir, 'codespec', 'changes', 'add-greeting', 'proposal.md'))).toBe(true);
+      expect(await fileExists(path.join(projectDir, 'codespec', 'specs', 'greeting', 'spec.md'))).toBe(false);
     });
 
     it('does not inspect incomplete tasks before confirmation', async () => {
@@ -346,7 +347,7 @@ describe('openspec CLI e2e basics', () => {
       expect(result.exitCode).toBe(1);
       expect(output).toContain('archive_confirmation_required');
       expect(output).toContain('归档必须在交互式终端中由人工确认');
-      expect(await fileExists(path.join(projectDir, 'openspec', 'changes', 'add-greeting', 'proposal.md'))).toBe(true);
+      expect(await fileExists(path.join(projectDir, 'codespec', 'changes', 'add-greeting', 'proposal.md'))).toBe(true);
     });
   });
 });

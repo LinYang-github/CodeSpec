@@ -47,7 +47,7 @@ export class MarkdownParser {
       requirements,
       metadata: {
         version: '1.0.0',
-        format: 'openspec',
+        format: 'codespec',
       },
     };
   }
@@ -74,7 +74,7 @@ export class MarkdownParser {
       deltas,
       metadata: {
         version: '1.0.0',
-        format: 'openspec-change',
+        format: 'codespec-change',
       },
     };
   }

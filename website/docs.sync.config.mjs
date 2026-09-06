@@ -53,13 +53,13 @@ export const sections = [
     pages: [
       {
         folder: 'understanding',
-        label: 'Understanding OpenSpec',
+        label: 'Understanding CodeSpec',
         defaultOpen: true,
         pages: [{ source: 'guides/concepts.md', slug: 'understanding/concepts' }],
       },
       {
         folder: 'using',
-        label: 'Using OpenSpec',
+        label: 'Using CodeSpec',
         defaultOpen: true,
         pages: [
           { source: 'guides/explore.md', slug: 'using/explore' },
@@ -70,7 +70,7 @@ export const sections = [
       },
       {
         folder: 'adopting',
-        label: 'Adopting OpenSpec',
+        label: 'Adopting CodeSpec',
         defaultOpen: true,
         pages: [
           { source: 'guides/existing-codebases.md', slug: 'adopting/existing-codebases' },

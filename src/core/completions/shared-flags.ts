@@ -29,7 +29,7 @@ export const COMMON_FLAGS = {
   store: {
     name: 'store',
     description:
-      '用作 OpenSpec 根目录的 Store ID（Store 是你登记的独立 OpenSpec 仓库）',
+      '用作 CodeSpec 根目录的 Store ID（Store 是你登记的独立 CodeSpec 仓库）',
     takesValue: true,
   } as FlagDefinition,
 } as const;

@@ -75,9 +75,9 @@
 
 对于部分失效或完全替代，新 Change 必须记录旧新映射、处置类型和原因，例如 `REQ-A / SCN-A → REQ-B / SCN-B (superseded)`。归档摘要在人工确认前展示该映射。
 
-默认 `code-spec` workspace 的 Current Specification 位于 `openspec/specs/<模块编号>/spec.md`。归档事务先读取该文件，再对新 Change 的 delta 执行 `ADDED`、`MODIFIED` 或 `REMOVED`，并以事务方式安装整个更新后的模块文件。`MODIFIED` 和 `REMOVED` 必须携带与当前 Requirement 块完全匹配的 `previous` 内容；若不匹配，归档以 `ARCHIVE CONFLICT` 失败，不会覆盖现有内容。
+默认 `code-spec` workspace 的 Current Specification 位于 `codespec/specs/<模块编号>/spec.md`。归档事务先读取该文件，再对新 Change 的 delta 执行 `ADDED`、`MODIFIED` 或 `REMOVED`，并以事务方式安装整个更新后的模块文件。`MODIFIED` 和 `REMOVED` 必须携带与当前 Requirement 块完全匹配的 `previous` 内容；若不匹配，归档以 `ARCHIVE CONFLICT` 失败，不会覆盖现有内容。
 
-旧 Change 的快照始终保留在 `openspec/archive/changes/<CHG-ID>/`。因此，Current Specification 反映当前有效规则，归档 Change 则保留每一版规则为何存在、何时被替代及其验证证据。
+旧 Change 的快照始终保留在 `codespec/archive/changes/<CHG-ID>/`。因此，Current Specification 反映当前有效规则，归档 Change 则保留每一版规则为何存在、何时被替代及其验证证据。
 
 ## 错误处理
 
@@ -102,5 +102,5 @@
 - `schemas/code-spec/templates/design.md`
 - `schemas/code-spec/schema.yaml` 及 `code-spec` 专用验证逻辑
 - `src/core/templates/workflows/*` 中的 `code-spec` workflow 指令
-- `src/core/openspec-workflow/*` 中的设计、追踪和归档门禁实现
+- `src/core/codespec-workflow/*` 中的设计、追踪和归档门禁实现
 - 对应模板、验证、workflow 与归档事务测试

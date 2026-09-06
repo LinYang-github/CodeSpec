@@ -1,7 +1,7 @@
 /**
  * Update Command
  *
- * Refreshes OpenSpec skills and commands for configured tools.
+ * Refreshes CodeSpec skills and commands for configured tools.
  * Supports profile-aware updates, delivery changes, migration, and smart update detection.
  */
 
@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import { createRequire } from 'module';
 import { FileSystemUtils } from '../utils/file-system.js';
 import { getSkillReferenceTransformer, getTransformerForTool, transformToSkillReferences } from '../utils/command-references.js';
-import { AI_TOOLS, OPENSPEC_DIR_NAME } from './config.js';
+import { AI_TOOLS, CODESPEC_DIR_NAME } from './config.js';
 import {
   generateCommands,
   CommandAdapterRegistry,
@@ -78,7 +78,7 @@ import {
 import { includesGitHubCopilot, writeCopilotCloudFiles, removeCopilotCloudFiles, isCopilotCloudEnabled, readCopilotCloudOptIn, findUnmanagedCloudFiles } from './github-copilot/cloud-agent.js';
 
 const require = createRequire(import.meta.url);
-const { version: OPENSPEC_VERSION } = require('../../package.json');
+const { version: CODESPEC_VERSION } = require('../../package.json');
 
 /**
  * Captures legacy migration side effects so update can refresh newly configured
@@ -125,21 +125,21 @@ export class UpdateCommand {
   }
 
   /**
-   * Refreshes OpenSpec skills and commands for all configured tools,
+   * Refreshes CodeSpec skills and commands for all configured tools,
    * regenerating artifacts according to the effective profile and delivery mode.
    *
-   * @param projectPath - Path to the project root containing the openspec directory
+   * @param projectPath - Path to the project root containing the codespec directory
    */
   async execute(projectPath: string): Promise<void> {
     const resolvedProjectPath = path.resolve(projectPath);
-    const openspecPath = path.join(resolvedProjectPath, OPENSPEC_DIR_NAME);
+    const codespecPath = path.join(resolvedProjectPath, CODESPEC_DIR_NAME);
 
-    // 1. Check openspec directory exists
-    if (!await FileSystemUtils.directoryExists(openspecPath)) {
-      throw new Error(`未找到 OpenSpec 目录。请先运行 'openspec init'。`);
+    // 1. Check codespec directory exists
+    if (!await FileSystemUtils.directoryExists(codespecPath)) {
+      throw new Error(`未找到 CodeSpec 目录。请先运行 'codespec init'。`);
     }
 
-    // 2. Migrate OpenSpec-managed skills left in renamed tool directories
+    // 2. Migrate CodeSpec-managed skills left in renamed tool directories
     // (e.g. .kimi -> .kimi-code) so they stay detected and get refreshed,
     // then perform the one-time profile migration if needed before any
     // legacy upgrade generation.
@@ -151,7 +151,7 @@ export class UpdateCommand {
     }
     const declinedMigrations = await this.offerConsentedLegacyMigrations(resolvedProjectPath);
 
-    // Use detected tool directories to preserve existing opsx skills/commands.
+    // Use detected tool directories to preserve existing codespec skills/commands.
     const detectedTools = getAvailableTools(resolvedProjectPath);
     migrateIfNeededShared(resolvedProjectPath, detectedTools);
 
@@ -191,19 +191,19 @@ export class UpdateCommand {
         for (const migration of declinedMigrations) {
           console.log(
             chalk.yellow(
-              `没有可更新内容：此项目的 OpenSpec 文件仍在 ${migration.from}/，` +
-                `OpenSpec 已不再写入该目录。`
+              `没有可更新内容：此项目的 CodeSpec 文件仍在 ${migration.from}/，` +
+                `CodeSpec 已不再写入该目录。`
             )
           );
           console.log(
-            chalk.dim(`请重新运行 "openspec update" 并接受迁移到 ${migration.to}/，以恢复更新。`)
+            chalk.dim(`请重新运行 "codespec update" 并接受迁移到 ${migration.to}/，以恢复更新。`)
           );
         }
         return;
       }
       await this.syncCopilotCloudFiles(resolvedProjectPath, configuredAndNewTools);
       console.log(chalk.yellow('未找到已配置的工具。'));
-      console.log(chalk.dim('请运行 "openspec init" 设置工具。'));
+      console.log(chalk.dim('请运行 "codespec init" 设置工具。'));
       return;
     }
 
@@ -211,7 +211,7 @@ export class UpdateCommand {
     //    the generation loop below writes — otherwise a legacy-upgraded tool would be
     //    fingerprinted against commands it was never given.
     const toolStatuses = configuredTools.map((toolId) =>
-      getToolVersionStatus(resolvedProjectPath, toolId, OPENSPEC_VERSION, {
+      getToolVersionStatus(resolvedProjectPath, toolId, CODESPEC_VERSION, {
         workflows: legacyWorkflowOverrides[toolId]
           ? getPublicProfileWorkflows('custom', legacyWorkflowOverrides[toolId])
           : publicProfileWorkflows,
@@ -318,7 +318,7 @@ export class UpdateCommand {
               resolveCommandSurfaceCapability(tool.value),
               resolveCommandInvocation(tool.value)
             );
-            const skillContent = generateSkillContent(template, OPENSPEC_VERSION, transformer);
+            const skillContent = generateSkillContent(template, CODESPEC_VERSION, transformer);
             FileSystemUtils.assertPathWithin(skillsRoot, skillFile);
             await FileSystemUtils.writeFile(skillFile, skillContent);
           }
@@ -341,7 +341,7 @@ export class UpdateCommand {
           // Persist the selected owner even when commands-only delivery leaves
           // this target with no generated skills.
           writeSharedSkillTarget(resolvedProjectPath, tool.value);
-          // A tool with no command adapter now has zero OpenSpec artifacts;
+          // A tool with no command adapter now has zero CodeSpec artifacts;
           // say so like init does, rather than deleting its skills silently
           // and letting tool detection re-suggest an init that would also
           // generate nothing under this delivery setting.
@@ -408,7 +408,7 @@ export class UpdateCommand {
     // 11. Summary
     console.log();
     if (updatedTools.length > 0) {
-      console.log(chalk.green(`✓ 已更新：${updatedTools.join('、')}（v${OPENSPEC_VERSION}）`));
+      console.log(chalk.green(`✓ 已更新：${updatedTools.join('、')}（v${CODESPEC_VERSION}）`));
     }
     if (failedTools.length > 0) {
       console.log(chalk.red(`✗ 失败：${failedTools.map(f => `${f.name}（${f.error}）`).join('、')}`));
@@ -428,7 +428,7 @@ export class UpdateCommand {
         chalk.yellow(
             `${names} 未保留 skills 或 commands：delivery 设置为 'commands'，但 ` +
             `${zeroArtifactTools.length === 1 ? '该工具仅支持' : '这些工具仅支持'} skills。` +
-            `请运行 'openspec config set delivery both' 生成 skills。`
+            `请运行 'codespec config set delivery both' 生成 skills。`
         )
       );
     }
@@ -450,7 +450,7 @@ export class UpdateCommand {
           newlyConfiguredTools.map((toolId) => {
             if (shouldGenerateCommandsForTool(toolId, delivery)) {
               // Name the command the tool's files actually answer to:
-              // /opsx-<id> where the filename is the command name.
+              // /codespec-<id> where the filename is the command name.
               const transformer = getTransformerForTool(
                 toolId,
                 delivery,
@@ -485,7 +485,7 @@ export class UpdateCommand {
         }
         console.log();
       }
-      console.log(`了解更多：${chalk.cyan('https://github.com/Fission-AI/OpenSpec')}`);
+      console.log(`了解更多：${chalk.cyan('https://github.com/LinYang-github/CodeSpec')}`);
     }
 
     await this.syncCopilotCloudFiles(resolvedProjectPath, configuredAndNewTools);
@@ -520,7 +520,7 @@ export class UpdateCommand {
       console.log(chalk.dim('请重启 IDE 使变更生效。'));
     }
     if (failedTools.length > 0) {
-      throw new Error(`OpenSpec 更新失败：${failedTools.map((tool) => tool.name).join('、')}`);
+      throw new Error(`CodeSpec 更新失败：${failedTools.map((tool) => tool.name).join('、')}`);
     }
   }
 
@@ -529,7 +529,7 @@ export class UpdateCommand {
       if (includesGitHubCopilot(configuredTools)) {
         // Cloud files are opt-in (see cloud-agent.ts). `update` never prompts,
         // so it only refreshes files the user has already opted into (via
-        // `openspec init` or a `githubCopilot.cloudAgent: true` config), or that
+        // `codespec init` or a `githubCopilot.cloudAgent: true` config), or that
         // a pre-opt-in project already has. Opting in is a deliberate init/config
         // step, never a silent side effect of running update.
         if (await isCopilotCloudEnabled(projectPath)) {
@@ -538,8 +538,8 @@ export class UpdateCommand {
           if (collisions.length > 0) {
             console.log(
               chalk.dim(
-                `已保留现有 ${collisions.join(' 和 ')}，未作修改——请手动添加 OpenSpec ` +
-                  `安装步骤，以便 Copilot 云端代理运行 openspec。`
+                `已保留现有 ${collisions.join(' 和 ')}，未作修改——请手动添加 CodeSpec ` +
+                  `安装步骤，以便 Copilot 云端代理运行 codespec。`
               )
             );
           }
@@ -560,7 +560,7 @@ export class UpdateCommand {
         } else if (isInteractive()) {
           console.log(
             chalk.dim(
-              "GitHub Copilot 云端编码代理文件可用（需主动启用）。请使用 'openspec init --copilot-cloud' 启用。"
+              "GitHub Copilot 云端编码代理文件可用（需主动启用）。请使用 'codespec init --copilot-cloud' 启用。"
             )
           );
         }
@@ -582,7 +582,7 @@ export class UpdateCommand {
    */
   private displayUpToDateMessage(toolStatuses: ToolVersionStatus[]): void {
     const toolNames = toolStatuses.map((s) => s.toolId);
-    console.log(chalk.green(`✓ 全部 ${toolStatuses.length} 个工具已是最新（v${OPENSPEC_VERSION}）`));
+    console.log(chalk.green(`✓ 全部 ${toolStatuses.length} 个工具已是最新（v${CODESPEC_VERSION}）`));
     console.log(chalk.dim(`  工具：${toolNames.join('、')}`));
     console.log();
     console.log(chalk.dim('如需强制刷新文件，请使用 --force。'));
@@ -600,7 +600,7 @@ export class UpdateCommand {
       const status = statusByTool.get(toolId);
       if (status?.needsUpdate) {
         const fromVersion = status.generatedByVersion ?? 'unknown';
-        return `${status.toolId} (${fromVersion} → ${OPENSPEC_VERSION})`;
+        return `${status.toolId} (${fromVersion} → ${CODESPEC_VERSION})`;
       }
       return `${toolId} (config sync)`;
     });
@@ -643,7 +643,7 @@ export class UpdateCommand {
       console.log();
       console.log(
         chalk.yellow(
-          `${isSingleTool ? '检测到新工具' : '检测到多个新工具'}：${newToolNames.join('、')}。请运行 'openspec init' 添加。`
+          `${isSingleTool ? '检测到新工具' : '检测到多个新工具'}：${newToolNames.join('、')}。请运行 'codespec init' 添加。`
         )
       );
     }
@@ -662,7 +662,7 @@ export class UpdateCommand {
     const extraWorkflows = installedWorkflows.filter((w) => !profileSet.has(w));
 
     if (extraWorkflows.length > 0) {
-      console.log(chalk.dim(`提示：有 ${extraWorkflows.length} 个 workflow 不在当前 Profile 中（使用 \`openspec config profile\` 管理）`));
+      console.log(chalk.dim(`提示：有 ${extraWorkflows.length} 个 workflow 不在当前 Profile 中（使用 \`codespec config profile\` 管理）`));
     }
   }
 
@@ -685,7 +685,7 @@ export class UpdateCommand {
 
     const label = missing.length === 1 ? '个核心 workflow' : '个核心 workflow';
     console.log(chalk.dim(`提示：自定义 Profile 缺少 ${missing.length} ${label}：${missing.join('、')}`));
-    console.log(chalk.dim(`运行 \`openspec config profile\` 添加，或运行 \`openspec config profile core\` 使用核心集合。`));
+    console.log(chalk.dim(`运行 \`codespec config profile\` 添加，或运行 \`codespec config profile core\` 使用核心集合。`));
   }
 
   /**
@@ -696,7 +696,7 @@ export class UpdateCommand {
     let removed = 0;
 
     const dirNames = new Set([
-      ...PUBLIC_WORKFLOWS.map((workflow) => `openspec-${workflow === 'workflow' ? 'workflow' : workflow + '-change'}`),
+      ...PUBLIC_WORKFLOWS.map((workflow) => `codespec-${workflow === 'workflow' ? 'workflow' : workflow + '-change'}`),
       ...ALL_WORKFLOWS.map((workflow) => WORKFLOW_TO_SKILL_DIR[workflow]),
     ]);
     for (const dirName of dirNames) {
@@ -733,9 +733,9 @@ export class UpdateCommand {
     let removed = 0;
 
     const publicDirByWorkflow = {
-      workflow: 'openspec-workflow',
-      rebase: 'openspec-rebase-change',
-      archive: 'openspec-archive-change',
+      workflow: 'codespec-workflow',
+      rebase: 'codespec-rebase-change',
+      archive: 'codespec-archive-change',
     } as const;
     for (const workflow of PUBLIC_WORKFLOWS) {
       if (desiredPublicSet.has(workflow)) continue;
@@ -864,7 +864,7 @@ export class UpdateCommand {
   }
 
   /**
-   * Offers to move OpenSpec content out of a renamed tool's former directory
+   * Offers to move CodeSpec content out of a renamed tool's former directory
    * when the old location might still be the live one — today, Windsurf's
    * `.windsurf/` after the Devin Desktop rebrand.
    *
@@ -911,12 +911,12 @@ export class UpdateCommand {
           shouldMigrate = false;
         }
         if (!shouldMigrate) {
-          // Say what declining costs. OpenSpec writes the current root now, so
-          // the files keep working where they are, but OpenSpec stops managing
+          // Say what declining costs. CodeSpec writes the current root now, so
+          // the files keep working where they are, but CodeSpec stops managing
           // them — it no longer looks in the former directory.
           console.log(
             chalk.dim(
-              `已保留原位置。OpenSpec 现在写入 ${migration.to}/，不再管理 ` +
+              `已保留原位置。CodeSpec 现在写入 ${migration.to}/，不再管理 ` +
                 `${migration.from}/；这些文件会保持不变，直到你手动迁移。下次运行时会再次询问。`
             )
           );
@@ -939,7 +939,7 @@ export class UpdateCommand {
   }
 
   /**
-   * Detect and handle legacy OpenSpec artifacts.
+   * Detect and handle legacy CodeSpec artifacts.
    * Unlike init, update warns but continues if legacy files found in non-interactive mode.
    * Returns array of tool IDs that were newly configured during legacy upgrade.
    */
@@ -1065,7 +1065,9 @@ export class UpdateCommand {
   ): Promise<void> {
     const availableCodexWorkflows = new Set(scanInstalledWorkflows(projectPath, ['codex']));
     const removableMatches = getLegacyGlobalPromptMatches(detection)
-      .filter((prompt) => prompt.workflowIds.every((workflowId) => availableCodexWorkflows.has(workflowId)));
+      .filter((prompt) => prompt.workflowIds.every((workflowId) =>
+        availableCodexWorkflows.has(normalizeWorkflowId(workflowId) ?? workflowId)
+      ));
 
     if (removableMatches.length > 0) {
       await this.performLegacyCleanup(
@@ -1265,7 +1267,7 @@ export class UpdateCommand {
               resolveCommandSurfaceCapability(tool.value),
               resolveCommandInvocation(tool.value)
             );
-            const skillContent = generateSkillContent(template, OPENSPEC_VERSION, transformer);
+            const skillContent = generateSkillContent(template, CODESPEC_VERSION, transformer);
             FileSystemUtils.assertPathWithin(skillsRoot, skillFile);
             await FileSystemUtils.writeFile(skillFile, skillContent);
           }

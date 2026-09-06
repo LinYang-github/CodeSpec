@@ -141,8 +141,8 @@ describe('writeChangeMetadata', () => {
   let changeDir: string;
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-test-'));
-    changeDir = path.join(testDir, 'openspec', 'changes', 'test-change');
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-test-'));
+    changeDir = path.join(testDir, 'codespec', 'changes', 'test-change');
     await fs.mkdir(changeDir, { recursive: true });
   });
 
@@ -156,7 +156,7 @@ describe('writeChangeMetadata', () => {
       created: '2025-01-05',
     });
 
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     const content = await fs.readFile(metaPath, 'utf-8');
 
     expect(content).toContain('schema: spec-driven');
@@ -169,7 +169,7 @@ describe('writeChangeMetadata', () => {
         schema: 'unknown-schema',
         created: '2025-01-05',
       })
-    ).toThrow(/Unknown schema 'unknown-schema'/);
+    ).toThrow(/未知 Schema/);
   });
 });
 
@@ -178,8 +178,8 @@ describe('readChangeMetadata', () => {
   let changeDir: string;
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-test-'));
-    changeDir = path.join(testDir, 'openspec', 'changes', 'test-change');
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-test-'));
+    changeDir = path.join(testDir, 'codespec', 'changes', 'test-change');
     await fs.mkdir(changeDir, { recursive: true });
   });
 
@@ -193,7 +193,7 @@ describe('readChangeMetadata', () => {
   });
 
   it('should read valid metadata', async () => {
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(
       metaPath,
       'schema: spec-driven\ncreated: "2025-01-05"\n',
@@ -208,7 +208,7 @@ describe('readChangeMetadata', () => {
   });
 
   it('should read portable initiative metadata', async () => {
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(
       metaPath,
       [
@@ -229,24 +229,24 @@ describe('readChangeMetadata', () => {
   });
 
   it('should throw ChangeMetadataError for invalid YAML', async () => {
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, '{ invalid yaml', 'utf-8');
 
     expect(() => readChangeMetadata(changeDir)).toThrow(ChangeMetadataError);
   });
 
   it('should throw ChangeMetadataError for missing schema field', async () => {
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'created: "2025-01-05"\n', 'utf-8');
 
     expect(() => readChangeMetadata(changeDir)).toThrow(ChangeMetadataError);
   });
 
   it('should throw ChangeMetadataError for unknown schema', async () => {
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'schema: unknown-schema\n', 'utf-8');
 
-    expect(() => readChangeMetadata(changeDir)).toThrow(/Unknown schema/);
+    expect(() => readChangeMetadata(changeDir)).toThrow(/未知 Schema/);
   });
 });
 
@@ -255,8 +255,8 @@ describe('resolveSchemaForChange', () => {
   let changeDir: string;
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-test-'));
-    changeDir = path.join(testDir, 'openspec', 'changes', 'test-change');
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-test-'));
+    changeDir = path.join(testDir, 'codespec', 'changes', 'test-change');
     await fs.mkdir(changeDir, { recursive: true });
   });
 
@@ -266,7 +266,7 @@ describe('resolveSchemaForChange', () => {
 
   it('should return explicit schema when provided', async () => {
     // Even with metadata file, explicit schema wins
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'schema: spec-driven\n', 'utf-8');
 
     const result = resolveSchemaForChange(changeDir, 'custom-schema');
@@ -274,7 +274,7 @@ describe('resolveSchemaForChange', () => {
   });
 
   it('should return schema from metadata when no explicit schema', async () => {
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'schema: spec-driven\n', 'utf-8');
 
     const result = resolveSchemaForChange(changeDir);
@@ -283,12 +283,12 @@ describe('resolveSchemaForChange', () => {
 
   it('should return default when no metadata and no explicit schema', () => {
     const result = resolveSchemaForChange(changeDir);
-    expect(result).toBe('spec-driven');
+    expect(result).toBe('code-spec');
   });
 
   it('should fail when metadata exists but cannot be read', async () => {
     // Create an invalid metadata file
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, '{ invalid yaml', 'utf-8');
 
     expect(() => resolveSchemaForChange(changeDir)).toThrow(ChangeMetadataError);
@@ -296,7 +296,7 @@ describe('resolveSchemaForChange', () => {
 
   it('should use project config schema when no metadata exists', async () => {
     // Create project config
-    const configDir = path.join(testDir, 'openspec');
+    const configDir = path.join(testDir, 'codespec');
     await fs.mkdir(configDir, { recursive: true });
     await fs.writeFile(
       path.join(configDir, 'config.yaml'),
@@ -310,7 +310,7 @@ describe('resolveSchemaForChange', () => {
 
   it('should prefer change metadata over project config', async () => {
     // Create project config
-    const configDir = path.join(testDir, 'openspec');
+    const configDir = path.join(testDir, 'codespec');
     await fs.mkdir(configDir, { recursive: true });
     await fs.writeFile(
       path.join(configDir, 'config.yaml'),
@@ -319,7 +319,7 @@ describe('resolveSchemaForChange', () => {
     );
 
     // Create change metadata with different schema
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'schema: spec-driven\n', 'utf-8');
 
     const result = resolveSchemaForChange(changeDir);
@@ -328,7 +328,7 @@ describe('resolveSchemaForChange', () => {
 
   it('should prefer explicit schema over all config sources', async () => {
     // Create project config
-    const configDir = path.join(testDir, 'openspec');
+    const configDir = path.join(testDir, 'codespec');
     await fs.mkdir(configDir, { recursive: true });
     await fs.writeFile(
       path.join(configDir, 'config.yaml'),
@@ -337,7 +337,7 @@ describe('resolveSchemaForChange', () => {
     );
 
     // Create change metadata
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'schema: spec-driven\n', 'utf-8');
 
     // Explicit schema should win
@@ -347,7 +347,7 @@ describe('resolveSchemaForChange', () => {
 
   it('should test full precedence order: CLI > metadata > config > default', async () => {
     // Setup all levels
-    const configDir = path.join(testDir, 'openspec');
+    const configDir = path.join(testDir, 'codespec');
     await fs.mkdir(configDir, { recursive: true });
     await fs.writeFile(
       path.join(configDir, 'config.yaml'),
@@ -355,7 +355,7 @@ describe('resolveSchemaForChange', () => {
       'utf-8'
     );
 
-    const metaPath = path.join(changeDir, '.openspec.yaml');
+    const metaPath = path.join(changeDir, '.codespec.yaml');
     await fs.writeFile(metaPath, 'schema: spec-driven\n', 'utf-8');
 
     // Test each level
@@ -368,7 +368,7 @@ describe('resolveSchemaForChange', () => {
 
     // Remove config, default should win
     await fs.unlink(path.join(configDir, 'config.yaml'));
-    expect(resolveSchemaForChange(changeDir)).toBe('spec-driven'); // Default wins
+    expect(resolveSchemaForChange(changeDir)).toBe('code-spec'); // Default wins
   });
 });
 
@@ -379,7 +379,7 @@ describe('validateSchemaName', () => {
 
   it('should throw for unknown schema', () => {
     expect(() => validateSchemaName('unknown-schema')).toThrow(
-      /Unknown schema 'unknown-schema'/
+      /未知 Schema/
     );
   });
 });
@@ -388,8 +388,8 @@ describe('boolean marker reasons', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-marker-reason-'));
-    await fs.mkdir(path.join(tempDir, 'openspec', 'changes', 'c'), { recursive: true });
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-marker-reason-'));
+    await fs.mkdir(path.join(tempDir, 'codespec', 'changes', 'c'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -400,9 +400,9 @@ describe('boolean marker reasons', () => {
   // straight to a terminal. A schema name carrying an ESC could redraw the
   // screen; a CR could forge a line of its own.
   it('strips control characters from a reason that quotes authored content', async () => {
-    const changeDir = path.join(tempDir, 'openspec', 'changes', 'c');
+    const changeDir = path.join(tempDir, 'codespec', 'changes', 'c');
     await fs.writeFile(
-      path.join(changeDir, '.openspec.yaml'),
+      path.join(changeDir, '.codespec.yaml'),
       'schema: "ghost\u001b[31m-schema"\nretire_capabilities: true\n',
       'utf-8'
     );

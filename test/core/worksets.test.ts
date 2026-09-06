@@ -30,7 +30,7 @@ describe('worksets core', () => {
   let globalDataDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-worksets-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-worksets-'));
     globalDataDir = path.join(tempDir, 'data');
   });
 
@@ -120,7 +120,7 @@ describe('worksets core', () => {
     it('fails the hand-edit contract violations as invalid_workset_file', () => {
       const file = getWorksetsFilePath(options());
       const cases: Array<{ content: string; problem: RegExp }> = [
-        { content: '{not yaml', problem: /Invalid worksets file/ },
+        { content: '{not yaml', problem: /Workset 文件无效/ },
         {
           content: 'version: 2\nworksets: {}\n',
           problem: /version/,
@@ -144,7 +144,7 @@ describe('worksets core', () => {
         },
         {
           content: `version: 1\nworksets:\n  extra:\n    unknown: true\n    members:\n      - name: a\n        path: ${tempDir}\n`,
-          problem: /unknown/i,
+          problem: /Unrecognized key/,
         },
       ];
 
@@ -158,7 +158,7 @@ describe('worksets core', () => {
           ).diagnostic;
           expect(diagnostic.code).toBe('invalid_workset_file');
           expect(diagnostic.message).toMatch(candidate.problem);
-          expect(diagnostic.fix).toBe(`Repair or remove ${file}.`);
+          expect(diagnostic.fix).toBe(`修复或移除 ${file}。`);
         }
       }
     });
@@ -206,7 +206,7 @@ describe('worksets core', () => {
         ).diagnostic;
         expect(diagnostic.code).toBe('workset_exists');
         expect(diagnostic.fix).toBe(
-          'Choose another name, or remove it first: openspec workset remove platform'
+          'Choose another name, or remove it first: codespec workset remove platform'
         );
       }
     });
@@ -226,7 +226,7 @@ describe('worksets core', () => {
         ).diagnostic;
         expect(diagnostic.code).toBe('workset_not_found');
         expect(diagnostic.fix).toBe(
-          'Saved worksets: platform. See them with: openspec workset list'
+          '已保存 Workset：platform。可使用 codespec workset list 查看。'
         );
       }
 
@@ -237,9 +237,7 @@ describe('worksets core', () => {
         const diagnostic = (
           error as { diagnostic: { fix?: string } }
         ).diagnostic;
-        expect(diagnostic.fix).toBe(
-          'Create it first: openspec workset create absent'
-        );
+        expect(diagnostic.fix).toBe('请先创建：codespec workset create absent');
       }
     });
   });

@@ -6,7 +6,7 @@
 
 import path from 'path';
 import * as fs from 'fs';
-import { AI_TOOLS, LEGACY_OPENSPEC_SKILL_NAMES, OPENSPEC_SKILL_NAMES } from '../config.js';
+import { AI_TOOLS, CODESPEC_SKILL_NAMES } from '../config.js';
 import { CommandAdapterRegistry, generateCommands } from '../command-generation/index.js';
 import { getCommandContents } from './skill-generation.js';
 import { getGlobalConfig } from '../global-config.js';
@@ -34,14 +34,14 @@ import {
 } from './skill-paths.js';
 
 /**
- * Names of skill directories created by openspec init.
+ * Names of skill directories created by codespec init.
  */
-export const SKILL_NAMES = OPENSPEC_SKILL_NAMES;
+export const SKILL_NAMES = CODESPEC_SKILL_NAMES;
 
 export type SkillName = (typeof SKILL_NAMES)[number];
 
 /**
- * IDs of command templates created by openspec init.
+ * IDs of command templates created by codespec init.
  */
 export const COMMAND_IDS = [
   'workflow',
@@ -67,7 +67,7 @@ export const LEGACY_COMMAND_IDS = [
   'propose',
 ] as const;
 
-const DETECTABLE_SKILL_NAMES = [...OPENSPEC_SKILL_NAMES, ...LEGACY_OPENSPEC_SKILL_NAMES] as const;
+const DETECTABLE_SKILL_NAMES = CODESPEC_SKILL_NAMES;
 
 /**
  * Status of skill configuration for a tool.
@@ -143,7 +143,7 @@ export function getToolSkillStatus(projectRoot: string, toolId: string): ToolSki
 
   return {
     configured: skillCount > 0,
-    fullyConfigured: OPENSPEC_SKILL_NAMES.every((skillName) =>
+    fullyConfigured: CODESPEC_SKILL_NAMES.every((skillName) =>
       skillsDirs.some((skillsDir) => fs.existsSync(path.join(skillsDir, skillName, 'SKILL.md')))
     ),
     skillCount,
@@ -151,7 +151,7 @@ export function getToolSkillStatus(projectRoot: string, toolId: string): ToolSki
 }
 
 /**
- * Checks whether a tool has at least one generated OpenSpec command file.
+ * Checks whether a tool has at least one generated CodeSpec command file.
  */
 export function toolHasAnyConfiguredCommand(projectPath: string, toolId: string): boolean {
   const adapter = CommandAdapterRegistry.get(toolId);
@@ -304,7 +304,7 @@ export function extractGeneratedByVersion(skillFilePath: string): string | null 
     // ---
     // ...
     // metadata:
-    //   author: openspec
+    //   author: codespec
     //   version: "1.0"
     //   generatedBy: "0.23.0"
     // ---

@@ -1,9 +1,9 @@
 import path from 'node:path';
-import { archiveChange, type ArchiveResult } from './openspec-workflow/archive-transaction.js';
-import { loadWorkspace } from './openspec-workflow/loaders.js';
+import { archiveChange, type ArchiveResult } from './codespec-workflow/archive-transaction.js';
+import { loadWorkspace } from './codespec-workflow/loaders.js';
 
 /** Canonical code-spec archive entry point. Legacy Change directories are not accepted. */
 export async function archiveBusinessChange(projectRoot: string, changeId: string): Promise<ArchiveResult> {
   if (!/^CHG-\d{8}-\d{3}$/.test(changeId)) throw new Error('canonical 归档要求 CHG-YYYYMMDD-NNN Change ID');
-  return archiveChange(await loadWorkspace(path.join(projectRoot, 'openspec')), changeId);
+  return archiveChange(await loadWorkspace(path.join(projectRoot, 'codespec')), changeId);
 }

@@ -5,7 +5,7 @@ import * as path from 'node:path';
 
 import { getGlobalDataDir, registerStore } from '../../src/core/index.js';
 import { runCLI, type RunCLIResult } from '../helpers/run-cli.js';
-import { createOpenSpecRoot } from '../helpers/openspec-fixtures.js';
+import { createCodeSpecRoot } from '../helpers/codespec-fixtures.js';
 import { cleanupTempPath } from '../helpers/temp-cleanup.js';
 
 interface SchemaOutput {
@@ -23,7 +23,7 @@ interface FailureOutput {
 
 const SCHEMAS_MATRIX_TIMEOUT_MS = 30_000;
 
-describe('openspec schemas root selection', () => {
+describe('codespec schemas root selection', () => {
   let tempDir: string;
   let env: NodeJS.ProcessEnv;
   let globalDataDir: string;
@@ -33,18 +33,18 @@ describe('openspec schemas root selection', () => {
 
   beforeEach(async () => {
     tempDir = fs.realpathSync.native(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-schemas-root-'))
+      fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-schemas-root-'))
     );
     env = isolatedEnv('selected');
     globalDataDir = getGlobalDataDir({ env });
 
     localRoot = path.join(tempDir, 'local-project');
-    createOpenSpecRoot(localRoot);
+    createCodeSpecRoot(localRoot);
     writeProjectSchema(localRoot, 'local-only', 'Local-only workflow');
 
     // A native path containing spaces catches shell-composition and separator assumptions.
     storeRoot = path.join(tempDir, 'team store root');
-    createOpenSpecRoot(storeRoot);
+    createCodeSpecRoot(storeRoot);
     writeProjectSchema(storeRoot, 'store-only', 'Store-only workflow');
     await registerStore({ id: 'team-context', localPath: storeRoot, globalDataDir });
 
@@ -61,12 +61,12 @@ describe('openspec schemas root selection', () => {
       XDG_DATA_HOME: path.join(tempDir, `${name}-data`),
       XDG_CONFIG_HOME: path.join(tempDir, `${name}-config`),
       OPEN_SPEC_INTERACTIVE: '0',
-      OPENSPEC_TELEMETRY: '0',
+      CODESPEC_TELEMETRY: '0',
     };
   }
 
   function writeProjectSchema(root: string, name: string, description: string): void {
-    const schemaDir = path.join(root, 'openspec', 'schemas', name);
+    const schemaDir = path.join(root, 'codespec', 'schemas', name);
     fs.mkdirSync(schemaDir, { recursive: true });
     fs.writeFileSync(
       path.join(schemaDir, 'schema.yaml'),
@@ -102,7 +102,7 @@ describe('openspec schemas root selection', () => {
   }
 
   function setDefaultStore(id: string): void {
-    const configDir = path.join(env.XDG_CONFIG_HOME as string, 'openspec');
+    const configDir = path.join(env.XDG_CONFIG_HOME as string, 'codespec');
     fs.mkdirSync(configDir, { recursive: true });
     fs.writeFileSync(
       path.join(configDir, 'config.json'),
@@ -137,7 +137,7 @@ describe('openspec schemas root selection', () => {
     expect(human.stdout).toContain('可用 Schema：');
     expect(human.stdout).toContain('store-only');
     expect(human.stdout).not.toContain('local-only');
-    expect(human.stderr).toContain('使用 OpenSpec 根目录：team-context');
+    expect(human.stderr).toContain('使用 CodeSpec 根目录：team-context');
     expect(human.stderr).toContain(fs.realpathSync.native(storeRoot));
   }, SCHEMAS_MATRIX_TIMEOUT_MS);
 
@@ -153,9 +153,9 @@ describe('openspec schemas root selection', () => {
 
   it('honors declared pointers and global defaults while keeping nearest-root precedence', async () => {
     const pointerRoot = path.join(tempDir, 'pointer-project');
-    fs.mkdirSync(path.join(pointerRoot, 'openspec'), { recursive: true });
+    fs.mkdirSync(path.join(pointerRoot, 'codespec'), { recursive: true });
     fs.writeFileSync(
-      path.join(pointerRoot, 'openspec', 'config.yaml'),
+      path.join(pointerRoot, 'codespec', 'config.yaml'),
       'store: team-context\n'
     );
     writeProjectSchema(pointerRoot, 'pointer-only', 'Pointer-only workflow');
@@ -207,7 +207,7 @@ describe('openspec schemas root selection', () => {
     expect(parseFailure(unknown).status[0].code).toBe('unknown_store');
 
     const unavailableRoot = path.join(tempDir, 'unavailable-store');
-    createOpenSpecRoot(unavailableRoot);
+    createCodeSpecRoot(unavailableRoot);
     await registerStore({
       id: 'unavailable-context',
       localPath: unavailableRoot,

@@ -12,7 +12,7 @@ describe('ViewCommand', () => {
   let logOutput: string[] = [];
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-view-test-'));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-view-test-'));
 
     originalLog = console.log;
     console.log = (...args: any[]) => {
@@ -28,7 +28,7 @@ describe('ViewCommand', () => {
   });
 
   it('shows changes with no tasks in Draft section, not Completed', async () => {
-    const changesDir = path.join(tempDir, 'openspec', 'changes');
+    const changesDir = path.join(tempDir, 'codespec', 'changes');
     await fs.mkdir(changesDir, { recursive: true });
 
     // Empty change (no tasks.md) - should show in Draft
@@ -51,12 +51,12 @@ describe('ViewCommand', () => {
     const output = logOutput.map(stripAnsi).join('\n');
 
     // Draft section should contain empty and no-tasks changes
-    expect(output).toContain('Draft Changes');
+    expect(output).toContain('草稿 Change');
     expect(output).toContain('empty-change');
     expect(output).toContain('no-tasks-change');
 
     // Completed section should only contain changes with all tasks done
-    expect(output).toContain('Completed Changes');
+    expect(output).toContain('已完成 Change');
     expect(output).toContain('completed-change');
 
     // Verify empty-change and no-tasks-change are in Draft section (marked with ○)
@@ -78,7 +78,7 @@ describe('ViewCommand', () => {
   });
 
   it('sorts active changes by completion percentage ascending with deterministic tie-breakers', async () => {
-    const changesDir = path.join(tempDir, 'openspec', 'changes');
+    const changesDir = path.join(tempDir, 'codespec', 'changes');
     await fs.mkdir(changesDir, { recursive: true });
 
     await fs.mkdir(path.join(changesDir, 'gamma-change'), { recursive: true });
@@ -126,12 +126,12 @@ describe('ViewCommand', () => {
   });
 
   it('classifies a nested glob-tasks change as Active, not Draft (#1202)', async () => {
-    const openspecDir = path.join(tempDir, 'openspec');
-    const changesDir = path.join(openspecDir, 'changes');
+    const codespecDir = path.join(tempDir, 'codespec');
+    const changesDir = path.join(codespecDir, 'changes');
     await fs.mkdir(changesDir, { recursive: true });
 
     // Project-local schema whose tasks artifact resolves a nested glob.
-    const schemaDir = path.join(openspecDir, 'schemas', 'glob-tasks');
+    const schemaDir = path.join(codespecDir, 'schemas', 'glob-tasks');
     await fs.mkdir(schemaDir, { recursive: true });
     await fs.writeFile(
       path.join(schemaDir, 'schema.yaml'),
@@ -159,7 +159,7 @@ describe('ViewCommand', () => {
     const changeDir = path.join(changesDir, 'nested-change');
     await fs.mkdir(path.join(changeDir, 'backend'), { recursive: true });
     await fs.mkdir(path.join(changeDir, 'frontend'), { recursive: true });
-    await fs.writeFile(path.join(changeDir, '.openspec.yaml'), 'schema: glob-tasks\n');
+    await fs.writeFile(path.join(changeDir, '.codespec.yaml'), 'schema: glob-tasks\n');
     await fs.writeFile(path.join(changeDir, 'backend', 'tasks.md'), '- [x] 1.1 a\n- [x] 1.2 b\n');
     await fs.writeFile(path.join(changeDir, 'frontend', 'tasks.md'), '- [x] 2.1 a\n- [ ] 2.2 b\n- [ ] 2.3 c\n');
 
@@ -175,7 +175,7 @@ describe('ViewCommand', () => {
   });
 
   it('keeps a change with unfinished sub-tasks in Active, not Completed (#1485)', async () => {
-    const changesDir = path.join(tempDir, 'openspec', 'changes');
+    const changesDir = path.join(tempDir, 'codespec', 'changes');
     await fs.mkdir(path.join(changesDir, 'subtask-change'), { recursive: true });
     await fs.writeFile(
       path.join(changesDir, 'subtask-change', 'tasks.md'),
@@ -190,4 +190,3 @@ describe('ViewCommand', () => {
     expect(completedLines.some(line => line.includes('subtask-change'))).toBe(false);
   });
 });
-

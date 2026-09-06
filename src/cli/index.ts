@@ -49,13 +49,14 @@ import {
   type SchemasOptions,
   type NewChangeOptions,
 } from '../commands/workflow/index.js';
-import { rebaseChange } from '../core/openspec-workflow/rebase.js';
-import { loadWorkspace, loadChangeArtifacts } from '../core/openspec-workflow/loaders.js';
-import { transitionChange } from '../core/openspec-workflow/state-machine.js';
-import { detectStaleChanges } from '../core/openspec-workflow/stale.js';
-import { archiveChange } from '../core/openspec-workflow/archive-transaction.js';
-import { allocateRequirementIds } from '../core/openspec-workflow/requirement-allocator.js';
-import type { ChangeStatus } from '../core/openspec-workflow/types.js';
+import { rebaseChange } from '../core/codespec-workflow/rebase.js';
+import { loadWorkspace, loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
+import { transitionChange } from '../core/codespec-workflow/state-machine.js';
+import { detectStaleChanges } from '../core/codespec-workflow/stale.js';
+import { commitArchive, preflightArchive, prepareArchive } from '../core/codespec-workflow/archive-transaction.js';
+import { parseVerificationDocument } from '../core/codespec-workflow/verification.js';
+import { allocateRequirementIds } from '../core/codespec-workflow/requirement-allocator.js';
+import type { ChangeStatus } from '../core/codespec-workflow/types.js';
 import { parse as parseYaml } from 'yaml';
 import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
 import { maybeShowCompletionTip } from '../core/completion-tip.js';
@@ -72,7 +73,7 @@ const STORE_OPTION_DESCRIPTION = COMMON_FLAGS.store.description;
 function hiddenStorePathOption(): Option {
   return new Option(
     '--store-path <path>',
-    '不支持；请使用 "openspec store register <path>" 登记路径，再使用 --store <id>'
+    '不支持；请使用 "codespec store register <path>" 登记路径，再使用 --store <id>'
   ).hideHelp();
 }
 
@@ -116,14 +117,14 @@ export function getCommandPath(command: Command): string {
 
   while (current) {
     const name = current.name();
-    // Skip the root 'openspec' command
-    if (name && name !== 'openspec') {
+    // Skip the root 'codespec' command
+    if (name && name !== 'codespec') {
       names.unshift(name);
     }
     current = current.parent;
   }
 
-  return names.join(':') || 'openspec';
+  return names.join(':') || 'codespec';
 }
 
 /**
@@ -131,11 +132,11 @@ export function getCommandPath(command: Command): string {
  * first-run telemetry notice so stdout stays a single valid JSON document.
  *
  * `--json` reaches commands three ways, so a single parsed option is not enough:
- * - declared on the leaf (`openspec status --json`) → `opts().json`
- * - declared on a parent group and read via globals (`openspec workset --json list`)
+ * - declared on the leaf (`codespec status --json`) → `opts().json`
+ * - declared on a parent group and read via globals (`codespec workset --json list`)
  *   → `optsWithGlobals().json`
  * - a residual arg on a permissive group that never declares the option
- *   (`openspec store --json`, which detects it from `command.args`) → `args`
+ *   (`codespec store --json`, which detects it from `command.args`) → `args`
  *
  * Suppressing is always safe: the disclosure is only deferred to the next
  * non-JSON run, never lost, whereas printing it on a JSON run corrupts stdout.
@@ -149,7 +150,7 @@ export function isJsonRun(command: Command): boolean {
 
 /**
  * True for the commands that exist to serve shell completions: the user-facing
- * `openspec completion ...` group and the hidden `__complete` resolver that
+ * `codespec completion ...` group and the hidden `__complete` resolver that
  * generated completion scripts call on every Tab press. Tipping either about
  * completions is noise, and `__complete` would burn the one-shot tip invisibly.
  */
@@ -171,7 +172,7 @@ export function shouldDeferCompletionTip(command: Command, stderrIsTty: boolean)
 }
 
 program
-  .name('openspec')
+  .name('codespec')
   .description('面向 AI 的 code-spec 需求与变更管理工具')
   .version(version);
 
@@ -205,7 +206,7 @@ program.hook('postAction', async (_thisCommand, actionCommand) => {
   // clean). postAction, not preAction: the tip trails the command's own output
   // instead of pushing an error message or `init`'s setup summary down the
   // screen. Deferred — not consumed — whenever nobody would read it: JSON runs,
-  // `openspec completion ...`, and a stderr that is not a terminal (agents and
+  // `codespec completion ...`, and a stderr that is not a terminal (agents and
   // pipes would otherwise silently burn the user's one-shot tip).
   try {
     await maybeShowCompletionTip({
@@ -228,9 +229,9 @@ const toolsOptionDescription = `非交互式配置 AI 工具。可使用 "all"�
 
 program
   .command('init [path]')
-  .description('在项目中初始化 OpenSpec')
+  .description('在项目中初始化 CodeSpec')
   .option('--tools <tools>', toolsOptionDescription)
-  .option('--language <language>', '使用指定语言编写新的 OpenSpec 产物')
+  .option('--language <language>', '使用指定语言编写新的 CodeSpec 产物')
   .option('--schema <code-spec|spec-driven>', '选择工作流 schema（默认：code-spec）', DEFAULT_SCHEMA)
   .option('--force', '无需提示，自动清理旧文件')
   .option('--profile <profile>', '覆盖全局工作流配置（core 或 custom）')
@@ -283,7 +284,7 @@ program
   .option('--no-interactive', '禁用交互式提示')
   .action(async (options?: { tool?: string; noInteractive?: boolean }) => {
     try {
-      console.log('提示："openspec experimental" 已弃用，请改用 "openspec init"。');
+      console.log('提示："codespec experimental" 已弃用，请改用 "codespec init"。');
       const { InitCommand } = await import('../core/init.js');
       const initCommand = new InitCommand({
         tools: options?.tool,
@@ -298,7 +299,7 @@ program
 
 program
   .command('update [path]')
-  .description('更新 OpenSpec 指导文件')
+  .description('更新 CodeSpec 指导文件')
   .option('--force', '即使工具已是最新也强制更新')
   .action(async (targetPath = '.', options?: { force?: boolean }) => {
     try {
@@ -377,7 +378,7 @@ program
         failurePayload: options?.specs ? { specs: [], root: null } : { changes: [], root: null },
         // Preserve the cwd fallback for pre-config.yaml projects. The resolver
         // still lets a registered/default store take precedence over it.
-        allowImplicitRoot: existsSync(path.join(process.cwd(), 'openspec', 'project.md')),
+        allowImplicitRoot: existsSync(path.join(process.cwd(), 'codespec', 'project.md')),
       });
       if (!root) {
         return;
@@ -419,8 +420,8 @@ program
   .action(async (options?: { store?: string; storePath?: string }) => {
     try {
       // Implicit cwd fallback stays enabled so `view` keeps accepting the same
-      // directories as `list`/`status` — notably pre-config.yaml `openspec/`
-      // dirs. ViewCommand still reports a missing openspec/ directory itself.
+      // directories as `list`/`status` — notably pre-config.yaml `codespec/`
+      // dirs. ViewCommand still reports a missing codespec/ directory itself.
       const root = await resolveRootForCommand(options ?? {});
       if (!root) {
         return;
@@ -436,18 +437,19 @@ program
 // Change command with subcommands
 const changeCmd = program
   .command('change')
-  .description('管理 OpenSpec Change 提案');
+  .description('管理 CodeSpec Change 提案');
 
 // Deprecation notice for noun-based commands
 changeCmd.hook('preAction', () => {
-  console.error('警告："openspec change ..." 命令已弃用，建议使用动词优先的命令（例如 "openspec list"、"openspec validate --changes"）。');
+  console.error('警告："codespec change ..." 命令已弃用，建议使用动词优先的命令（例如 "codespec list"、"codespec validate --changes"）。');
 });
 
 changeCmd
   .command('new <name>')
-  .description('创建 Change（"openspec new change" 的弃用别名）')
+  .description('创建 Change（"codespec new change" 的弃用别名）')
   .option('--description <text>', '要写入 README.md 的描述')
   .option('--goal <text>', '随 Change 保存的可选目标元数据')
+  .option('--sdd-level <level>', 'SDD 执行等级：1、2 或 3')
   .option('--schema <name>', `使用的工作流 Schema（默认：${DEFAULT_SCHEMA}）`)
   .option('--json', '以 JSON 输出')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
@@ -483,12 +485,12 @@ changeCmd
 
 changeCmd
   .command('list')
-  .description('列出全部活动 Change（已弃用：请改用 "openspec list"）')
+  .description('列出全部活动 Change（已弃用：请改用 "codespec list"）')
   .option('--json', '以 JSON 输出')
   .option('--long', '显示 ID、标题和数量')
   .action(async (options?: { json?: boolean; long?: boolean }) => {
     try {
-      console.error('警告："openspec change list" 已弃用，请改用 "openspec list"。');
+      console.error('警告："codespec change list" 已弃用，请改用 "codespec list"。');
       const changeCommand = new ChangeCommand();
       await changeCommand.list(options);
     } catch (error) {
@@ -532,6 +534,35 @@ program
       const archiveConfirmationError = new Error(
         '归档必须在交互式终端中由人工确认；--json、无 TTY 或 --yes 不能绕过确认。'
       );
+      const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
+      if (!root) return;
+      const workspace = await tryLoadCanonicalWorkspace(root.path);
+      if (workspace) {
+        if (!changeName || !/^CHG-\d{8}-\d{3}$/u.test(changeName)) throw new Error('canonical code-spec 归档要求明确指定 CHG-YYYYMMDD-NNN Change ID。');
+        if (options?.skipSpecs || options?.noValidate || options?.validate === false) throw new Error('canonical code-spec 不能跳过 Spec 更新或归档校验。');
+        const prepared = await prepareArchive(await preflightArchive(workspace, changeName));
+        const evidence = parseVerificationDocument(prepared.plan.artifacts.verification);
+        const preview = {
+          changeId: changeName,
+          revision: prepared.plan.artifacts.metadata.change.revision,
+          archiveImpact: prepared.plan.archiveImpact,
+          modules: [...prepared.specs.keys()],
+          evidence: { receipt: evidence.receipt, verifiedAt: evidence.verified_at, regressionCommands: evidence.commands.filter((command) => command.kind === 'archive-regression') },
+        };
+        if (options?.json) {
+          failWithError(archiveConfirmationError, { enabled: true, payload: { archive: null, preflight: preview }, fallbackCode: 'archive_confirmation_required' });
+          return;
+        }
+        console.log('归档预检（尚未写入）：');
+        console.log(JSON.stringify(preview, null, 2));
+        if (!isInteractiveTerminal()) throw archiveConfirmationError;
+        if (!await confirmPrompt({ message: `确认按上述映射和验证证据归档 Change "${changeName}"？`, default: false })) {
+          console.log('已取消归档。'); return;
+        }
+        const result = await commitArchive(prepared);
+        console.log(`已归档 ${result.changeId}`);
+        return;
+      }
       if (options?.json) {
         failWithError(archiveConfirmationError, {
           enabled: true,
@@ -553,24 +584,10 @@ program
         console.log('已取消归档。');
         return;
       }
-      if (changeName && !/^CHG-\d{8}-\d{3}$/u.test(changeName)) {
-        const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
-        if (!root) return;
-        if (await tryLoadCanonicalWorkspace(root.path)) throw new Error(`canonical code-spec 归档要求 Change ID 符合 CHG-YYYYMMDD-NNN；不支持 '${changeName}'。`);
-      }
-      if (changeName?.startsWith('CHG-')) {
-        const root = await resolveRootForCommand(options ?? {}, { json: Boolean(options?.json) });
-        if (!root) return;
-        const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
-        const result = await archiveChange(workspace, changeName);
-        if (options?.json) console.log(JSON.stringify(result));
-        else console.log(`已归档 ${result.changeId}`);
-        return;
-      }
       const archiveCommand = new ArchiveCommand();
       await archiveCommand.execute(changeName, options);
     } catch (error) {
-      failWithError(error);
+      failWithError(error, { enabled: Boolean(options?.json), payload: { archive: null }, fallbackCode: 'archive_preflight_failed' });
       process.exit(1);
     }
   });
@@ -587,7 +604,7 @@ program
     try {
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;
-      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
       const ids = options.change
         ? await allocateRequirementIds(workspace, options.change, options.module, Number(options.count))
         : await allocateRequirementIds(workspace, options.module, Number(options.count));
@@ -617,7 +634,7 @@ program
   .option('--type <type>', '条目类型不明确时指定：change|spec')
   .option('--strict', '启用严格校验模式')
   .option('--json', '以 JSON 输出校验结果')
-  .option('--concurrency <n>', '最大并发校验数（默认读取 OPENSPEC_CONCURRENCY，或使用 6）')
+  .option('--concurrency <n>', '最大并发校验数（默认读取 CODESPEC_CONCURRENCY，或使用 6）')
   .option('--no-interactive', '禁用交互式提示')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
@@ -665,7 +682,7 @@ program
 // Feedback command
 program
   .command('feedback <message>')
-  .description('提交 OpenSpec 反馈')
+  .description('提交 CodeSpec 反馈')
   .option('--body <text>', '反馈的详细说明')
   .action(async (message: string, options?: { body?: string }) => {
     try {
@@ -680,7 +697,7 @@ program
 // Completion command with subcommands
 const completionCmd = program
   .command('completion')
-  .description('管理 OpenSpec CLI 的 Shell 补全');
+  .description('管理 CodeSpec CLI 的 Shell 补全');
 
 completionCmd
   .command('generate [shell]')
@@ -752,7 +769,7 @@ program
     try {
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;
-      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
       const result = await rebaseChange(workspace, options.change, options.currentSpec);
       console.log(JSON.stringify(result, null, 2));
     } catch (error) {
@@ -773,7 +790,7 @@ program
     try {
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;
-      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
       const artifacts = await loadChangeArtifacts(workspace.paths, options.change);
       const result = await transitionChange(workspace, artifacts, options.to as ChangeStatus, options.reason);
       console.log(JSON.stringify({ changeId: options.change, status: result.change.status, revision: result.change.revision }, null, 2));
@@ -794,7 +811,7 @@ program
     try {
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;
-      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
       const artifacts = await loadChangeArtifacts(workspace.paths, options.change);
       const result = await transitionChange(workspace, artifacts, 'ABANDONED', options.reason);
       console.log(JSON.stringify({ changeId: options.change, status: result.change.status }, null, 2));
@@ -814,7 +831,7 @@ program
     try {
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;
-      const workspace = await loadWorkspace(path.join(root.path, 'openspec'));
+      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
       let ids = options.requirements?.split(',').map((item) => item.trim()).filter(Boolean) ?? [];
       if (!ids.length) {
         const entries = await fs.readdir(workspace.paths.archivedChanges, { withFileTypes: true }).catch(() => []);
@@ -928,6 +945,7 @@ newCmd
   .description('创建新的 Change 目录')
   .option('--description <text>', '写入 README.md 的说明')
   .option('--goal <text>', '要写入 Change 的可选目标元数据')
+  .option('--sdd-level <level>', 'SDD 执行等级：1、2 或 3')
   .option('--schema <name>', `使用的工作流 Schema（默认：${DEFAULT_SCHEMA}）`)
   .option('--json', '以 JSON 输出')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)

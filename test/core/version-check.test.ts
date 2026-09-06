@@ -29,7 +29,7 @@ import {
 } from '../../src/core/version-check.js';
 
 const require = createRequire(import.meta.url);
-const { version: OPENSPEC_VERSION } = require('../../package.json');
+const { version: CODESPEC_VERSION } = require('../../package.json');
 
 // Resolved so the fixtures carry a drive letter on Windows, where an
 // unresolved POSIX path can never prefix-match a resolved one.
@@ -90,9 +90,9 @@ describe('getAvailableCliUpdate', () => {
   const ENV_KEYS = [
     'NODE_ENV',
     'CI',
-    'OPENSPEC_NO_UPDATE_CHECK',
+    'CODESPEC_NO_UPDATE_CHECK',
     'DO_NOT_TRACK',
-    'OPENSPEC_TELEMETRY',
+    'CODESPEC_TELEMETRY',
     'npm_config_registry',
   ] as const;
 
@@ -105,7 +105,7 @@ describe('getAvailableCliUpdate', () => {
 
   beforeEach(async () => {
     requests = [];
-    serveVersion(bumpMajor(OPENSPEC_VERSION));
+    serveVersion(bumpMajor(CODESPEC_VERSION));
 
     server = http.createServer((req, res) => {
       requests.push({ url: req.url ?? '', method: req.method ?? '', headers: req.headers });
@@ -133,7 +133,7 @@ describe('getAvailableCliUpdate', () => {
   });
 
   it('reports the published version when the installed CLI is behind', async () => {
-    await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(OPENSPEC_VERSION));
+    await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(CODESPEC_VERSION));
   });
 
   it('asks the dist-tag endpoint, and never with an Accept type it answers 406 for', async () => {
@@ -141,7 +141,7 @@ describe('getAvailableCliUpdate', () => {
 
     expect(requests).toHaveLength(1);
     expect(requests[0].method).toBe('GET');
-    expect(requests[0].url).toBe('/@fission-ai/openspec/latest');
+    expect(requests[0].url).toBe('/@hrhy-ai/codespec/latest');
     // npm serves application/vnd.npm.install-v1+json only on the full
     // packument; asking for it here returns 406 and silently disables the
     // whole check.
@@ -149,7 +149,7 @@ describe('getAvailableCliUpdate', () => {
   });
 
   it('returns null when the installed CLI is current', async () => {
-    serveVersion(OPENSPEC_VERSION);
+    serveVersion(CODESPEC_VERSION);
     await expect(getAvailableCliUpdate()).resolves.toBeNull();
   });
 
@@ -163,16 +163,16 @@ describe('getAvailableCliUpdate', () => {
     respond = (res) => {
       hop += 1;
       if (hop === 1) {
-        res.writeHead(302, { location: '/elsewhere/@fission-ai/openspec/latest' });
+        res.writeHead(302, { location: '/elsewhere/@hrhy-ai/codespec/latest' });
         res.end();
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ version: bumpMajor(OPENSPEC_VERSION) }));
+      res.end(JSON.stringify({ version: bumpMajor(CODESPEC_VERSION) }));
     };
 
-    await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(OPENSPEC_VERSION));
-    expect(requests[1].url).toBe('/elsewhere/@fission-ai/openspec/latest');
+    await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(CODESPEC_VERSION));
+    expect(requests[1].url).toBe('/elsewhere/@hrhy-ai/codespec/latest');
   });
 
   it('gives up rather than following a redirect loop', async () => {
@@ -225,7 +225,7 @@ describe('getAvailableCliUpdate', () => {
     respond = (res) => {
       hop += 1;
       if (hop === 1) {
-        res.writeHead(302, { location: '/mirror/@fission-ai/openspec/latest' });
+        res.writeHead(302, { location: '/mirror/@hrhy-ai/codespec/latest' });
         res.end();
         return;
       }
@@ -258,8 +258,8 @@ describe('getAvailableCliUpdate', () => {
 
   it('sends nothing at all when opted out', async () => {
     for (const [key, value] of [
-      ['OPENSPEC_NO_UPDATE_CHECK', '1'],
-      ['OPENSPEC_NO_UPDATE_CHECK', ''],
+      ['CODESPEC_NO_UPDATE_CHECK', '1'],
+      ['CODESPEC_NO_UPDATE_CHECK', ''],
       ['CI', 'true'],
       ['CI', '1'],
       ['CI', 'TRUE'],
@@ -268,7 +268,7 @@ describe('getAvailableCliUpdate', () => {
       ['CI', 'yes'],
       ['NODE_ENV', 'test'],
       ['DO_NOT_TRACK', '1'],
-      ['OPENSPEC_TELEMETRY', '0'],
+      ['CODESPEC_TELEMETRY', '0'],
     ] as const) {
       process.env[key] = value;
       await expect(getAvailableCliUpdate()).resolves.toBeNull();
@@ -279,11 +279,11 @@ describe('getAvailableCliUpdate', () => {
   });
 
   it('sends nothing when telemetry.enabled is false in global config', async () => {
-    const xdgHome = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-vc-telemetry-'));
+    const xdgHome = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-vc-telemetry-'));
     const previousXdg = process.env.XDG_CONFIG_HOME;
     try {
       process.env.XDG_CONFIG_HOME = xdgHome;
-      const configDir = path.join(xdgHome, 'openspec');
+      const configDir = path.join(xdgHome, 'codespec');
       fs.mkdirSync(configDir, { recursive: true });
       fs.writeFileSync(
         path.join(configDir, 'config.json'),
@@ -305,12 +305,12 @@ describe('getAvailableCliUpdate', () => {
   it('still runs when CI is explicitly switched off', async () => {
     for (const value of ['false', '0', 'no', '']) {
       process.env.CI = value;
-      await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(OPENSPEC_VERSION));
+      await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(CODESPEC_VERSION));
     }
   });
 
   it('asks the registry npm exported, and only that', () => {
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-npmrc-'));
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-npmrc-'));
     try {
       // A .npmrc must not steer the request: file contents choosing an
       // outbound destination is a flow this deliberately does not have.
@@ -319,10 +319,10 @@ describe('getAvailableCliUpdate', () => {
       vi.spyOn(process, 'cwd').mockReturnValue(home);
       delete process.env.npm_config_registry;
 
-      expect(registryUrl()).toBe('https://registry.npmjs.org/@fission-ai/openspec/latest');
+      expect(registryUrl()).toBe('https://registry.npmjs.org/@hrhy-ai/codespec/latest');
 
       process.env.npm_config_registry = 'https://env.example.com';
-      expect(registryUrl()).toBe('https://env.example.com/@fission-ai/openspec/latest');
+      expect(registryUrl()).toBe('https://env.example.com/@hrhy-ai/codespec/latest');
     } finally {
       fs.rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
@@ -335,11 +335,11 @@ describe('getAvailableCliUpdate', () => {
     // must not depend on whatever the machine has configured there.
     for (const bogus of ['not-a-url', 'file:///etc/passwd', 'javascript:alert(1)']) {
       process.env.npm_config_registry = bogus;
-      expect(registryUrl()).toBe('https://registry.npmjs.org/@fission-ai/openspec/latest');
+      expect(registryUrl()).toBe('https://registry.npmjs.org/@hrhy-ai/codespec/latest');
     }
 
     process.env.npm_config_registry = 'https://npm.internal.example.com/';
-    expect(registryUrl()).toBe('https://npm.internal.example.com/@fission-ai/openspec/latest');
+    expect(registryUrl()).toBe('https://npm.internal.example.com/@hrhy-ai/codespec/latest');
   });
 });
 
@@ -394,7 +394,7 @@ describe('offerCliUpgrade', () => {
 
   it('offers only for an npm-owned global install', () => {
     // Anchored on this machine's real npm root so the case is not fictional.
-    const npmGlobal = path.join(npmGlobalRoots()[0], '@fission-ai', 'openspec');
+    const npmGlobal = path.join(npmGlobalRoots()[0], '@fission-ai', 'codespec');
     expect(canSelfUpgrade(npmGlobal, PROJECT_ROOT)).toBe(true);
 
     // `npm install -g` is the only command we run, so anything npm does not
@@ -404,7 +404,7 @@ describe('offerCliUpgrade', () => {
       path.join(HOME_ROOT, '.volta', 'tools', 'image', 'packages', 'x', 'node_modules', 'pkg'),
       path.join(HOME_ROOT, '.bun', 'install', 'global', 'node_modules', 'pkg'),
       path.join(HOME_ROOT, '.npm', '_npx', 'a', 'node_modules', 'pkg'),
-      path.join(PROJECT_ROOT, 'node_modules', '@fission-ai', 'openspec'),
+      path.join(PROJECT_ROOT, 'node_modules', '@fission-ai', 'codespec'),
       null,
     ];
     for (const dir of notOurs) {
@@ -413,7 +413,7 @@ describe('offerCliUpgrade', () => {
   });
 
   it('asks only where the answer can be given and acted on', () => {
-    const npmGlobal = path.join(npmGlobalRoots()[0], '@fission-ai', 'openspec');
+    const npmGlobal = path.join(npmGlobalRoots()[0], '@fission-ai', 'codespec');
     const base = { installDir: npmGlobal, projectPath: PROJECT_ROOT };
 
     expect(shouldOfferUpgrade({ ...base, interactive: true, stdoutIsTty: true })).toBe(true);
@@ -435,13 +435,13 @@ describe('offerCliUpgrade', () => {
   });
 
   it('never offers to install over a source checkout', () => {
-    const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-clone-'));
+    const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-clone-'));
     try {
       fs.mkdirSync(path.join(clone, '.git'));
       expect(isSourceCheckout(clone)).toBe(true);
       expect(canSelfUpgrade(clone, PROJECT_ROOT)).toBe(false);
 
-      const installed = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-installed-'));
+      const installed = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-installed-'));
       try {
         expect(isSourceCheckout(installed)).toBe(false);
       } finally {
@@ -457,17 +457,17 @@ describe('offerCliUpgrade', () => {
     // Homebrew realpaths node into the Cellar, so a root derived from
     // process.execPath never matches the prefix npm actually installs into.
     // The install's own shape is what settles it.
-    const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-brew-'));
+    const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-brew-'));
     try {
       const isWindows = process.platform === 'win32';
       const installed = isWindows
-        ? path.join(prefix, 'node_modules', '@fission-ai', 'openspec')
-        : path.join(prefix, 'lib', 'node_modules', '@fission-ai', 'openspec');
+        ? path.join(prefix, 'node_modules', '@fission-ai', 'codespec')
+        : path.join(prefix, 'lib', 'node_modules', '@fission-ai', 'codespec');
       fs.mkdirSync(installed, { recursive: true });
       if (isWindows) {
         // npm writes the .cmd shim beside node_modules; it is what separates
         // a real prefix from a hand-copied portable tree.
-        fs.writeFileSync(path.join(prefix, 'openspec.cmd'), '@echo off\n');
+        fs.writeFileSync(path.join(prefix, 'codespec.cmd'), '@echo off\n');
       } else {
         fs.mkdirSync(path.join(prefix, 'bin'), { recursive: true });
       }
@@ -483,11 +483,11 @@ describe('offerCliUpgrade', () => {
 
       // The same shape with nothing npm wrote (no bin dir, no .cmd shim) is a
       // hand-copied portable tree, not an npm install — no upgrade offer.
-      const portable = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-portable-'));
+      const portable = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-portable-'));
       try {
         const copied = isWindows
-          ? path.join(portable, 'node_modules', '@fission-ai', 'openspec')
-          : path.join(portable, 'lib', 'node_modules', '@fission-ai', 'openspec');
+          ? path.join(portable, 'node_modules', '@fission-ai', 'codespec')
+          : path.join(portable, 'lib', 'node_modules', '@fission-ai', 'codespec');
         fs.mkdirSync(copied, { recursive: true });
         expect(
           isNpmGlobalInstall(copied, [path.join(GLOBAL_ROOT, 'lib', 'node_modules')])
@@ -513,7 +513,7 @@ describe('offerCliUpgrade', () => {
       'lib',
       'node_modules',
       '@fission-ai',
-      'openspec'
+      'codespec'
     );
 
     expect(isNpmGlobalInstall(volta, [path.join(GLOBAL_ROOT, 'lib', 'node_modules')])).toBe(false);
@@ -541,7 +541,7 @@ describe('offerCliUpgrade', () => {
   it('recognizes npm global roots without shelling out', () => {
     const roots = [path.join(GLOBAL_ROOT, 'lib', 'node_modules')];
 
-    expect(isNpmGlobalInstall(path.join(roots[0], '@fission-ai', 'openspec'), roots)).toBe(true);
+    expect(isNpmGlobalInstall(path.join(roots[0], '@fission-ai', 'codespec'), roots)).toBe(true);
     expect(isNpmGlobalInstall(path.join(GLOBAL_ROOT, 'lib', 'node_modules'), roots)).toBe(false);
     expect(isNpmGlobalInstall(path.join(HOME_ROOT, 'elsewhere', 'pkg'), roots)).toBe(false);
     expect(isNpmGlobalInstall(null, roots)).toBe(false);
@@ -626,17 +626,17 @@ describe('offerCliUpgrade', () => {
   });
 
   it('reads the version line, not the first version-shaped token in a banner', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-banner-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-banner-'));
     try {
       const isWindows = process.platform === 'win32';
       const bin = path.join(dir, isWindows ? 'banner.cmd' : 'banner.sh');
       // A wrapper that greets before answering: taking the first match would
-      // report the Node version as OpenSpec's.
+      // report the Node version as CodeSpec's.
       fs.writeFileSync(
         bin,
         isWindows
-          ? '@echo Node.js v25.8.1 ^| OpenSpec\r\n@echo 1.7.0\r\n'
-          : '#!/bin/sh\necho "Node.js v25.8.1 | OpenSpec"\necho "1.7.0"\n'
+          ? '@echo Node.js v25.8.1 ^| CodeSpec\r\n@echo 1.7.0\r\n'
+          : '#!/bin/sh\necho "Node.js v25.8.1 | CodeSpec"\necho "1.7.0"\n'
       );
       fs.chmodSync(bin, 0o755);
 
@@ -649,7 +649,7 @@ describe('offerCliUpgrade', () => {
   it('reads a version back from a binary rather than trusting an exit code', async () => {
     // `npm install -g` exits 0 even when it installed nothing, so the version
     // has to be read from whatever now answers.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-bin-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-bin-'));
     try {
       const isWindows = process.platform === 'win32';
       const bin = path.join(dir, isWindows ? 'fake.cmd' : 'fake.sh');
@@ -673,14 +673,14 @@ describe('rerunUpdateWithUpgradedCli', () => {
   const isWindows = process.platform === 'win32';
 
   function writeFakeCli(body: string): string {
-    const bin = path.join(dir, isWindows ? 'openspec.cmd' : 'openspec');
+    const bin = path.join(dir, isWindows ? 'codespec.cmd' : 'codespec');
     fs.writeFileSync(bin, body);
     fs.chmodSync(bin, 0o755);
     return bin;
   }
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-rerun-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-rerun-'));
   });
 
   afterEach(() => {
@@ -718,8 +718,8 @@ describe('rerunUpdateWithUpgradedCli', () => {
     const log = path.join(dir, 'env.txt');
     const bin = writeFakeCli(
       isWindows
-        ? `@echo %OPENSPEC_NO_UPDATE_CHECK% > "${log}"\r\n@exit /b 0\r\n`
-        : `#!/bin/sh\necho "$OPENSPEC_NO_UPDATE_CHECK" > "${log}"\nexit 0\n`
+        ? `@echo %CODESPEC_NO_UPDATE_CHECK% > "${log}"\r\n@exit /b 0\r\n`
+        : `#!/bin/sh\necho "$CODESPEC_NO_UPDATE_CHECK" > "${log}"\nexit 0\n`
     );
 
     await rerunUpdateWithUpgradedCli('.', { binPath: bin });
@@ -769,44 +769,44 @@ describe('displayCliUpdateNote', () => {
   it('names the global install command and the copy that answered', () => {
     const output = capture(() => displayCliUpdateNote('9.9.9'));
 
-    expect(output).toContain(`v${OPENSPEC_VERSION} → v9.9.9`);
-    expect(output).toContain('npm install -g @fission-ai/openspec@latest');
-    expect(output).toContain('Then run "openspec update" again');
+    expect(output).toContain(`v${CODESPEC_VERSION} → v9.9.9`);
+    expect(output).toContain('npm install -g @hrhy-ai/codespec@latest');
+    expect(output).toContain('Then run "codespec update" again');
     expect(output).toContain(`Running from: ${getInstallDir()}`);
   });
 
   it('picks the upgrade command that matches how the CLI was installed', () => {
-    const globalDir = path.join(GLOBAL_ROOT, 'lib', 'node_modules', '@fission-ai', 'openspec');
+    const globalDir = path.join(GLOBAL_ROOT, 'lib', 'node_modules', '@fission-ai', 'codespec');
     const globalLines = buildCliUpdateLines('9.9.9', globalDir, PROJECT_ROOT).join('\n');
-    expect(globalLines).toContain('npm install -g @fission-ai/openspec@latest');
+    expect(globalLines).toContain('npm install -g @hrhy-ai/codespec@latest');
 
     // Hoisted workspace layout: run from a sub-package, dependency at the root.
     const local = buildCliUpdateLines(
       '9.9.9',
-      path.join(PROJECT_ROOT, 'node_modules', '@fission-ai', 'openspec'),
+      path.join(PROJECT_ROOT, 'node_modules', '@fission-ai', 'codespec'),
       path.join(PROJECT_ROOT, 'packages', 'app')
     ).join('\n');
     // No npm command: the project's own package manager owns its lockfile.
-    expect(local).toContain('Update the @fission-ai/openspec dependency in this project.');
+    expect(local).toContain('Update the @hrhy-ai/codespec dependency in this project.');
     expect(local).not.toContain('npm install');
 
     const npx = buildCliUpdateLines(
       '9.9.9',
-      path.join(GLOBAL_ROOT, '.npm', '_npx', 'abc123', 'node_modules', '@fission-ai', 'openspec'),
+      path.join(GLOBAL_ROOT, '.npm', '_npx', 'abc123', 'node_modules', '@fission-ai', 'codespec'),
       PROJECT_ROOT
     ).join('\n');
-    expect(npx).toContain('npx @fission-ai/openspec@latest update');
+    expect(npx).toContain('npx @hrhy-ai/codespec@latest update');
     expect(npx).not.toContain('npm install -g');
   });
 
   it('omits the install path only when it cannot be resolved', () => {
-    const dir = path.join(GLOBAL_ROOT, 'openspec');
+    const dir = path.join(GLOBAL_ROOT, 'codespec');
     expect(buildCliUpdateLines('9.9.9', null, '.').join('\n')).not.toContain('Running from:');
     expect(buildCliUpdateLines('9.9.9', dir, '.').join('\n')).toContain(`Running from: ${dir}`);
   });
 
   it('recognizes project-local installs from any directory under the project', () => {
-    const local = path.join(PROJECT_ROOT, 'node_modules', '@fission-ai', 'openspec');
+    const local = path.join(PROJECT_ROOT, 'node_modules', '@fission-ai', 'codespec');
 
     expect(isProjectLocalInstall(local, PROJECT_ROOT)).toBe(true);
     // Workspace sub-package with a hoisted root node_modules.
@@ -821,7 +821,7 @@ describe('displayCliUpdateNote', () => {
 
     expect(
       isProjectLocalInstall(
-        path.join(GLOBAL_ROOT, 'lib', 'node_modules', '@fission-ai', 'openspec'),
+        path.join(GLOBAL_ROOT, 'lib', 'node_modules', '@fission-ai', 'codespec'),
         PROJECT_ROOT
       )
     ).toBe(false);
@@ -853,15 +853,15 @@ describe('displayCliUpdateNote', () => {
       path.join(HOME_ROOT, '.npm', '_npx', 'abc', 'node_modules', 'pkg'),
       PROJECT_ROOT
     );
-    expect(npx).toEqual(['  npx @fission-ai/openspec@latest update']);
+    expect(npx).toEqual(['  npx @hrhy-ai/codespec@latest update']);
 
     // Every other flavor does need the second pass.
     expect(buildUpgradeCommandLines(path.join(GLOBAL_ROOT, 'lib', 'node_modules', 'pkg'), PROJECT_ROOT))
-      .toContain('  Then run "openspec update" again to pick up new workflows.');
+      .toContain('  Then run "codespec update" again to pick up new workflows.');
   });
 
   it('finds the binary npm installs beside its global root', () => {
-    const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'openspec-prefix-'));
+    const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-prefix-'));
     try {
       const isWindows = process.platform === 'win32';
       // npm's layout: <prefix>/lib/node_modules on POSIX, <prefix>/node_modules
@@ -875,8 +875,8 @@ describe('displayCliUpdateNote', () => {
       expect(upgradedBinPath([root])).toBeNull();
 
       const bin = isWindows
-        ? path.join(prefix, 'openspec.cmd')
-        : path.join(prefix, 'bin', 'openspec');
+        ? path.join(prefix, 'codespec.cmd')
+        : path.join(prefix, 'bin', 'codespec');
       fs.mkdirSync(path.dirname(bin), { recursive: true });
       fs.writeFileSync(bin, '');
 
@@ -897,7 +897,7 @@ describe('displayCliUpdateNote', () => {
     ).toBe(true);
     expect(
       isEphemeralRunnerInstall(
-        path.join(GLOBAL_ROOT, 'lib', 'node_modules', '@fission-ai', 'openspec')
+        path.join(GLOBAL_ROOT, 'lib', 'node_modules', '@fission-ai', 'codespec')
       )
     ).toBe(false);
     expect(

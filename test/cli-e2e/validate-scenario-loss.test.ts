@@ -9,7 +9,7 @@ import { runCLI } from '../helpers/run-cli.js';
  * its main specs root, so these exercise the wiring through the real CLI —
  * every entry point, and the exit code each one reports.
  */
-describe('openspec validate reports scenarios a MODIFIED block would drop (#1477)', () => {
+describe('codespec validate reports scenarios a MODIFIED block would drop (#1477)', () => {
   const tempRoots: string[] = [];
   let projectDir: string;
 
@@ -20,29 +20,29 @@ describe('openspec validate reports scenarios a MODIFIED block would drop (#1477
   };
 
   beforeAll(async () => {
-    const base = await fs.mkdtemp(path.join(tmpdir(), 'openspec-scenario-loss-e2e-'));
+    const base = await fs.mkdtemp(path.join(tmpdir(), 'codespec-scenario-loss-e2e-'));
     tempRoots.push(base);
     projectDir = path.join(base, 'project');
     await fs.mkdir(projectDir, { recursive: true });
 
     await write(
-      'openspec/specs/widgets/spec.md',
+      'codespec/specs/widgets/spec.md',
       `# widgets Specification\n\n## Purpose\nDefine widget behavior for the end-to-end check.\n\n## Requirements\n\n### Requirement: Widget state\nThe system SHALL report the widget state.\n\n#### Scenario: Existing scenario\n- **WHEN** queried\n- **THEN** the state is reported\n\n#### Scenario: Second scenario\n- **WHEN** idle\n- **THEN** idle is reported\n`
     );
     await write(
-      'openspec/changes/drops-a-scenario/proposal.md',
+      'codespec/changes/drops-a-scenario/proposal.md',
       `# Drops a scenario\n\n## Why\nExercise the check.\n\n## What Changes\n- Rewrite one scenario\n`
     );
     await write(
-      'openspec/changes/drops-a-scenario/specs/widgets/spec.md',
+      'codespec/changes/drops-a-scenario/specs/widgets/spec.md',
       `## MODIFIED Requirements\n\n### Requirement: Widget state\nThe system SHALL report the widget state.\n\n#### Scenario: Existing scenario\n- **WHEN** queried\n- **THEN** the state is reported\n`
     );
     await write(
-      'openspec/changes/keeps-every-scenario/proposal.md',
+      'codespec/changes/keeps-every-scenario/proposal.md',
       `# Keeps every scenario\n\n## Why\nControl case.\n\n## What Changes\n- Reword the requirement\n`
     );
     await write(
-      'openspec/changes/keeps-every-scenario/specs/widgets/spec.md',
+      'codespec/changes/keeps-every-scenario/specs/widgets/spec.md',
       `## MODIFIED Requirements\n\n### Requirement: Widget state\nThe system SHALL report the widget state promptly.\n\n#### Scenario: Existing scenario\n- **WHEN** queried\n- **THEN** the state is reported\n\n#### Scenario: Second scenario\n- **WHEN** idle\n- **THEN** idle is reported\n`
     );
   });

@@ -6,8 +6,8 @@ import { runCLI } from '../helpers/run-cli.js';
 describe('top-level validate command', () => {
   const projectRoot = process.cwd();
   const testDir = path.join(projectRoot, 'test-validate-command-tmp');
-  const changesDir = path.join(testDir, 'openspec', 'changes');
-  const specsDir = path.join(testDir, 'openspec', 'specs');
+  const changesDir = path.join(testDir, 'codespec', 'changes');
+  const specsDir = path.join(testDir, 'codespec', 'specs');
 
   beforeEach(async () => {
     await fs.mkdir(changesDir, { recursive: true });
@@ -42,7 +42,7 @@ describe('top-level validate command', () => {
       '',
       '#### Scenario: Apply alpha delta',
       '- **GIVEN** the test change delta',
-      '- **WHEN** openspec validate runs',
+      '- **WHEN** codespec validate runs',
       '- **THEN** the validator reports the change as valid',
     ].join('\n');
     const c1DeltaDir = path.join(changesDir, 'c1', 'specs', 'alpha');
@@ -75,7 +75,7 @@ describe('top-level validate command', () => {
     await fs.mkdir(strayDir, { recursive: true });
     await fs.writeFile(path.join(strayDir, 'spec.md'), '# headerless notes\n', 'utf-8');
     await fs.writeFile(
-      path.join(chDir, '.openspec.yaml'),
+      path.join(chDir, '.codespec.yaml'),
       'schema: spec-driven\nskip_specs: true\n',
       'utf-8'
     );
@@ -91,11 +91,11 @@ describe('top-level validate command', () => {
     await fs.mkdir(chDir, { recursive: true });
     // skip_specs without the required schema field, and nothing under specs/:
     // "delete the files" would describe files that don't exist.
-    await fs.writeFile(path.join(chDir, '.openspec.yaml'), 'skip_specs: true\n', 'utf-8');
+    await fs.writeFile(path.join(chDir, '.codespec.yaml'), 'skip_specs: true\n', 'utf-8');
 
     const result = await runCLI(['validate', 'marked-invalid', '--type', 'change'], { cwd: testDir });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('修复 .openspec.yaml，使 skip_specs 标记有效');
+    expect(result.stderr).toContain('修复 .codespec.yaml，使 skip_specs 标记有效');
     expect(result.stderr).not.toContain('删除 specs/ 下的文件');
   });
 
@@ -161,7 +161,7 @@ describe('top-level validate command', () => {
       '',
       '#### Scenario: Validate CRLF change',
       '- **GIVEN** a change proposal saved with CRLF line endings',
-      '- **WHEN** a developer runs openspec validate on the proposal',
+      '- **WHEN** a developer runs codespec validate on the proposal',
       '- **THEN** validation succeeds without section errors',
     ]);
 
@@ -182,7 +182,7 @@ describe('top-level validate command', () => {
     '',
     '#### Scenario: Validate scaffolded change',
     '- **GIVEN** a change directory with no proposal.md',
-    '- **WHEN** openspec validate runs',
+    '- **WHEN** codespec validate runs',
     '- **THEN** the change resolves and its deltas are validated',
   ].join('\n');
 
@@ -190,7 +190,7 @@ describe('top-level validate command', () => {
     const changeDir = path.join(changesDir, 'scaffolded');
     const deltaDir = path.join(changeDir, 'specs', 'alpha');
     await fs.mkdir(deltaDir, { recursive: true });
-    await fs.writeFile(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\n', 'utf-8');
+    await fs.writeFile(path.join(changeDir, '.codespec.yaml'), 'schema: spec-driven\n', 'utf-8');
     await fs.writeFile(path.join(deltaDir, 'spec.md'), validDelta, 'utf-8');
 
     const result = await runCLI(['validate', 'scaffolded'], { cwd: testDir });
@@ -202,7 +202,7 @@ describe('top-level validate command', () => {
     // Resolves by directory existence, then fails validation (no deltas).
     const changeDir = path.join(changesDir, 'scaffolded-empty');
     await fs.mkdir(changeDir, { recursive: true });
-    await fs.writeFile(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\n', 'utf-8');
+    await fs.writeFile(path.join(changeDir, '.codespec.yaml'), 'schema: spec-driven\n', 'utf-8');
 
     const result = await runCLI(['validate', 'scaffolded-empty'], { cwd: testDir });
     expect(result.stderr).not.toContain('Unknown item');
@@ -211,11 +211,11 @@ describe('top-level validate command', () => {
 
   it('includes a sole proposal-less change in --all (not "No items found") (#1182)', async () => {
     const isoRoot = path.join(projectRoot, 'test-validate-iso-tmp');
-    const isoChanges = path.join(isoRoot, 'openspec', 'changes');
+    const isoChanges = path.join(isoRoot, 'codespec', 'changes');
     const deltaDir = path.join(isoChanges, 'only', 'specs', 'alpha');
     await fs.mkdir(deltaDir, { recursive: true });
     try {
-      await fs.writeFile(path.join(isoChanges, 'only', '.openspec.yaml'), 'schema: spec-driven\n', 'utf-8');
+      await fs.writeFile(path.join(isoChanges, 'only', '.codespec.yaml'), 'schema: spec-driven\n', 'utf-8');
       await fs.writeFile(path.join(deltaDir, 'spec.md'), validDelta, 'utf-8');
 
       const result = await runCLI(['validate', '--all'], { cwd: isoRoot });

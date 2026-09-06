@@ -35,7 +35,7 @@ const sourceRoot = resolve(websiteRoot, docsDir);
 // GitHub links.
 const repoDocsDir = posix.normalize(docsDir).replace(/^\.\.\//, '');
 const gitBranch = 'main';
-const gitBlobBase = 'https://github.com/Fission-AI/OpenSpec/blob';
+const gitBlobBase = 'https://github.com/Fission-AI/CodeSpec/blob';
 
 // Map every source file -> its /docs route, so cross-doc Markdown links
 // resolve.

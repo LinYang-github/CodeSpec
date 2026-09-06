@@ -32,7 +32,7 @@ async function proxyDocs(request) {
 
   const upstream = new URL(
     incoming.pathname + incoming.search,
-    'https://openspec-docs.pages.dev',
+    'https://codespec-docs.pages.dev',
   );
 
   const headers = new Headers();
@@ -55,7 +55,7 @@ async function proxyDocs(request) {
 
   if (location) {
     const redirected = new URL(location, upstream);
-    if (redirected.hostname === 'openspec-docs.pages.dev') {
+    if (redirected.hostname === 'codespec-docs.pages.dev') {
       redirected.protocol = incoming.protocol;
       redirected.host = incoming.host;
       responseHeaders.set('location', redirected.toString());

@@ -290,8 +290,8 @@ export function worksetNotFoundError(
       target: 'workset.name',
       fix:
         savedNames.length > 0
-          ? `已保存 Workset：${savedNames.join('、')}。可使用 openspec workset list 查看。`
-          : `请先创建：openspec workset create ${name}`,
+          ? `已保存 Workset：${savedNames.join('、')}。可使用 codespec workset list 查看。`
+          : `请先创建：codespec workset create ${name}`,
     }
   );
 }
@@ -306,7 +306,7 @@ export function withWorkset(
       'workset_exists',
       {
         target: 'workset.name',
-        fix: `Choose another name, or remove it first: openspec workset remove ${workset.name}`,
+        fix: `Choose another name, or remove it first: codespec workset remove ${workset.name}`,
       }
     );
   }

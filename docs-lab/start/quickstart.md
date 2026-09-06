@@ -2,7 +2,7 @@
 
 > Your first change on your existing repo, from idea to archived.
 
-Before you start, you need the CLI on your machine ([Installation](installation.md)) and OpenSpec initialized in your project ([Set up your project](setup.md)).
+Before you start, you need the CLI on your machine ([Installation](installation.md)) and CodeSpec initialized in your project ([Set up your project](setup.md)).
 
 ## The loop at a glance
 
@@ -17,14 +17,14 @@ flowchart LR
     archive -. "next change" .-> explore
 ```
 
-Every prompt below goes in your AI chat, the same place you ask for code. Each invokes an OpenSpec skill by name, the same spelling in every tool. A plain ask works too ("propose a change to add rate limiting"). Some tools add shorter command aliases (`/opsx:propose` in Claude Code, [other tools vary](../reference/supported-tools.md)).
+Every prompt below goes in your AI chat, the same place you ask for code. Each invokes an CodeSpec skill by name, the same spelling in every tool. A plain ask works too ("propose a change to add rate limiting"). Some tools add shorter command aliases (`/codespec:propose` in Claude Code, [other tools vary](../reference/supported-tools.md)).
 
 ## Step 1: Explore
 
 Think the idea through with your agent before you ask for a plan. In your AI chat:
 
 ```text
-/openspec-explore how rate limiting should work in this app
+/codespec-explore how rate limiting should work in this app
 ```
 
 Explore is a thinking mode. The agent investigates your codebase, asks the questions that matter, sketches options, and challenges assumptions. It writes no code and no files. The output is a sharper idea.
@@ -32,7 +32,7 @@ Explore is a thinking mode. The agent investigates your codebase, asks the quest
 Stay here as long as the problem needs. When the shape feels right, hand it off:
 
 ```text
-/openspec-propose
+/codespec-propose
 ```
 
 That line starts propose for you, carrying everything you settled. Skip the first prompt in step 2.
@@ -42,13 +42,13 @@ That line starts propose for you, carrying everything you settled. Skip the firs
 Propose turns the idea into a reviewable plan. Coming from explore, it's already running. Starting cold, when the change is clear in your head, ask directly. In your AI chat:
 
 ```text
-/openspec-propose add rate limiting
+/codespec-propose add rate limiting
 ```
 
 The agent asks what it needs to, then writes a change folder:
 
 ```
-openspec/changes/add-rate-limiting/
+codespec/changes/add-rate-limiting/
 ├── proposal.md    why, and what changes
 ├── specs/         what "done" means, as testable requirements
 ├── design.md      technical decisions (only when the change needs one)
@@ -75,7 +75,7 @@ To fix something, either works:
 Apply turns the plan into code. Start a fresh chat session, since implementation goes better on a clean context window. In your AI chat:
 
 ```text
-/openspec-apply-change add-rate-limiting
+/codespec-apply-change add-rate-limiting
 ```
 
 The agent reads the change folder, then works through `tasks.md`, checking off each task as it lands.
@@ -86,12 +86,12 @@ The agent reads the change folder, then works through `tasks.md`, checking off e
 
 ## Step 5: Archive
 
-Archiving does two things: it updates your main specs with the change's requirements, and it moves the change folder into the archive folder (in `/openspec/changes/archive/*`).
+Archiving does two things: it updates your main specs with the change's requirements, and it moves the change folder into the archive folder (in `/codespec/changes/archive/*`).
 
 When every box in `tasks.md` is checked, in your AI chat:
 
 ```text
-/openspec-archive-change add-rate-limiting
+/codespec-archive-change add-rate-limiting
 ```
 
 Step through what archiving does:
@@ -99,7 +99,7 @@ Step through what archiving does:
 ```file-steps
 ## The finished change
 > Implementation is done. The delta spec (what this change adds) still sits inside the change folder; specs/ doesn't know about rate limiting yet.
-  openspec/
+  codespec/
   ├── specs/                                   (no rate-limiting spec yet)
   └── changes/
       └── add-rate-limiting/
@@ -111,7 +111,7 @@ Step through what archiving does:
 
 ## Requirements land in specs/
 > Each requirement in the delta lands in the main spec: added ones append, modified ones replace their old version. A new capability gets a new spec file.
-  openspec/
+  codespec/
   ├── specs/
 + │   └── rate-limiting/
 + │       └── spec.md                          gains "Requirement: Rate limiting"
@@ -123,7 +123,7 @@ Step through what archiving does:
 
 ## The folder moves to archive/
 > The whole change folder, delta included, moves into the archive under a date prefix. Nothing is deleted.
-  openspec/
+  codespec/
   ├── specs/
   │   └── rate-limiting/
   │       └── spec.md
@@ -137,7 +137,7 @@ Step through what archiving does:
 
 ## Specs describe the system as built
 > changes/ is clear for the next change. specs/ is the source of truth for what the system does; archive/ is the history of how it got there.
-  openspec/
+  codespec/
   ├── specs/
   │   └── rate-limiting/
   │       └── spec.md                          the spec as built

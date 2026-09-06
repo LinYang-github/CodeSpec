@@ -7,25 +7,25 @@
 import path from 'path';
 import type { CommandContent, ToolCommandAdapter } from '../types.js';
 import { escapeYamlValue, formatTagsArray } from '../yaml.js';
-import { OPENSPEC_CLI_ALLOWED_TOOLS } from '../../shared/allowed-tools.js';
+import { CODESPEC_CLI_ALLOWED_TOOLS } from '../../shared/allowed-tools.js';
 
 /**
  * Claude Code adapter for command generation.
- * File path: .claude/commands/opsx/<id>.md
+ * File path: .claude/commands/codespec/<id>.md
  * Frontmatter: name, description, allowed-tools, category, tags
  */
 export const claudeAdapter: ToolCommandAdapter = {
   toolId: 'claude',
 
   getFilePath(commandId: string): string {
-    return path.join('.claude', 'commands', 'opsx', `${commandId}.md`);
+    return path.join('.claude', 'commands', 'codespec', `${commandId}.md`);
   },
 
   formatFile(content: CommandContent): string {
     return `---
 name: ${escapeYamlValue(content.name)}
 description: ${escapeYamlValue(content.description)}
-allowed-tools: ${OPENSPEC_CLI_ALLOWED_TOOLS}
+allowed-tools: ${CODESPEC_CLI_ALLOWED_TOOLS}
 category: ${escapeYamlValue(content.category)}
 tags: ${formatTagsArray(content.tags)}
 ---
