@@ -1,0 +1,307 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2820" viewBox="0 0 1600 2820" role="img" aria-labelledby="title desc" data-generator="fireworks-tech-graph">
+  <title id="title">OpenSpec + Superpowers：CodeSpec 工作流地图</title>
+  <desc id="desc">单页技术导图，解释 OpenSpec 与 Superpowers 的分工、spec-driven 与 code-spec schema 的差异、三个 OpenSpec Skill 的职责，以及从安装、初始化、workflow 到 archive 的完整使用路径。</desc>
+  <style>
+    text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', 'SimHei', sans-serif; }
+    .mono { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Courier New', 'PingFang SC', 'Microsoft YaHei', monospace; }
+    .title { fill:#f8fafc; font-size:34px; font-weight:700; }
+    .subtitle { fill:#a5b4fc; font-size:17px; }
+    .kicker { fill:#64748b; font-size:12px; font-weight:700; letter-spacing:.16em; }
+    .section { fill:#e2e8f0; font-size:23px; font-weight:700; }
+    .lead { fill:#94a3b8; font-size:14px; }
+    .card-title { fill:#f8fafc; font-size:19px; font-weight:700; }
+    .body { fill:#cbd5e1; font-size:15px; }
+    .muted { fill:#94a3b8; font-size:13px; }
+    .small { fill:#a7b5c9; font-size:12px; }
+    .tiny { fill:#7f91a8; font-size:11px; }
+    .code { fill:#e9d5ff; font-size:14px; font-weight:700; }
+    .code-small { fill:#c4b5fd; font-size:12px; }
+    .node-label { fill:#f8fafc; font-size:17px; font-weight:700; }
+    .node-copy { fill:#cbd5e1; font-size:13px; }
+    .tag { fill:#dbeafe; font-size:12px; font-weight:700; }
+    .table-head { fill:#f8fafc; font-size:15px; font-weight:700; }
+    .table-label { fill:#cbd5e1; font-size:13px; font-weight:700; }
+    .table-copy { fill:#a7b5c9; font-size:12px; }
+    .tree { fill:#dbeafe; font-size:14px; }
+    .tree-note { fill:#a7f3d0; font-size:12px; }
+    .callout { fill:#fde68a; font-size:15px; font-weight:700; }
+    .openai { fill:#5eead4; font-size:12px; font-weight:700; }
+    .super { fill:#d8b4fe; font-size:12px; font-weight:700; }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#09111f"/>
+      <stop offset="55%" stop-color="#111a2e"/>
+      <stop offset="100%" stop-color="#24153b"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#132039"/>
+      <stop offset="100%" stop-color="#0d1629"/>
+    </linearGradient>
+    <linearGradient id="blue-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1d4168"/>
+      <stop offset="100%" stop-color="#10243f"/>
+    </linearGradient>
+    <linearGradient id="purple-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#382879"/>
+      <stop offset="100%" stop-color="#211744"/>
+    </linearGradient>
+    <linearGradient id="green-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#075642"/>
+      <stop offset="100%" stop-color="#052d27"/>
+    </linearGradient>
+    <linearGradient id="orange-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5b2e16"/>
+      <stop offset="100%" stop-color="#2b1710"/>
+    </linearGradient>
+    <marker id="arrow-blue" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L11,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L11,4 L0,8 Z" fill="#c084fc"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L11,4 L0,8 Z" fill="#34d399"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L11,4 L0,8 Z" fill="#fb923c"/>
+    </marker>
+  </defs>
+
+  <rect data-graph-role="background" width="1600" height="2820" fill="url(#bg)"/>
+  <path data-graph-role="decoration" d="M0 145 H1600" stroke="#334155" stroke-width="1"/>
+  <path data-graph-role="decoration" d="M72 166 H1528" stroke="#1e293b" stroke-width="1" stroke-dasharray="3 9"/>
+
+  <text x="72" y="60" class="title">OpenSpec + Superpowers：CodeSpec 工作流地图</text>
+  <text x="72" y="94" class="subtitle">从通用 spec-driven，到面向编码协作的 canonical code-spec：领域治理与工程方法各司其职。</text>
+  <rect x="1260" y="42" width="268" height="48" rx="8" fill="#0d302d" stroke="#14b8a6"/>
+  <circle cx="1288" cy="66" r="8" fill="#2dd4bf"/>
+  <text x="1308" y="71" class="openai">DEFAULT · code-spec</text>
+
+  <!-- 01 evolution -->
+  <rect data-graph-role="container" x="52" y="188" width="1496" height="282" rx="14" fill="url(#panel)" stroke="#334155"/>
+  <text x="82" y="224" class="kicker">01 / WHY THE COMBINATION</text>
+  <text x="82" y="255" class="section">为什么从 OpenSpec 变成 OpenSpec + Superpowers？</text>
+  <text x="82" y="281" class="lead">不是替换，而是把“变更治理”和“工程做法”拆成两层，再由 workflow 连接起来。</text>
+
+  <path data-graph-role="edge" data-source="openspec" data-target="combined" d="M672 358 H928" fill="none" stroke="#c084fc" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
+  <g data-graph-role="node" data-node-id="openspec">
+    <rect x="82" y="314" width="590" height="112" rx="10" fill="url(#blue-card)" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="110" y="345" class="node-label">OpenSpec：领域治理</text>
+    <text x="110" y="372" class="node-copy">Change · Requirement · Scenario · Baseline · STALE</text>
+    <text x="110" y="398" class="node-copy">Traceability · validation · delta · archive transaction</text>
+  </g>
+  <g data-graph-role="node" data-node-id="combined">
+    <rect x="928" y="314" width="590" height="112" rx="10" fill="url(#purple-card)" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="956" y="345" class="node-label">OpenSpec + Superpowers：协同执行</text>
+    <text x="956" y="372" class="node-copy">OpenSpec Core 定义边界；Superpowers 负责怎么把代码做出来</text>
+    <text x="956" y="398" class="node-copy">brainstorming · planning · TDD · debugging · verification · review</text>
+  </g>
+  <text x="800" y="345" text-anchor="middle" class="callout">分层</text>
+  <text x="800" y="382" text-anchor="middle" class="tiny">减少入口判断 · 固定追踪关系 · 保留工程弹性</text>
+
+  <!-- 02 schema -->
+  <rect data-graph-role="container" x="52" y="510" width="1496" height="690" rx="14" fill="url(#panel)" stroke="#334155"/>
+  <text x="82" y="546" class="kicker">02 / SCHEMA + ARTIFACTS</text>
+  <text x="82" y="577" class="section">自定义 CodeSpec 工作流，与 spec-driven 的区别</text>
+  <text x="82" y="603" class="lead">Schema 决定“产出什么、顺序是什么、模板怎么写”；code-spec 则把日常编码治理固定成一套 canonical 协议。</text>
+
+  <rect data-graph-role="container" x="82" y="630" width="690" height="238" rx="10" fill="#101c32" stroke="#475569"/>
+  <rect data-graph-role="container" x="828" y="630" width="690" height="238" rx="10" fill="#1d1740" stroke="#8b5cf6"/>
+  <text x="110" y="666" class="card-title">spec-driven（通用 Schema，可显式选择）</text>
+  <text x="110" y="691" class="muted">灵活编排 artifacts；适合不同团队自定义产物与顺序</text>
+  <text x="110" y="728" class="code">proposal</text>
+  <text x="212" y="728" class="body">→</text>
+  <text x="240" y="728" class="code">specs/**</text>
+  <text x="350" y="728" class="body">→</text>
+  <text x="378" y="728" class="code">design</text>
+  <text x="478" y="728" class="body">→</text>
+  <text x="506" y="728" class="code">tasks</text>
+  <text x="110" y="766" class="small">proposal：为什么 / 改什么 / Capabilities</text>
+  <text x="110" y="791" class="small">specs：可观察行为的 delta；design：如何实现；tasks：清单</text>
+  <text x="110" y="827" class="tiny">规则：design 可按条件跳过；无规格变更时可显式 skip_specs: true</text>
+
+  <text x="856" y="666" class="card-title">code-spec（当前默认的编码协议）</text>
+  <text x="856" y="691" class="muted">固定追踪、基线、验证与归档边界；中文内容 + 英文协议 token</text>
+  <text x="856" y="728" class="code">metadata</text>
+  <text x="964" y="728" class="body">→</text>
+  <text x="992" y="728" class="code">proposal</text>
+  <text x="1092" y="728" class="body">→</text>
+  <text x="1120" y="728" class="code">design + spec</text>
+  <text x="1284" y="728" class="body">→</text>
+  <text x="1312" y="728" class="code">tasks</text>
+  <text x="1400" y="728" class="body">→</text>
+  <text x="1428" y="728" class="code">verification</text>
+  <text x="856" y="766" class="small">CHG-YYYYMMDD-NNN：唯一 Change ID；metadata.yaml：状态权威</text>
+  <text x="856" y="791" class="small">Requirement：MOD-###-REQ-###；Scenario：SCN-###；ERROR 必填</text>
+  <text x="856" y="827" class="tiny">归档由 Core transaction 写 Current Specification，Change 再进入历史目录</text>
+
+  <text x="82" y="908" class="card-title">CodeSpec 六份文件：每份只回答一个问题</text>
+  <rect x="82" y="920" width="1436" height="250" rx="8" fill="#0b1325" stroke="#334155"/>
+  <path data-graph-role="decoration" d="M82 958 H1518 M82 993 H1518 M82 1028 H1518 M82 1063 H1518 M82 1098 H1518 M82 1133 H1518 M82 1168 H1518 M310 920 V1170 M760 920 V1170" stroke="#334155" stroke-width="1"/>
+  <rect x="82" y="920" width="1436" height="38" rx="8" fill="#17233b" stroke="none"/>
+  <text x="108" y="946" class="table-head">文件</text>
+  <text x="336" y="946" class="table-head">它回答的问题</text>
+  <text x="786" y="946" class="table-head">关键内容 / 约束</text>
+  <text x="108" y="981" class="table-label mono">metadata.yaml</text>
+  <text x="336" y="981" class="table-copy">现在处于哪个状态？变更的身份是什么？</text>
+  <text x="786" y="981" class="table-copy">status、revision、baseline、gates、relations、路径；状态权威</text>
+  <text x="108" y="1016" class="table-label mono">proposal.md</text>
+  <text x="336" y="1016" class="table-copy">为什么改？改哪些模块？影响范围是什么？</text>
+  <text x="786" y="1016" class="table-copy">Why、变更内容、模块映射、范围；Requirement/Scenario 复用 ID</text>
+  <text x="108" y="1051" class="table-label mono">design.md</text>
+  <text x="336" y="1051" class="table-copy">准备如何实现？有哪些决策与风险？</text>
+  <text x="786" y="1051" class="table-copy">上下文、目标/非目标、决策、需求映射、风险与迁移</text>
+  <text x="108" y="1086" class="table-label mono">spec.md</text>
+  <text x="336" y="1086" class="table-copy">需求行为如何变化？如何被测试？</text>
+  <text x="786" y="1086" class="table-copy">ADDED/MODIFIED/REMOVED、Requirement、Scenario；ERROR 必填</text>
+  <text x="108" y="1121" class="table-label mono">tasks.md</text>
+  <text x="336" y="1121" class="table-copy">具体要做哪些事，完成到哪里？</text>
+  <text x="786" y="1121" class="table-copy">SP-## 简洁任务投影；实现、测试、构建和 lint 的可追踪清单</text>
+  <text x="108" y="1156" class="table-label mono">verification.md</text>
+  <text x="336" y="1156" class="table-copy">如何证明做对了？</text>
+  <text x="786" y="1156" class="table-copy">fresh test / build / lint 结果；Requirement、Scenario 与 ERROR 证据</text>
+
+  <!-- 03 skills -->
+  <rect data-graph-role="container" x="52" y="1240" width="1496" height="492" rx="14" fill="url(#panel)" stroke="#334155"/>
+  <text x="82" y="1276" class="kicker">03 / THREE PUBLIC SKILLS</text>
+  <text x="82" y="1307" class="section">技能缩减为三个入口：用户只需判断“正常、异常、完成”</text>
+  <text x="82" y="1333" class="lead">三个 Skill 都由 OpenSpec 驱动；其中 workflow 把 Superpowers 方法论按阶段路由进去。</text>
+
+  <g data-graph-role="node" data-node-id="skill-workflow">
+    <rect x="82" y="1362" width="454" height="218" rx="10" fill="url(#purple-card)" stroke="#a855f7" stroke-width="1.5"/>
+    <rect x="104" y="1382" width="166" height="25" rx="6" fill="#4c1d95" stroke="#8b5cf6"/>
+    <text x="187" y="1400" text-anchor="middle" class="super">OpenSpec + Superpowers</text>
+    <text x="104" y="1438" class="card-title mono">openspec-workflow</text>
+    <text x="104" y="1468" class="body">正常开发的唯一入口</text>
+    <text x="104" y="1495" class="muted">context/status → create/resolve Change</text>
+    <text x="104" y="1518" class="muted">→ Core 门禁 → brainstorming/planning/TDD</text>
+    <text x="104" y="1541" class="muted">→ 实现/验证 → 刷新 status → 等待 archive</text>
+    <text x="104" y="1566" class="code-small">OpenSpec：治理；Superpowers：工程方法</text>
+  </g>
+
+  <g data-graph-role="node" data-node-id="skill-rebase">
+    <rect x="573" y="1362" width="454" height="218" rx="10" fill="url(#orange-card)" stroke="#f97316" stroke-width="1.5"/>
+    <rect x="595" y="1382" width="120" height="25" rx="6" fill="#7c2d12" stroke="#fb923c"/>
+    <text x="655" y="1400" text-anchor="middle" class="openai">OpenSpec Core</text>
+    <text x="595" y="1438" class="card-title mono">openspec-rebase-change</text>
+    <text x="595" y="1468" class="body">只在 STALE / 多 Change 冲突时使用</text>
+    <text x="595" y="1495" class="muted">解析 baseline 与冲突 → 调用 openspec rebase</text>
+    <text x="595" y="1518" class="muted">→ 重建基线、递增 revision → 回到 workflow</text>
+    <text x="595" y="1541" class="muted">不实现代码；不写 Current Specification</text>
+    <text x="595" y="1566" class="code-small">OpenSpec：异常恢复与基线重建</text>
+  </g>
+
+  <g data-graph-role="node" data-node-id="skill-archive">
+    <rect x="1064" y="1362" width="454" height="218" rx="10" fill="url(#green-card)" stroke="#10b981" stroke-width="1.5"/>
+    <rect x="1086" y="1382" width="120" height="25" rx="6" fill="#064e3b" stroke="#34d399"/>
+    <text x="1146" y="1400" text-anchor="middle" class="openai">OpenSpec Core</text>
+    <text x="1086" y="1438" class="card-title mono">openspec-archive-change</text>
+    <text x="1086" y="1468" class="body">完成、验证通过、人工确认后使用</text>
+    <text x="1086" y="1495" class="muted">preflight → validate traceability → apply delta</text>
+    <text x="1086" y="1518" class="muted">→ 写入 Current Specification → 移动 Change 历史</text>
+    <text x="1086" y="1541" class="muted">唯一允许写入 Current Specification 的边界</text>
+    <text x="1086" y="1566" class="code-small">OpenSpec：归档事务；人工确认：发布闸门</text>
+  </g>
+  <text x="82" y="1620" class="card-title">归属速记</text>
+  <rect x="82" y="1640" width="1436" height="62" rx="8" fill="#0b1325" stroke="#334155"/>
+  <text x="110" y="1678" class="openai">OpenSpec Core</text>
+  <text x="248" y="1678" class="body">负责 Change / Requirement / Baseline / STALE / 校验 / Delta / 归档事务</text>
+  <text x="900" y="1678" class="super">Superpowers</text>
+  <text x="1015" y="1678" class="body">负责需求澄清 / 计划 / TDD / 调试 / fresh verification / review</text>
+
+  <!-- 04 usage -->
+  <rect data-graph-role="container" x="52" y="1772" width="1496" height="500" rx="14" fill="url(#panel)" stroke="#334155"/>
+  <text x="82" y="1808" class="kicker">04 / FROM INSTALL TO ARCHIVE</text>
+  <text x="82" y="1839" class="section">使用方式：初始化一次，每次开发从 workflow 开始</text>
+  <text x="82" y="1865" class="lead">以下命令和路径对应你给出的本地 tgz、工程根目录、弹窗详情示例与归档结果。</text>
+
+  <rect x="82" y="1892" width="620" height="42" rx="7" fill="#0b1325" stroke="#3b82f6"/>
+  <text x="106" y="1919" class="code mono">npm install -g fission-ai-openspec-1.11.0.tgz</text>
+  <text x="728" y="1919" class="muted">安装 CLI（本地 tgz）</text>
+
+  <path data-graph-role="edge" data-source="init" data-target="workflow-run" d="M342 2010 H410" fill="none" stroke="#60a5fa" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <path data-graph-role="edge" data-source="workflow-run" data-target="human-gate" d="M820 2010 H888" fill="none" stroke="#c084fc" stroke-width="2.5" marker-end="url(#arrow-purple)"/>
+  <path data-graph-role="edge" data-source="human-gate" data-target="archive-result" d="M1280 2010 H1348" fill="none" stroke="#34d399" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+  <g data-graph-role="node" data-node-id="init">
+    <rect x="82" y="1962" width="260" height="96" rx="9" fill="url(#blue-card)" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="106" y="1993" class="node-label">1 · 工程根目录</text>
+    <text x="106" y="2022" class="code-small mono">openspec init</text>
+    <text x="106" y="2044" class="node-copy">生成 openspec/ 与 .agents/skills/</text>
+  </g>
+  <g data-graph-role="node" data-node-id="workflow-run">
+    <rect x="410" y="1962" width="410" height="96" rx="9" fill="url(#purple-card)" stroke="#a855f7" stroke-width="1.5"/>
+    <text x="434" y="1993" class="node-label">2 · 正常开发</text>
+    <text x="434" y="2022" class="code-small mono">$openspec-workflow</text>
+    <text x="434" y="2044" class="node-copy">新增一个用户详情弹窗功能</text>
+  </g>
+  <g data-graph-role="node" data-node-id="human-gate">
+    <rect x="888" y="1962" width="392" height="96" rx="9" fill="#292044" stroke="#8b5cf6" stroke-width="1.5"/>
+    <text x="912" y="1993" class="node-label">3 · 人工确认</text>
+    <text x="912" y="2022" class="body">检查 proposal / design / spec / tasks</text>
+    <text x="912" y="2044" class="node-copy">验证通过后，明确确认归档</text>
+  </g>
+  <g data-graph-role="node" data-node-id="archive-result">
+    <rect x="1348" y="1962" width="170" height="96" rx="9" fill="url(#green-card)" stroke="#10b981" stroke-width="1.5"/>
+    <text x="1372" y="1993" class="node-label">4 · archive</text>
+    <text x="1372" y="2022" class="code-small mono">$openspec-</text>
+    <text x="1372" y="2044" class="code-small mono">archive-change</text>
+  </g>
+
+  <rect x="82" y="2090" width="700" height="142" rx="9" fill="#0b1325" stroke="#334155"/>
+  <text x="106" y="2120" class="card-title">openspec init 生成的核心目录</text>
+  <text x="106" y="2148" class="tree mono">.agents/skills/openspec-workflow/SKILL.md</text>
+  <text x="106" y="2172" class="tree mono">.agents/skills/openspec-rebase-change/SKILL.md</text>
+  <text x="106" y="2196" class="tree mono">.agents/skills/openspec-archive-change/SKILL.md</text>
+  <text x="106" y="2220" class="tree mono">openspec/config.yaml · business.md · changes/ · archive/</text>
+
+  <rect x="828" y="2090" width="690" height="142" rx="9" fill="#0b1325" stroke="#10b981"/>
+  <text x="852" y="2120" class="card-title">确认归档后的结果</text>
+  <text x="852" y="2148" class="tree mono">openspec/archive/specs/MOD-001/spec.md</text>
+  <text x="852" y="2174" class="tree-note">Current Specification：当前有效规格</text>
+  <text x="852" y="2198" class="tree mono">openspec/archive/changes/&lt;CHG-ID&gt;/</text>
+  <text x="852" y="2222" class="tree-note">Archived Change：历史变更与验证证据</text>
+
+  <rect x="82" y="2250" width="1436" height="1" fill="#334155"/>
+  <text x="82" y="2268" class="tiny">异常分支：若 status = STALE 或存在冲突 → openspec-rebase-change → 重建 baseline → 回到 openspec-workflow；不直接归档。</text>
+  <text x="1518" y="2268" text-anchor="end" class="tiny">OpenSpec Core owns the boundary · Superpowers owns the method</text>
+
+  <!-- 05 archived requirement example -->
+  <rect data-graph-role="container" x="52" y="2310" width="1496" height="480" rx="14" fill="url(#panel)" stroke="#334155"/>
+  <text x="82" y="2346" class="kicker">05 / ARCHIVED SPEC EXAMPLE</text>
+  <text x="82" y="2377" class="section">归档后的 Current Specification：用户详情弹窗需求</text>
+  <rect x="82" y="2398" width="1436" height="38" rx="7" fill="#0b1325" stroke="#10b981"/>
+  <text x="106" y="2423" class="code mono">openspec/archive/specs/MOD-001/spec.md</text>
+  <text x="610" y="2423" class="tree-note">示例归档条目：MOD-001-REQ-001</text>
+
+  <rect x="82" y="2454" width="1436" height="78" rx="8" fill="#0b1325" stroke="#10b981"/>
+  <text x="106" y="2482" class="table-label mono">MOD-001-REQ-001</text>
+  <text x="390" y="2482" class="table-copy">用户管理页面允许管理员打开只读“用户详情”弹窗</text>
+  <text x="106" y="2512" class="table-label">需求</text>
+  <text x="250" y="2512" class="table-copy">展示用户名、昵称、部门、数据范围、状态、创建时间六项；空字段为 “-”；复用时间格式化规则；文案跟随当前语言</text>
+
+  <rect data-graph-role="container" x="82" y="2554" width="690" height="194" rx="8" fill="#101c32" stroke="#8b5cf6"/>
+  <text x="106" y="2582" class="card-title mono">SCN-001 · 管理员打开用户详情</text>
+  <path data-graph-role="decoration" d="M106 2596 H748 M106 2632 H748 M106 2668 H748 M106 2704 H748" stroke="#334155" stroke-width="1"/>
+  <text x="106" y="2620" class="table-label mono">GIVEN</text>
+  <text x="210" y="2620" class="table-copy">管理员已进入用户管理页面，且用户列表中存在一条用户记录</text>
+  <text x="106" y="2656" class="table-label mono">WHEN</text>
+  <text x="210" y="2656" class="table-copy">管理员点击该记录操作列中的“详情”按钮</text>
+  <text x="106" y="2692" class="table-label mono">THEN</text>
+  <text x="210" y="2692" class="table-copy">打开标题为“用户详情”的弹窗，并展示六项只读字段</text>
+  <text x="106" y="2728" class="table-label mono">ERROR</text>
+  <text x="210" y="2728" class="table-copy">记录加载失败或不存在时，不显示伪造详情；保留现有错误处理并允许继续操作</text>
+
+  <rect data-graph-role="container" x="828" y="2554" width="690" height="194" rx="8" fill="#101c32" stroke="#8b5cf6"/>
+  <text x="852" y="2582" class="card-title mono">SCN-002 · 管理员关闭用户详情</text>
+  <path data-graph-role="decoration" d="M852 2596 H1494 M852 2632 H1494 M852 2668 H1494 M852 2704 H1494" stroke="#334155" stroke-width="1"/>
+  <text x="852" y="2620" class="table-label mono">GIVEN</text>
+  <text x="956" y="2620" class="table-copy">用户详情弹窗已打开</text>
+  <text x="852" y="2656" class="table-label mono">WHEN</text>
+  <text x="956" y="2656" class="table-copy">点击“关闭”按钮或弹窗关闭控件</text>
+  <text x="852" y="2692" class="table-label mono">THEN</text>
+  <text x="956" y="2692" class="table-copy">关闭详情弹窗，用户仍停留在用户管理列表</text>
+  <text x="852" y="2728" class="table-label mono">ERROR</text>
+  <text x="956" y="2728" class="table-copy">关闭动作重复触发时，保持弹窗关闭状态且不发起额外请求</text>
+  <text x="82" y="2772" class="tiny">SCN-001 与 SCN-002 作为两个独立 Scenario 卡片展示；每个 GIVEN / WHEN / THEN / ERROR 均独立成行。</text>
+</svg>

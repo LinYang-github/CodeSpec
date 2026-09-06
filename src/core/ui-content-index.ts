@@ -20,13 +20,35 @@ export interface UiDocument {
   modifiedAt: string;
 }
 
+export interface UiChangeGroup {
+  id: string;
+  documents: UiDocument[];
+}
+
 export interface UiIndex {
   documents: UiDocument[];
+  changes: UiChangeGroup[];
+  archive: {
+    specSnapshots: UiDocument[];
+    history: UiDocument[];
+    historyCount: number;
+    historyChanges: UiChangeGroup[];
+  };
   skipped: Array<{
     relativePath: string;
     reason: 'binary' | 'too_large' | 'outside_root' | 'unreadable';
   }>;
   rebuiltAt: string;
+}
+
+export interface BusinessModule { id: string; name: string; responsibility: string; keywords: string[]; }
+
+export function parseBusinessModules(content: string): BusinessModule[] {
+  return content.split(/\r?\n/u).slice(2).flatMap((line) => {
+    const cells = line.split('|').map((cell) => cell.trim()).filter(Boolean);
+    if (!/^MOD-\d+$/u.test(cells[0] ?? '')) return [];
+    return [{ id: cells[0], name: cells[1] ?? '', responsibility: cells[2] ?? '', keywords: (cells[3] ?? '').split(/\s+/u).filter(Boolean) }];
+  });
 }
 
 const MAX_FILE_SIZE = 1_048_576;
@@ -50,7 +72,7 @@ function getContentType(filePath: string): UiContentType {
 function getCategory(relativePath: string, source: UiSource): string {
   if (source === 'superpowers-plans') return 'Superpowers Plans';
   if (relativePath === 'openspec/business.md') return '业务说明';
-  if (relativePath.startsWith('openspec/archive/changes/')) return '归档 Change';
+  if (relativePath.startsWith('openspec/archive/changes/') || relativePath.startsWith('openspec/changes/archive/')) return '归档 Change';
   if (relativePath.startsWith('openspec/archive/specs/')) return '归档 Spec';
   if (relativePath.startsWith('openspec/changes/')) return '活动 Change';
   if (relativePath.startsWith('openspec/specs/')) return '当前 Spec';
@@ -83,6 +105,37 @@ function getYamlLabels(content: string): string[] {
 
 function normalizeSearchText(value: string): string {
   return value.toLocaleLowerCase().replace(/\s+/gu, ' ').trim();
+}
+
+function groupChangeDocuments(documents: UiDocument[], prefix: string): UiChangeGroup[] {
+  const groups = new Map<string, UiDocument[]>();
+  for (const document of documents) {
+    if (!document.relativePath.startsWith(prefix)) continue;
+    const remainder = document.relativePath.slice(prefix.length);
+    const separatorIndex = remainder.indexOf('/');
+    if (separatorIndex < 1) continue;
+    const id = remainder.slice(0, separatorIndex);
+    const group = groups.get(id) ?? [];
+    group.push(document);
+    groups.set(id, group);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([id, groupedDocuments]) => ({ id, documents: groupedDocuments }));
+}
+
+function getArchiveGroups(documents: UiDocument[]): UiIndex['archive'] {
+  const specSnapshots = documents.filter((document) =>
+    /^openspec\/archive\/specs\/[^/]+\/spec\.md$/u.test(document.relativePath)
+  );
+  const history = documents.filter((document) =>
+    document.relativePath.startsWith('openspec/archive/changes/') || document.relativePath.startsWith('openspec/changes/archive/')
+  );
+  const historyChanges = [
+    ...groupChangeDocuments(documents, 'openspec/archive/changes/'),
+    ...groupChangeDocuments(documents, 'openspec/changes/archive/'),
+  ].sort((left, right) => left.id.localeCompare(right.id));
+  return { specSnapshots, history, historyCount: historyChanges.length, historyChanges };
 }
 
 async function collectFiles(
@@ -166,7 +219,16 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   skipped.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 
-  return { documents, skipped, rebuiltAt: new Date().toISOString() };
+  return {
+    documents,
+    changes: groupChangeDocuments(
+      documents.filter((document) => !document.relativePath.startsWith('openspec/changes/archive/')),
+      'openspec/changes/'
+    ),
+    archive: getArchiveGroups(documents),
+    skipped,
+    rebuiltAt: new Date().toISOString(),
+  };
 }
 
 export function searchUiIndex(index: UiIndex, query: string, source?: UiSource): UiDocument[] {

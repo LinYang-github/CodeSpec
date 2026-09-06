@@ -4,12 +4,19 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { buildUiIndex, findUiDocument, searchUiIndex } from '../../src/core/ui-content-index.js';
+import { parseBusinessModules } from '../../src/core/ui-content-index.js';
 
 describe('buildUiIndex', () => {
   const tempRoots: string[] = [];
 
   afterEach(async () => {
     await Promise.all(tempRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
+  });
+
+  it('extracts supported business modules from the registration table', () => {
+    expect(parseBusinessModules('# 业务模块注册表\n| Module ID | 模块名称 | 职责 | 关键词 |\n| --- | --- | --- | --- |\n| MOD-001 | 账户 | 管理用户 | 登录 权限 |')).toEqual([
+      { id: 'MOD-001', name: '账户', responsibility: '管理用户', keywords: ['登录', '权限'] },
+    ]);
   });
 
   it('indexes only OpenSpec content and Superpowers plans', async () => {
@@ -38,6 +45,57 @@ describe('buildUiIndex', () => {
       title: '业务说明',
       labels: [],
     });
+  });
+
+  it('groups archive Spec snapshots separately from archived Change history', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'openspec-ui-index-'));
+    tempRoots.push(root);
+
+    await fs.mkdir(path.join(root, 'openspec', 'archive', 'specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'openspec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init'), { recursive: true });
+    await fs.mkdir(path.join(root, 'openspec', 'changes', 'archive', '2025-08-07-legacy-change'), { recursive: true });
+    await fs.writeFile(path.join(root, 'openspec', 'archive', 'specs', 'cli-init', 'spec.md'), '# CLI 初始化规范');
+    await fs.writeFile(path.join(root, 'openspec', 'archive', 'specs', 'README.md'), '# 归档说明');
+    await fs.writeFile(path.join(root, 'openspec', 'archive', 'changes', '2025-08-06-add-init-command', 'proposal.md'), '# 初始化命令');
+    await fs.writeFile(path.join(root, 'openspec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init', 'spec.md'), '# 历史规格');
+    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'proposal.md'), '# 当前变更');
+    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'tasks.md'), '# 任务');
+    await fs.writeFile(path.join(root, 'openspec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init', 'spec.md'), '# 当前规格');
+    await fs.writeFile(path.join(root, 'openspec', 'changes', 'index.yaml'), 'changes: []\n');
+    await fs.writeFile(path.join(root, 'openspec', 'changes', 'archive', '2025-08-07-legacy-change', 'proposal.md'), '# 旧归档');
+
+    const index = await buildUiIndex(root);
+    const archive = index as typeof index & {
+      archive: { specSnapshots: Array<{ relativePath: string }>; history: Array<{ relativePath: string }>; historyCount: number };
+    };
+
+    expect(archive.archive.specSnapshots.map((document) => document.relativePath)).toEqual([
+      'openspec/archive/specs/cli-init/spec.md',
+    ]);
+    expect(archive.archive.history.map((document) => document.relativePath)).toEqual([
+      'openspec/archive/changes/2025-08-06-add-init-command/proposal.md',
+      'openspec/archive/changes/2025-08-06-add-init-command/specs/cli-init/spec.md',
+      'openspec/changes/archive/2025-08-07-legacy-change/proposal.md',
+    ]);
+    expect(archive.archive.historyCount).toBe(2);
+    expect((index as typeof index & { changes: Array<{ id: string; documents: Array<{ relativePath: string }> }> }).changes.map((change) => ({
+      id: change.id,
+      documents: change.documents.map((document) => ({ relativePath: document.relativePath })),
+    }))).toEqual([
+      {
+        id: 'CHG-20260903-001',
+        documents: [
+          { relativePath: 'openspec/changes/CHG-20260903-001/proposal.md' },
+          { relativePath: 'openspec/changes/CHG-20260903-001/specs/cli-init/spec.md' },
+          { relativePath: 'openspec/changes/CHG-20260903-001/tasks.md' },
+        ],
+      },
+    ]);
+    expect((archive.archive as typeof archive.archive & { historyChanges: Array<{ id: string }> }).historyChanges.map((change) => ({ id: change.id }))).toEqual([
+      { id: '2025-08-06-add-init-command' },
+      { id: '2025-08-07-legacy-change' },
+    ]);
   });
 
   it('ranks title matches before body matches and extracts YAML metadata labels', async () => {

@@ -20,6 +20,7 @@ import {
 import { ListCommand } from '../core/list.js';
 import { ArchiveCommand, type ArchiveOptions } from '../core/archive.js';
 import { ViewCommand } from '../core/view.js';
+import { UiCommand } from '../commands/ui.js';
 import { resolveRootForCommand, toRootOutput } from '../core/root-selection.js';
 import { registerSpecCommand } from '../commands/spec.js';
 import { ChangeCommand } from '../commands/change.js';
@@ -431,6 +432,14 @@ program
       failWithError(error);
       process.exit(1);
     }
+  });
+
+program
+  .command('ui [path]')
+  .description('在浏览器中只读浏览和检索 OpenSpec 内容')
+  .action(async (targetPath?: string) => {
+    const uiCommand = new UiCommand();
+    await uiCommand.execute(targetPath);
   });
 
 // Change command with subcommands

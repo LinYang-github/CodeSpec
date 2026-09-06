@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'child_process';
-import { existsSync, rmSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
@@ -19,7 +19,7 @@ if (existsSync('dist')) {
   rmSync('dist', {
     recursive: true,
     force: true,
-    maxRetries: 3,
+    maxRetries: 10,
     retryDelay: 100,
   });
 }
@@ -29,6 +29,9 @@ console.log('Compiling TypeScript...');
 try {
   runTsc(['--version']);
   runTsc();
+  mkdirSync('dist/ui/web/vendor', { recursive: true });
+  cpSync('src/ui/web', 'dist/ui/web', { recursive: true });
+  cpSync('node_modules/markdown-it/dist/markdown-it.min.js', 'dist/ui/web/vendor/markdown-it.min.js');
   console.log('\n✅ Build completed successfully!');
 } catch (error) {
   console.error('\n❌ Build failed!');

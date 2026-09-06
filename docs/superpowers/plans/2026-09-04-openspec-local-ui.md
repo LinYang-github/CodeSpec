@@ -179,7 +179,7 @@ git commit -m "feat: serve OpenSpec UI locally"
 **Interfaces:**
 
 - Consumes Task 2 的 `/api/index`、`/api/search`、`/api/documents/:id`、`/api/rebuild`。
-- Produces `dist/ui/web/index.html`、`dist/ui/web/app.js`、`dist/ui/web/styles.css`、`dist/ui/web/vendor/markdown-it.mjs`。
+- Produces `dist/ui/web/index.html`、`dist/ui/web/app.js`、`dist/ui/web/styles.css`、`dist/ui/web/vendor/markdown-it.min.js`。
 - Query state contract: `?file=<document-id>&q=<encoded query>&source=<UiSource>`.
 
 - [ ] **Step 1: 添加浏览器 Markdown 依赖与可复制资源。**
@@ -195,12 +195,12 @@ pnpm why markdown-it
 
 - [ ] **Step 2: 更新 build 的资源复制并用构建验证。**
 
-在 `build.js` 的 TypeScript 编译成功后，使用 `cpSync`/`mkdirSync` 将 `src/ui/web/` 复制到 `dist/ui/web/`，并将 `node_modules/markdown-it/dist/markdown-it.mjs` 复制为 `dist/ui/web/vendor/markdown-it.mjs`。复制缺失时让 build 抛错并非静默发布。
+在 `build.js` 的 TypeScript 编译成功后，使用 `cpSync`/`mkdirSync` 将 `src/ui/web/` 复制到 `dist/ui/web/`，并将 `node_modules/markdown-it/dist/markdown-it.min.js` 复制为 `dist/ui/web/vendor/markdown-it.min.js`。复制缺失时让 build 抛错并非静默发布。
 
 ```bash
 pnpm run build
 test -f dist/ui/web/index.html
-test -f dist/ui/web/vendor/markdown-it.mjs
+test -f dist/ui/web/vendor/markdown-it.min.js
 ```
 
 预期：构建退出 0，四个前端资源均存在于 `dist/ui/web/`。
@@ -215,13 +215,13 @@ test -f dist/ui/web/vendor/markdown-it.mjs
 
 `app.js` 从 `URLSearchParams` 读取 `file`、`q`、`source`、`metadata`；加载 `/api/index` 后在左栏按 `source` 和 `category` 构造树，默认只列出 `contentType === 'markdown'` 的内容，并将 YAML 集中在折叠的“配置与元数据”分组。中栏显示当前分组或 `/api/search` 结果，YAML 项展示索引提供的 `labels`。搜索输入采用 200ms 防抖；每次选中文档、更新查询或切换元数据分组调用 `history.replaceState` 更新同一套参数。
 
-读取 `/api/documents/:id` 后，`contentType === 'markdown'` 使用本地 `markdown-it.mjs` 渲染内容；配置 `html: false`、`linkify: true`、`typographer: false`，保证 Markdown 中的 HTML 不被执行。`contentType === 'yaml'` 或 `text` 用 `<pre><code>` 的文本节点显示原始内容，避免改写原文件语义。渲染前用文本节点显示完整相对路径，复制按钮使用 `navigator.clipboard.writeText(relativePath)` 并在失败时显示“无法复制路径”；“在文件管理器中打开”按钮调用 `POST /api/reveal/:id`，并把 502 或不支持平台的错误显示在阅读区。重新扫描调用 `POST /api/rebuild`，完成后重新加载索引并保留仍存在的文件/查询，否则显示空阅读状态。
+读取 `/api/documents/:id` 后，`contentType === 'markdown'` 使用本地 `markdown-it.min.js` 暴露的 `markdownit` 渲染内容；配置 `html: false`、`linkify: true`、`typographer: false`，保证 Markdown 中的 HTML 不被执行。`contentType === 'yaml'` 或 `text` 用 `<pre><code>` 的文本节点显示原始内容，避免改写原文件语义。渲染前用文本节点显示完整相对路径，复制按钮使用 `navigator.clipboard.writeText(relativePath)` 并在失败时显示“无法复制路径”；“在文件管理器中打开”按钮调用 `POST /api/reveal/:id`，并把 502 或不支持平台的错误显示在阅读区。重新扫描调用 `POST /api/rebuild`，完成后重新加载索引并保留仍存在的文件/查询，否则显示空阅读状态。
 
 - [ ] **Step 5: 构建并进行浏览器资源冒烟检查。**
 
 ```bash
 pnpm run build
-node -e "for (const file of ['dist/ui/web/index.html','dist/ui/web/app.js','dist/ui/web/styles.css','dist/ui/web/vendor/markdown-it.mjs']) { require('node:fs').accessSync(file) }"
+node -e "for (const file of ['dist/ui/web/index.html','dist/ui/web/app.js','dist/ui/web/styles.css','dist/ui/web/vendor/markdown-it.min.js']) { require('node:fs').accessSync(file) }"
 pnpm lint
 ```
 

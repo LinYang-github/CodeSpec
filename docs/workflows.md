@@ -176,7 +176,7 @@ Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `a
 1. Core 执行 `preflightArchive()`，检查任务、验证证据、Delta、Traceability、canonical Spec 和冲突。
 2. Core 执行 `prepareArchive()`，准备 Delta 和可恢复写入集，并确认 Delta 与 Current Specification 的每个 Scenario 都有非空 `ERROR`。
 3. 只有用户在交互式终端中明确确认后，Core 才执行 `commitArchive()` 和 `archiveTransaction()`。
-4. 事务将 Delta 应用到 Current Specification，并把 Change 移入 `openspec/changes/archive/`。
+4. 事务将 Delta 应用到 Current Specification，并把 Change 移入 `openspec/archive/changes/<CHG-ID>/`。
 
 归档规则：
 
