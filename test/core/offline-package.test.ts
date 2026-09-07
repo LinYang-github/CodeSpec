@@ -14,12 +14,18 @@ describe('offline package contract', () => {
   });
 
   it('keeps the offline package allowlist and removes build lifecycle scripts', async () => {
+    const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8')) as {
+      files?: string[];
+    };
     const source = await fs.readFile(path.join(root, 'scripts/pack-offline.mjs'), 'utf8');
 
+    expect(pkg.files).toContain('!**/.DS_Store');
+    expect(pkg.files).toContain('!**/*.map');
     expect(source).toContain('bundleDependencies');
     expect(source).toContain('prepare');
     expect(source).toContain('prepublishOnly');
     expect(source).toContain('assertPortableTree');
+    expect(source).toContain('FORBIDDEN_NAMES');
   });
 
   it('exposes offline verification and uses npm offline flags', async () => {
