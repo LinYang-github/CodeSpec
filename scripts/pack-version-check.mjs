@@ -1,14 +1,9 @@
 #!/usr/bin/env node
 // Guard: Ensure the packed tarball's CLI `--version` matches package.json.
 //
-// Notes:
-// - We intentionally use `npm pack` (not pnpm) because `npm pack --json` is
-//   consistently supported and returns the tarball metadata we need. The
-//   project uses pnpm for install/publish, but this guard only needs to pack
-//   locally and verify the installed CLI output.
-// - `npm pack` triggers the package's `prepare` script (build), and
-//   `changeset publish` triggers `prepublishOnly` (also builds here). This
-//   means an explicit build is not strictly necessary for the guard.
+// The release guard uses the same dependency-bundled packer as the offline
+// artifact, then installs that exact tgz with npm offline before checking the
+// CLI version.
 
 import { execFileSync } from 'child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
@@ -24,27 +19,6 @@ function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'], ...opts });
 }
 
-function npmPack() {
-  try {
-    const jsonOut = run('npm', ['pack', '--json', '--silent']);
-    const arr = JSON.parse(jsonOut);
-    if (Array.isArray(arr) && arr.length > 0) {
-      const last = arr[arr.length - 1];
-      const file = (last && typeof last === 'object' && last.filename) || (typeof last === 'string' ? last : null);
-      if (file) return String(file).trim();
-    }
-    // Unexpected JSON shape or empty array; fallback to plain output
-    const out = run('npm', ['pack', '--silent']).trim();
-    const lines = out.split(/\r?\n/);
-    return lines[lines.length - 1].trim();
-  } catch (e) {
-    // Fallback for environments not supporting --json
-    const out = run('npm', ['pack', '--silent']).trim();
-    const lines = out.split(/\r?\n/);
-    return lines[lines.length - 1].trim();
-  }
-}
-
 function main() {
   const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'utf-8'));
   const expected = pkg.version;
@@ -53,13 +27,20 @@ function main() {
   let tgzPath;
 
   try {
-    log(`Packing @hrhy-ai/codespec@${expected}...`);
-    const filename = npmPack();
-    tgzPath = path.resolve(filename);
-    log(`Created: ${tgzPath}`);
-
     work = mkdtempSync(path.join(tmpdir(), 'codespec-pack-check-'));
     log(`Temp dir: ${work}`);
+
+    log(`Packing offline @hrhy-ai/codespec@${expected}...`);
+    const artifactDir = path.join(work, 'artifact');
+    const packOutput = run(process.execPath, [
+      path.join(process.cwd(), 'scripts/pack-offline.mjs'),
+      '--output',
+      artifactDir,
+    ], { cwd: process.cwd() });
+    const match = packOutput.match(/离线包已生成：(.+)\s*$/mu);
+    if (!match) throw new Error(`离线打包器未返回 tgz 路径：${packOutput}`);
+    tgzPath = path.resolve(match[1].trim());
+    log(`Created: ${tgzPath}`);
 
     // Make a tiny project
     writeFileSync(
@@ -77,7 +58,7 @@ function main() {
     };
 
     // Install the tarball
-    run('npm', ['install', tgzPath, '--silent', '--no-audit', '--no-fund'], { cwd: work, env });
+    run('npm', ['install', tgzPath, '--silent', '--offline', '--no-audit', '--no-fund'], { cwd: work, env });
 
     // Run the installed CLI via Node to avoid bin resolution/platform issues
     const binRel = path.join('node_modules', '@hrhy-ai', 'codespec', 'bin', 'codespec.js');

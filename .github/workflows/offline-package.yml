@@ -1,0 +1,98 @@
+name: Offline package
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-offline-package:
+    name: Build shared offline tgz
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20.19.0'
+          cache: pnpm
+
+      - name: Install project dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Build offline package
+        run: pnpm run pack:offline -- --output "$RUNNER_TEMP/offline-package"
+
+      - name: Upload shared tgz
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codespec-offline-tgz
+          path: ${{ runner.temp }}/offline-package/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-offline-package:
+    name: Verify offline tgz (${{ matrix.label }})
+    needs: build-offline-package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell: bash
+            label: linux-bash
+          - os: macos-latest
+            shell: bash
+            label: macos-bash
+          - os: windows-latest
+            shell: pwsh
+            label: windows-pwsh
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+      - name: Checkout verification scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20.19.0'
+
+      - name: Download shared tgz
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: codespec-offline-tgz
+          path: ${{ runner.temp }}/offline-package
+
+      - name: Verify offline install, CLI, init, and UI
+        env:
+          npm_config_offline: 'true'
+          npm_config_audit: 'false'
+          npm_config_fund: 'false'
+        run: node scripts/verify-offline-package.mjs --offline "${{ runner.temp }}/offline-package"

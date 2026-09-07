@@ -28,16 +28,33 @@ Run `node --version`. CodeSpec needs Node.js 20.19.0 or higher. If Node is missi
 
 Run `codespec --version` first. If it already prints a version, the CLI is installed: say so, offer to update it with the install command below, and if the user declines skip ahead to step 4.
 
-Use whichever package manager is already on PATH, preferring npm:
+使用随发布包提供的离线 tgz。先确认 Node.js 版本：
 
 ```bash
-npm install -g @fission-ai/codespec@latest
-pnpm add -g @fission-ai/codespec@latest
-bun add --global @fission-ai/codespec@latest
-yarn global add @fission-ai/codespec@latest   # Yarn 1.x only
+node --version
 ```
 
-Don't pick based on this project's lockfile: a global install has nothing to do with how this repo's own dependencies are installed. If none of those four is available, stop and say so; don't improvise an install. (On Nix, point the user at the Nix section of https://codespec.dev/docs/installation instead.)
+CodeSpec 要求 Node.js 20.19.0 或更高版本。离线包已经包含全部运行时依赖，不需要 pnpm，也不需要访问 npm registry。
+
+Windows PowerShell：
+
+```powershell
+.\scripts\install-codespec.ps1 -PackagePath .\hrhy-ai-codespec-1.0.0.tgz
+```
+
+macOS/Linux：
+
+```bash
+bash ./scripts/install-codespec.sh ./hrhy-ai-codespec-1.0.0.tgz
+```
+
+也可以直接执行 npm 命令：
+
+```bash
+npm install -g ./hrhy-ai-codespec-1.0.0.tgz --offline --no-audit --no-fund
+```
+
+Windows PowerShell 的路径写法为 `.\hrhy-ai-codespec-1.0.0.tgz`。如果 npm 报 `ENOTCACHED`，说明包内依赖不完整或命令指向了错误的 tgz，应停止安装并重新获取完整发布包。
 
 Show the exact command and get confirmation before running it; this installs software outside the project, and the user may want a different package manager to own it.
 

@@ -36,6 +36,8 @@
   "scripts": {
     "lint": "eslint src/",
     "build": "node build.js",
+    "pack:offline": "node scripts/pack-offline.mjs",
+    "verify:offline": "node scripts/verify-offline-package.mjs",
     "generate:skills": "node scripts/generate-skillssh.mjs",
     "regen:parity-hashes": "node scripts/regen-parity-hashes.mjs",
     "dev": "tsc --watch",
