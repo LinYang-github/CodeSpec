@@ -4,6 +4,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { buildUiIndex, findUiDocument, searchUiIndex, type UiIndex } from './ui-content-index.js';
+import { commitArchive, prepareArchive, preflightArchive } from './codespec-workflow/archive-transaction.js';
+import { loadWorkspace } from './codespec-workflow/loaders.js';
+import { parseVerificationDocument } from './codespec-workflow/verification.js';
 
 export interface UiServer {
   url: string;
@@ -18,6 +21,31 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown): 
 
 function closeServer(server: Server): Promise<void> {
   return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+}
+
+const CANONICAL_CHANGE_ID = /^CHG-\d{8}-\d{3}$/u;
+
+function safeArchiveError(error: unknown, projectRoot: string): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replaceAll(projectRoot, '[project]');
+}
+
+function archivePreview(plan: Awaited<ReturnType<typeof preflightArchive>>, projectRoot: string): Record<string, unknown> {
+  return {
+    changeId: plan.changeId,
+    ready: plan.ready,
+    conflict: plan.conflict,
+    reasons: plan.reasons,
+    sddLevel: plan.artifacts.metadata.change.sdd_level,
+    status: plan.artifacts.metadata.change.status,
+    title: plan.artifacts.metadata.change.title,
+    mode: plan.artifacts.metadata.change.mode,
+    requirements: plan.deltas.map((delta) => delta.id),
+    modules: [...plan.current.keys()],
+    archiveTarget: path.relative(projectRoot, path.join(plan.workspace.paths.archivedChanges, plan.changeId)),
+    verificationReceipt: parseVerificationDocument(plan.artifacts.verification).receipt,
+    archiveImpact: plan.archiveImpact,
+  };
 }
 
 export async function startUiServer(options: {
@@ -42,6 +70,27 @@ export async function startUiServer(options: {
         source === 'codespec' || source === 'superpowers-plans' ? source : undefined
       );
       sendJson(response, 200, { documents });
+      return;
+    }
+    if ((request.method === 'GET' || request.method === 'POST') && url.pathname.startsWith('/api/archive/')) {
+      const changeId = decodeURIComponent(url.pathname.slice('/api/archive/'.length));
+      if (!CANONICAL_CHANGE_ID.test(changeId)) {
+        sendJson(response, 400, { error: 'invalid_change_id' });
+        return;
+      }
+      try {
+        const workspace = await loadWorkspace(path.join(options.projectRoot, 'codespec'));
+        const plan = await preflightArchive(workspace, changeId);
+        if (request.method === 'GET') {
+          sendJson(response, 200, archivePreview(plan, options.projectRoot));
+          return;
+        }
+        const result = await commitArchive(await prepareArchive(plan));
+        index = await buildUiIndex(options.projectRoot);
+        sendJson(response, 200, { result, index });
+      } catch (error) {
+        sendJson(response, 409, { error: 'archive_preflight_failed', message: safeArchiveError(error, options.projectRoot) });
+      }
       return;
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/documents/')) {

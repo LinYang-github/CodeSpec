@@ -1,1 +1,46 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CodeSpec UI</title><link rel="stylesheet" href="/styles.css"></head><body><header><div class="brand">CodeSpec <em>UI</em></div><input id="search" type="search" placeholder="搜索 Change、Spec 和计划"><button id="rebuild">↻ 重新扫描</button></header><main><aside id="tree" aria-label="CodeSpec 内容导航"></aside><article id="reader" aria-label="文档阅读器">选择一份文档开始阅读</article></main><script src="/vendor/markdown-it.min.js"></script><script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CodeSpec UI</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">CodeSpec <em>UI</em></div>
+      <div class="project-meta">
+        <span id="project-name">当前工程</span>
+        <span class="readonly-badge">只读观测</span>
+      </div>
+      <label class="global-search">
+        <span class="sr-only">搜索</span>
+        <input id="search" type="search" placeholder="搜索 Change、Spec 和计划">
+      </label>
+      <label class="theme-control">
+        <span class="sr-only">主题</span>
+        <select id="theme" aria-label="主题">
+          <option value="system">跟随系统</option>
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
+      </label>
+      <button id="rebuild" class="quiet-button" type="button">重新扫描</button>
+    </header>
+    <div class="app-shell">
+      <nav id="nav" class="sidebar" aria-label="CodeSpec 业务导航">
+        <p class="nav-caption">观测台</p>
+        <button class="nav-item active" type="button" data-view="capabilities">能力地图</button>
+        <button class="nav-item" type="button" data-view="active-changes">活动 Change</button>
+        <button class="nav-item" type="button" data-view="archiveable-changes">可归档 Change</button>
+        <button class="nav-item" type="button" data-view="archive-history">归档历史</button>
+        <p class="sidebar-note">业务数据由 AI 工作流维护，页面仅提供查看和归档操作。</p>
+      </nav>
+      <main id="workspace" class="workspace" aria-live="polite">
+        <section id="page" class="page"></section>
+      </main>
+    </div>
+    <script src="/vendor/markdown-it.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -139,6 +139,77 @@ describe('buildUiIndex', () => {
     ]);
   });
 
+  it('exposes SDD level for active and archived Change groups', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+
+    await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-20260906-001'), { recursive: true });
+    await fs.mkdir(path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260905-001'), { recursive: true });
+    await fs.writeFile(
+      path.join(root, 'codespec', 'changes', 'CHG-20260906-001', 'metadata.yaml'),
+      [
+        'change:',
+        '  id: CHG-20260906-001',
+        '  title: 当前变更',
+        '  mode: feature',
+        '  sdd_level: 3',
+        '  status: ARCHIVE',
+        'impact:',
+        '  scope: cross-module',
+        'modules:',
+        '  confirmed:',
+        '    - module: MOD-001',
+        '      outcome: OWNED',
+        'tasks:',
+        '  total: 2',
+        '  completed: 1',
+        'verification:',
+        '  requirements_verified: true',
+        '  tests_passed: true',
+        '  build_passed: true',
+        '  lint_passed: false',
+        '  verified_at: 2026-09-06T10:00:00.000Z',
+        'archive:',
+        '  ready: false',
+        '  conflict: false',
+        'gates:',
+        '  archive:',
+        '    required: true',
+        '    satisfied: false',
+        '',
+      ].join('\n')
+    );
+    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260906-001', 'proposal.md'), '# 当前变更');
+    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260905-001', 'metadata.yaml'), 'change:\n  sdd_level: 1\n');
+    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260905-001', 'proposal.md'), '# 已归档变更');
+
+    const index = await buildUiIndex(root);
+
+    expect(index.changes).toEqual([
+      expect.objectContaining({
+        id: 'CHG-20260906-001',
+        title: '当前变更',
+        mode: 'feature',
+        sddLevel: 3,
+        status: 'ARCHIVE',
+        modules: ['MOD-001'],
+        taskProgress: { total: 2, completed: 1 },
+        verification: expect.objectContaining({ lintPassed: false }),
+        archiveState: expect.objectContaining({ ready: false, conflict: false }),
+      }),
+    ]);
+    expect(index.archive.candidates).toEqual([
+      expect.objectContaining({
+        id: 'CHG-20260906-001',
+        ready: false,
+        gateReasons: expect.arrayContaining(['ARCHIVE 门禁尚未满足', '存在未完成任务', '缺少 lint 验证证据']),
+      }),
+    ]);
+    expect(index.archive.historyChanges).toEqual([
+      expect.objectContaining({ id: 'CHG-20260905-001', sddLevel: 1 }),
+    ]);
+  });
+
   it('uses configured specs and archived changes paths as the archive data source', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);

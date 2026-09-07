@@ -7,6 +7,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { getWorkspacePaths } from './codespec-workflow/paths.js';
 import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
+import type { ChangeMode, ChangeStatus, SddLevel } from './codespec-workflow/types.js';
 
 export type UiSource = 'codespec' | 'superpowers-plans';
 export type UiContentType = 'markdown' | 'yaml' | 'text';
@@ -26,10 +27,34 @@ export interface UiDocument {
 export interface UiChangeGroup {
   id: string;
   documents: UiDocument[];
+  title?: string;
+  mode?: ChangeMode;
+  sddLevel?: SddLevel;
+  status?: ChangeStatus;
+  modules?: string[];
+  taskProgress?: { total: number; completed: number };
+  verification?: {
+    requirementsVerified: boolean;
+    testsPassed: boolean;
+    buildPassed: boolean;
+    lintPassed: boolean;
+    verifiedAt: string | null;
+    evidenceReceipt?: string;
+  };
+  archiveState?: { ready: boolean; conflict: boolean; archivedAt: string | null };
+  archiveGateSatisfied?: boolean;
+  gateReasons?: string[];
+}
+
+export interface UiArchiveCandidate extends UiChangeGroup {
+  ready: boolean;
+  conflict: boolean;
+  gateReasons: string[];
 }
 
 export interface UiIndex {
   documents: UiDocument[];
+  projectName: string;
   businessDocument: UiDocument | null;
   businessModules: BusinessModule[];
   changes: UiChangeGroup[];
@@ -39,6 +64,7 @@ export interface UiIndex {
     history: UiDocument[];
     historyCount: number;
     historyChanges: UiChangeGroup[];
+    candidates: UiArchiveCandidate[];
   };
   skipped: Array<{
     relativePath: string;
@@ -100,6 +126,7 @@ function getContentType(filePath: string): UiContentType {
 }
 
 interface UiWorkspacePaths {
+  projectName: string;
   business: string;
   changes: string;
   specs: string;
@@ -107,6 +134,7 @@ interface UiWorkspacePaths {
 }
 
 const DEFAULT_UI_PATHS: UiWorkspacePaths = {
+  projectName: 'CodeSpec',
   business: 'codespec/business.md',
   changes: 'codespec/changes/',
   specs: 'codespec/specs/',
@@ -165,7 +193,7 @@ function groupChangeDocuments(documents: UiDocument[], prefix: string): UiChange
   }
   return [...groups.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([id, groupedDocuments]) => ({ id, documents: groupedDocuments }));
+    .map(([id, groupedDocuments]) => toChangeGroup(id, groupedDocuments));
 }
 
 function mergeChangeGroups(groups: UiChangeGroup[]): UiChangeGroup[] {
@@ -177,7 +205,144 @@ function mergeChangeGroups(groups: UiChangeGroup[]): UiChangeGroup[] {
   }
   return [...merged.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([id, groupedDocuments]) => ({ id, documents: groupedDocuments }));
+    .map(([id, groupedDocuments]) => toChangeGroup(id, groupedDocuments));
+}
+
+function toChangeGroup(id: string, documents: UiDocument[]): UiChangeGroup {
+  const metadata = getChangeMetadata(documents);
+  return {
+    id,
+    documents,
+    ...(metadata.title === undefined ? {} : { title: metadata.title }),
+    ...(metadata.mode === undefined ? {} : { mode: metadata.mode }),
+    ...(metadata.sddLevel === undefined ? {} : { sddLevel: metadata.sddLevel }),
+    ...(metadata.status === undefined ? {} : { status: metadata.status }),
+    ...(metadata.modules === undefined ? {} : { modules: metadata.modules }),
+    ...(metadata.taskProgress === undefined ? {} : { taskProgress: metadata.taskProgress }),
+    ...(metadata.verification === undefined ? {} : { verification: metadata.verification }),
+    ...(metadata.archiveState === undefined ? {} : { archiveState: metadata.archiveState }),
+    ...(metadata.archiveGateSatisfied === undefined ? {} : { archiveGateSatisfied: metadata.archiveGateSatisfied }),
+  };
+}
+
+type YamlRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): YamlRecord | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as YamlRecord : undefined;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function getChangeMetadata(documents: UiDocument[]): {
+  title?: string;
+  mode?: ChangeMode;
+  sddLevel?: SddLevel;
+  status?: ChangeStatus;
+  modules?: string[];
+  taskProgress?: { total: number; completed: number };
+  verification?: UiChangeGroup['verification'];
+  archiveState?: UiChangeGroup['archiveState'];
+  archiveGateSatisfied?: boolean;
+} {
+  const metadata = documents.find((document) => path.basename(document.relativePath) === 'metadata.yaml');
+  if (!metadata) return {};
+
+  try {
+    const root = asRecord(parseYaml(metadata.content));
+    const change = asRecord(root?.change);
+    const modules = asRecord(root?.modules);
+    const tasks = asRecord(root?.tasks);
+    const verification = asRecord(root?.verification);
+    const archive = asRecord(root?.archive);
+    const gates = asRecord(root?.gates);
+    const archiveGate = asRecord(gates?.archive);
+    const level = change?.sdd_level;
+    const status = change?.status;
+    const mode = change?.mode;
+    const confirmedModules = Array.isArray(modules?.confirmed)
+      ? modules.confirmed.map((item) => asString(asRecord(item)?.module)).filter((item): item is string => Boolean(item))
+      : undefined;
+    const total = asNumber(tasks?.total);
+    const completed = asNumber(tasks?.completed);
+    const verificationSummary = [
+      asBoolean(verification?.requirements_verified),
+      asBoolean(verification?.tests_passed),
+      asBoolean(verification?.build_passed),
+      asBoolean(verification?.lint_passed),
+    ];
+    const hasVerification = verificationSummary.every((item) => item !== undefined);
+    const ready = asBoolean(archive?.ready);
+    const conflict = asBoolean(archive?.conflict);
+    return {
+      ...(asString(change?.title) === undefined ? {} : { title: asString(change?.title) }),
+      ...(mode === 'feature' || mode === 'bugfix' || mode === 'refactor' ? { mode } : {}),
+      ...(level === 1 || level === 2 || level === 3 ? { sddLevel: level } : {}),
+      ...(typeof status === 'string' && ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ARCHIVED', 'ABANDONED'].includes(status)
+        ? { status: status as ChangeStatus }
+        : {}),
+      ...(confirmedModules === undefined ? {} : { modules: confirmedModules }),
+      ...(total !== undefined && completed !== undefined ? { taskProgress: { total, completed } } : {}),
+      ...(hasVerification ? {
+        verification: {
+          requirementsVerified: verificationSummary[0]!,
+          testsPassed: verificationSummary[1]!,
+          buildPassed: verificationSummary[2]!,
+          lintPassed: verificationSummary[3]!,
+          verifiedAt: asString(verification?.verified_at) ?? null,
+          ...(asString(verification?.evidence_receipt) === undefined ? {} : { evidenceReceipt: asString(verification?.evidence_receipt) }),
+        },
+      } : {}),
+      ...(ready !== undefined && conflict !== undefined ? {
+        archiveState: {
+          ready,
+          conflict,
+          archivedAt: asString(archive?.archived_at) ?? null,
+        },
+      } : {}),
+      ...(asBoolean(archiveGate?.satisfied) === undefined ? {} : { archiveGateSatisfied: asBoolean(archiveGate?.satisfied) }),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function getGateReasons(change: UiChangeGroup): string[] {
+  const reasons: string[] = [];
+  if (change.status !== 'ARCHIVE') reasons.push(`尚未进入 ARCHIVE（当前：${change.status ?? '未知'}）`);
+  if (change.archiveGateSatisfied === false) reasons.push('ARCHIVE 门禁尚未满足');
+  if (change.archiveState?.ready === false && change.archiveGateSatisfied !== false) reasons.push('归档状态尚未准备就绪');
+  if (change.archiveState?.conflict) reasons.push('存在归档冲突');
+  if (change.taskProgress && change.taskProgress.completed < change.taskProgress.total) reasons.push('存在未完成任务');
+  if (change.verification) {
+    if (!change.verification.requirementsVerified) reasons.push('缺少 Requirement 验证证据');
+    if (!change.verification.testsPassed) reasons.push('缺少测试验证证据');
+    if (!change.verification.buildPassed) reasons.push('缺少构建验证证据');
+    if (!change.verification.lintPassed) reasons.push('缺少 lint 验证证据');
+    if (!change.verification.verifiedAt) reasons.push('验证证据尚未生成');
+  } else {
+    reasons.push('缺少 Verification 摘要');
+  }
+  return reasons;
+}
+
+function getArchiveCandidate(change: UiChangeGroup): UiArchiveCandidate {
+  const gateReasons = getGateReasons(change);
+  return {
+    ...change,
+    ready: gateReasons.length === 0 && change.archiveState?.ready === true,
+    conflict: change.archiveState?.conflict === true,
+    gateReasons,
+  };
 }
 
 function getArchiveGroups(documents: UiDocument[], uiPaths: UiWorkspacePaths): UiIndex['archive'] {
@@ -190,7 +355,7 @@ function getArchiveGroups(documents: UiDocument[], uiPaths: UiWorkspacePaths): U
   const historyPrefixes = [...new Set([uiPaths.archivedChanges, 'codespec/changes/archive/'])];
   const history = documents.filter((document) => historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix)));
   const historyChanges = mergeChangeGroups(historyPrefixes.flatMap((prefix) => groupChangeDocuments(documents, prefix)));
-  return { currentSpecs, legacySpecSnapshots, history, historyCount: historyChanges.length, historyChanges };
+  return { currentSpecs, legacySpecSnapshots, history, historyCount: historyChanges.length, historyChanges, candidates: [] };
 }
 
 function relativePrefix(projectRoot: string, directory: string): string {
@@ -204,6 +369,7 @@ async function loadUiWorkspacePaths(projectRoot: string): Promise<UiWorkspacePat
     const config = parseWorkspaceConfig(parseYaml(await fs.readFile(path.join(codespecDir, 'config.yaml'), 'utf8')));
     const paths = getWorkspacePaths(codespecDir, config);
     return {
+      projectName: config.project.name,
       business: toPosixPath(path.relative(projectRoot, paths.business)),
       changes: relativePrefix(projectRoot, paths.changes),
       specs: relativePrefix(projectRoot, paths.currentSpecs),
@@ -299,15 +465,20 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   const businessDocument = documents.find((document) => document.relativePath === uiPaths.business);
   const historyPrefixes = [...new Set([uiPaths.archivedChanges, 'codespec/changes/archive/'])];
 
+  const changes = groupChangeDocuments(
+    documents.filter((document) => !historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix))),
+    uiPaths.changes
+  );
+  const archive = getArchiveGroups(documents, uiPaths);
+  archive.candidates = changes.map(getArchiveCandidate);
+
   return {
     documents,
+    projectName: uiPaths.projectName,
     businessDocument: businessDocument ?? null,
     businessModules: businessDocument ? parseBusinessModules(businessDocument.content) : [],
-    changes: groupChangeDocuments(
-      documents.filter((document) => !historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix))),
-      uiPaths.changes
-    ),
-    archive: getArchiveGroups(documents, uiPaths),
+    changes,
+    archive,
     skipped,
     rebuiltAt: new Date().toISOString(),
   };
