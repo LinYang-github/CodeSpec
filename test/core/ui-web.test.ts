@@ -18,7 +18,7 @@ describe('CodeSpec UI web shell', () => {
     expect(html).not.toContain('只读观测');
   });
 
-  it('contains view and system-theme behavior in the browser script', async () => {
+  it('contains light-dark theme behavior and grouped command helper entries', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 
     expect(script).toContain('renderCapabilities');
@@ -28,23 +28,32 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('renderArchivePreview');
     expect(script).toContain('/api/archive/');
     expect(script).toContain('window.confirm');
-    expect(script).toContain('dataset.theme');
+    expect(script).toContain('matchMedia');
+    expect(script).toContain("saved === 'light' || saved === 'dark'");
+    expect(script).not.toContain("labels = { system");
     expect(script).toContain('localStorage');
     expect(script).toContain('renderCurrentScreen');
     expect(script).toContain('refreshCurrentScreen');
     expect(script).toContain('backButton');
     expect(script).toContain('goBackFromScreen');
     expect(script).toContain('commandDefinitions');
+    expect(script).toContain('commandSections');
+    expect(script).toContain('codespec status --change');
+    expect(script).toContain('codespec instructions --change');
+    expect(script).toContain('codespec-workflow');
+    expect(script).toContain('codespec-rebase-change');
+    expect(script).toContain('codespec-archive-change');
     expect(script).toContain('navigator.clipboard.writeText');
     expect(script).not.toContain('/api/exec');
     expect(script).not.toContain('child_process');
   });
 
-  it('defines light, dark, and system theme tokens', async () => {
+  it('defines light and dark theme tokens with system-based initial fallback', async () => {
     const styles = await fs.readFile(path.join(webRoot, 'styles.css'), 'utf8');
 
     expect(styles).toContain('[data-theme="light"]');
     expect(styles).toContain('[data-theme="dark"]');
-    expect(styles).toContain('@media (prefers-color-scheme: dark)');
+    expect(styles).toContain(':root:not([data-theme="light"])');
+    expect(styles).not.toContain(':root[data-theme="system"]');
   });
 });

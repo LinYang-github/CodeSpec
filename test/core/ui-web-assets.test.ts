@@ -27,6 +27,10 @@ describe('CodeSpec UI web assets', () => {
     expect(app).toContain('goBackFromScreen');
     expect(app).toContain('refreshCurrentScreen');
     expect(app).toContain('commandDefinitions');
+    expect(app).toContain('commandSections');
+    expect(app).toContain('codespec-workflow');
+    expect(app).toContain('codespec-rebase-change');
+    expect(app).toContain('codespec-archive-change');
     expect(app).toContain('navigator.clipboard.writeText');
     expect(app).not.toContain('暂无归档 Spec');
     expect(app).not.toContain('openspec/business.md');
@@ -62,5 +66,8 @@ describe('CodeSpec UI web assets', () => {
     expect(styles).toContain('.search-view .search-results');
     expect(styles).toContain('.document-back-button');
     expect(styles).toContain('.command-helper-drawer');
+    expect(styles).toContain('.command-helper-section');
+    expect(styles).toContain('.command-helper-section-title');
+    expect(styles).toContain('.command-helper-skill');
   });
 });

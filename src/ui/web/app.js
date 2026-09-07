@@ -18,23 +18,24 @@ const api = async (path, init) => {
   return body;
 };
 
-function setTheme(value) {
-  document.documentElement.dataset.theme = value;
-  const labels = { system: '跟随系统', light: '浅色', dark: '深色' };
-  const icons = { system: '◐', light: '☀', dark: '☾' };
-  themeToggle.textContent = icons[value] ?? icons.system;
-  themeToggle.title = `主题：${labels[value] ?? labels.system}（点击切换）`;
+function setTheme(value, { persist = true } = {}) {
+  const theme = value === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  const labels = { light: '浅色', dark: '深色' };
+  const icons = { light: '☀', dark: '☾' };
+  themeToggle.textContent = icons[theme];
+  themeToggle.title = `主题：${labels[theme]}（点击切换）`;
   themeToggle.setAttribute('aria-label', themeToggle.title);
-  localStorage.setItem('codespec-theme', value);
+  if (persist) localStorage.setItem('codespec-theme', theme);
 }
 
 function initTheme() {
   const saved = localStorage.getItem('codespec-theme');
-  setTheme(saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system');
+  const systemDefault = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  setTheme(saved === 'light' || saved === 'dark' ? saved : systemDefault, { persist: false });
   themeToggle.onclick = () => {
     const current = document.documentElement.dataset.theme;
-    const next = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system';
-    setTheme(next);
+    setTheme(current === 'dark' ? 'light' : 'dark');
   };
 }
 
@@ -97,20 +98,41 @@ function documentById(id) {
   return allDocuments().find((doc) => doc.id === id) ?? null;
 }
 
+const AI_WORKFLOW_SKILLS = [
+  { label: '开发工作流', description: '在 AI 助手中创建或继续 Change。', command: 'codespec-workflow', category: 'skill' },
+  { label: '恢复过期 Change', description: '在 AI 助手中处理 STALE 或基线冲突。', command: 'codespec-rebase-change', category: 'skill' },
+  { label: '归档工作流', description: '在 AI 助手中准备验证证据并执行归档。', command: 'codespec-archive-change', category: 'skill' },
+];
+
 function commandDefinitions(context = {}) {
   const commands = [
-    { label: '列出活动 Change', description: '查看当前项目的活动 Change。', command: 'codespec list --changes' },
-    { label: '列出 Spec', description: '查看当前项目的 Spec。', command: 'codespec list --specs' },
-    { label: '校验全部条目', description: '校验全部 Change 和 Spec。', command: 'codespec validate --all' },
+    { label: '列出活动 Change', description: '查看当前项目的活动 Change。', command: 'codespec list --changes', category: 'overview' },
+    { label: '列出 Spec', description: '查看当前项目的 Spec。', command: 'codespec list --specs', category: 'overview' },
+    { label: '查看全部状态', description: '查看所有活动 Change 的生命周期状态。', command: 'codespec status --all', category: 'overview' },
+    { label: '校验全部条目', description: '校验全部 Change 和 Spec。', command: 'codespec validate --all', category: 'overview' },
   ];
   if (context.changeId) {
     commands.push(
-      { label: '查看 Change', description: '在终端查看当前 Change。', command: `codespec show ${context.changeId} --type change` },
-      { label: '校验 Change', description: '校验当前 Change。', command: `codespec validate ${context.changeId} --type change` },
+      { label: '查看 Change', description: '在终端查看当前 Change。', command: `codespec show ${context.changeId} --type change`, category: 'change' },
+      { label: '查看当前状态', description: '查看当前 Change 的生命周期状态。', command: `codespec status --change ${context.changeId}`, category: 'change' },
+      { label: '查看下一步指导', description: '获取当前阶段需要的产物和操作建议。', command: `codespec instructions --change ${context.changeId}`, category: 'change' },
+      { label: '校验 Change', description: '校验当前 Change。', command: `codespec validate ${context.changeId} --type change`, category: 'change' },
     );
-    if (context.archiveable) commands.push({ label: '归档 Change', description: '启动已满足门禁的 Change 归档流程。', command: `codespec archive ${context.changeId}` });
+    if (context.archiveable) commands.push({ label: '归档 Change', description: '启动已满足门禁的 Change 归档流程。', command: `codespec archive ${context.changeId}`, category: 'change' });
   }
-  return commands;
+  return [...commands, ...AI_WORKFLOW_SKILLS];
+}
+
+function commandSections(context = {}) {
+  const commands = commandDefinitions(context);
+  return [
+    { id: 'overview', title: '项目概览', hint: '项目内查询和校验', category: 'overview' },
+    { id: 'change', title: '当前 Change', hint: context.changeId ?? '打开 Change 详情后显示', category: 'change' },
+    { id: 'skills', title: 'AI 工作流技能', hint: '在 AI 助手中使用', category: 'skill' },
+  ].map((section) => ({
+    ...section,
+    commands: commands.filter((command) => command.category === section.category),
+  })).filter((section) => section.commands.length > 0);
 }
 
 function commandContext() {
@@ -144,19 +166,28 @@ function renderCommandHelper() {
     renderCommandHelper();
   }));
   drawer.append(header);
-  drawer.append(element('p', 'muted', '仅展示和复制 CodeSpec CLI 命令，不会在页面中执行。'));
+  drawer.append(element('p', 'muted', '仅展示和复制 CodeSpec CLI 命令及 AI 技能，不会在页面中执行。'));
   const list = element('div', 'command-helper-list');
-  for (const item of commandDefinitions(commandContext())) {
-    const card = element('article', 'command-helper-command');
-    card.append(element('h3', '', item.label));
-    card.append(element('p', 'muted', item.description));
-    const row = element('div', 'command-code-row');
-    row.append(element('code', '', item.command));
-    const feedback = button('复制命令', 'secondary-button', () => copyCommand(item.command, feedback));
-    row.append(feedback);
-    card.append(row);
-    list.append(card);
+  for (const section of commandSections(commandContext())) {
+    const sectionNode = element('section', `command-helper-section${section.category === 'skill' ? ' command-helper-skill-section' : ''}`);
+    const sectionTitle = element('div', 'command-helper-section-title');
+    sectionTitle.append(element('h3', '', section.title), element('span', 'muted', section.hint));
+    sectionNode.append(sectionTitle);
+    for (const item of section.commands) {
+      const card = element('article', `command-helper-command${item.category === 'skill' ? ' command-helper-skill' : ''}`);
+      card.append(element('h4', '', item.label));
+      card.append(element('p', 'muted', item.description));
+      const row = element('div', 'command-code-row');
+      row.append(element('code', '', item.command));
+      const copyLabel = item.category === 'skill' ? '复制入口' : '复制命令';
+      const feedback = button(copyLabel, 'secondary-button', () => copyCommand(item.command, feedback));
+      row.append(feedback);
+      card.append(row);
+      sectionNode.append(card);
+    }
+    list.append(sectionNode);
   }
+  list.append(element('p', 'command-helper-footer muted', 'AI 技能需要在对应 AI 编码工具中调用，不是终端命令。'));
   drawer.append(list);
   document.body.append(drawer);
 }
