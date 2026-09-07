@@ -1,12 +1,15 @@
 const page = document.querySelector('#page');
 const nav = document.querySelector('#nav');
 const search = document.querySelector('#search');
-const theme = document.querySelector('#theme');
+const themeToggle = document.querySelector('#theme-toggle');
+const commandHelperToggle = document.querySelector('#command-helper');
 const rebuild = document.querySelector('#rebuild');
 const projectName = document.querySelector('#project-name');
 const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ARCHIVED'];
 let index;
 let currentView = 'capabilities';
+let currentScreen = { type: 'view', view: currentView };
+let commandHelperOpen = false;
 
 const api = async (path, init) => {
   const response = await fetch(path, init);
@@ -17,14 +20,22 @@ const api = async (path, init) => {
 
 function setTheme(value) {
   document.documentElement.dataset.theme = value;
-  theme.value = value;
+  const labels = { system: '跟随系统', light: '浅色', dark: '深色' };
+  const icons = { system: '◐', light: '☀', dark: '☾' };
+  themeToggle.textContent = icons[value] ?? icons.system;
+  themeToggle.title = `主题：${labels[value] ?? labels.system}（点击切换）`;
+  themeToggle.setAttribute('aria-label', themeToggle.title);
   localStorage.setItem('codespec-theme', value);
 }
 
 function initTheme() {
   const saved = localStorage.getItem('codespec-theme');
   setTheme(saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system');
-  theme.onchange = () => setTheme(theme.value);
+  themeToggle.onclick = () => {
+    const current = document.documentElement.dataset.theme;
+    const next = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system';
+    setTheme(next);
+  };
 }
 
 function text(value, fallback = '—') {
@@ -43,6 +54,111 @@ function button(label, className, handler) {
   node.type = 'button';
   node.onclick = () => Promise.resolve(handler()).catch(showError);
   return node;
+}
+
+function backButton(label, handler) {
+  return button(`← ${label}`, 'document-back-button', handler);
+}
+
+function screenLabel(screen) {
+  if (!screen) return '业务功能';
+  if (screen.type === 'search') return '搜索结果';
+  if (screen.type === 'view') {
+    return {
+      capabilities: '业务功能',
+      'active-changes': '活动 Change',
+      'archiveable-changes': '可归档 Change',
+      'archive-history': '归档历史',
+    }[screen.view] ?? '业务功能';
+  }
+  return '上一级';
+}
+
+function currentChange() {
+  if (!currentScreen.changeId || !index) return null;
+  const all = [
+    ...(index.changes ?? []),
+    ...(index.archive?.candidates ?? []),
+    ...(index.archive?.historyChanges ?? []),
+  ];
+  return all.find((change) => change.id === currentScreen.changeId) ?? null;
+}
+
+function allDocuments() {
+  return [
+    ...(index?.archive?.currentSpecs ?? []),
+    ...(index?.changes ?? []).flatMap((change) => change.documents ?? []),
+    ...(index?.archive?.candidates ?? []).flatMap((change) => change.documents ?? []),
+    ...(index?.archive?.historyChanges ?? []).flatMap((change) => change.documents ?? []),
+  ];
+}
+
+function documentById(id) {
+  return allDocuments().find((doc) => doc.id === id) ?? null;
+}
+
+function commandDefinitions(context = {}) {
+  const commands = [
+    { label: '列出活动 Change', description: '查看当前项目的活动 Change。', command: 'codespec list --changes' },
+    { label: '列出 Spec', description: '查看当前项目的 Spec。', command: 'codespec list --specs' },
+    { label: '校验全部条目', description: '校验全部 Change 和 Spec。', command: 'codespec validate --all' },
+  ];
+  if (context.changeId) {
+    commands.push(
+      { label: '查看 Change', description: '在终端查看当前 Change。', command: `codespec show ${context.changeId} --type change` },
+      { label: '校验 Change', description: '校验当前 Change。', command: `codespec validate ${context.changeId} --type change` },
+    );
+    if (context.archiveable) commands.push({ label: '归档 Change', description: '启动已满足门禁的 Change 归档流程。', command: `codespec archive ${context.changeId}` });
+  }
+  return commands;
+}
+
+function commandContext() {
+  const change = currentChange();
+  return {
+    changeId: change?.id,
+    archiveable: Boolean(change && (index.archive?.candidates ?? []).some((candidate) => candidate.id === change.id && candidate.ready)),
+  };
+}
+
+async function copyCommand(command, feedback) {
+  try {
+    await navigator.clipboard.writeText(command);
+    feedback.textContent = '已复制';
+    setTimeout(() => { feedback.textContent = '复制命令'; }, 1200);
+  } catch {
+    feedback.textContent = '复制失败，请手动复制';
+  }
+}
+
+function renderCommandHelper() {
+  const existing = document.querySelector('.command-helper-drawer');
+  if (existing) existing.remove();
+  if (!commandHelperOpen) return;
+  const drawer = element('aside', 'command-helper-drawer');
+  drawer.setAttribute('aria-label', '命令助手');
+  const header = element('div', 'command-helper-header');
+  header.append(element('h2', '', '命令助手'));
+  header.append(button('关闭', 'quiet-button', () => {
+    commandHelperOpen = false;
+    renderCommandHelper();
+  }));
+  drawer.append(header);
+  drawer.append(element('p', 'muted', '仅展示和复制 CodeSpec CLI 命令，不会在页面中执行。'));
+  const list = element('div', 'command-helper-list');
+  for (const item of commandDefinitions(commandContext())) {
+    const card = element('article', 'command-helper-command');
+    card.append(element('h3', '', item.label));
+    card.append(element('p', 'muted', item.description));
+    const row = element('div', 'command-code-row');
+    row.append(element('code', '', item.command));
+    const feedback = button('复制命令', 'secondary-button', () => copyCommand(item.command, feedback));
+    row.append(feedback);
+    card.append(row);
+    list.append(card);
+  }
+  drawer.append(list);
+  document.body.append(drawer);
 }
 
 function statusLabel(status) {
@@ -138,7 +254,7 @@ function currentSpecForModule(moduleId) {
 
 function renderCapabilities() {
   const view = document.createElement('div');
-  view.append(sectionHeader('CAPABILITY MAP', '能力地图', '查看当前业务模块、关联 Spec 和活动变更。模块内容由 AI 工作流维护。'));
+  view.append(sectionHeader('BUSINESS FEATURES', '业务功能', '查看当前业务模块、关联 Spec 和活动变更。模块内容由 AI 工作流维护。'));
   const grid = element('div', 'capability-grid');
   if (!index.businessModules.length) {
     grid.append(emptyState('暂无业务模块。请通过 AI 工作流建立 codespec/business.md。'));
@@ -147,17 +263,17 @@ function renderCapabilities() {
       const card = element('article', 'capability-card');
       const heading = element('div', 'capability-heading');
       heading.append(element('span', 'module-id', module.id), element('h2', '', module.name));
+      const spec = currentSpecForModule(module.id);
+      if (spec) heading.append(button('查看 Spec', 'secondary-button module-spec-action', () => openDocument(spec, currentScreen)));
       card.append(heading);
       card.append(element('p', 'muted', module.description || module.responsibility || '未填写模块说明'));
       const metrics = element('div', 'metrics');
       metrics.append(metric('活动 Change', moduleChangeCount(module.id)));
-      metrics.append(metric('当前 Spec', currentSpecForModule(module.id) ? '已建立' : '未建立'));
+      metrics.append(metric('当前 Spec', spec ? '已建立' : '未建立'));
       card.append(metrics);
       const actions = element('div', 'card-actions');
-      const spec = currentSpecForModule(module.id);
-      if (spec) actions.append(button('查看 Spec', 'secondary-button', () => openDocument(spec)));
       const related = index.changes.filter((change) => change.modules?.includes(module.id));
-      if (related.length) actions.append(button('查看 Change', 'secondary-button', () => renderChangeList(related, '活动 Change')));
+      if (related.length) actions.append(button('查看 Change', 'secondary-button', () => navigate('active-changes')));
       card.append(actions);
       grid.append(card);
     }
@@ -323,27 +439,41 @@ function changeDocumentOrder(left, right) {
 }
 
 function renderChangeDetail(change, options = {}) {
+  const returnScreen = currentScreen.type === 'change'
+    ? currentScreen.returnScreen
+    : currentScreen.type === 'view' || currentScreen.type === 'search'
+      ? { ...currentScreen }
+      : { type: 'view', view: 'capabilities' };
+  const activeDocumentId = currentScreen.type === 'change' && currentScreen.changeId === change.id
+    ? currentScreen.activeDocumentId
+    : null;
+  currentScreen = { type: 'change', changeId: change.id, options, returnScreen, activeDocumentId };
   const view = document.createElement('div');
   view.classList.add('detail-view');
   const archived = options.archived === true || change.status === 'ARCHIVED';
   if (archived) view.classList.add('archived-detail-view');
-  const header = sectionHeader('CHANGE DETAIL', text(change.title, change.id), `${change.id} · ${change.mode ?? '模式未知'}`);
   const badges = element('div', 'detail-badges');
   badges.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
   badges.append(element('span', 'sdd-level-badge', levelLabel(change.sddLevel)));
+  const header = element('div', 'section-header detail-section-header');
+  header.append(backButton(`返回${screenLabel(returnScreen)}`, goBackFromScreen));
+  header.append(element('p', 'kicker', 'CHANGE DETAIL'));
+  const headerRow = element('div', 'detail-header-row');
+  headerRow.append(element('h1', '', text(change.title, change.id)), badges);
+  const subrow = element('div', 'detail-subrow detail-meta-row');
+  subrow.append(
+    element('p', 'section-description', `${change.id} · ${change.mode ?? '模式未知'}`),
+    lifecycleStepper(change),
+  );
+  header.append(headerRow, subrow);
+  view.append(header);
   if (archived) {
-    const metaRow = element('div', 'detail-meta-row');
-    metaRow.append(badges, lifecycleStepper(change));
-    view.append(header, metaRow);
     const archivedDocument = change.documents?.[0];
     const historyMeta = element('div', 'history-meta');
     historyMeta.append(element('span', '', `归档路径：${archivedDocument?.relativePath?.split('/').slice(0, -1).join('/') ?? '未读取'}`));
     historyMeta.append(element('span', '', `归档时间：${change.archiveState?.archivedAt ?? '未读取'}`));
     historyMeta.append(element('span', '', `Verification Receipt：${change.verification?.evidenceReceipt ?? '未读取'}`));
     view.append(historyMeta);
-  } else {
-    header.append(badges);
-    view.append(header, lifecycleStepper(change));
   }
   const columns = element('div', 'detail-columns');
   columns.append(gatePanel(change));
@@ -353,6 +483,7 @@ function renderChangeDetail(change, options = {}) {
   const tabs = element('nav', 'document-tabs');
   const content = element('div', 'document-content');
   const activate = async (doc, activeButton) => {
+    currentScreen.activeDocumentId = doc.id;
     for (const tab of tabs.children) tab.classList.remove('active');
     activeButton.classList.add('active');
     const detail = await api(`/api/documents/${doc.id}`);
@@ -363,11 +494,13 @@ function renderChangeDetail(change, options = {}) {
   else {
     documents.forEach((doc, position) => {
       const tab = button(documentTabLabel(doc), 'document-tab', () => activate(doc, tab));
-      if (position === 0) tab.classList.add('active');
+      if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
       tabs.append(tab);
     });
     docs.append(tabs, content);
-    activate(documents[0], tabs.firstChild).catch(showError);
+    const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? documents[0];
+    const activeTab = [...tabs.children][documents.indexOf(activeDocument)];
+    activate(activeDocument, activeTab).catch(showError);
   }
   columns.append(docs);
   view.append(columns);
@@ -380,22 +513,39 @@ function renderDocument(detail, target) {
   else target.append(element('pre', '', detail.content));
 }
 
-async function openDocument(doc) {
+async function openDocument(doc, returnScreen = currentScreen) {
+  currentScreen = { type: 'document', docId: doc.id, returnScreen };
   const detail = await api(`/api/documents/${doc.id}`);
   const view = document.createElement('div');
   view.classList.add('document-view');
-  view.append(sectionHeader('DOCUMENT', doc.title, '只读文档内容'));
+  const header = sectionHeader('DOCUMENT', doc.title, '只读文档内容');
+  header.prepend(backButton(`返回${screenLabel(returnScreen)}`, goBackFromScreen));
+  view.append(header);
   const content = element('div', 'document-content standalone-document');
   renderDocument(detail, content);
   view.append(content);
   page.replaceChildren(view);
 }
 
+function goBackFromScreen() {
+  const target = currentScreen.returnScreen ?? { type: 'view', view: 'capabilities' };
+  currentScreen = target;
+  renderCurrentScreen();
+}
+
 async function renderArchivePreview(candidate) {
+  const returnScreen = currentScreen.type === 'preview'
+    ? currentScreen.returnScreen
+    : currentScreen.type === 'view' || currentScreen.type === 'search'
+    ? { ...currentScreen }
+    : { type: 'view', view: 'archiveable-changes' };
+  currentScreen = { type: 'preview', changeId: candidate.id, returnScreen };
   const preview = await api(`/api/archive/${encodeURIComponent(candidate.id)}`);
   const view = document.createElement('div');
   view.classList.add('preview-view');
-  view.append(sectionHeader('ARCHIVE PREVIEW', '确认归档影响', `${preview.changeId} · ${preview.title}`));
+  const header = sectionHeader('ARCHIVE PREVIEW', '确认归档影响', `${preview.changeId} · ${preview.title}`);
+  header.prepend(backButton(`返回${screenLabel(returnScreen)}`, goBackFromScreen));
+  view.append(header);
   const summary = element('div', 'preview-card');
   summary.append(element('p', '', `${levelLabel(preview.sddLevel)} · ${preview.mode}`));
   summary.append(element('p', 'muted', `目标：${preview.archiveTarget}`));
@@ -403,7 +553,6 @@ async function renderArchivePreview(candidate) {
   summary.append(element('p', 'muted', `影响模块：${(preview.modules ?? []).join('、') || '无'}`));
   summary.append(element('p', 'muted', `归档影响：${preview.archiveImpact?.outcome === 'affected' ? `受影响（${preview.archiveImpact.references?.length ?? 0} 条映射）` : '无当前 Spec 行为影响'}`));
   const actions = element('div', 'card-actions');
-  actions.append(button('返回可归档列表', 'secondary-button', () => navigate('archiveable-changes')));
   actions.append(button('确认归档 Change', 'primary-button', async () => {
     if (!window.confirm(`确认归档 Change "${preview.changeId}"？`)) return;
     const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
@@ -416,6 +565,7 @@ async function renderArchivePreview(candidate) {
 }
 
 function renderSearchResults(documents, query) {
+  currentScreen = { type: 'search', query, documents };
   const view = document.createElement('div');
   view.classList.add('search-view');
   view.append(sectionHeader('SEARCH', `搜索结果：${query}`, '搜索结果仅提供只读查看。'));
@@ -436,20 +586,62 @@ function renderView() {
   if (currentView === 'archive-history') page.replaceChildren(renderArchiveHistory());
 }
 
+function renderCurrentScreen() {
+  if (currentScreen.type === 'view') {
+    currentView = currentScreen.view;
+    renderView();
+    return;
+  }
+  if (currentScreen.type === 'change') {
+    const change = currentChange();
+    if (change) renderChangeDetail(change, currentScreen.options);
+    else showError(new Error('当前 Change 已不存在，请返回列表。'));
+    return;
+  }
+  if (currentScreen.type === 'document') {
+    const doc = documentById(currentScreen.docId);
+    if (doc) openDocument(doc, currentScreen.returnScreen).catch(showInlineError);
+    else showError(new Error('当前文档已不存在，请返回上一级。'));
+    return;
+  }
+  if (currentScreen.type === 'preview') {
+    const candidate = (index.archive?.candidates ?? []).find((item) => item.id === currentScreen.changeId);
+    if (candidate) renderArchivePreview(candidate).catch(showInlineError);
+    else showError(new Error('当前归档预览已不存在，请返回可归档列表。'));
+    return;
+  }
+  if (currentScreen.type === 'search') {
+    renderSearchResults(currentScreen.documents ?? [], currentScreen.query ?? '');
+  }
+}
+
 function navigate(view) {
   currentView = view;
-  renderView();
+  currentScreen = { type: 'view', view };
+  renderCurrentScreen();
 }
 
 function showError(error) {
   page.replaceChildren(element('div', 'error-state', `无法加载内容：${error.message}`));
 }
 
+function showInlineError(error) {
+  const existing = page.querySelector('.inline-error');
+  if (existing) existing.remove();
+  page.prepend(element('div', 'inline-error', `无法刷新内容：${error.message}`));
+}
+
+async function refreshCurrentScreen() {
+  index = await api('/api/rebuild', { method: 'POST' });
+  renderCurrentScreen();
+  if (commandHelperOpen) renderCommandHelper();
+}
+
 async function load() {
   try {
     index = await api('/api/index');
     projectName.textContent = index.projectName ?? '当前工程';
-    renderView();
+    renderCurrentScreen();
   } catch (error) {
     showError(error);
   }
@@ -465,7 +657,8 @@ search.oninput = () => {
   clearTimeout(searchTimer);
   const query = search.value.trim();
   if (!query) {
-    renderView();
+    currentScreen = { type: 'view', view: currentView };
+    renderCurrentScreen();
     return;
   }
   searchTimer = setTimeout(async () => {
@@ -478,12 +671,21 @@ search.oninput = () => {
   }, 200);
 };
 
+commandHelperToggle.onclick = () => {
+  commandHelperOpen = !commandHelperOpen;
+  renderCommandHelper();
+};
+
 rebuild.onclick = async () => {
+  rebuild.disabled = true;
+  rebuild.dataset.loading = 'true';
   try {
-    index = await api('/api/rebuild', { method: 'POST' });
-    renderView();
+    await refreshCurrentScreen();
   } catch (error) {
-    showError(error);
+    showInlineError(error);
+  } finally {
+    rebuild.disabled = false;
+    delete rebuild.dataset.loading;
   }
 };
 

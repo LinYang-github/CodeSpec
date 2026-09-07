@@ -11,26 +11,19 @@
       <div class="brand">CodeSpec <em>UI</em></div>
       <div class="project-meta">
         <span id="project-name">当前工程</span>
-        <span class="readonly-badge">只读观测</span>
       </div>
       <label class="global-search">
         <span class="sr-only">搜索</span>
         <input id="search" type="search" placeholder="搜索 Change、Spec 和计划">
       </label>
-      <label class="theme-control">
-        <span class="sr-only">主题</span>
-        <select id="theme" aria-label="主题">
-          <option value="system">跟随系统</option>
-          <option value="light">浅色</option>
-          <option value="dark">深色</option>
-        </select>
-      </label>
+      <button id="theme-toggle" class="icon-button" type="button" aria-label="切换主题" title="切换主题"></button>
+      <button id="command-helper" class="icon-button" type="button" aria-label="打开命令助手" title="命令助手">⌘</button>
       <button id="rebuild" class="quiet-button" type="button">重新扫描</button>
     </header>
     <div class="app-shell">
       <nav id="nav" class="sidebar" aria-label="CodeSpec 业务导航">
         <p class="nav-caption">观测台</p>
-        <button class="nav-item active" type="button" data-view="capabilities">能力地图</button>
+        <button class="nav-item active" type="button" data-view="capabilities">业务功能</button>
         <button class="nav-item" type="button" data-view="active-changes">活动 Change</button>
         <button class="nav-item" type="button" data-view="archiveable-changes">可归档 Change</button>
         <button class="nav-item" type="button" data-view="archive-history">归档历史</button>
