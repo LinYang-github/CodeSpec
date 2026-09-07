@@ -20,7 +20,7 @@
    └── api.md
    ```
 
-3. `spec.md` 保存 Requirement、Scenario 和可读测试用例。不保留 `test-cases.md`。
+3. `spec.md` 保存 Requirement、Scenario、可读测试用例和当前模块工程文件。不保留 `test-cases.md`。
 4. `interface.md` 是跨模块关系的权威来源。全工程流程图动态汇总所有模块的 `interface.md`，不保存单独的图文件。
 5. `api.md` 保存实际路由及该路由的输入、输出业务模块编号。它不保存 HTTP 方法、请求数据、响应数据、错误或模块名称。
 6. `business.md` 保留为全工程业务模块注册表。归档事务自动更新其输入、输出和关联模块列。
@@ -68,7 +68,7 @@ codespec/changes/<change-id>/
 
 - **`metadata.yaml`**：状态、两次确认、revision 和门禁索引。
 - **`design.md`**：目标、范围、模块影响、路由和接口关系增量、UI 源码定位。
-- **`spec.md`**：Requirement、Scenario 和其测试用例增量。
+- **`spec.md`**：Requirement、Scenario、测试用例和本次工程文件增量。
 - **`tasks.md`**：实施任务与 Requirement、Scenario、测试用例 ID 的关联。
 - **`verification.md`**：实际执行的验证命令和证据。
 
@@ -79,6 +79,8 @@ codespec/changes/<change-id>/
 ### `spec.md`
 
 `spec.md` 是其他平台可直接输入的可读 Markdown。测试用例紧跟所属 Scenario，不需要单独文件或重复关联字段。
+
+活动 Change 的工程文件章节只列出本次 Change 新增、修改或删除的工程文件。归档后的同一章节维护该模块当前有效的完整工程文件清单，不保存 Change 历史。每个文件关联至少一个 Requirement、Scenario 或测试用例，避免出现无上下文的路径列表。
 
 ```md
 ## MOD-002-REQ-001：管理员新增用户
@@ -102,7 +104,17 @@ codespec/changes/<change-id>/
 | 1 | 进入“用户管理”界面 | 显示标题和“新增用户”按钮 |
 | 2 | 点击“新增用户” | 显示新增用户表单 |
 | 3 | 输入合法信息并确认 | 用户列表出现新用户 |
+
+### 当前模块工程文件
+
+| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |
+|---|---|---|
+| `src/pages/UserManagementPage.tsx` | 用户管理页面与“新增用户”入口 | MOD-002-REQ-001 / SCN-001 |
+| `src/services/user-service.ts` | 用户创建接口调用 | MOD-002-REQ-001 / SCN-001 |
+| `e2e/user-management/add-user.spec.ts` | 新增用户 UI 自动化测试 | TC-SCN-001-UI-01 |
 ```
+
+活动 Change 的同一表格额外使用“变更”列，值为“新增”“修改”或“删除”。归档时移除该列及“删除”的行，并合并其余行到完整清单。文件路径必须是仓库内的实际工程文件，路径重命名视为删除旧路径并新增新路径。
 
 Markdown 使用固定结构：固定标题层级、固定字段名和“步骤 / 用户操作 / 预期结果”三列表格。Core 通过 Markdown AST 解析，不使用正则表达式。需要 JSON 或 CSV 时，由该 Markdown 转换，不长期保存重复副本。
 
@@ -163,15 +175,15 @@ UI Change 没有可运行 E2E 环境时，不能通过验证或归档。非 UI �
 ## 归档事务
 
 1. 读取活动 Change、受影响模块的当前规格，以及计算全工程关系所需的所有 `interface.md`。
-2. 校验两次确认、Requirement/Scenario/测试用例关联、任务关联、路由唯一性、关系镜像、源码定位和当前 E2E 证据。
-3. 准备受影响模块的 `spec.md`、`interface.md`、`api.md` 合并结果，并重建 `business.md` 的关系摘要。
+2. 校验两次确认、Requirement/Scenario/测试用例关联、任务关联、工程文件增量与实际变更一致、归档后文件清单中的路径存在、路由唯一性、关系镜像、源码定位和当前 E2E 证据。
+3. 准备受影响模块的 `spec.md`、`interface.md`、`api.md` 合并结果，更新有效工程文件清单，并重建 `business.md` 的关系摘要。
 4. 路由或关系无法安全合并时，在写入前停止。用户选择保留、替换或并存后，才继续归档。
 5. 原子写入全部模块规格和 `business.md`，然后删除活动 Change 目录及索引条目。
 6. 任一步失败时，恢复全部模块规格和 `business.md`，活动 Change 保持不变，等待修复后重试。
 
 ## 兼容与迁移
 
-现有模块最初只有 `spec.md`。迁移为没有关系或路由的模块创建空的规范 `interface.md` 与 `api.md`，然后校验三文件结构。
+现有模块最初只有 `spec.md`。迁移为没有关系或路由的模块创建空的规范 `interface.md` 与 `api.md`，并在 `spec.md` 创建空的“当前模块工程文件”章节，然后校验三文件结构。迁移不猜测既有模块的文件归属；后续 Change 归档时根据实际变更补充或修正该模块的清单。
 
 新规则只应用于后续归档。已有归档 Change 目录不会被当前关系图读取，也不会自动删除。
 
@@ -183,4 +195,5 @@ UI Change 没有可运行 E2E 环境时，不能通过验证或归档。非 UI �
 - 重复路由不会在 `api.md` 重复出现。冲突路由或关系没有用户裁决时不能归档。
 - `business.md` 与从 `interface.md` 解析出的全工程模块关系一致。
 - 每个 Scenario 都关联至少一个可读 Markdown 测试用例和 PASS 证据。
+- 活动 Change 的工程文件增量与实际变更一致，归档后 `spec.md` 只保留当前存在且仍归属该模块的工程文件。
 - UI 测试用例的页面、控件或操作在浏览器中无法执行时，验证失败。
