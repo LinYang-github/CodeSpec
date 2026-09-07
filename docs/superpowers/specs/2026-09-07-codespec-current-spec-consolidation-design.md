@@ -169,15 +169,19 @@ At archive, Core parses every current `interface.md`, builds the directed
 module graph, and rewrites only the generated summary columns in `business.md`:
 
 ```md
-| 模块 | 输入 | 输出 | 关联模块 |
-|---|---|---|---|
-| MOD-WEB-USER | 用户新增操作 | `/api/users/add` | → MOD-USER |
-| MOD-USER | `/api/users/add` | 用户创建结果 | ← MOD-WEB-USER；→ MOD-NOTIFY |
+| 模块编号 | 业务模块 | 输入 | 输出 | 关联模块 |
+|---|---|---|---|---|
+| MOD-001 | Web 用户门户 | 用户管理操作 | 用户管理请求 | MOD-002 |
+| MOD-002 | 用户管理 | 用户管理请求 | 用户资料、用户生命周期事件 | MOD-001；MOD-003 |
+| MOD-003 | 通知管理 | 用户生命周期事件 | 通知结果 | MOD-002 |
 ```
 
-The underlying detailed data remains in `interface.md`; `business.md` is a
-human-readable projection.  A UI overview graph consumes the same parsed
-relationships, so it cannot diverge from the documentation.
+`business.md` is a business-level projection: its nodes are business modules
+such as `用户管理`, and its inputs/outputs are business concepts.  It never
+contains CRUD actions or concrete API routes.  The underlying detailed data
+remains in `interface.md`; `api.md` owns the route-level module mapping.  A UI
+overview graph consumes the same parsed relationships, so it cannot diverge
+from the documentation.
 
 ## UI test-case conformance
 
