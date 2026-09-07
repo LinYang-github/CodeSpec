@@ -16,14 +16,14 @@
    ```text
    codespec/specs/<模块>/
    ├── spec.md
-   ├── interface.md
-   └── api.md
+   ├── interface.yaml
+   └── api.yaml
    ```
 
 3. `spec.md` 保存 Requirement、Scenario、可读测试用例、最近验证摘要和当前模块工程文件。不保留 `test-cases.md`。
-4. `interface.md` 是跨模块关系的权威来源。全工程流程图动态汇总所有模块的 `interface.md`，不保存单独的图文件。
-5. `api.md` 保存实际路由及该路由的输入、输出业务模块编号。它不保存 HTTP 方法、请求数据、响应数据、错误或模块名称。
-6. `business.md` 保留为全工程业务模块注册表。归档事务自动更新其输入、输出和关联模块列。
+4. `interface.yaml` 是跨模块关系的权威来源。全工程流程图动态汇总所有模块的 `interface.yaml`，不保存单独的图文件。
+5. `api.yaml` 保存实际路由及该路由的输入、输出业务模块编号。它不保存 HTTP 方法、请求数据、响应数据、错误或模块名称。
+6. `business.yaml` 保留为全工程业务模块注册表。归档事务自动更新其输入、输出和关联模块列。
 7. UI Change 必须具备可启动的真实工程和浏览器 E2E 环境。缺少该环境时不能归档。
 8. `configuration.yaml` 保存 CodeSpec 验证时使用的工程运行连接快照及其工程配置来源。它不作为项目运行时配置来源。
 
@@ -31,6 +31,7 @@
 
 - 不为新的 Change 创建 `archive/changes/`、Change 快照或单独的关系图文件。
 - 不允许 workflow 或 UI 直接编辑当前规格。只有归档事务可以写入。
+- 不将 Requirement、Scenario 和用户操作步骤改为 YAML。它们保留在 `spec.md`，作为可读且可直接输入其他平台的行为规格。
 - 不让 `configuration.yaml` 写入、覆盖或注入项目的 `.env`、部署清单、配置中心或业务代码。
 - 不定义 CodeSpec UI 的最终页面布局。关系图需要的数据由本设计定义，界面设计另行确认。
 - 不自动删除已有归档目录。该迁移属于破坏性操作，需要单独取得用户授权。
@@ -49,7 +50,7 @@ ANALYZE
 每次确认保存 Change revision、内容指纹和确认时间。确认只对该版本内容有效：
 
 - **设计确认**：覆盖 `design.md` 与 `spec.md` 的 Requirement、Scenario 内容。
-- **任务确认**：覆盖 `tasks.md`、`spec.md` 中的测试用例、验证计划与计划修改文件。
+- **任务确认**：覆盖 `tasks.yaml`、`spec.md` 中的测试用例、验证计划与计划修改文件。
 
 workflow 在生成设计后停止，在生成任务后再次停止。两个阶段分别需要新的用户消息和显式确认命令。一次确认不能跨越两个阶段。
 
@@ -66,15 +67,15 @@ codespec/changes/<change-id>/
 ├── metadata.yaml
 ├── design.md
 ├── spec.md
-├── tasks.md
-└── verification.md
+├── tasks.yaml
+└── verification.yaml
 ```
 
 - **`metadata.yaml`**：Change ID、工程基准、状态、两次确认、revision 和门禁索引。
 - **`design.md`**：目标、范围、模块影响、Requirement、关系、路由增量和 UI 源码定位。
 - **`spec.md`**：Requirement、Scenario、测试用例和本次工程文件增量。
-- **`tasks.md`**：实施任务与 Requirement、Scenario、测试用例 ID、计划修改文件的关联。
-- **`verification.md`**：按测试用例记录实际执行的验证命令、工程版本和结果。
+- **`tasks.yaml`**：实施任务与 Requirement、Scenario、测试用例 ID、计划修改文件的关联。
+- **`verification.yaml`**：按测试用例记录实际执行的验证命令、工程版本和结果。
 
 不创建 `proposal.md`、`contracts.md` 或 `test-cases.md`。
 
@@ -82,23 +83,37 @@ codespec/changes/<change-id>/
 
 归档前，实际工程文件增量必须覆盖在任务的计划修改文件中。出现未计划的业务工程文件时，workflow 停止归档，更新任务并重新取得任务确认。只因工具生成而变化的排除文件记录为验证环境噪声，不写入模块 `spec.md`。
 
-活动 Change 的多模块条目使用以下固定字段：
+活动 Change 的 `spec.md` 工程文件表格使用“模块编号”和“变更”列。任务关联与计划修改文件只记录在 `tasks.yaml`。
 
-```md
-## CHG-20260907-001-TASK-001：实现新增用户
+活动 Change 的 `tasks.yaml` 与 `verification.yaml` 使用固定结构：
 
-- **所属模块：** MOD-002
-- **关联需求：** MOD-002-REQ-001
-- **关联场景：** SCN-001
-- **关联测试用例：** TC-SCN-001-UI-01
-- **计划修改文件：** `src/pages/UserManagementPage.tsx`；`src/services/user-service.ts`；`e2e/user-management/add-user.spec.ts`
-
-### 本次工程文件
-
-| 模块编号 | 变更 | 文件 | 作用 | 关联需求 / 场景 / 测试用例 |
-|---|---|---|---|---|
-| MOD-002 | 修改 | `src/pages/UserManagementPage.tsx` | 用户管理页面与“新增用户”入口 | MOD-002-REQ-001 / SCN-001 |
+```yaml
+version: 1
+tasks:
+  - id: CHG-20260907-001-TASK-001
+    module: MOD-002
+    requirements: [MOD-002-REQ-001]
+    scenarios: [SCN-001]
+    testCases: [TC-SCN-001-UI-01]
+    plannedFiles:
+      - src/pages/UserManagementPage.tsx
+      - src/services/user-service.ts
+      - e2e/user-management/add-user.spec.ts
 ```
+
+```yaml
+version: 1
+testCases:
+  - id: TC-SCN-001-UI-01
+    result: PASS
+    command: pnpm playwright test e2e/user-management/add-user.spec.ts
+    commit: 9ec4bf1
+    workingTreeFingerprint: "sha256:f4bd3f5c3cdb8f27ab9910f241313c5c3a138f91a7be2534de45fa7b745a4365"
+    executedAt: "2026-09-07T10:30:00+08:00"
+    summary: 新用户出现在用户列表中
+```
+
+所有 YAML 文件以 `version: 1` 开始，使用固定字段名和数组类型。Core 通过 YAML schema 解析，拒绝未知字段、缺少必填字段、重复 ID 和无法解析的引用。
 
 ## 模块规格文件
 
@@ -155,9 +170,9 @@ codespec/changes/<change-id>/
 
 Markdown 使用固定结构：固定标题层级、固定字段名和“步骤 / 用户操作 / 预期结果”三列表格。Core 通过 Markdown AST 解析，不使用正则表达式。需要 JSON 或 CSV 时，由该 Markdown 转换，不长期保存重复副本。
 
-### `interface.md`
+### `interface.yaml`
 
-`interface.md` 以模块标题和模块编号开头，并保存详细的模块关系契约。每条关系包含：
+`interface.yaml` 保存详细的模块关系契约。每条关系包含：
 
 - 稳定的关系 ID。
 - 输入模块与输出模块。
@@ -165,30 +180,47 @@ Markdown 使用固定结构：固定标题层级、固定字段名和“步骤 /
 - 输入、输出与错误语义。
 - 关联的 Requirement 和 Scenario ID。
 
-同一关系在输入模块和输出模块中使用相同关系 ID。Core 校验两侧关系是否一致。HTTP 关系的路由键必须与 `api.md` 的规范化路由路径相同，作为两个文件的连接键。调用需要 HTTP 方法时，可以在本文件记录，不能写入 `api.md`。
-
-### `api.md`
-
-`api.md` 以当前模块为中心，记录实际路由及路由级的上下游模块编号：
-
-```md
-# 用户管理 API 路由
-
-- **模块编号：** MOD-002
-
-| 路由 | 输入业务模块 | 输出业务模块 |
-|---|---|---|
-| `/api/users/add` | MOD-001 | MOD-003 |
-| `/api/users/{id}` | MOD-001 | — |
+```yaml
+version: 1
+module: MOD-002
+relations:
+  - id: REL-001
+    inputModule: MOD-001
+    outputModule: MOD-003
+    route: /api/users/add
+    method: POST
+    input: 用户管理请求
+    output: 用户生命周期事件
+    errors: 参数不合法时不创建用户
+    requirements: [MOD-002-REQ-001]
+    scenarios: [SCN-001]
 ```
 
-输入模块表示调用该路由的上游业务模块。输出模块表示该路由处理后调用或触发的下游业务模块。模块 ID 使用 `MOD-###`，模块名称和职责在 `business.md` 查询。
+同一关系在输入模块和输出模块中使用相同关系 ID。Core 校验两侧关系是否一致。HTTP 关系的路由键必须与 `api.yaml` 的规范化路由路径相同，作为两个文件的连接键。调用需要 HTTP 方法时，可以在本文件记录，不能写入 `api.yaml`。
+
+### `api.yaml`
+
+`api.yaml` 以当前模块为中心，记录实际路由及路由级的上下游模块编号：
+
+```yaml
+version: 1
+module: MOD-002
+routes:
+  - path: /api/users/add
+    inputModules: [MOD-001]
+    outputModules: [MOD-003]
+  - path: /api/users/{id}
+    inputModules: [MOD-001]
+    outputModules: []
+```
+
+输入模块表示调用该路由的上游业务模块。输出模块表示该路由处理后调用或触发的下游业务模块。模块 ID 使用 `MOD-###`，模块名称和职责在 `business.yaml` 查询。
 
 路由键为规范化路由路径。相同路由只保留一行。归档时发现路由所有权、删除、替换或关系契约冲突，必须由用户裁决。
 
 ## 工程运行配置
 
-`codespec/configuration.yaml` 是 CodeSpec 对当前工程运行连接的可验证快照。它位于 `business.md` 同级，不属于任一模块的第四份规格文件。
+`codespec/configuration.yaml` 是 CodeSpec 对当前工程运行连接的可验证快照。它位于 `business.yaml` 同级，不属于任一模块的第四份规格文件。
 
 ```yaml
 version: 1
@@ -207,7 +239,7 @@ profiles:
           key: USER_SERVICE_BASE_URL
 ```
 
-每个服务配置必须包含：环境 profile、服务 ID、连接地址或主机别名、关联模块、关联路由，以及工程内实际配置的来源文件和键名。模块编号必须存在于 `business.md`，路由必须存在于相应模块的 `api.md`，来源文件必须位于仓库内。
+每个服务配置必须包含：环境 profile、服务 ID、连接地址或主机别名、关联模块、关联路由，以及工程内实际配置的来源文件和键名。模块编号必须存在于 `business.yaml`，路由必须存在于相应模块的 `api.yaml`，来源文件必须位于仓库内。
 
 运行时配置的权威来源始终是工程自身的仓库内配置文件或部署清单。CodeSpec 只读取该来源，在验证前比较解析出的连接地址与 `configuration.yaml` 快照；不一致时停止验证和归档，要求先更新配置快照并重新确认任务。归档只在验证通过时原子更新该快照。
 
@@ -215,11 +247,11 @@ profiles:
 
 ## 追溯规则
 
-Core 从当前 Markdown 文件建立内存追溯图，不保存第四份模块规格或独立的追溯索引文件。任意节点都必须能反向查到关联节点。
+Core 从 `spec.md` 的 Markdown AST 和其余 YAML 文件建立内存追溯图，不保存第四份模块规格或独立的追溯索引文件。任意节点都必须能反向查到关联节点。
 
 | 节点 | 必须关联到 | 连接方式 |
 |---|---|---|
-| 模块规格文件 | `business.md` 中的模块 | 文件头的 `MOD-###` |
+| 模块规格文件 | `business.yaml` 中的模块 | `module: MOD-###` 或 `spec.md` 文件头的模块编号 |
 | Requirement | 模块、一个或多个 Scenario | Requirement ID |
 | Scenario | 一个 Requirement、至少一个测试用例 | Scenario ID |
 | 测试用例 | Scenario、自动化测试文件、最近验证摘要 | Test Case ID 与工程文件路径 |
@@ -228,7 +260,7 @@ Core 从当前 Markdown 文件建立内存追溯图，不保存第四份模块�
 | 接口关系 | 输入模块、输出模块、Requirement、Scenario | 关系 ID |
 | API 路由 | 输入模块、输出模块、接口关系 | 规范化路由路径 |
 | 运行配置服务 | 模块、路由和工程内实际配置 | 服务 ID、模块 ID、路由键、来源文件和键名 |
-| `business.md` 的模块行 | 模块规格与相邻模块 | 模块 ID 与解析出的关系 |
+| `business.yaml` 的模块项 | 模块规格与相邻模块 | 模块 ID 与解析出的关系 |
 
 模块规格文件只能描述一个模块。活动 Change 可以影响多个模块，因此其 Requirement、工程文件和任务条目都必须标明所属 `MOD-###`。工程文件允许在多个模块的 `spec.md` 出现，但每个模块条目必须说明该模块的职责。Change 修改共享文件时，必须同时更新所有受影响模块的条目，或在归档前取得用户的冲突裁决。
 
@@ -236,17 +268,24 @@ Core 在归档前校验全部 ID、模块编号、路径和路由键均可解析
 
 ## 全工程业务关系摘要
 
-归档事务解析所有当前 `interface.md`，构建有向模块图，并更新 `business.md` 的生成列：
+归档事务解析所有当前 `interface.yaml`，构建有向模块图，并更新 `business.yaml` 的生成字段：
 
-```md
-| 模块编号 | 业务模块 | 输入 | 输出 | 关联模块 |
-|---|---|---|---|---|
-| MOD-001 | Web 用户门户 | 用户管理操作 | 用户管理请求 | MOD-002 |
-| MOD-002 | 用户管理 | 用户管理请求 | 用户资料、用户生命周期事件 | MOD-001；MOD-003 |
-| MOD-003 | 通知管理 | 用户生命周期事件 | 通知结果 | MOD-002 |
+```yaml
+version: 1
+modules:
+  - id: MOD-001
+    name: Web 用户门户
+    inputs: [用户管理操作]
+    outputs: [用户管理请求]
+    relatedModules: [MOD-002]
+  - id: MOD-002
+    name: 用户管理
+    inputs: [用户管理请求]
+    outputs: [用户资料, 用户生命周期事件]
+    relatedModules: [MOD-001, MOD-003]
 ```
 
-`business.md` 只表达业务模块和业务概念。它不记录 CRUD 操作或具体 API 路由。详细关系在 `interface.md`，路由级模块映射在 `api.md`。CodeSpec UI 的全工程关系图读取同一份解析结果。
+`business.yaml` 只表达业务模块和业务概念。它不记录 CRUD 操作或具体 API 路由。详细关系在 `interface.yaml`，路由级模块映射在 `api.yaml`。CodeSpec UI 的全工程关系图读取同一份解析结果。
 
 ## UI 测试用例一致性
 
@@ -261,16 +300,16 @@ UI Change 没有可运行 E2E 环境时，不能通过验证或归档。非 UI �
 
 ## 归档事务
 
-1. 读取活动 Change、受影响模块的当前规格，以及计算全工程关系所需的所有 `interface.md`。
+1. 读取活动 Change、受影响模块的当前规格，以及计算全工程关系所需的所有 `interface.yaml`。
 2. 校验两次确认、Requirement/Scenario/测试用例关联、任务关联、工程文件增量与实际变更一致、归档后文件清单中的路径存在、路由唯一性、关系镜像、源码定位和当前 E2E 证据。
-3. 准备受影响模块的 `spec.md`、`interface.md`、`api.md` 合并结果，更新有效工程文件清单、`configuration.yaml` 和 `business.md` 的关系摘要。
+3. 准备受影响模块的 `spec.md`、`interface.yaml`、`api.yaml` 合并结果，更新有效工程文件清单、`configuration.yaml` 和 `business.yaml` 的关系摘要。
 4. 路由或关系无法安全合并时，在写入前停止。用户选择保留、替换或并存后，才继续归档。
-5. 原子写入全部模块规格、`business.md` 和 `configuration.yaml`，然后删除活动 Change 目录及索引条目。
-6. 任一步失败时，恢复全部模块规格、`business.md` 和 `configuration.yaml`，活动 Change 保持不变，等待修复后重试。
+5. 原子写入全部模块规格、`business.yaml` 和 `configuration.yaml`，然后删除活动 Change 目录及索引条目。
+6. 任一步失败时，恢复全部模块规格、`business.yaml` 和 `configuration.yaml`，活动 Change 保持不变，等待修复后重试。
 
 ## 兼容与迁移
 
-现有模块最初只有 `spec.md`。迁移为没有关系或路由的模块创建空的规范 `interface.md` 与 `api.md`，并在 `spec.md` 创建空的“当前模块工程文件”章节。迁移同时创建空的 `configuration.yaml`，然后校验三文件结构。迁移不猜测既有模块的文件归属或运行连接；后续 Change 归档时根据实际变更补充或修正。
+现有模块最初只有 `spec.md`。迁移为没有关系或路由的模块创建空的规范 `interface.yaml` 与 `api.yaml`，并在 `spec.md` 创建空的“当前模块工程文件”章节。迁移同时创建空的 `business.yaml` 和 `configuration.yaml`，然后校验三文件结构。迁移不猜测既有模块的文件归属或运行连接；后续 Change 归档时根据实际变更补充或修正。
 
 新规则只应用于后续归档。已有归档 Change 目录不会被当前关系图读取，也不会自动删除。
 
@@ -278,9 +317,9 @@ UI Change 没有可运行 E2E 环境时，不能通过验证或归档。非 UI �
 
 - 未取得新的设计确认时，workflow 不能进入任务阶段。
 - 未取得新的任务确认时，workflow 不能进入实现阶段。
-- 成功归档后不保留活动或归档 Change 副本，但原子更新受影响模块的三份规格、`business.md` 和 `configuration.yaml`。
-- 重复路由不会在 `api.md` 重复出现。冲突路由或关系没有用户裁决时不能归档。
-- `business.md` 与从 `interface.md` 解析出的全工程模块关系一致。
+- 成功归档后不保留活动或归档 Change 副本，但原子更新受影响模块的三份规格、`business.yaml` 和 `configuration.yaml`。
+- 重复路由不会在 `api.yaml` 重复出现。冲突路由或关系没有用户裁决时不能归档。
+- `business.yaml` 与从 `interface.yaml` 解析出的全工程模块关系一致。
 - 每个 Scenario 都关联至少一个可读 Markdown 测试用例和 PASS 证据。
 - 活动 Change 的工程文件增量与实际变更一致，归档后 `spec.md` 只保留当前存在且仍归属该模块的工程文件。
 - `configuration.yaml` 的模块、路由和工程配置来源均可解析，且快照连接与工程实际配置一致。
