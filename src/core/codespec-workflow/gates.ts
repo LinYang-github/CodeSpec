@@ -5,7 +5,7 @@ import { validateChangeTraceability } from './traceability.js';
 import { parseDeltaSpec } from './delta-parser.js';
 import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from './archive-impact.js';
-import { parseVerificationDocument, validateVerificationEvidence } from './verification.js';
+import { parseVerificationDocument, validateCurrentVerificationArtifacts, validateVerificationEvidence } from './verification.js';
 import { evaluateMinimumSddLevel } from './sdd-level.js';
 import { parseCurrentTasks } from './current-change-yaml.js';
 import { parse as parseYaml } from 'yaml';
@@ -105,29 +105,37 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   }
   if (state === 'VERIFY') {
     if (m.gates.verify.required && !m.gates.verify.satisfied) errors.push('VERIFY 门禁尚未满足');
-    if (!m.verification.requirements_verified) errors.push('缺少 Requirement 验证证据');
-    if (!m.verification.tests_passed) errors.push('缺少测试验证证据');
-    if (!m.verification.build_passed) errors.push('缺少构建验证证据');
-    if (!m.verification.lint_passed) errors.push('缺少 lint 验证证据');
-    if (!m.verification.verified_at || !/PASS|status|exit_code|exit_status/i.test(artifacts.verification)) errors.push('必须提供最新的详细验证证据');
-    try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
+    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts));
+    else {
+      if (!m.verification.requirements_verified) errors.push('缺少 Requirement 验证证据');
+      if (!m.verification.tests_passed) errors.push('缺少测试验证证据');
+      if (!m.verification.build_passed) errors.push('缺少构建验证证据');
+      if (!m.verification.lint_passed) errors.push('缺少 lint 验证证据');
+      if (!m.verification.verified_at || !/PASS|status|exit_code|exit_status/i.test(artifacts.verification)) errors.push('必须提供最新的详细验证证据');
+      try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
+    }
   }
   if (state === 'ARCHIVE') {
     if (m.gates.archive.required && !m.gates.archive.satisfied) errors.push('ARCHIVE 门禁尚未满足');
     if (m.archive.conflict) errors.push('archive conflict 必须为 false');
-    if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) errors.push('必须提供最新的 Requirement、测试、构建和 lint 证据');
-    try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
+    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts));
+    else {
+      if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) errors.push('必须提供最新的 Requirement、测试、构建和 lint 证据');
+      try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
+    }
   }
   if (workspace.config?.schema === 'code-spec' && ['DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'].includes(state)) {
-    if (['VERIFY', 'ARCHIVE'].includes(state)) errors.push(...validateVerificationEvidence(artifacts));
-    try {
-      const check = await validateChangeArchiveImpact(workspace, artifacts, state);
-      errors.push(...check.issues);
-      if (check.impact.outcome === 'affected' && ['VERIFY', 'ARCHIVE'].includes(state)) {
-        errors.push(...validateArchiveRegressionEvidence(check.impact, parseVerificationDocument(artifacts.verification)));
+    if (['VERIFY', 'ARCHIVE'].includes(state) && !isCurrentChange) errors.push(...validateVerificationEvidence(artifacts));
+    if (!isCurrentChange) {
+      try {
+        const check = await validateChangeArchiveImpact(workspace, artifacts, state);
+        errors.push(...check.issues);
+        if (check.impact.outcome === 'affected' && ['VERIFY', 'ARCHIVE'].includes(state)) {
+          errors.push(...validateArchiveRegressionEvidence(check.impact, parseVerificationDocument(artifacts.verification)));
+        }
       }
+      catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
     }
-    catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
   }
   return result(errors);
 }

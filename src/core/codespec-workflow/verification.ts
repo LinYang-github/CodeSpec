@@ -11,9 +11,13 @@ import { parseDeltaSpec } from './delta-parser.js';
 import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from './archive-impact.js';
 import { validateTraceRows, type TraceRow } from './traceability.js';
+import { parseConfiguration } from './current-spec-yaml.js';
+import { parseCurrentTasks, parseCurrentVerification, type CurrentVerification } from './current-change-yaml.js';
+import { validateCurrentVerificationPlan } from './current-verification-policy.js';
 import {
   requiredVerificationKinds,
   resolveControlledVerificationCommands,
+  validateRuntimeConfiguration,
   type ControlledVerificationKind,
 } from './verification-policy.js';
 
@@ -56,6 +60,58 @@ export function __setVerificationTestHooksForTests(value: VerificationHooks | nu
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export const verificationArtifactIdentity = (artifacts: Pick<ChangeArtifacts, 'proposal' | 'design' | 'spec' | 'tasks'>): string =>
   hash({ proposal: artifacts.proposal, design: artifacts.design, spec: artifacts.spec, tasks: artifacts.tasks });
+
+/** Validates the v1 execution record, its approved task plan, and runtime configuration snapshot. */
+export async function validateCurrentVerificationArtifacts(
+  workspace: WorkspaceContext,
+  artifacts: ChangeArtifacts,
+): Promise<string[]> {
+  try {
+    const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+    const verification = parseCurrentVerification(parseYaml(artifacts.verification));
+    const errors = validateCurrentVerificationPlan(tasks, verification, {
+      commit: artifacts.metadata.baseline.commit,
+      working_tree_fingerprint: artifacts.metadata.baseline.working_tree_fingerprint,
+    });
+    try {
+      const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
+      for (const task of tasks.tasks) {
+        const profile = configuration.profiles.find((candidate) => candidate.id === task.verificationPlan.profile);
+        if (!profile) {
+          errors.push(`Verification profile is not configured: ${task.verificationPlan.profile}`);
+          continue;
+        }
+        for (const serviceId of task.verificationPlan.services) {
+          if (!profile.services.some((service) => service.id === serviceId)) {
+            errors.push(`Verification service is not configured for profile ${profile.id}: ${serviceId}`);
+          }
+        }
+      }
+      errors.push(...await validateRuntimeConfiguration(path.dirname(workspace.codespecDir), configuration));
+    } catch (error) {
+      errors.push(`运行配置快照无效：${error instanceof Error ? error.message : String(error)}`);
+    }
+    return errors;
+  } catch (error) {
+    return [`验证 YAML 无效：${error instanceof Error ? error.message : String(error)}`];
+  }
+}
+
+/** Keeps only the latest human-readable execution summary in an archived module spec. */
+export function appendLatestVerificationSummary(spec: string, verification: CurrentVerification): string {
+  const latest = [...verification.testCases].sort((left, right) => right.executedAt.localeCompare(left.executedAt));
+  const summary = [
+    '### 最近验证摘要',
+    '',
+    ...(latest.length
+      ? latest.map((record) => `- \`${record.testCase}\`：${record.result}；${record.summary}；${record.executedAt}`)
+      : ['- 暂无验证记录']),
+  ].join('\n');
+  const marker = '\n### 最近验证摘要\n';
+  const existingSummary = spec.indexOf(marker);
+  const base = existingSummary < 0 ? spec : spec.slice(0, existingSummary);
+  return `${base.trimEnd()}\n\n${summary}\n`;
+}
 
 const verificationKindSchema = z.enum([
   'requirements', 'unit', 'typecheck', 'build', 'lint', 'bdd', 'integration',

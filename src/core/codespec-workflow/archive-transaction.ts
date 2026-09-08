@@ -9,7 +9,7 @@ import { parseDeltaSpec } from './delta-parser.js';
 import { detectStaleChanges } from './stale.js';
 import { validateRelations } from './relations.js';
 import { validateChangeTraceability } from './traceability.js';
-import { parseVerificationDocument, validateVerificationEvidence } from './verification.js';
+import { appendLatestVerificationSummary, parseVerificationDocument, validateCurrentVerificationArtifacts, validateVerificationEvidence } from './verification.js';
 import { validateCurrentSpec } from './current-spec-parser.js';
 import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import {
@@ -139,6 +139,10 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
 export async function preflightArchive(workspace: WorkspaceContext, changeId: string): Promise<ArchivePlan> {
   const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
   ensureArchiveGates(artifacts);
+  if (!artifacts.metadata.artifacts.proposal) {
+    const errors = await validateCurrentVerificationArtifacts(workspace, artifacts);
+    if (errors.length) throw new Error(`当前 Change 验证预检失败：${errors.join('; ')}`);
+  }
   const { impact: archiveImpact, deltas, current, issues: impactIssues } = await validateChangeArchiveImpact(workspace, artifacts);
   if (impactIssues.length) throw new Error(`归档影响映射校验失败：${impactIssues.join('; ')}`);
   const regressionIssues = validateArchiveRegressionEvidence(archiveImpact, parseVerificationDocument(artifacts.verification));
@@ -175,6 +179,10 @@ export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive
   const changedModules = new Set(plan.deltas.map((delta) => delta.module));
   const specs = new Map([...plan.current].filter(([module]) => changedModules.has(module as RequirementDelta['module'])));
   for (const delta of plan.deltas) specs.set(delta.module, applyDelta(specs.get(delta.module) ?? '', delta));
+  if (!plan.artifacts.metadata.artifacts.proposal) {
+    const verification = parseCurrentVerification(parseYaml(plan.artifacts.verification));
+    for (const [module, spec] of specs) specs.set(module, appendLatestVerificationSummary(spec, verification));
+  }
   for (const [module, spec] of specs) {
     validatePreparedCurrentSpec(module, spec);
     const issues = validateCurrentSpec(spec, module);

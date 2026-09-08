@@ -5,6 +5,7 @@ import type { ChangeArtifacts } from './artifacts.js';
 import type { CurrentSpecGraph } from './current-spec-graph.js';
 import { parseCurrentSpecification, type CurrentSpecification } from './current-spec-model.js';
 import type { WorkspacePaths } from './paths.js';
+import type { CurrentTasks, CurrentVerification } from './current-change-yaml.js';
 type Edge = [string, string];
 export interface TraceRow {
   requirement_id: string;
@@ -121,6 +122,24 @@ export function validateCurrentSpecGraphTraceability(
       'Engineering File': [...engineeringFiles].sort(),
     },
   };
+}
+
+/** Ensures each planned task test case resolves to exactly one executed record. */
+export function validateCurrentVerificationTraceability(
+  tasks: CurrentTasks,
+  verification: CurrentVerification,
+): string[] {
+  const errors: string[] = [];
+  const records = new Map<string, number>();
+  for (const record of verification.testCases) records.set(record.testCase, (records.get(record.testCase) ?? 0) + 1);
+  for (const task of tasks.tasks) {
+    if (!task.testCases.includes(task.verificationPlan.testCase)) {
+      errors.push(`Task ${task.id} does not reference verification test case ${task.verificationPlan.testCase}`);
+    }
+    const count = records.get(task.verificationPlan.testCase) ?? 0;
+    if (count !== 1) errors.push(`Verification plan ${task.verificationPlan.testCase} must have exactly one execution record`);
+  }
+  return errors;
 }
 
 /** Loads v1 module specs from disk before validating their graph traceability. */

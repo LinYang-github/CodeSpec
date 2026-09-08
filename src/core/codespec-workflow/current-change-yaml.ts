@@ -48,6 +48,7 @@ const currentTasksSchema = z.object({
 
 const verificationCaseSchema = z.object({
   testCase: testCaseId,
+  result: z.enum(['PASS', 'FAIL', 'SKIPPED']).default('PASS'),
   testFile: nonEmpty,
   testId: nonEmpty,
   command: nonEmpty,

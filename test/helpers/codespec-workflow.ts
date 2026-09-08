@@ -111,6 +111,8 @@ function buildMetadata(
     },
     baseline: {
       created_at: timestamp,
+      commit: null,
+      working_tree_fingerprint: `sha256:${'0'.repeat(64)}`,
       stale: false,
       modules: {},
       ...overrides?.baseline,
