@@ -1,5 +1,10 @@
+import * as fs from 'node:fs/promises';
+import path from 'node:path';
 import { parseDeltaSpec } from './delta-parser.js';
 import type { ChangeArtifacts } from './artifacts.js';
+import type { CurrentSpecGraph } from './current-spec-graph.js';
+import { parseCurrentSpecification, type CurrentSpecification } from './current-spec-model.js';
+import type { WorkspacePaths } from './paths.js';
 type Edge = [string, string];
 export interface TraceRow {
   requirement_id: string;
@@ -65,4 +70,73 @@ export function validateChangeTraceability(artifacts: ChangeArtifacts): Traceabi
   for (const id of specRequirements) if (!taskRequirements.includes(id)) issues.push(`Requirement ${id} is not covered by a Task`);
   for (const id of scenarioIds) if (!taskScenarios.includes(id)) issues.push(`Scenario ${id} is not covered by a Task`);
   return { valid: issues.length === 0, issues, links: { Requirement: specRequirements, Scenario: scenarioIds, Task: Object.keys(artifacts.metadata.tasks.items) } };
+}
+
+/**
+ * Validates that every relation in the generated graph can be followed back to
+ * the requirement and scenario that define it in the current module specs.
+ */
+export function validateCurrentSpecGraphTraceability(
+  graph: CurrentSpecGraph,
+  specifications: readonly CurrentSpecification[],
+): TraceabilityResult {
+  const requirementIds = new Set<string>();
+  const scenarioIds = new Set<string>();
+  const engineeringFiles = new Set<string>();
+  const issues: string[] = [];
+
+  for (const specification of specifications) {
+    for (const file of specification.engineeringFiles) engineeringFiles.add(file.path);
+    for (const requirement of specification.requirements) {
+      if (requirementIds.has(requirement.id)) issues.push(`Requirement ${requirement.id} is defined by more than one current specification`);
+      requirementIds.add(requirement.id);
+      for (const scenario of requirement.scenarios) {
+        if (scenarioIds.has(scenario.id)) issues.push(`Scenario ${scenario.id} is defined by more than one current specification`);
+        scenarioIds.add(scenario.id);
+      }
+    }
+  }
+
+  for (const relation of graph.relations) {
+    for (const requirementId of relation.requirements) {
+      if (!requirementIds.has(requirementId)) {
+        issues.push(`Relation ${relation.id} references unknown Requirement ${requirementId}`);
+      }
+    }
+    for (const scenarioId of relation.scenarios) {
+      if (!scenarioIds.has(scenarioId)) {
+        issues.push(`Relation ${relation.id} references unknown Scenario ${scenarioId}`);
+      }
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+    links: {
+      Module: graph.business.modules.map((module) => module.id),
+      Relation: graph.relations.map((relation) => relation.id),
+      Requirement: [...requirementIds].sort(),
+      Scenario: [...scenarioIds].sort(),
+      'Engineering File': [...engineeringFiles].sort(),
+    },
+  };
+}
+
+/** Loads v1 module specs from disk before validating their graph traceability. */
+export async function validateCurrentSpecGraphTraceabilityFromWorkspace(
+  paths: WorkspacePaths,
+  graph: CurrentSpecGraph,
+): Promise<TraceabilityResult> {
+  const specifications: CurrentSpecification[] = [];
+  for (const module of graph.business.modules) {
+    if (module.status === 'RETIRED') continue;
+    const file = path.join(paths.currentSpecs, module.id, 'spec.md');
+    try {
+      specifications.push(parseCurrentSpecification(await fs.readFile(file, 'utf8')));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+  }
+  return validateCurrentSpecGraphTraceability(graph, specifications);
 }

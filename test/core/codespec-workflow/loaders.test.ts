@@ -8,6 +8,7 @@ import {
   loadWorkspace,
 } from '../../../src/core/codespec-workflow/loaders.js';
 import { EmptyBusinessRegistryError } from '../../../src/core/codespec-workflow/business-registry.js';
+import { loadCurrentSpecGraph } from '../../../src/core/codespec-workflow/business-registry.js';
 import { parseWorkspaceConfig } from '../../../src/core/codespec-workflow/schemas.js';
 import { listActiveChanges } from '../../../src/core/codespec-workflow/change-resolver.js';
 import {
@@ -17,6 +18,35 @@ import {
 } from '../../helpers/codespec-workflow.js';
 
 describe('codespec workflow loaders', () => {
+  it('loads the current graph from business.yaml and module interface.yaml files', async () => {
+    const fixture = await createWorkflowFixture({ configOverrides: { paths: { business: 'business.yaml' } } });
+    afterEach(fixture.cleanup);
+    await writeBusinessFile(fixture, 'version: 1\nmodules:\n  - id: MOD-001\n    name: 用户管理\n    status: ACTIVE\n    inputs: []\n    outputs: []\n    relatedModules: []\n');
+    await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-001'), { recursive: true });
+    await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'interface.yaml'), 'version: 1\nmodule: MOD-001\nrelations: []\n');
+    expect((await loadCurrentSpecGraph(fixture.paths)).business.modules[0]?.id).toBe('MOD-001');
+  });
+  it('loads the generated current business.yaml registry without Markdown-only fields', async () => {
+    const fixture = await createWorkflowFixture({ configOverrides: {
+      paths: { business: 'business.yaml', configuration: 'configuration.yaml' },
+    }});
+    afterEach(fixture.cleanup);
+    await writeBusinessFile(fixture, [
+      'version: 1',
+      'modules:',
+      '  - id: MOD-001',
+      '    name: 用户管理',
+      '    status: ACTIVE',
+      '    inputs: []',
+      '    outputs: []',
+      '    relatedModules: []',
+      '',
+    ].join('\n'));
+
+    const registry = await loadBusinessRegistry(fixture.paths);
+    expect(registry.modules).toMatchObject([{ id: 'MOD-001', name: '用户管理', responsibilities: [], keywords: [] }]);
+  });
+
   it('retains generic spec-driven workspace configuration parsing', () => {
     expect(parseWorkspaceConfig({
       version: 1, schema: 'spec-driven', project: { name: 'generic' },
@@ -225,6 +255,10 @@ describe('codespec workflow loaders', () => {
     const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
     const { renderCanonicalWorkspaceConfig } = await import('../../../src/core/codespec-workflow/default-config.js');
     await fs.writeFile(path.join(fixture.codespecDir, 'config.yaml'), renderCanonicalWorkspaceConfig('demo'));
+    await fs.writeFile(path.join(fixture.codespecDir, 'business.yaml'), [
+      'version: 1', 'modules:', '  - id: MOD-001', '    name: 工作流', '    status: ACTIVE',
+      '    inputs: []', '    outputs: []', '    relatedModules: []', '',
+    ].join('\n'));
     const workspace = await loadWorkspace(fixture.codespecDir);
     expect(path.relative(fixture.codespecDir, workspace.paths.currentSpecs)).toBe('specs');
     expect(path.relative(fixture.codespecDir, workspace.paths.archivedChanges)).toBe(path.join('archive', 'changes'));

@@ -1,7 +1,16 @@
 import { loadChangeArtifacts, type WorkspaceContext } from './loaders.js';
+import { loadCurrentSpecGraph } from './current-spec-graph-loader.js';
+import { validateCurrentSpecGraphTraceabilityFromWorkspace } from './traceability.js';
+import type { CurrentSpecGraph } from './current-spec-graph.js';
 import type { ChangeMetadata } from './types.js';
 
-export async function validateRelations(workspace: WorkspaceContext, metadata: ChangeMetadata): Promise<void> {
+export async function validateRelations(workspace: WorkspaceContext, metadata: ChangeMetadata): Promise<CurrentSpecGraph | undefined> {
+  if (!metadata.artifacts.proposal) {
+    const graph = await loadCurrentSpecGraph(workspace.paths);
+    const trace = await validateCurrentSpecGraphTraceabilityFromWorkspace(workspace.paths, graph);
+    if (!trace.valid) throw new Error(`当前规格关系追溯失败：${trace.issues.join('; ')}`);
+    return graph;
+  }
   const refs = [...metadata.relations.depends_on, ...metadata.relations.related_to, ...metadata.relations.conflicts_with, ...metadata.relations.supersedes];
   const loaded = new Map<string, ChangeMetadata>([[metadata.change.id, metadata]]);
   for (const id of refs) if (id === metadata.change.id) throw new Error(`Invalid relation ID: ${id}`);
@@ -26,4 +35,5 @@ export async function validateRelations(workspace: WorkspaceContext, metadata: C
     const entry = loaded.get(dep);
     if (entry?.change.status !== 'ARCHIVED') throw new Error(`Dependency ${dep} must be ARCHIVED before this Change`);
   }
+  return undefined;
 }

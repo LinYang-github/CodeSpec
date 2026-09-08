@@ -60,6 +60,32 @@ describe('buildUiIndex', () => {
     ]);
   });
 
+  it('exposes the generated current specification graph to the UI', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const codespec = path.join(root, 'codespec');
+    await fs.mkdir(path.join(codespec, 'specs', 'MOD-001'), { recursive: true });
+    await fs.mkdir(path.join(codespec, 'specs', 'MOD-002'), { recursive: true });
+    await fs.writeFile(path.join(codespec, 'config.yaml'), [
+      'version: 1', 'schema: code-spec', 'project:', '  name: graph-ui', 'paths:',
+      '  business: business.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  archive: archive', '  specs: specs', '  archived_changes: archive/changes',
+      'workflow:', '  multiple_active_changes: true', 'requirements:', "  id_format: '{module}-REQ-{sequence:03d}'", 'changes:', "  id_format: 'CHG-{date}-{sequence:03d}'", 'archive:', '  update_index: true', '  require_verification: true', '  conflict_strategy: optimistic', '',
+    ].join('\n'));
+    await fs.writeFile(path.join(codespec, 'business.yaml'), [
+      'version: 1', 'modules:',
+      '  - id: MOD-001', '    name: 认证', '    status: ACTIVE', '    inputs: []', '    outputs: []', '    relatedModules: []',
+      '  - id: MOD-002', '    name: 用户管理', '    status: ACTIVE', '    inputs: []', '    outputs: []', '    relatedModules: []', '',
+    ].join('\n'));
+    const relation = [
+      '  - id: REL-CHG-20260907-001-01', '    kind: http', '    fromModule: MOD-001', '    toModule: MOD-002', '    path: /api/users', '    method: POST', '    input: 新增用户请求', '    output: 用户资料', '    errors: 用户已存在', '    requirements: [MOD-002-REQ-001]', '    scenarios: [MOD-002-REQ-001-SCN-001]',
+    ].join('\n');
+    await Promise.all(['MOD-001', 'MOD-002'].map((moduleId) => fs.writeFile(path.join(codespec, 'specs', moduleId, 'interface.yaml'), `version: 1\nmodule: ${moduleId}\nrelations:\n${relation}\n`)));
+
+    const index = await buildUiIndex(root);
+    expect(index.currentSpecGraph?.modules).toContainEqual(expect.objectContaining({ id: 'MOD-001', outputs: ['新增用户请求'] }));
+    expect(index.currentSpecGraph?.relations).toContainEqual(expect.objectContaining({ id: 'REL-CHG-20260907-001-01', path: '/api/users' }));
+  });
+
   it('indexes only CodeSpec content and Superpowers plans', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);

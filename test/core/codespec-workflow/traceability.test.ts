@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { validateTraceRows, validateTraceability } from '../../../src/core/codespec-workflow/traceability.js';
+import { validateCurrentSpecGraphTraceability, validateTraceRows, validateTraceability } from '../../../src/core/codespec-workflow/traceability.js';
+import { buildCurrentSpecGraph } from '../../../src/core/codespec-workflow/current-spec-graph.js';
+import { parseModuleInterface } from '../../../src/core/codespec-workflow/current-spec-yaml.js';
 import { allocateRequirementIds } from '../../../src/core/codespec-workflow/requirement-allocator.js';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
@@ -10,6 +12,62 @@ import {
 } from '../../helpers/codespec-workflow.js';
 
 describe('traceability', () => {
+  it('traces relation requirements and scenarios through the current specification graph', () => {
+    const relation = {
+      id: 'REL-CHG-20260907-001-01',
+      kind: 'http' as const,
+      fromModule: 'MOD-001',
+      toModule: 'MOD-002',
+      path: '/api/users',
+      method: 'POST',
+      input: '新增用户请求',
+      output: '用户资料',
+      errors: '用户已存在',
+      requirements: ['MOD-002-REQ-001'],
+      scenarios: ['MOD-002-REQ-001-SCN-001'],
+    };
+    const graph = buildCurrentSpecGraph({
+      modules: [
+        { id: 'MOD-001', name: '认证', status: 'ACTIVE' },
+        { id: 'MOD-002', name: '用户管理', status: 'ACTIVE' },
+      ],
+      interfaces: [
+        parseModuleInterface({ version: 1, module: 'MOD-001', relations: [relation] }),
+        parseModuleInterface({ version: 1, module: 'MOD-002', relations: [relation] }),
+      ],
+    });
+
+    expect(validateCurrentSpecGraphTraceability(graph, [{
+      title: '认证',
+      module: 'MOD-001',
+      version: '1',
+      requirements: [],
+      engineeringFiles: [{ path: 'src/shared/user-contract.ts', role: '共享用户契约', references: [] }],
+    }, {
+      title: '用户管理',
+      module: 'MOD-002',
+      version: '1',
+      requirements: [{
+        id: 'MOD-002-REQ-001',
+        title: '新增用户',
+        scenarios: [{
+          id: 'MOD-002-REQ-001-SCN-001', title: '提交新增用户', given: ['已登录'], when: ['提交'], then: ['创建'], error: ['用户已存在'], testCases: [],
+        }],
+      }],
+      engineeringFiles: [{ path: 'src/shared/user-contract.ts', role: '共享用户契约', references: [] }],
+    }])).toMatchObject({
+      valid: true,
+      links: {
+        Relation: ['REL-CHG-20260907-001-01'],
+        Requirement: ['MOD-002-REQ-001'],
+        Scenario: ['MOD-002-REQ-001-SCN-001'],
+        'Engineering File': ['src/shared/user-contract.ts'],
+      },
+    });
+
+    expect(validateCurrentSpecGraphTraceability(graph, []).issues.join('\n')).toMatch(/REL-CHG-20260907-001-01.*Requirement|REL-CHG-20260907-001-01.*Scenario/i);
+  });
+
   it('rejects a Scenario that has no Test-to-Evidence trace row', () => {
     expect(validateTraceRows(
       [{ requirement_id: 'MOD-002-REQ-017', scenario_id: 'SCN-001', task_id: 'SP-01', test_id: 'test/payment.test.ts', evidence_id: 'EV-001', result: 'PASS' }],

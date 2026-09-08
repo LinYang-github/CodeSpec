@@ -6,7 +6,9 @@ import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
 import { getWorkspacePaths } from './codespec-workflow/paths.js';
+import { loadCurrentSpecGraph } from './codespec-workflow/current-spec-graph-loader.js';
 import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
+import type { CurrentSpecGraph } from './codespec-workflow/current-spec-graph.js';
 import type { ChangeMode, ChangeStatus, SddLevel } from './codespec-workflow/types.js';
 
 export type UiSource = 'codespec' | 'superpowers-plans';
@@ -57,6 +59,7 @@ export interface UiIndex {
   projectName: string;
   businessDocument: UiDocument | null;
   businessModules: BusinessModule[];
+  currentSpecGraph: UiCurrentSpecGraph | null;
   changes: UiChangeGroup[];
   archive: {
     currentSpecs: UiDocument[];
@@ -71,6 +74,12 @@ export interface UiIndex {
     reason: 'binary' | 'too_large' | 'outside_root' | 'unreadable';
   }>;
   rebuiltAt: string;
+}
+
+export interface UiCurrentSpecGraph {
+  modules: CurrentSpecGraph['business']['modules'];
+  relations: CurrentSpecGraph['relations'];
+  apis: Array<CurrentSpecGraph['apis'] extends Map<string, infer Api> ? Api : never>;
 }
 
 export interface BusinessModule {
@@ -380,6 +389,22 @@ async function loadUiWorkspacePaths(projectRoot: string): Promise<UiWorkspacePat
   }
 }
 
+async function loadUiCurrentSpecGraph(projectRoot: string): Promise<UiCurrentSpecGraph | null> {
+  try {
+    const codespecDir = path.join(projectRoot, 'codespec');
+    const config = parseWorkspaceConfig(parseYaml(await fs.readFile(path.join(codespecDir, 'config.yaml'), 'utf8')));
+    const graph = await loadCurrentSpecGraph(getWorkspacePaths(codespecDir, config));
+    return {
+      modules: graph.business.modules,
+      relations: graph.relations,
+      apis: [...graph.apis.values()],
+    };
+  } catch {
+    // The document browser remains usable for legacy and incomplete workspaces.
+    return null;
+  }
+}
+
 async function collectFiles(
   directory: string,
   projectRoot: string,
@@ -443,7 +468,7 @@ async function collectFiles(
 
 export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   const root = await fs.realpath(projectRoot);
-  const uiPaths = await loadUiWorkspacePaths(root);
+  const [uiPaths, currentSpecGraph] = await Promise.all([loadUiWorkspacePaths(root), loadUiCurrentSpecGraph(root)]);
   const documents: UiDocument[] = [];
   const skipped: UiIndex['skipped'] = [];
 
@@ -477,6 +502,7 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
     projectName: uiPaths.projectName,
     businessDocument: businessDocument ?? null,
     businessModules: businessDocument ? parseBusinessModules(businessDocument.content) : [],
+    currentSpecGraph,
     changes,
     archive,
     skipped,

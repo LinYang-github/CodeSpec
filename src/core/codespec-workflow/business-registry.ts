@@ -1,7 +1,10 @@
 import * as fs from 'node:fs/promises';
+import { parse as parseYaml } from 'yaml';
 
+import { parseBusinessRegistry as parseCurrentBusinessRegistry } from './current-spec-yaml.js';
+export { loadCurrentSpecGraph } from './current-spec-graph-loader.js';
 import { parseBusinessModule } from './schemas.js';
-import type { BusinessModule } from './types.js';
+import type { BusinessModule, BusinessModuleId } from './types.js';
 import type { WorkspacePaths } from './paths.js';
 
 export interface BusinessRegistry {
@@ -78,6 +81,15 @@ function parseModuleRow(line: string): BusinessModule | null {
 
 export async function loadBusinessRegistry(paths: WorkspacePaths): Promise<BusinessRegistry> {
   const content = await fs.readFile(paths.business, 'utf8');
+  if (paths.business.endsWith('.yaml')) {
+    const current = parseCurrentBusinessRegistry(parseYaml(content));
+    return buildRegistry(current.modules.map((module) => ({
+      id: module.id as BusinessModuleId,
+      name: module.name,
+      responsibilities: [],
+      keywords: [],
+    })), paths.business);
+  }
   const modules: BusinessModule[] = [];
   const byId = new Map<string, BusinessModule>();
   const byName = new Map<string, BusinessModule>();
@@ -115,9 +127,19 @@ export async function loadBusinessRegistry(paths: WorkspacePaths): Promise<Busin
     byName.set(normalizedName, moduleRow);
   }
 
-  if (modules.length === 0) {
-    throw new EmptyBusinessRegistryError(paths.business);
-  }
+  return buildRegistry(modules, paths.business);
+}
 
+function buildRegistry(modules: BusinessModule[], businessPath?: string): BusinessRegistry {
+  const byId = new Map<string, BusinessModule>();
+  const byName = new Map<string, BusinessModule>();
+  for (const module of modules) {
+    if (byId.has(module.id)) throw new Error(`Duplicate module id in business registry: ${module.id}`);
+    const normalizedName = module.name.toLocaleLowerCase('en-US');
+    if (byName.has(normalizedName)) throw new Error(`Duplicate module name in business registry: ${module.name}`);
+    byId.set(module.id, module);
+    byName.set(normalizedName, module);
+  }
+  if (modules.length === 0) throw new EmptyBusinessRegistryError(businessPath ?? 'business registry');
   return { modules, byId, byName };
 }
