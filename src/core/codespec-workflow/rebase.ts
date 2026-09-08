@@ -8,6 +8,7 @@ import { parseDeltaSpec } from './delta-parser.js';
 import type { ChangeMetadata, RequirementDelta } from './types.js';
 import { documentSections, INLINE_DESIGN_SECTIONS } from './document-sections.js';
 import { withChangeIndexLock } from './change-index.js';
+import { revokeApprovals } from './approvals.js';
 
 export interface RebaseDecision { strategy: 'semantic-rebase'; route: 'DESIGN'; reason: string; current_specs: string[]; decisions: Array<{ requirement_id: string; action: string; previous: string }> }
 export interface RebaseResult { change: ChangeMetadata['change']; baseline: Baseline; decision: RebaseDecision }
@@ -87,6 +88,7 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
   const nextSpec = renderDelta(entries, current);
   const decision: RebaseDecision = { strategy: 'semantic-rebase', route: 'DESIGN', reason: 'Re-evaluated each Requirement against the configured Current Specification; authored New/Reason content was preserved.', current_specs: [...current.values()], decisions };
   change.change.revision += 1; change.change.status = 'DESIGN'; change.change.updated_at = new Date().toISOString();
+  change.approvals = revokeApprovals(change).approvals;
   // A rebase invalidates implementation and verification conclusions. Force
   // the workflow through planning and a new VERIFY run instead of allowing
   // stale task/evidence state to satisfy downstream gates.

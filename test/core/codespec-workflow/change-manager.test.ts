@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
+import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
 import {
   __setChangeManagerTestHooksForTests,
   allocateChangeId,
@@ -68,9 +69,16 @@ describe('codespec workflow change management', () => {
 
     const metadata = parseYaml(
       await fs.readFile(path.join(fixture.paths.changes, created.changeId, 'metadata.yaml'), 'utf8')
-    ) as { change: { status: string; title: string } };
+    ) as { change: { status: string; title: string }; baseline: { commit: string | null; working_tree_fingerprint: string } };
     expect(metadata.change.status).toBe('ANALYZE');
     expect(metadata.change.title).toBe('Continue orders');
+    expect(metadata.baseline.commit).toSatisfy((value: unknown) => value === null || (typeof value === 'string' && /^[0-9a-f]{7,64}$/u.test(value)));
+    expect(metadata.baseline.working_tree_fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/u);
+    await expect(loadChangeArtifacts(fixture.paths, created.changeId)).resolves.toMatchObject({
+      proposal: '',
+      tasks: expect.stringContaining('moduleRegistrations:'),
+      verification: expect.stringContaining('testCases: []'),
+    });
 
     const index = parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')) as {
       changes: Array<{ id: string; title: string; status: string }>;
@@ -84,7 +92,7 @@ describe('codespec workflow change management', () => {
     });
   });
 
-  it('keeps Level 1 design inline in spec.md and does not create design.md', async () => {
+  it('creates the five current Change artifacts for every SDD level', async () => {
     const { fixture, workspace } = await loadCanonicalWorkspace();
 
     const created = await createCanonicalChange(workspace, {
@@ -97,14 +105,16 @@ describe('codespec workflow change management', () => {
     const changeDir = path.join(fixture.paths.changes, created.changeId);
     const metadata = parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf8')) as {
       change: { sdd_level: number };
-      artifacts: { design?: string };
+      artifacts: { proposal?: string; design?: string; tasks: string; verification: string };
     };
     expect(metadata.change.sdd_level).toBe(1);
-    expect(metadata.artifacts.design).toBeUndefined();
-    await expect(fs.readFile(path.join(changeDir, 'spec.md'), 'utf8')).resolves.toContain('## 归档影响分析');
-    await expect(fs.readFile(path.join(changeDir, 'spec.md'), 'utf8')).resolves.toContain('## 设计说明');
-    await expect(fs.readFile(path.join(changeDir, 'spec.md'), 'utf8')).resolves.toContain('## SDD 分级依据');
-    await expect(fs.stat(path.join(changeDir, 'design.md'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(metadata.artifacts.proposal).toBeUndefined();
+    expect(metadata.artifacts.tasks).toMatch(/tasks\.yaml$/);
+    expect(metadata.artifacts.verification).toMatch(/verification\.yaml$/);
+    await expect(fs.readFile(path.join(changeDir, 'design.md'), 'utf8')).resolves.toBeTruthy();
+    await expect(fs.readFile(path.join(changeDir, 'tasks.yaml'), 'utf8')).resolves.toContain('moduleRegistrations:');
+    await expect(fs.readFile(path.join(changeDir, 'verification.yaml'), 'utf8')).resolves.toContain('testCases: []');
+    await expect(fs.stat(path.join(changeDir, 'proposal.md'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('scaffolds the extra Level 3 design sections', async () => {

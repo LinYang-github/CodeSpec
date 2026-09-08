@@ -100,16 +100,18 @@ export async function loadChangeArtifacts(
   }
 
   await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.metadata, 'metadata artifact path', 'metadata.yaml');
-  const proposalPath = await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.proposal, 'proposal artifact path', 'proposal.md');
+  const proposalPath = metadata.artifacts.proposal
+    ? await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.proposal, 'proposal artifact path', 'proposal.md')
+    : null;
   const designPath = metadata.artifacts.design
     ? await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.design, 'design artifact path', 'design.md')
     : null;
   const specPath = await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.spec, 'spec artifact path', 'spec.md');
-  const tasksPath = await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.tasks, 'tasks artifact path', 'tasks.md');
-  const verificationPath = await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.verification, 'verification artifact path', 'verification.md');
+  const tasksPath = await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.tasks, 'tasks artifact path', metadata.artifacts.proposal ? 'tasks.md' : 'tasks.yaml');
+  const verificationPath = await assertCanonicalArtifactPath(changeDir, paths.codespecDir, metadata.artifacts.verification, 'verification artifact path', metadata.artifacts.proposal ? 'verification.md' : 'verification.yaml');
 
   const [proposal, spec, tasks, verification] = await Promise.all([
-    fs.readFile(proposalPath, 'utf8'),
+    proposalPath ? fs.readFile(proposalPath, 'utf8') : Promise.resolve(''),
     fs.readFile(specPath, 'utf8'),
     fs.readFile(tasksPath, 'utf8'),
     fs.readFile(verificationPath, 'utf8'),

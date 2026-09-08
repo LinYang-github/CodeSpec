@@ -1,15 +1,48 @@
 import * as fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import type { Dirent } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { promisify } from 'node:util';
 import { parse as parseYaml } from 'yaml';
 import { parseChangeMetadata } from './schemas.js';
 import type { ChangeMetadata } from './types.js';
 import type { WorkspaceContext } from './loaders.js';
 
-export interface Baseline { created_at: string; stale: boolean; modules: ChangeMetadata['baseline']['modules'] }
+export interface Baseline {
+  created_at: string;
+  commit: string | null;
+  working_tree_fingerprint: string;
+  stale: boolean;
+  modules: ChangeMetadata['baseline']['modules'];
+}
 const active = new Set(['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE']);
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
+const execFileAsync = promisify(execFile);
+
+export async function captureRepositoryBaseline(projectRoot: string): Promise<Pick<Baseline, 'commit' | 'working_tree_fingerprint'>> {
+  try {
+    const [head, status, diff] = await Promise.all([
+      execFileAsync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: projectRoot }),
+      execFileAsync('git', ['status', '--porcelain=v1', '--untracked-files=all'], { cwd: projectRoot }),
+      execFileAsync('git', ['diff', '--no-ext-diff', '--binary', 'HEAD', '--'], { cwd: projectRoot }),
+    ]);
+    const commit = head.stdout.trim();
+    if (!/^[0-9a-f]{7,64}$/u.test(commit)) throw new Error('Invalid Git commit');
+    const { stdout: untrackedRaw } = await execFileAsync('git', ['ls-files', '--others', '--exclude-standard', '-z'], { cwd: projectRoot });
+    const untracked = untrackedRaw.split('\0').filter(Boolean).sort();
+    const fingerprintInput = createHash('sha256').update(status.stdout).update(diff.stdout);
+    for (const relativePath of untracked) {
+      const file = path.resolve(projectRoot, relativePath);
+      if (path.relative(projectRoot, file).startsWith('..')) throw new Error('Untracked path escapes project root');
+      fingerprintInput.update(relativePath).update('\0').update(await fs.readFile(file));
+    }
+    const fingerprint = fingerprintInput.digest('hex');
+    return { commit, working_tree_fingerprint: `sha256:${fingerprint}` };
+  } catch {
+    return { commit: null, working_tree_fingerprint: `sha256:${digest('')}` };
+  }
+}
 function blockFor(content: string, id: string): string {
   const headings = [...content.matchAll(/^###\s+(MOD-\d{3}-REQ-\d{3})(?:\s+.*)?$/gmu)];
   const hit = headings.find((item) => item[1] === id); if (!hit || hit.index === undefined) return '';
@@ -17,6 +50,7 @@ function blockFor(content: string, id: string): string {
   return content.slice(hit.index, next?.index ?? content.length).trim();
 }
 export async function captureBaseline(workspace: WorkspaceContext, metadata: ChangeMetadata, authoredSpecs: Record<string, string> = {}): Promise<Baseline> {
+  const repository = await captureRepositoryBaseline(path.dirname(workspace.codespecDir));
   const modules: Baseline['modules'] = {};
   let entries: Dirent[];
   try { entries = await fs.readdir(workspace.paths.changes, { withFileTypes: true }); }
@@ -43,5 +77,5 @@ export async function captureBaseline(workspace: WorkspaceContext, metadata: Cha
     for (const id of requirement_ids) requirements[id] = digest(blockFor(content, id));
     modules[selected.module] = { outcome: selected.outcome, latest_change, requirement_ids, spec_hash: digest(content), requirements };
   }
-  return { created_at: new Date().toISOString(), stale: false, modules };
+  return { created_at: new Date().toISOString(), ...repository, stale: false, modules };
 }

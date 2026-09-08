@@ -5,6 +5,8 @@ export type ScenarioId = `SCN-${string}`;
 export type ModuleOutcome = 'OWNED' | 'DEPENDENCY' | 'IRRELEVANT';
 export type ChangeMode = 'feature' | 'bugfix' | 'refactor';
 export type SddLevel = 1 | 2 | 3;
+export type ApprovalStage = 'design' | 'plan';
+export type ApprovalStatus = 'pending' | 'approved' | 'revoked';
 export type ChangeStatus =
   | 'ANALYZE'
   | 'DESIGN'
@@ -27,11 +29,14 @@ export interface WorkspaceConfig {
   };
   paths: {
     business: string;
+    configuration?: string;
     changes: string;
     change_index: string;
-    archive: string;
     specs: string;
-    archived_changes: string;
+    transactions?: string;
+    /** Legacy archive paths remain readable for migration only. */
+    archive?: string;
+    archived_changes?: string;
   };
   workflow: {
     multiple_active_changes: boolean;
@@ -107,6 +112,8 @@ export interface ChangeMetadata {
   };
   baseline: {
     created_at: string | null;
+    commit: string | null;
+    working_tree_fingerprint: string;
     stale: boolean;
     modules: Record<
       BusinessModuleId,
@@ -151,6 +158,11 @@ export interface ChangeMetadata {
       satisfied: boolean;
     };
   };
+  approvals: {
+    schema_version: 1;
+    design: ApprovalRecord;
+    plan: ApprovalRecord;
+  };
   modules: {
     candidates: Array<{
       module: BusinessModuleId;
@@ -175,7 +187,7 @@ export interface ChangeMetadata {
   };
   artifacts: {
     metadata: string;
-    proposal: string;
+    proposal?: string;
     design?: string;
     spec: string;
     tasks: string;
@@ -206,6 +218,13 @@ export interface ChangeMetadata {
     conflict: boolean;
     archived_at: string | null;
   };
+}
+
+export interface ApprovalRecord {
+  status: ApprovalStatus;
+  revision: number;
+  content_hash: string;
+  approved_at: string | null;
 }
 
 export interface ChangeIndexEntry {

@@ -10,6 +10,7 @@ import {
   validateEntryGate,
   validateExitGate,
 } from '../../../src/core/codespec-workflow/gates.js';
+import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
 import { validateRelations } from '../../../src/core/codespec-workflow/relations.js';
 import { recordFreshVerification } from '../../../src/core/codespec-workflow/verification.js';
 import {
@@ -42,7 +43,12 @@ describe('codespec workflow state machine', () => {
     afterEach(fixture.cleanup);
     const metadata = fixture.metadataAt('DESIGN');
     metadata.requirements.added.push({ id: 'MOD-001-REQ-001', module: 'MOD-001' });
-    expect(incrementRevision(metadata, 'requirements changed').change.revision).toBe(2);
+    metadata.approvals.design = {
+      status: 'approved', revision: 1, content_hash: 'a'.repeat(64), approved_at: '2026-09-01T00:00:00.000Z',
+    };
+    const revised = incrementRevision(metadata, 'requirements changed');
+    expect(revised.change.revision).toBe(2);
+    expect(revised.approvals.design).toMatchObject({ status: 'revoked', revision: 2, content_hash: '', approved_at: null });
   });
 
   it('blocks exiting ANALYZE without proposal summary, modules, and satisfied analyze gate', async () => {
@@ -342,8 +348,35 @@ describe('codespec workflow state machine', () => {
       m.loadChangeArtifacts(workspace.paths, fixture.changeId)
     );
 
+    const approvedArtifacts = { ...artifacts, metadata: approveStage(artifacts, 'design') };
     await expect(
-      transitionChange(workspace, artifacts, 'PLAN', 'design complete')
+      transitionChange(workspace, approvedArtifacts, 'PLAN', 'design complete')
     ).rejects.toThrow(/traceability|MOD-001-REQ-001|SCN-001/i);
+  });
+
+  it('rejects DESIGN to PLAN before evaluating other gates when design approval is missing', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, { metadata: { change: { status: 'DESIGN' } } });
+    const workspace = await loadWorkspace(fixture.codespecDir);
+    const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) =>
+      m.loadChangeArtifacts(workspace.paths, fixture.changeId)
+    );
+
+    await expect(transitionChange(workspace, artifacts, 'PLAN', 'design complete'))
+      .rejects.toThrow(/设计尚未获得用户确认/i);
+  });
+
+  it('rejects PLAN to IMPLEMENT before evaluating other gates when plan approval is missing', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, { metadata: { change: { status: 'PLAN' } } });
+    const workspace = await loadWorkspace(fixture.codespecDir);
+    const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) =>
+      m.loadChangeArtifacts(workspace.paths, fixture.changeId)
+    );
+
+    await expect(transitionChange(workspace, artifacts, 'IMPLEMENT', 'plan approved'))
+      .rejects.toThrow(/计划尚未获得用户确认/i);
   });
 });

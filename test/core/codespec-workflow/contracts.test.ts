@@ -326,6 +326,10 @@ describe('codespec workflow contracts', () => {
       gates: {
         verify: { required: true, satisfied: false },
       },
+      approvals: {
+        design: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
+        plan: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
+      },
       modules: {
         confirmed: [{ module: 'MOD-001', outcome: 'OWNED' }],
       },

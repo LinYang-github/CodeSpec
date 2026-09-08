@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type {
   ArchivePlan,
+  ApprovalRecord,
   BusinessModule,
   BusinessModuleId,
   ChangeId,
@@ -15,6 +16,7 @@ import type {
   RequirementId,
   WorkspaceConfig,
 } from './types.js';
+import { createPendingApprovals } from './approvals.js';
 
 const nonEmptyString = z.string().min(1);
 const isoDateTime = z.string().datetime({ offset: true });
@@ -107,11 +109,13 @@ const workspaceConfigSchema = z
     paths: z
       .object({
         business: nonEmptyString,
+        configuration: nonEmptyString.optional(),
         changes: nonEmptyString,
         change_index: nonEmptyString,
-        archive: nonEmptyString,
         specs: nonEmptyString,
-        archived_changes: nonEmptyString,
+        transactions: nonEmptyString.optional(),
+        archive: nonEmptyString.optional(),
+        archived_changes: nonEmptyString.optional(),
       })
       .strict(),
     workflow: z
@@ -170,6 +174,31 @@ const gateSchema = z
   })
   .strict();
 
+const approvalRecordSchema = z
+  .object({
+    status: z.enum(['pending', 'approved', 'revoked']),
+    revision: z.number().int().min(1),
+    content_hash: z.union([z.literal(''), z.string().regex(/^[a-f0-9]{64}$/)]),
+    approved_at: isoDateTime.nullable(),
+  })
+  .strict()
+  .superRefine((approval, context) => {
+    if (approval.status === 'approved' && (!approval.content_hash || approval.approved_at === null)) {
+      context.addIssue({ code: 'custom', message: 'approved approval records require content_hash and approved_at' });
+    }
+    if (approval.status !== 'approved' && (approval.content_hash || approval.approved_at !== null)) {
+      context.addIssue({ code: 'custom', message: 'pending or revoked approval records must not retain approval evidence' });
+    }
+  });
+
+const approvalsSchema = z
+  .object({
+    schema_version: z.literal(1),
+    design: approvalRecordSchema,
+    plan: approvalRecordSchema,
+  })
+  .strict();
+
 const moduleSelectionSchema = z
   .object({
     module: businessModuleIdSchema,
@@ -212,6 +241,8 @@ const changeMetadataSchema = z
     baseline: z
       .object({
         created_at: isoDateTime.nullable(),
+        commit: z.string().regex(/^[0-9a-f]{7,64}$/u).nullable().optional().default(null),
+        working_tree_fingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u).optional().default(`sha256:${'0'.repeat(64)}`),
         stale: z.boolean(),
         modules: z.record(businessModuleIdSchema, moduleBaselineSchema),
       })
@@ -234,6 +265,7 @@ const changeMetadataSchema = z
         archive: gateSchema,
       })
       .strict(),
+    approvals: approvalsSchema.optional(),
     modules: z
       .object({
         candidates: z.array(moduleSelectionSchema),
@@ -251,7 +283,7 @@ const changeMetadataSchema = z
     artifacts: z
       .object({
         metadata: relativePathString,
-        proposal: relativePathString,
+        proposal: relativePathString.optional(),
         design: relativePathString.optional(),
         spec: relativePathString,
         tasks: relativePathString,
@@ -298,7 +330,17 @@ const changeMetadataSchema = z
     if (metadata.change.sdd_level > 1 && !hasDesign) {
       context.addIssue({ code: 'custom', path: ['artifacts', 'design'], message: 'Level 2 and Level 3 require design.md' });
     }
-  });
+    for (const stage of ['design', 'plan'] as const) {
+      const approval = metadata.approvals?.[stage];
+      if (approval && approval.revision !== metadata.change.revision) {
+        context.addIssue({ code: 'custom', path: ['approvals', stage, 'revision'], message: 'approval revision must match change.revision' });
+      }
+    }
+  })
+  .transform((metadata): ChangeMetadata => ({
+    ...metadata,
+    approvals: metadata.approvals ?? createPendingApprovals(metadata.change.revision),
+  }));
 
 const changeIndexEntrySchema = z
   .object({

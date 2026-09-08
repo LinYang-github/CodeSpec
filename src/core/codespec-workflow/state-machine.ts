@@ -6,6 +6,7 @@ import type { WorkspaceContext } from './loaders.js';
 import type { ChangeMetadata, ChangeStatus } from './types.js';
 import { validateEntryGate } from './gates.js';
 import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
+import { assertTransitionApproval, revokeApprovals } from './approvals.js';
 
 const EDGES: Record<ChangeStatus, readonly ChangeStatus[]> = {
   ANALYZE: ['DESIGN', 'ABANDONED'], DESIGN: ['PLAN', 'ANALYZE', 'ABANDONED'], PLAN: ['IMPLEMENT', 'DESIGN', 'ABANDONED'],
@@ -22,6 +23,7 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
   if (!reason.trim()) throw new Error('必须提供状态转换原因。');
   if (from === 'VERIFY' && target === 'IMPLEMENT' && isDesignReason(reason)) throw new Error('VERIFY -> IMPLEMENT 仅适用于实现失败；Spec 或设计问题应转换到 DESIGN。');
   if (metadata.baseline.stale && target !== 'DESIGN' && target !== 'ABANDONED') throw new Error(`Change ${metadata.change.id} 已过期；请先 rebase 到 DESIGN。`);
+  assertTransitionApproval(artifacts, target);
   const gate = await validateEntryGate(workspace, artifacts, target);
   if (!gate.ok) throw new Error(`生命周期转换 ${from} -> ${target} 被阻塞：${gate.errors.join('；')}`);
   const next: ChangeMetadata = {
@@ -69,5 +71,6 @@ export function incrementRevision(metadata: ChangeMetadata, reason: string): Cha
   const semanticChange = /requirements?\s+(?:added|modified|removed|changed)|scope\s+changed/i.test(reason) && Object.values(metadata.requirements).some((items) => items.length > 0);
   const verifyToDesign = /^VERIFY\s*(?:->|to)\s*DESIGN(?:\s|$)/i.test(reason) && metadata.change.status === 'VERIFY';
   if (!semanticChange && !verifyToDesign) throw new Error('修订号递增需要已批准的 Requirement/Scope 语义变更，或 VERIFY -> DESIGN 转换。');
-  return { ...metadata, change: { ...metadata.change, revision: metadata.change.revision + 1, updated_at: new Date().toISOString() } };
+  const next = { ...metadata, change: { ...metadata.change, revision: metadata.change.revision + 1, updated_at: new Date().toISOString() } };
+  return revokeApprovals(next);
 }

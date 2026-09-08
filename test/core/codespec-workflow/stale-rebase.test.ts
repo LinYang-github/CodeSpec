@@ -38,6 +38,8 @@ describe('stale changes and rebase', () => {
     const updated = parseYaml(await fs.readFile(path.join(dir, 'metadata.yaml'), 'utf8'));
     expect(updated.gates.analyze.satisfied).toBe(true);
     for (const key of ['design', 'plan', 'implement', 'verify', 'archive']) expect(updated.gates[key].satisfied).toBe(false);
+    expect(updated.approvals.design).toMatchObject({ status: 'revoked', revision: 2, content_hash: '', approved_at: null });
+    expect(updated.approvals.plan).toMatchObject({ status: 'revoked', revision: 2, content_hash: '', approved_at: null });
   });
 
   it('marks only a Requirement-overlapping Change stale after archive', async () => {

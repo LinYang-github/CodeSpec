@@ -7,6 +7,9 @@ import { loadChangeArtifacts, type WorkspaceContext } from './loaders.js';
 import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
 import { resolveChange, type ChangeSelector } from './change-resolver.js';
 import type { ChangeId, ChangeMetadata, ChangeMode, ChangeStatus, SddLevel } from './types.js';
+import { createPendingApprovals } from './approvals.js';
+import { getCurrentChangeArtifactPaths, renderInitialCurrentTasks, renderInitialCurrentVerification } from './current-change-layout.js';
+import { captureRepositoryBaseline } from './baseline.js';
 
 export interface CreateCanonicalChangeInput {
   title: string;
@@ -70,13 +73,15 @@ function buildArtifactPath(codespecDir: string, targetPath: string): string {
   return path.relative(codespecDir, targetPath);
 }
 
-function buildMetadata(
+async function buildMetadata(
   workspace: WorkspaceContext,
   changeId: ChangeId,
   input: CreateCanonicalChangeInput,
   timestamp: string
-): ChangeMetadata {
+): Promise<ChangeMetadata> {
   const changeDir = path.join(workspace.paths.changes, changeId);
+  const artifacts = getCurrentChangeArtifactPaths(changeDir);
+  const repositoryBaseline = await captureRepositoryBaseline(path.dirname(workspace.codespecDir));
 
   return {
     schema_version: 1,
@@ -98,6 +103,7 @@ function buildMetadata(
     },
     baseline: {
       created_at: timestamp,
+      ...repositoryBaseline,
       stale: false,
       modules: {},
     },
@@ -115,6 +121,7 @@ function buildMetadata(
       verify: { required: true, satisfied: false },
       archive: { required: true, satisfied: false },
     },
+    approvals: createPendingApprovals(1),
     modules: {
       candidates: [],
       confirmed: [],
@@ -126,14 +133,11 @@ function buildMetadata(
       removed: [],
     },
     artifacts: {
-      metadata: buildArtifactPath(workspace.codespecDir, path.join(changeDir, 'metadata.yaml')),
-      proposal: buildArtifactPath(workspace.codespecDir, path.join(changeDir, 'proposal.md')),
-      ...(input.sddLevel === 1
-        ? {}
-        : { design: buildArtifactPath(workspace.codespecDir, path.join(changeDir, 'design.md')) }),
-      spec: buildArtifactPath(workspace.codespecDir, path.join(changeDir, 'spec.md')),
-      tasks: buildArtifactPath(workspace.codespecDir, path.join(changeDir, 'tasks.md')),
-      verification: buildArtifactPath(workspace.codespecDir, path.join(changeDir, 'verification.md')),
+      metadata: buildArtifactPath(workspace.codespecDir, artifacts.metadata),
+      design: buildArtifactPath(workspace.codespecDir, artifacts.design),
+      spec: buildArtifactPath(workspace.codespecDir, artifacts.spec),
+      tasks: buildArtifactPath(workspace.codespecDir, artifacts.tasks),
+      verification: buildArtifactPath(workspace.codespecDir, artifacts.verification),
     },
     tasks: {
       total: 0,
@@ -218,7 +222,7 @@ export async function createCanonicalChange(
   const changeDir = path.join(workspace.paths.changes, changeId);
   const stagingDir = path.join(workspace.paths.changes, `.${changeId}.tmp`);
   const timestamp = new Date().toISOString();
-  const metadata = buildMetadata(workspace, changeId, input, timestamp);
+  const metadata = await buildMetadata(workspace, changeId, input, timestamp);
   const tempIndexPath = path.join(
     path.dirname(workspace.paths.changeIndex),
     `.index-${changeId}.tmp`
@@ -248,15 +252,10 @@ ${metadata.change.sdd_level === 3
     await fs.mkdir(stagingDir, { recursive: false });
     await Promise.all([
       fs.writeFile(path.join(stagingDir, 'metadata.yaml'), stringifyYaml(metadata)),
-      fs.writeFile(path.join(stagingDir, 'proposal.md'), '# Proposal\n'),
-      ...(metadata.change.sdd_level === 1
-        ? []
-        : [fs.writeFile(path.join(stagingDir, 'design.md'), design)]),
-      fs.writeFile(path.join(stagingDir, 'spec.md'), metadata.change.sdd_level === 1
-        ? levelOneSpec
-        : '# Spec\n'),
-      fs.writeFile(path.join(stagingDir, 'tasks.md'), '# Tasks\n'),
-      fs.writeFile(path.join(stagingDir, 'verification.md'), '# Verification\n'),
+      fs.writeFile(path.join(stagingDir, 'design.md'), design),
+      fs.writeFile(path.join(stagingDir, 'spec.md'), metadata.change.sdd_level === 1 ? levelOneSpec : '# Spec\n'),
+      fs.writeFile(path.join(stagingDir, 'tasks.yaml'), renderInitialCurrentTasks()),
+      fs.writeFile(path.join(stagingDir, 'verification.yaml'), renderInitialCurrentVerification()),
     ]);
 
     await changeManagerTestHooks?.beforePublishRename?.(stagingDir, changeDir);

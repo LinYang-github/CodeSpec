@@ -7,6 +7,8 @@ import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from './archive-impact.js';
 import { parseVerificationDocument, validateVerificationEvidence } from './verification.js';
 import { evaluateMinimumSddLevel } from './sdd-level.js';
+import { parseCurrentTasks } from './current-change-yaml.js';
+import { parse as parseYaml } from 'yaml';
 
 export interface GateResult { ok: boolean; errors: string[]; warnings: string[] }
 const result = (errors: string[]): GateResult => ({ ok: errors.length === 0, errors, warnings: [] });
@@ -58,9 +60,10 @@ function validateSddLevel(artifacts: ChangeArtifacts): string[] {
 
 async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtifacts, state: ChangeStatus): Promise<GateResult> {
   const m = artifacts.metadata; const errors: string[] = [];
+  const isCurrentChange = !m.artifacts?.proposal;
   errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
-    if (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal)) errors.push('proposal 必须包含 summary、goals 和 scope 部分');
+    if (!isCurrentChange && (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal))) errors.push('proposal 必须包含 summary、goals 和 scope 部分');
     if (!m.impact.summary.trim()) errors.push('必须填写 proposal summary');
     if (m.modules.candidates.length === 0) errors.push('必须提供模块候选项');
     if (m.gates.analyze.required && !m.gates.analyze.satisfied) errors.push('ANALYZE 门禁尚未满足');
@@ -80,10 +83,21 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
     if (requirementIds.some((id) => !artifacts.design.includes(id))) errors.push('DESIGN 中的 Requirement 一致性尚未满足');
   }
   if (state === 'PLAN') {
-    if (m.tasks.total === 0 || Object.keys(m.tasks.items).length === 0) errors.push('必须提供具体的任务图');
+    let currentTasks;
+    if (isCurrentChange) {
+      try { currentTasks = parseCurrentTasks(parseYaml(artifacts.tasks)); }
+      catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
+    }
+    if (isCurrentChange
+      ? !currentTasks || currentTasks.tasks.length === 0
+      : m.tasks.total === 0 || Object.keys(m.tasks.items).length === 0) errors.push('必须提供具体的任务图');
     if (m.gates.plan.required && !m.gates.plan.satisfied) errors.push('PLAN 门禁尚未满足');
-    if (Object.values(m.tasks.items).some((item) => !item.title?.trim() || item.status === 'BLOCKED')) errors.push('任务图包含无效或被阻塞的任务');
-    try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
+    if (isCurrentChange
+      ? currentTasks?.tasks.some((task) => !task.title.trim())
+      : Object.values(m.tasks.items).some((item) => !item.title?.trim() || item.status === 'BLOCKED')) errors.push('任务图包含无效或被阻塞的任务');
+    if (!isCurrentChange) {
+      try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
+    }
   }
   if (state === 'IMPLEMENT') {
     if (m.tasks.total === 0 || m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((item) => item.status !== 'DONE')) errors.push('全部任务必须为 DONE');

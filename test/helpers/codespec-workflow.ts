@@ -131,6 +131,12 @@ function buildMetadata(
       archive: { required: true, satisfied: false },
       ...overrides?.gates,
     },
+    approvals: {
+      schema_version: 1,
+      design: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
+      plan: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
+      ...overrides?.approvals,
+    },
     modules: {
       candidates: [],
       confirmed: [],
