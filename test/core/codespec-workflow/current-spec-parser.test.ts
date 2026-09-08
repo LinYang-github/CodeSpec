@@ -70,4 +70,19 @@ describe('canonical current specification parser', () => {
     expect(parsed.requirements[0].scenarios).toHaveLength(1);
     expect(validateCurrentSpec(content)).toEqual([]);
   });
+
+  it('delegates v1 readable specifications to the AST validator', () => {
+    const v1 = `# 用户管理
+
+- **模块编号：** MOD-002
+- **规格版本：** 1
+
+### 当前模块工程文件
+
+| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |
+| --- | --- | --- |
+| \`src/user.ts\` | 用户模块 | \`MOD-002-REQ-404\` |
+`;
+    expect(validateCurrentSpec(v1, 'MOD-002')).toContain('工程文件 src/user.ts 引用了不存在的 ID：MOD-002-REQ-404');
+  });
 });

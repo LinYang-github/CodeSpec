@@ -20,6 +20,7 @@ import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
 import { loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
 import { validateExitGate } from '../core/codespec-workflow/gates.js';
 import { validateCurrentSpec } from '../core/codespec-workflow/current-spec-parser.js';
+import { parseCurrentSpecification, validateCurrentSpecification } from '../core/codespec-workflow/current-spec-model.js';
 import { discoverSpecFiles, type DiscoveredSpec } from '../utils/spec-discovery.js';
 
 type ItemType = 'change' | 'spec';
@@ -119,7 +120,10 @@ export class ValidateCommand {
   private async validateCanonicalSpecFile(file: string): Promise<{ valid: boolean; issues: { level: 'ERROR'; path: string; message: string }[] }> {
     let messages: string[];
     try {
-      messages = validateCurrentSpec(await fs.readFile(file, 'utf8'));
+      const content = await fs.readFile(file, 'utf8');
+      messages = content.includes('**规格版本：**')
+        ? validateCurrentSpecification(parseCurrentSpecification(content))
+        : validateCurrentSpec(content);
     } catch (error) {
       messages = [error instanceof Error ? error.message : String(error)];
     }

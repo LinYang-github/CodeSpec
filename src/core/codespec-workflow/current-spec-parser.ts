@@ -1,6 +1,7 @@
 import { buildCodeFenceMask } from '../parsers/requirement-text.js';
 import type { RequirementId, Scenario } from './types.js';
 import { collectEmptyScenarioErrorIssues, parseCanonicalScenario } from './scenario-parser.js';
+import { parseCurrentSpecification, validateCurrentSpecification } from './current-spec-model.js';
 
 export interface CurrentSpecificationRequirement {
   id: RequirementId;
@@ -65,6 +66,14 @@ export function parseCurrentSpec(content: string): ParsedCurrentSpec {
 
 export function validateCurrentSpec(content: string, moduleId?: string): string[] {
   try {
+    if (content.includes('**规格版本：**')) {
+      const specification = parseCurrentSpecification(content);
+      const issues = validateCurrentSpecification(specification);
+      if (moduleId && specification.module !== moduleId) {
+        issues.push(`模块编号 ${specification.module} 不匹配目录模块 ${moduleId}`);
+      }
+      return issues;
+    }
     const parsed = parseCurrentSpec(content);
     const issues: string[] = [];
     for (const requirement of parsed.requirements) {
