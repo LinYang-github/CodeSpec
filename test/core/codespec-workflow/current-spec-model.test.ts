@@ -24,6 +24,10 @@ describe('current specification Markdown model', () => {
 - **类型：** UI E2E
 - **自动化测试：** \`e2e/user-management/add-user.spec.ts\`
 - **测试标识：** \`TC-UI-01\`
+- **工程定位：** \`/users\`；\`src/pages/UserManagementPage.tsx\`
+- **执行命令：** \`pnpm playwright test e2e/user-management/add-user.spec.ts\`
+- **验证环境：** test；服务 user-service；浏览器 chromium
+- **验证摘要：** 新用户出现在用户列表中
 - **最近验证：** PASS
 
 | 步骤 | 用户操作 | 预期结果 |
@@ -51,6 +55,10 @@ describe('current specification Markdown model', () => {
           type: 'UI E2E',
           automationTest: 'e2e/user-management/add-user.spec.ts',
           testId: 'TC-UI-01',
+          engineeringLocations: ['/users', 'src/pages/UserManagementPage.tsx'],
+          executionCommand: 'pnpm playwright test e2e/user-management/add-user.spec.ts',
+          verificationEnvironment: 'test；服务 user-service；浏览器 chromium',
+          verificationSummary: '新用户出现在用户列表中',
           steps: [{
             number: '1',
             action: '进入“用户管理”界面',
@@ -189,5 +197,43 @@ describe('current specification Markdown model', () => {
 | --- | --- | --- |
 | \`src/user.ts\` | 用户模块 |
 `)).toThrow(/工程文件关联.*inline code/i);
+  });
+
+  it('parses active-change engineering file metadata and renders it back', () => {
+    const source = `# 用户管理
+
+- **模块编号：** MOD-002
+- **规格版本：** 1
+
+### 当前模块工程文件
+
+| 文件 | 模块编号 | 变更 | 作用 | 关联需求 / 场景 / 测试用例 |
+| --- | --- | --- | --- | --- |
+| \`src/user.ts\` | MOD-002 | 修改 | 用户服务 | \`MOD-002-REQ-001\` |
+| \`src/old-user.ts\` | MOD-002 | 删除 | 旧实现 | \`MOD-002-REQ-001\` |
+`;
+    const parsed = parseCurrentSpecification(source);
+    expect(parsed.engineeringFiles).toEqual([
+      { path: 'src/user.ts', module: 'MOD-002', change: '修改', role: '用户服务', references: ['MOD-002-REQ-001'] },
+      { path: 'src/old-user.ts', module: 'MOD-002', change: '删除', role: '旧实现', references: ['MOD-002-REQ-001'] },
+    ]);
+    const rendered = renderCurrentSpecification(parsed);
+    expect(rendered).toContain('| 文件 | 模块编号 | 变更 | 作用 | 关联需求 / 场景 / 测试用例 |');
+    expect(parseCurrentSpecification(rendered).engineeringFiles).toEqual(parsed.engineeringFiles);
+  });
+
+  it('rejects unsafe engineering file paths', () => {
+    const parsed = parseCurrentSpecification(`# 用户管理
+
+- **模块编号：** MOD-002
+- **规格版本：** 1
+
+### 当前模块工程文件
+
+| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |
+| --- | --- | --- |
+| \`../outside.ts\` | 越界文件 | \`MOD-002-REQ-001\` |
+`);
+    expect(validateCurrentSpecification(parsed)).toContain('工程文件路径必须是仓库内相对路径：../outside.ts');
   });
 });

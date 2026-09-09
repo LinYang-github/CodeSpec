@@ -5,10 +5,29 @@ import {
   parseConfiguration,
   parseModuleApi,
   parseModuleInterface,
+  parseRuntimeConfiguration,
+  type Relation,
 } from "../../../src/core/codespec-workflow/current-spec-yaml.js";
 import { getCurrentModuleArtifactPaths } from "../../../src/core/codespec-workflow/current-spec-paths.js";
 
 describe("current specification YAML contracts", () => {
+  it("exposes the plan contract aliases for relations and runtime configuration", () => {
+    const relation: Relation = {
+      id: "REL-CHG-20260907-001-01",
+      kind: "http",
+      fromModule: "MOD-001",
+      toModule: "MOD-002",
+      path: "/api/users",
+      method: "POST",
+      input: "request",
+      output: "response",
+      errors: "invalid request",
+      requirements: ["MOD-002-REQ-001"],
+      scenarios: ["MOD-002-REQ-001-SCN-001"],
+    };
+    expect(parseModuleInterface({ version: 1, module: "MOD-001", relations: [relation] }).relations[0]).toEqual(relation);
+    expect(parseRuntimeConfiguration({ version: 1, profiles: [] })).toEqual(parseConfiguration({ version: 1, profiles: [] }));
+  });
   it("uses the three canonical artifact paths for a current module", () => {
     expect(getCurrentModuleArtifactPaths("/workspace/codespec/specs", "MOD-002")).toEqual({
       directory: "/workspace/codespec/specs/MOD-002",
@@ -168,5 +187,46 @@ describe("current specification YAML contracts", () => {
         }],
       }],
     })).toThrow(/exactly one/i);
+  });
+
+  it("rejects duplicate relation IDs and unknown relation properties", () => {
+    const relation = {
+      id: "REL-CHG-20260907-001-03",
+      kind: "http" as const,
+      fromModule: "MOD-001",
+      toModule: "MOD-002",
+      path: "/api/users",
+      method: "POST",
+      input: "用户管理请求",
+      output: "用户资料",
+      errors: "参数不合法时不创建用户",
+      requirements: ["MOD-002-REQ-001"],
+      scenarios: ["MOD-002-REQ-001-SCN-001"],
+    };
+    expect(() => parseModuleInterface({ version: 1, module: "MOD-002", relations: [relation, relation] }))
+      .toThrow(/duplicate relation ID/i);
+    expect(() => parseModuleInterface({
+      version: 1,
+      module: "MOD-002",
+      relations: [{ ...relation, unexpected: true }],
+    })).toThrow(/unrecognized key/i);
+  });
+
+  it("rejects unsafe configuration paths and duplicate profile/service keys", () => {
+    const service = {
+      id: "user-service",
+      hostAlias: "user-service-test",
+      endpointFingerprint: "sha256:61d2bd9a5a6406a66ccde3f39720a75e58ed3dc339b9f3f81bca9f53bc9558ec",
+      routeBindings: [{ module: "MOD-002", path: "/api/users" }],
+      source: { kind: "repo-file" as const, file: ".env.test", format: "dotenv" as const, key: "USER_SERVICE_BASE_URL" },
+    };
+    expect(() => parseConfiguration({
+      version: 1,
+      profiles: [{ id: "test", services: [service, service] }],
+    })).toThrow(/unique/i);
+    expect(() => parseConfiguration({
+      version: 1,
+      profiles: [{ id: "test", services: [{ ...service, source: { ...service.source, file: "../.env" } }] }],
+    })).toThrow(/repository-relative/i);
   });
 });

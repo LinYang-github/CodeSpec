@@ -5,6 +5,7 @@ import { DEFAULT_CODESPEC_SCHEMA } from '../../src/core/index.js';
 import {
   renderBusinessTemplate,
   renderCanonicalWorkspaceConfig,
+  renderConfigurationTemplate,
   renderEmptyChangeIndex,
 } from '../../src/core/codespec-workflow/default-config.js';
 
@@ -17,9 +18,25 @@ export function createHealthyCodeSpecRoot(root: string, configName = 'config.yam
 
   if (DEFAULT_CODESPEC_SCHEMA === 'code-spec') {
     fs.mkdirSync(path.join(codespecRoot, 'changes'), { recursive: true });
+    fs.mkdirSync(path.join(codespecRoot, '.transactions'), { recursive: true });
     fs.mkdirSync(path.join(codespecRoot, 'archive', 'specs'), { recursive: true });
     fs.mkdirSync(path.join(codespecRoot, 'archive', 'changes'), { recursive: true });
     fs.writeFileSync(path.join(codespecRoot, configName), renderCanonicalWorkspaceConfig('store-fixture'));
+    fs.writeFileSync(path.join(codespecRoot, 'business.yaml'), [
+      'version: 1',
+      'modules:',
+      '  - id: MOD-001',
+      '    name: Store 测试模块',
+      '    status: ACTIVE',
+      '    inputs: []',
+      '    outputs: []',
+      '    relatedModules: []',
+      '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(codespecRoot, 'configuration.yaml'), renderConfigurationTemplate());
+    // Keep the legacy Markdown registry in fixtures that specifically test
+    // preservation of old workspace files; the canonical config points at
+    // business.yaml above.
     fs.writeFileSync(
       path.join(codespecRoot, 'business.md'),
       `${renderBusinessTemplate()}| MOD-001 | Store 测试模块 | 测试 Store 工作流 | Store 测试 | Store；测试 |\n`

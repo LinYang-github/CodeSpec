@@ -564,7 +564,9 @@ describe('artifact-workflow CLI commands', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('## Analyze：CHG-20260901-001');
       expect(result.stdout).toContain('当前状态：ANALYZE');
-      expect(result.stdout).toContain('proposal.md');
+      expect(result.stdout).toContain('design.md');
+      expect(result.stdout).toContain('tasks.md');
+      expect(result.stdout).not.toContain('proposal.md');
       expect(result.stdout).not.toContain('<artifact id="analyze"');
     });
 
@@ -661,10 +663,12 @@ describe('artifact-workflow CLI commands', () => {
       const result = await runCLI(['templates'], { cwd: tempDir });
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Schema：code-spec');
-      expect(result.stdout).toContain('proposal:');
+      expect(result.stdout).toContain('metadata:');
       expect(result.stdout).toContain('design:');
       expect(result.stdout).toContain('spec:');
       expect(result.stdout).toContain('tasks:');
+      expect(result.stdout).toContain('tasks.yaml');
+      expect(result.stdout).toContain('verification.yaml');
     });
 
     it('shows template paths for specified schema', async () => {
@@ -681,9 +685,11 @@ describe('artifact-workflow CLI commands', () => {
       expect(result.stderr).toBe('');
 
       const json = JSON.parse(result.stdout);
-      expect(json.proposal).toBeDefined();
-      expect(json.proposal.path).toContain('proposal.md');
-      expect(json.proposal.source).toBe('package');
+      expect(json.metadata).toBeDefined();
+      expect(json.metadata.path).toContain('metadata.yaml');
+      expect(json.metadata.source).toBe('package');
+      expect(json.tasks.path).toContain('tasks.yaml');
+      expect(json.verification.path).toContain('verification.yaml');
     });
 
     it('errors for unknown schema', async () => {
@@ -725,6 +731,23 @@ describe('artifact-workflow CLI commands', () => {
       await expect(fs.stat(path.join(changeDir, '.codespec.yaml'))).rejects.toMatchObject({
         code: 'ENOENT',
       });
+    });
+
+    it('keeps canonical Changes to the five-file contract when a description is supplied', async () => {
+      await createCanonicalCodeSpecWorkspace();
+
+      const result = await runCLI(
+        ['new', 'change', 'described-canonical-feature', '--description', 'Canonical context'],
+        { cwd: tempDir }
+      );
+      expect(result.exitCode).toBe(0);
+      const output = getOutput(result);
+      const createdId = output.match(/已创建 Change：((CHG-\d{8}-\d{3}))/)?.[1];
+      expect(createdId).toMatch(/^CHG-\d{8}-\d{3}$/);
+      await expect(fs.readdir(path.join(changesDir, createdId!))).resolves.toEqual(expect.arrayContaining([
+        'metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml',
+      ]));
+      await expect(fs.stat(path.join(changesDir, createdId!, 'README.md'))).rejects.toMatchObject({ code: 'ENOENT' });
     });
 
     it('supports deprecated change new as an alias for canonical Change creation', async () => {

@@ -13,6 +13,20 @@ describe('codespec-workflow integration', () => {
     expect(content).not.toContain('docs/superpowers/specs/');
   });
 
+  it('describes the five-file active Change layout and keeps PLAN compatibility-only', () => {
+    const content = getCodeSpecWorkflowSkillTemplate().instructions;
+    expect(content).toContain('metadata.yaml');
+    expect(content).toContain('design.md');
+    expect(content).toContain('spec.md');
+    expect(content).toContain('tasks.yaml');
+    expect(content).toContain('verification.yaml');
+    expect(content).toContain('PLAN');
+    expect(content).toContain('兼容');
+    expect(content).not.toContain('proposal.md');
+    expect(content).not.toContain('tasks.md');
+    expect(content).not.toContain('verification.md');
+  });
+
   it('keeps development orchestration in the single workflow entry', () => {
     const content = getCodeSpecWorkflowSkillTemplate().instructions;
     expect(content).toContain('createChange()');
@@ -22,6 +36,19 @@ describe('codespec-workflow integration', () => {
     expect(content).toContain('Current Specification');
     expect(content).toContain('codespec-rebase-change');
     expect(content).toContain('codespec-archive-change');
+  });
+
+  it('requires a separate user confirmation after design and plan before continuing', () => {
+    const skill = getCodeSpecWorkflowSkillTemplate().instructions;
+    expect(skill).toContain('DESIGN 完成后必须停止');
+    expect(skill).toContain('PLAN 完成后必须停止');
+    expect(skill).toContain('独立的新用户消息');
+    expect(skill).toContain('codespec approve --change "<CHG-ID>" --stage design');
+    expect(skill).toContain('codespec approve --change "<CHG-ID>" --stage plan');
+
+    const command = getCommandContents().find((entry) => entry.id === 'workflow')!;
+    expect(command.body).toContain('DESIGN 完成后必须停止');
+    expect(command.body).toContain('PLAN 完成后必须停止');
   });
 
   it('injects concrete canonical context resolution into every lifecycle surface', () => {

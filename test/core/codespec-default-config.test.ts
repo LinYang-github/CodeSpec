@@ -2,12 +2,31 @@ import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
 import {
+  renderBusinessRegistryTemplate,
   renderBusinessTemplate,
   renderCanonicalWorkspaceConfig,
+  renderConfigurationTemplate,
 } from '../../src/core/codespec-workflow/default-config.js';
 import { parseWorkspaceConfig } from '../../src/core/codespec-workflow/schemas.js';
 
 describe('canonical workspace configuration', () => {
+  it('renders the current-spec workspace paths and root YAML templates', () => {
+    const config = parseWorkspaceConfig(
+      parseYaml(renderCanonicalWorkspaceConfig('demo'))
+    );
+
+    expect(config.paths).toMatchObject({
+      business: 'business.yaml',
+      configuration: 'configuration.yaml',
+      changes: 'changes',
+      change_index: 'changes/index.yaml',
+      specs: 'specs',
+      transactions: '.transactions',
+    });
+    expect(renderBusinessRegistryTemplate()).toBe('version: 1\nmodules: []\n');
+    expect(renderConfigurationTemplate()).toBe('version: 1\nprofiles: []\n');
+  });
+
   it('renders a complete canonical code-spec config', () => {
     const config = parseWorkspaceConfig(
       parseYaml(renderCanonicalWorkspaceConfig('demo'))
@@ -16,12 +35,12 @@ describe('canonical workspace configuration', () => {
     expect(config.schema).toBe('code-spec');
     expect(config.project.name).toBe('demo');
     expect(config.paths).toEqual({
-      business: 'business.md',
+      business: 'business.yaml',
+      configuration: 'configuration.yaml',
       changes: 'changes',
       change_index: 'changes/index.yaml',
-      archive: 'archive',
       specs: 'specs',
-      archived_changes: 'archive/changes',
+      transactions: '.transactions',
     });
   });
 

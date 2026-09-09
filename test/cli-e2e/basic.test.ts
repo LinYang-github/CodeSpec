@@ -98,7 +98,7 @@ describe('codespec CLI e2e basics', () => {
 
   it('keeps instructions --json free of spinner output', async () => {
     const projectDir = await prepareFixture('tmp-init');
-    const result = await runCLI(['instructions', 'proposal', '--change', 'c1', '--json'], {
+    const result = await runCLI(['instructions', 'design', '--change', 'c1', '--schema', 'spec-driven', '--json'], {
       cwd: projectDir,
     });
     expectJsonOnlyOutput(result);
@@ -145,10 +145,20 @@ describe('codespec CLI e2e basics', () => {
       expect(config).toContain('所有产物必须使用 French 编写。');
       expect(config).toContain('保留 CodeSpec 结构标题以及 SHALL/MUST 关键词为英文。');
 
-      await fs.appendFile(
-        path.join(emptyProjectDir, 'codespec', 'business.md'),
-        '\n| MOD-001 | 语言设置 | 管理产物语言 | 配置语言 | 用户 |\n',
-        'utf-8'
+      await fs.writeFile(
+        path.join(emptyProjectDir, 'codespec', 'business.yaml'),
+        [
+          'version: 1',
+          'modules:',
+          '  - id: MOD-001',
+          '    name: 语言设置',
+          '    status: ACTIVE',
+          '    inputs: []',
+          '    outputs: []',
+          '    relatedModules: []',
+          '',
+        ].join('\n'),
+        'utf-8',
       );
 
       const created = await runCLI(['new', 'change', 'language-check', '--json'], {

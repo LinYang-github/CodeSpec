@@ -203,10 +203,21 @@ function buildMetadata(
 
 export async function createWorkflowFixture(options?: {
   configOverrides?: Partial<WorkspaceConfig>;
+  /** Create the consolidated v1 projection instead of the legacy markdown fixture. */
+  v1?: boolean;
 }): Promise<WorkflowFixture> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-workflow-'));
   const codespecDir = path.join(tempDir, 'codespec');
-  const config = mergeWorkspaceConfig(DEFAULT_CONFIG, options?.configOverrides);
+  const config = mergeWorkspaceConfig(DEFAULT_CONFIG, {
+    ...(options?.v1 ? {
+      paths: {
+        business: 'business.yaml',
+        configuration: 'configuration.yaml',
+        transactions: 'transactions',
+      },
+    } : {}),
+    ...options?.configOverrides,
+  });
   const paths = getWorkspacePaths(codespecDir, config);
 
   await fs.mkdir(paths.changes, { recursive: true });
@@ -215,7 +226,25 @@ export async function createWorkflowFixture(options?: {
   await fs.mkdir(paths.archivedChanges, { recursive: true });
   await fs.mkdir(path.dirname(paths.business), { recursive: true });
   await fs.mkdir(path.dirname(paths.changeIndex), { recursive: true });
-  await fs.writeFile(paths.business, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Workflow | Workflow management | Manage changes | workflow |\n| MOD-002 | Payment | Payment management | Process payments | payment |\n');
+  if (options?.v1) {
+    await fs.writeFile(paths.business, stringifyYaml({
+      version: 1,
+      modules: [
+        { id: 'MOD-001', name: 'Workflow', status: 'ACTIVE', inputs: [], outputs: [], relatedModules: [] },
+        { id: 'MOD-002', name: 'Payment', status: 'ACTIVE', inputs: [], outputs: [], relatedModules: [] },
+      ],
+    }));
+    await fs.writeFile(paths.configuration, stringifyYaml({ version: 1, profiles: [] }));
+    for (const moduleId of ['MOD-001', 'MOD-002']) {
+      const moduleDir = path.join(paths.currentSpecs, moduleId);
+      await fs.mkdir(moduleDir, { recursive: true });
+      await fs.writeFile(path.join(moduleDir, 'spec.md'), `# ${moduleId}\n`);
+      await fs.writeFile(path.join(moduleDir, 'interface.yaml'), stringifyYaml({ version: 1, module: moduleId, relations: [] }));
+      await fs.writeFile(path.join(moduleDir, 'api.yaml'), stringifyYaml({ version: 1, module: moduleId, routes: [] }));
+    }
+  } else {
+    await fs.writeFile(paths.business, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Workflow | Workflow management | Manage changes | workflow |\n| MOD-002 | Payment | Payment management | Process payments | payment |\n');
+  }
   await fs.writeFile(paths.changeIndex, 'version: 1\nchanges: []\n');
   await fs.writeFile(path.join(codespecDir, 'config.yaml'), stringifyYaml(config));
 

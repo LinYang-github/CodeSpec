@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { createWorkflowFixture } from '../helpers/codespec-workflow.js';
+import { stringify as stringifyYaml } from 'yaml';
+import { createWorkflowFixture, writeChangeArtifacts } from '../helpers/codespec-workflow.js';
 import { createCanonicalChange } from '../../src/core/codespec-workflow/change-manager.js';
+import { archiveChange } from '../../src/core/codespec-workflow/archive-transaction.js';
+import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
 import { resolveChange } from '../../src/core/codespec-workflow/change-resolver.js';
 import { canTransition } from '../../src/core/codespec-workflow/state-machine.js';
 import { detectStaleChanges } from '../../src/core/codespec-workflow/stale.js';
+import { buildUiIndex } from '../../src/core/ui-content-index.js';
 import { runCLI } from '../helpers/run-cli.js';
 
 describe('canonical CodeSpec workflow journeys', () => {
@@ -17,7 +21,7 @@ describe('canonical CodeSpec workflow journeys', () => {
       });
       expect(created.changeId).toMatch(/^CHG-\d{8}-\d{3}$/);
       expect(await fs.readdir(created.changeDir)).toEqual(expect.arrayContaining([
-        'metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md', 'verification.md',
+        'metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml',
       ]));
       expect(canTransition('ANALYZE', 'DESIGN')).toBe(true);
       expect(canTransition('VERIFY', 'IMPLEMENT')).toBe(true);
@@ -73,6 +77,80 @@ describe('canonical CodeSpec workflow journeys', () => {
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toContain('archive_preflight_failed');
       await expect(fs.readdir(fixture.paths.archivedChanges)).resolves.toEqual([]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('exposes approve and rejects an incomplete design instead of recording approval', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      await writeChangeArtifacts(fixture, { metadata: { change: { status: 'DESIGN' } } });
+      const result = await runCLI(
+        ['approve', '--change', fixture.changeId, '--stage', 'design'],
+        { cwd: fixture.tempDir }
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(`${result.stdout}\n${result.stderr}`).toMatch(/无法确认设计|阶段门禁/i);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('routes a v1 current-spec archive through the confirmation gate without creating history', async () => {
+    const fixture = await createWorkflowFixture({ v1: true });
+    try {
+      const created = await createCanonicalChange(fixture.workspace, {
+        title: '当前规格归档', summary: '验证 v1 归档路由', mode: 'feature',
+      });
+      const result = await runCLI(
+        ['archive', created.changeId, '--json', '--yes'],
+        { cwd: fixture.tempDir }
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('archive_confirmation_required');
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.paths.archive, 'history.yaml'))).rejects.toThrow();
+
+      const metadata = {
+        ...created.metadata,
+        change: { ...created.metadata.change, status: 'ARCHIVE' as const },
+        gates: {
+          ...created.metadata.gates,
+          plan: { ...created.metadata.gates.plan, satisfied: true },
+          archive: { ...created.metadata.gates.archive, satisfied: true },
+        },
+        approvals: {
+          ...created.metadata.approvals,
+          design: { status: 'approved' as const, revision: 1, content_hash: 'd'.repeat(64), approved_at: '2026-09-07T10:29:00.000Z' },
+          plan: { status: 'approved' as const, revision: 1, content_hash: 'a'.repeat(64), approved_at: '2026-09-07T10:30:00.000Z' },
+        },
+        archive: { ...created.metadata.archive, ready: true },
+      };
+      await fs.writeFile(path.join(created.changeDir, 'metadata.yaml'), stringifyYaml(metadata));
+      await fs.writeFile(path.join(created.changeDir, 'spec.md'), '# Payment\n\n- **模块编号：** MOD-002\n- **规格版本：** 1\n');
+
+      await archiveChange(await loadWorkspace(fixture.codespecDir), created.changeId);
+      await expect(fs.access(created.changeDir)).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.paths.archive, 'history.yaml'))).rejects.toThrow();
+      await expect(fs.readFile(fixture.paths.business, 'utf8')).resolves.toContain('version: 1');
+      await expect(buildUiIndex(fixture.tempDir)).resolves.toMatchObject({ currentSpecGraph: expect.any(Object) });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('exposes an explicit legacy workspace migration command', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const result = await runCLI(['migrate', '--json'], { cwd: fixture.tempDir });
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ status: 'migrated' });
+      await expect(fs.readFile(path.join(fixture.codespecDir, 'business.yaml'), 'utf8')).resolves.toContain('version: 1');
+      await expect(fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md'), 'utf8')).resolves.toContain('规格版本：** legacy');
     } finally {
       fixture.cleanup();
     }

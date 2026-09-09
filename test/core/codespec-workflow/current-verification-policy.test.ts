@@ -1,11 +1,11 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { validateCurrentVerificationPlan } from '../../../src/core/codespec-workflow/current-verification-policy.js';
 import { parseCurrentTasks, parseCurrentVerification } from '../../../src/core/codespec-workflow/current-change-yaml.js';
-import { appendLatestVerificationSummary } from '../../../src/core/codespec-workflow/verification.js';
+import { appendLatestVerificationSummary, recordFreshVerification } from '../../../src/core/codespec-workflow/verification.js';
 import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/loaders.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
@@ -129,6 +129,51 @@ describe('current verification policy', () => {
 
       const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
       expect((await validateExitGate(fixture.workspace, artifacts)).errors).toEqual([]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('records a v1 verification plan as structured verification.yaml evidence', async () => {
+    const fixture = await createWorkflowFixture({ v1: true });
+    try {
+      const metadata = fixture.metadataAt('VERIFY');
+      metadata.artifacts = {
+        ...metadata.artifacts,
+        proposal: undefined,
+        tasks: `changes/${fixture.changeId}/tasks.yaml`,
+        verification: `changes/${fixture.changeId}/verification.yaml`,
+      };
+      const changeDir = path.join(fixture.paths.changes, fixture.changeId);
+      await fs.mkdir(changeDir, { recursive: true });
+      await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata));
+      await fs.writeFile(path.join(changeDir, 'design.md'), '# 设计\n');
+      await fs.writeFile(path.join(changeDir, 'spec.md'), '# 用户管理\n- **模块编号：** MOD-002\n- **规格版本：** 1\n');
+      await fs.writeFile(path.join(changeDir, 'tasks.yaml'), stringifyYaml({
+        version: 1,
+        tasks: [{
+          id: `${fixture.changeId}-TASK-001`, title: '执行测试', status: 'DONE', module: 'MOD-002',
+          requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'],
+          testCases: ['MOD-002-REQ-001-SCN-001-TC-API-01'], plannedFiles: ['test/users.spec.ts'],
+          verificationPlan: [{
+            testCase: 'MOD-002-REQ-001-SCN-001-TC-API-01', runner: 'node', command: 'node -e "process.exit(0)"',
+            profile: 'test', services: [], prepare: 'none', cleanup: 'none',
+          }],
+        }],
+        moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] },
+      }));
+      await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\ntestCases: []\n');
+      await fs.writeFile(fixture.paths.configuration, stringifyYaml({
+        version: 1,
+        profiles: [{ id: 'test', services: [] }],
+      }));
+
+      const evidence = await recordFreshVerification(fixture.workspace, fixture.changeId, [{
+        testCase: 'MOD-002-REQ-001-SCN-001-TC-API-01', command: 'node -e "process.exit(0)"', testFile: 'test/users.spec.ts', testId: 'TC-API-01',
+      }]);
+      expect(evidence.status).toBe('PASS');
+      expect(parseCurrentVerification(parseYaml(await fs.readFile(path.join(changeDir, 'verification.yaml'), 'utf8'))).testCases[0]?.testCase)
+        .toBe('MOD-002-REQ-001-SCN-001-TC-API-01');
     } finally {
       fixture.cleanup();
     }

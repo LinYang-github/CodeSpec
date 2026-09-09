@@ -99,7 +99,7 @@ describe('status --all', () => {
     expect(entry.schemaName).toBe('code-spec');
     expect(entry.isComplete).toBe(false);
     expect(Array.isArray(entry.artifacts)).toBe(true);
-    expect(entry.artifacts).toHaveLength(6);
+    expect(entry.artifacts).toHaveLength(5);
     expect(Array.isArray(entry.nextSteps)).toBe(true);
     expect(entry.actionContext).toBeDefined();
     expect(entry.artifactPaths).toBeDefined();
@@ -188,7 +188,7 @@ describe('status --all', () => {
 
     const good = json.changes.find((c: any) => c.changeName === 'good-change');
     expect(good.schemaName).toBe('code-spec');
-    expect(good.artifacts).toHaveLength(6);
+    expect(good.artifacts).toHaveLength(5);
   });
 
   it('prints one text block per change with --all', async () => {
@@ -199,8 +199,8 @@ describe('status --all', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Change：first-change');
     expect(result.stdout).toContain('Change：second-change');
-    expect(result.stdout).toContain('1/6 个产物已完成');
-    expect(result.stdout).toContain('2/6 个产物已完成');
+    expect(result.stdout).toContain('0/5 个产物已完成');
+    expect(result.stdout).toContain('1/5 个产物已完成');
   });
 
   it('exits 1 in text mode when a change fails to load, still printing the others', async () => {
@@ -215,7 +215,7 @@ describe('status --all', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain('✗ broken-change:');
     expect(result.stdout).toContain('Change：good-change');
-    expect(result.stdout).toContain('2/6 个产物已完成');
+    expect(result.stdout).toContain('1/5 个产物已完成');
   });
 
   describe('--schema interaction', () => {

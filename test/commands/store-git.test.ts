@@ -176,9 +176,11 @@ describe('store git lifecycle', () => {
     expect(committedFiles).toEqual([
       '.codespec-store/store.yaml',
       'codespec/business.md',
+      'codespec/business.yaml',
       'codespec/changes/archive/.gitkeep',
       'codespec/changes/index.yaml',
       'codespec/config.yaml',
+      'codespec/configuration.yaml',
       'codespec/specs/keep-me.md',
     ]);
 

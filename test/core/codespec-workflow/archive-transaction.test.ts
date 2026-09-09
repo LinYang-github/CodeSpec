@@ -10,6 +10,7 @@ import type { ChangeMetadata } from '../../../src/core/codespec-workflow/types.j
 import { parseCurrentSpec } from '../../../src/core/codespec-workflow/current-spec-parser.js';
 import type { ArchiveImpact } from '../../../src/core/codespec-workflow/archive-impact.js';
 import { runCLI } from '../../helpers/run-cli.js';
+import { createArchiveJournal } from '../../../src/core/codespec-workflow/transaction-journal.js';
 
 const ready = (fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, modules = ['MOD-002']): ChangeMetadata => {
   const metadata = fixture.metadataAt('ARCHIVE');
@@ -44,6 +45,29 @@ async function setup(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>,
 }
 
 describe('transactional CodeSpec archive', () => {
+  it('recovers a pending journal before direct archive execution', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const target = path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md');
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.writeFile(target, 'before\n');
+      await createArchiveJournal({
+        paths: fixture.paths,
+        transactionId: 'archive-CHG-20260901-999',
+        files: [{ target, before: 'before\n', after: 'after\n' }],
+      });
+      await fs.writeFile(target, 'after\n');
+      const metadata = ready(fixture); metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
+      await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** err\n');
+      await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
+      await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '# Current\n');
+
+      await archiveChange(fixture.workspace, fixture.changeId);
+
+      await expect(fs.readFile(target, 'utf8')).resolves.toBe('before\n');
+    } finally { fixture.cleanup(); }
+  });
+
   it('recovers a lock left by a dead archive process', async () => {
     const fixture = await createWorkflowFixture();
     try {

@@ -4,11 +4,20 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import {
   loadTemplate,
-  loadChangeContext,
+  loadChangeContext as loadCanonicalChangeContext,
   generateInstructions,
   formatChangeStatus,
   TemplateLoadError,
 } from '../../../src/core/artifact-graph/instruction-loader.js';
+
+function loadChangeContext(
+  tempDir: string,
+  changeName: string,
+  schemaName = 'spec-driven',
+  options: Parameters<typeof loadCanonicalChangeContext>[3] = {},
+) {
+  return loadCanonicalChangeContext(tempDir, changeName, schemaName, options);
+}
 
 describe('instruction-loader', () => {
   describe('loadTemplate', () => {
@@ -85,7 +94,7 @@ describe('instruction-loader', () => {
     });
 
     it('should load context with default schema', () => {
-      const context = loadChangeContext(tempDir, 'my-change');
+      const context = loadCanonicalChangeContext(tempDir, 'my-change');
 
       expect(context.schemaName).toBe('code-spec');
       expect(context.changeName).toBe('my-change');
@@ -124,7 +133,7 @@ describe('instruction-loader', () => {
       fs.writeFileSync(path.join(changeDir, '.codespec.yaml'), 'schema: spec-driven\ncreated: "2025-01-05"\n');
 
       // Load without explicit schema - should detect from metadata
-      const context = loadChangeContext(tempDir, 'my-change');
+      const context = loadCanonicalChangeContext(tempDir, 'my-change');
 
       expect(context.schemaName).toBe('spec-driven');
       expect(context.graph.getName()).toBe('spec-driven');
@@ -148,7 +157,7 @@ describe('instruction-loader', () => {
       const changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
       fs.mkdirSync(changeDir, { recursive: true });
 
-      const context = loadChangeContext(tempDir, 'my-change');
+      const context = loadCanonicalChangeContext(tempDir, 'my-change');
 
       expect(context.schemaName).toBe('code-spec');
     });
@@ -162,7 +171,7 @@ describe('instruction-loader', () => {
         'schema: spec-driven\nskip_specs: true\n'
       );
 
-      const context = loadChangeContext(tempDir, 'my-change');
+      const context = loadCanonicalChangeContext(tempDir, 'my-change');
 
       expect(context.completed.has('specs')).toBe(true);
       expect(context.skippedArtifacts?.has('specs')).toBe(true);
@@ -246,7 +255,7 @@ describe('instruction-loader', () => {
 
       expect(instructions.changeName).toBe('my-change');
       expect(instructions.artifactId).toBe('proposal');
-      expect(instructions.schemaName).toBe('code-spec');
+      expect(instructions.schemaName).toBe('spec-driven');
       expect(instructions.outputPath).toBe('proposal.md');
     });
 
@@ -254,27 +263,26 @@ describe('instruction-loader', () => {
       const context = loadChangeContext(tempDir, 'my-change');
       const instructions = generateInstructions(context, 'proposal');
 
-      expect(instructions.template).toContain('## 为什么');
+      expect(instructions.template).toContain('## Why');
     });
 
     it('should show dependencies with completion status', () => {
       const context = loadChangeContext(tempDir, 'my-change');
       const instructions = generateInstructions(context, 'proposal');
 
-      expect(instructions.dependencies).toHaveLength(1);
-      expect(instructions.dependencies[0].id).toBe('metadata');
-      expect(instructions.dependencies[0].done).toBe(false);
+      expect(instructions.dependencies).toHaveLength(0);
     });
 
     it('should mark completed dependencies as done', () => {
-      // Create metadata, the canonical prerequisite for proposal.
+      // The proposal is the root artifact in the legacy/spec-driven graph.
       const changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
       fs.mkdirSync(changeDir, { recursive: true });
-      fs.writeFileSync(path.join(changeDir, 'metadata.yaml'), 'change: {}');
+      fs.writeFileSync(path.join(changeDir, 'proposal.md'), '# Proposal');
 
       const context = loadChangeContext(tempDir, 'my-change');
-      const instructions = generateInstructions(context, 'proposal');
+      const instructions = generateInstructions(context, 'specs');
 
+      expect(instructions.dependencies[0].id).toBe('proposal');
       expect(instructions.dependencies[0].done).toBe(true);
     });
 
@@ -282,24 +290,22 @@ describe('instruction-loader', () => {
       const context = loadChangeContext(tempDir, 'my-change');
       const instructions = generateInstructions(context, 'proposal');
 
-      // proposal unlocks design and spec, in the schema's declared order.
-      expect(instructions.unlocks).toEqual(['design', 'spec']);
+      // proposal unlocks specs and design, in the schema's declared order.
+      expect(instructions.unlocks).toEqual(['specs', 'design']);
     });
 
     it('should have empty dependencies for root artifact', () => {
       const context = loadChangeContext(tempDir, 'my-change');
       const instructions = generateInstructions(context, 'proposal');
 
-      expect(instructions.dependencies).toEqual([
-        expect.objectContaining({ id: 'metadata', done: false }),
-      ]);
+      expect(instructions.dependencies).toEqual([]);
     });
 
     it('should throw for non-existent artifact', () => {
       const context = loadChangeContext(tempDir, 'my-change');
 
       expect(() => generateInstructions(context, 'nonexistent')).toThrow(
-        "Schema 'code-spec' 中未找到产物 'nonexistent'"
+        "Schema 'spec-driven' 中未找到产物 'nonexistent'"
       );
     });
 
@@ -333,7 +339,7 @@ context: |
 
         expect(instructions.context).toBeUndefined();
         expect(instructions.rules).toBeUndefined();
-        expect(instructions.template).toContain('## 为什么');
+        expect(instructions.template).toContain('## Why');
       });
 
       it('should preserve multi-line context', () => {
@@ -528,7 +534,7 @@ rules:
 
         expect(instructions.context).toBeUndefined();
         expect(instructions.rules).toBeUndefined();
-        expect(instructions.template).toContain('## 为什么');
+        expect(instructions.template).toContain('## Why');
       });
     });
 
@@ -642,29 +648,29 @@ rules:
       const status = formatChangeStatus(context);
 
       expect(status.changeName).toBe('my-change');
-      expect(status.schemaName).toBe('code-spec');
+      expect(status.schemaName).toBe('spec-driven');
       expect(status.isPlanningComplete).toBe(false);
       expect(status.isComplete).toBe(false);
 
-      // metadata has no dependencies, so it is ready.
-      const metadata = status.artifacts.find(a => a.id === 'metadata');
-      expect(metadata?.status).toBe('ready');
-
-      // proposal depends on metadata and is blocked before it exists.
+      // proposal has no dependencies, so it is ready.
       const proposal = status.artifacts.find(a => a.id === 'proposal');
-      expect(proposal?.status).toBe('blocked');
-      expect(proposal?.missingDeps).toContain('metadata');
+      expect(proposal?.status).toBe('ready');
 
-      // spec depends on proposal, and is blocked.
-      const spec = status.artifacts.find(a => a.id === 'spec');
-      expect(spec?.status).toBe('blocked');
-      expect(spec?.missingDeps).toContain('proposal');
+      // specs depends on proposal and is blocked before it exists.
+      const specs = status.artifacts.find(a => a.id === 'specs');
+      expect(specs?.status).toBe('blocked');
+      expect(specs?.missingDeps).toContain('proposal');
+
+      // tasks depends on specs and design, and is blocked.
+      const tasks = status.artifacts.find(a => a.id === 'tasks');
+      expect(tasks?.status).toBe('blocked');
+      expect(tasks?.missingDeps).toContain('specs');
+      expect(tasks?.missingDeps).toContain('design');
     });
 
     it('should show completed artifacts as done', () => {
       const changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
       fs.mkdirSync(changeDir, { recursive: true });
-      fs.writeFileSync(path.join(changeDir, 'metadata.yaml'), 'change: {}');
       fs.writeFileSync(path.join(changeDir, 'proposal.md'), '# Proposal');
 
       const context = loadChangeContext(tempDir, 'my-change');
@@ -673,9 +679,9 @@ rules:
       const proposal = status.artifacts.find(a => a.id === 'proposal');
       expect(proposal?.status).toBe('done');
 
-      // spec should now be ready.
-      const spec = status.artifacts.find(a => a.id === 'spec');
-      expect(spec?.status).toBe('ready');
+      // specs should now be ready.
+      const specs = status.artifacts.find(a => a.id === 'specs');
+      expect(specs?.status).toBe('ready');
     });
 
     it('should include output paths for each artifact', () => {
@@ -685,20 +691,18 @@ rules:
       const proposal = status.artifacts.find(a => a.id === 'proposal');
       expect(proposal?.outputPath).toBe('proposal.md');
 
-      const spec = status.artifacts.find(a => a.id === 'spec');
-      expect(spec?.outputPath).toBe('spec.md');
+      const specs = status.artifacts.find(a => a.id === 'specs');
+      expect(specs?.outputPath).toBe('specs/**/*.md');
     });
 
     it('should report planning completion without removing the compatibility alias', () => {
       const changeDir = path.join(tempDir, 'codespec', 'changes', 'my-change');
       fs.mkdirSync(changeDir, { recursive: true });
-      // Create all required files for the canonical code-spec schema.
-      fs.writeFileSync(path.join(changeDir, 'metadata.yaml'), 'change: {}');
       fs.writeFileSync(path.join(changeDir, 'proposal.md'), '# Proposal');
       fs.writeFileSync(path.join(changeDir, 'design.md'), '# Design');
-      fs.writeFileSync(path.join(changeDir, 'spec.md'), '# Spec');
+      fs.mkdirSync(path.join(changeDir, 'specs'), { recursive: true });
+      fs.writeFileSync(path.join(changeDir, 'specs', 'test-spec.md'), '# Spec');
       fs.writeFileSync(path.join(changeDir, 'tasks.md'), '# Tasks');
-      fs.writeFileSync(path.join(changeDir, 'verification.md'), '# Verification');
 
       const context = loadChangeContext(tempDir, 'my-change');
       const status = formatChangeStatus(context);
@@ -733,10 +737,10 @@ rules:
       const context = loadChangeContext(tempDir, 'my-change');
       const status = formatChangeStatus(context);
 
-      // tasks requires spec and design.
+      // tasks requires specs and design.
       const tasks = status.artifacts.find(a => a.id === 'tasks');
       expect(tasks?.status).toBe('blocked');
-      expect(tasks?.missingDeps).toContain('spec');
+      expect(tasks?.missingDeps).toContain('specs');
       expect(tasks?.missingDeps).toContain('design');
     });
 
@@ -754,11 +758,11 @@ rules:
       // compute the transitive required set (alfred's PR #1412 blocker).
       const tasks = status.artifacts.find(a => a.id === 'tasks');
       expect(tasks?.status).toBe('done');
-      expect(tasks?.requires).toEqual(expect.arrayContaining(['spec', 'design']));
+      expect(tasks?.requires).toEqual(expect.arrayContaining(['specs', 'design']));
 
-      // metadata has no dependencies -> empty edges, not undefined.
-      const metadata = status.artifacts.find(a => a.id === 'metadata');
-      expect(metadata?.requires).toEqual([]);
+      // proposal has no dependencies -> empty edges, not undefined.
+      const proposal = status.artifacts.find(a => a.id === 'proposal');
+      expect(proposal?.requires).toEqual([]);
 
       // Every artifact carries the field, whatever its status.
       expect(status.artifacts.every(a => Array.isArray(a.requires))).toBe(true);
@@ -770,7 +774,7 @@ rules:
 
       const ids = status.artifacts.map(a => a.id);
       const proposalIdx = ids.indexOf('proposal');
-      const specIdx = ids.indexOf('spec');
+      const specIdx = ids.indexOf('specs');
       const tasksIdx = ids.indexOf('tasks');
 
       // proposal must come before spec, and spec before tasks.

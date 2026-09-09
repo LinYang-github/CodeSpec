@@ -65,13 +65,12 @@ describe('InitCommand', () => {
 
       await initCommand.execute(testDir);
 
-      expect(await fileExists(path.join(testDir, 'codespec', 'business.md'))).toBe(true);
+      expect(await fileExists(path.join(testDir, 'codespec', 'business.yaml'))).toBe(true);
+      expect(await fileExists(path.join(testDir, 'codespec', 'configuration.yaml'))).toBe(true);
       expect(await fileExists(path.join(testDir, 'codespec', 'changes', 'index.yaml'))).toBe(true);
       expect(await directoryExists(path.join(testDir, 'codespec', 'specs'))).toBe(true);
-      expect(await directoryExists(path.join(testDir, 'codespec', 'archive', 'changes'))).toBe(
-        true
-      );
-      expect(await directoryExists(path.join(testDir, 'codespec', 'archive', 'specs'))).toBe(false);
+      expect(await directoryExists(path.join(testDir, 'codespec', '.transactions'))).toBe(true);
+      expect(await directoryExists(path.join(testDir, 'codespec', 'archive', 'changes'))).toBe(false);
       expect(await fs.readFile(legacyFile, 'utf-8')).toBe('schema: code-spec\n');
     });
 
@@ -84,8 +83,8 @@ describe('InitCommand', () => {
       expect(await directoryExists(codespecPath)).toBe(true);
       expect(await directoryExists(path.join(codespecPath, 'specs'))).toBe(true);
       expect(await directoryExists(path.join(codespecPath, 'changes'))).toBe(true);
-      expect(await directoryExists(path.join(codespecPath, 'archive', 'changes'))).toBe(true);
-      expect(await directoryExists(path.join(codespecPath, 'archive', 'specs'))).toBe(false);
+      expect(await directoryExists(path.join(codespecPath, '.transactions'))).toBe(true);
+      expect(await directoryExists(path.join(codespecPath, 'archive', 'changes'))).toBe(false);
     });
 
     it('should not print repository links after init', async () => {
@@ -133,7 +132,8 @@ describe('InitCommand', () => {
       const content = await fs.readFile(configPath, 'utf-8');
       expect(content).toContain('version: 1');
       expect(content).toContain('paths:');
-      expect(content).toContain('  business: business.md');
+      expect(content).toContain('  business: business.yaml');
+      expect(content).toContain('  configuration: configuration.yaml');
       expect(content).toContain('  change_index: changes/index.yaml');
       expect(content).toContain('workflow:');
       expect(content).toContain('  multiple_active_changes: true');

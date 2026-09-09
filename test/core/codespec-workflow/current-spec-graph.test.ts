@@ -98,4 +98,19 @@ describe('current specification relation graph', () => {
     expect(projectBusiness(graph).modules[0]).toMatchObject({ status: 'RETIRED', inputs: [], outputs: [] });
     expect(() => projectApi('MOD-001', graph)).toThrow(/No active API/i);
   });
+
+  it('rejects an event trigger whose HTTP relation was removed', () => {
+    expect(() => buildCurrentSpecGraph({
+      modules: [
+        { id: 'MOD-001', name: '认证', status: 'ACTIVE' },
+        { id: 'MOD-002', name: '用户管理', status: 'ACTIVE' },
+        { id: 'MOD-003', name: '通知', status: 'ACTIVE' },
+      ],
+      interfaces: [
+        parseModuleInterface({ version: 1, module: 'MOD-001', relations: [] }),
+        parseModuleInterface({ version: 1, module: 'MOD-002', relations: [eventRelation] }),
+        parseModuleInterface({ version: 1, module: 'MOD-003', relations: [eventRelation] }),
+      ],
+    })).toThrow(/missing HTTP trigger/i);
+  });
 });

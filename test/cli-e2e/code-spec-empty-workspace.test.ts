@@ -39,7 +39,7 @@ describe('empty code-spec workspace', () => {
     for (const result of [status, validation]) {
       expect(result.exitCode).toBe(1);
       expect(outputOf(result)).toContain('尚未定义业务模块');
-      expect(outputOf(result)).toContain('codespec/business.md');
+      expect(outputOf(result)).toContain('codespec/business.yaml');
       expect(outputOf(result)).toContain('MOD-001');
     }
 
@@ -48,9 +48,19 @@ describe('empty code-spec workspace', () => {
 
   it('runs status and validation after the author adds a real business module', async () => {
     const projectDir = await createEmptyCodeSpecProject();
-    await fs.appendFile(
-      path.join(projectDir, 'codespec', 'business.md'),
-      '\n| MOD-001 | 用户管理 | 管理用户账户 | 管理账户；认证 | 用户；账户 |\n'
+    await fs.writeFile(
+      path.join(projectDir, 'codespec', 'business.yaml'),
+      [
+        'version: 1',
+        'modules:',
+        '  - id: MOD-001',
+        '    name: 用户管理',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
+        '',
+      ].join('\n'),
     );
 
     const [status, validation] = await Promise.all([

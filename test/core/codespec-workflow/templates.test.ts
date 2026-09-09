@@ -8,15 +8,19 @@ describe('canonical code-spec schema and templates', () => {
   it('declares canonical code-spec artifacts and protocol tokens', () => {
     const schema = read(`${root}/schemas/code-spec/schema.yaml`);
     expect(schema).toContain('metadata.yaml');
-    expect(schema).toContain('verification.md');
+    expect(schema).toContain('tasks.yaml');
+    expect(schema).toContain('verification.yaml');
+    expect(schema).not.toContain('proposal.md');
+    expect(schema).not.toContain('tasks.md');
+    expect(schema).not.toContain('verification.md');
     expect(schema).toContain('MODIFIED');
     expect(schema).not.toContain('skip_specs');
     expect(schema).not.toContain('.codespec.yaml');
-    expect(schema).toContain('archive/changes');
+    expect(schema).not.toContain('archive/changes');
   });
 
   it('uses Chinese guidance with English protocol tokens in every template', () => {
-    for (const name of ['proposal', 'design', 'spec', 'tasks', 'verification']) {
+    for (const name of ['design', 'spec']) {
       const content = read(`${root}/schemas/code-spec/templates/${name}.md`);
       expect(content).toMatch(/[\u4e00-\u9fff]/);
       expect(content).toContain('GIVEN');
@@ -27,6 +31,11 @@ describe('canonical code-spec schema and templates', () => {
       expect(content).not.toContain('skip_specs');
       expect(content).not.toContain('.codespec.yaml');
     }
+    for (const name of ['metadata', 'tasks', 'verification']) {
+      const content = read(`${root}/schemas/code-spec/templates/${name}.yaml`);
+      expect(content).toMatch(/[\u4e00-\u9fff]/);
+      expect(content).toContain('Requirement ID');
+    }
     const spec = read(`${root}/schemas/code-spec/templates/spec.md`);
     expect(spec).toContain('Previous');
     expect(spec).toContain('New');
@@ -34,7 +43,7 @@ describe('canonical code-spec schema and templates', () => {
     expect(spec).toContain('SCN-');
     expect(spec).toContain('ERROR 可以暂时留空');
 
-    const verification = read(`${root}/schemas/code-spec/templates/verification.md`);
+    const verification = read(`${root}/schemas/code-spec/templates/verification.yaml`);
     expect(verification).toContain('ERROR 必须已填写');
     expect(verification).toContain('不得归档');
   });
@@ -44,10 +53,12 @@ describe('canonical code-spec schema and templates', () => {
     const docs = ['docs/overview.md', 'docs/workflows.md', 'docs/concepts.md', 'docs/cli.md']
       .map((file) => read(`${root}/${file}`)).join('\n');
     expect(config).toContain('multiple_active_changes: true');
-    expect(config).toContain('archived_changes: archive/changes');
+    expect(config).toContain('business: business.yaml');
+    expect(config).toContain('configuration: configuration.yaml');
+    expect(config).toContain('transactions: .transactions');
     expect(docs).toContain('metadata.yaml');
     expect(docs).toContain('Requirement ID');
-    expect(docs).toContain('verification.md');
+    expect(docs).toContain('verification.yaml');
   });
 
   it('teaches generated workflow guidance to validate ERROR before verification and archive', async () => {

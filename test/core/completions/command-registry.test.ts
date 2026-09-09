@@ -167,6 +167,7 @@ describe('command completion registry', () => {
     expect(seen.sort()).toEqual([
       'abandon',
       'allocate-requirements',
+      'approve',
       'archive',
       'change new',
       'context',

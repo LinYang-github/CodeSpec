@@ -86,6 +86,28 @@ describe('buildUiIndex', () => {
     expect(index.currentSpecGraph?.relations).toContainEqual(expect.objectContaining({ id: 'REL-CHG-20260907-001-01', path: '/api/users' }));
   });
 
+  it('indexes v1 business.yaml modules with their generated projections', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const codespec = path.join(root, 'codespec');
+    await fs.mkdir(path.join(codespec, 'specs', 'MOD-001'), { recursive: true });
+    await fs.writeFile(path.join(codespec, 'config.yaml'), [
+      'version: 1', 'schema: code-spec', 'project:', '  name: yaml-ui', 'paths:',
+      '  business: business.yaml', '  configuration: configuration.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  specs: specs', '  transactions: .transactions',
+      'workflow:', '  multiple_active_changes: true', 'requirements:', "  id_format: '{module}-REQ-{sequence:03d}'", 'changes:', "  id_format: 'CHG-{date}-{sequence:03d}'", 'archive:', '  update_index: true', '  require_verification: true', '  conflict_strategy: optimistic', '',
+    ].join('\n'));
+    await fs.writeFile(path.join(codespec, 'business.yaml'), [
+      'version: 1', 'modules:',
+      '  - id: MOD-001', '    name: 账户', '    status: ACTIVE', '    inputs: [登录请求]', '    outputs: [账户资料]', '    relatedModules: []', '',
+    ].join('\n'));
+
+    const index = await buildUiIndex(root);
+    expect(index.businessDocument?.relativePath).toBe('codespec/business.yaml');
+    expect(index.businessModules).toEqual([expect.objectContaining({
+      id: 'MOD-001', name: '账户', status: 'ACTIVE', inputs: ['登录请求'], outputs: ['账户资料'],
+    })]);
+  });
+
   it('indexes only CodeSpec content and Superpowers plans', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
