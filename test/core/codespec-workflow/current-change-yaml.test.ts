@@ -93,6 +93,24 @@ describe('current Change YAML contracts', () => {
     });
   });
 
+  it('keeps startup and browser execution details in a UI verification plan', () => {
+    const parsed = parseCurrentTasks({
+      ...tasks,
+      tasks: [{
+        ...tasks.tasks[0],
+        verificationPlan: {
+          ...tasks.tasks[0].verificationPlan,
+          startup: 'pnpm dev --host 127.0.0.1',
+          browser: 'chromium',
+        },
+      }],
+    });
+    expect(parsed.tasks[0]?.verificationPlan[0]).toMatchObject({
+      startup: 'pnpm dev --host 127.0.0.1',
+      browser: 'chromium',
+    });
+  });
+
   it('requires machine-mergeable module deltas to use typed relation and configuration records', () => {
     expect(() => parseCurrentTasks({
       ...tasks,

@@ -19,8 +19,10 @@ const verificationPlanSchema = z.object({
   testCase: testCaseId,
   runner: nonEmpty,
   command: nonEmpty,
+  startup: nonEmpty.optional(),
   profile: nonEmpty,
   services: z.array(nonEmpty),
+  browser: nonEmpty.optional(),
   prepare: nonEmpty,
   cleanup: nonEmpty,
 }).strict();
