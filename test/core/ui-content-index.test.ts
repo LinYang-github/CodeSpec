@@ -258,6 +258,47 @@ describe('buildUiIndex', () => {
     ]);
   });
 
+  it('marks a VERIFY Change with fresh successful evidence as ready to enter ARCHIVE', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const changeDir = path.join(root, 'codespec', 'changes', 'CHG-20260908-001');
+    await fs.mkdir(changeDir, { recursive: true });
+    await fs.writeFile(path.join(changeDir, 'metadata.yaml'), [
+      'change:',
+      '  id: CHG-20260908-001',
+      '  title: 验证完成的变更',
+      '  mode: feature',
+      '  status: VERIFY',
+      'modules:',
+      '  confirmed:',
+      '    - module: MOD-001',
+      '      outcome: OWNED',
+      'tasks:',
+      '  total: 1',
+      '  completed: 1',
+      'verification:',
+      '  requirements_verified: true',
+      '  tests_passed: true',
+      '  build_passed: true',
+      '  lint_passed: true',
+      '  verified_at: 2026-09-08T10:00:00.000Z',
+      'archive:',
+      '  ready: false',
+      '  conflict: false',
+      'gates:',
+      '  archive:',
+      '    required: true',
+      '    satisfied: false',
+      '',
+    ].join('\n'));
+
+    const index = await buildUiIndex(root);
+
+    expect(index.archive.candidates).toEqual([
+      expect.objectContaining({ id: 'CHG-20260908-001', ready: false, transitionable: true }),
+    ]);
+  });
+
   it('uses configured specs and archived changes paths as the archive data source', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);

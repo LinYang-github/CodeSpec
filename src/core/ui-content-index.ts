@@ -52,6 +52,7 @@ export interface UiChangeGroup {
 
 export interface UiArchiveCandidate extends UiChangeGroup {
   ready: boolean;
+  transitionable: boolean;
   conflict: boolean;
   gateReasons: string[];
 }
@@ -379,9 +380,19 @@ function getGateReasons(change: UiChangeGroup): string[] {
 
 function getArchiveCandidate(change: UiChangeGroup): UiArchiveCandidate {
   const gateReasons = getGateReasons(change);
+  const transitionable = change.status === 'VERIFY'
+    && change.taskProgress !== undefined
+    && change.taskProgress.completed >= change.taskProgress.total
+    && change.verification?.requirementsVerified === true
+    && change.verification.testsPassed === true
+    && change.verification.buildPassed === true
+    && change.verification.lintPassed === true
+    && change.verification.verifiedAt !== null
+    && change.archiveState?.conflict !== true;
   return {
     ...change,
     ready: gateReasons.length === 0 && change.archiveState?.ready === true,
+    transitionable,
     conflict: change.archiveState?.conflict === true,
     gateReasons,
   };

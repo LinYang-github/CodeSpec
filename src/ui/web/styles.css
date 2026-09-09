@@ -129,8 +129,8 @@ button { cursor: pointer; }
 .active-change-card-title { overflow: hidden; margin: 0; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .active-change-card-meta { margin: 0; font-size: 12px; }
 .active-change-card-footer { min-height: 39px; padding: 9px 15px; border-top: 1px solid var(--line); font-size: 12px; }
-.archive-action { border: 0; padding: 3px 0; background: transparent; color: var(--accent); font-size: 12px; font-weight: 800; }
-.archive-action:hover { text-decoration: underline; }
+.archive-action, .archive-transition-action { border: 0; padding: 3px 0; background: transparent; color: var(--accent); font-size: 12px; font-weight: 800; }
+.archive-action:hover, .archive-transition-action:hover { text-decoration: underline; }
 .failure-reason { color: var(--danger); line-height: 1.45; }
 .change-failure-panel { border-color: color-mix(in srgb, var(--danger) 55%, var(--line)); background: var(--danger-soft); }
 .archive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

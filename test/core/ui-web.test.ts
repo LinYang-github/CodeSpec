@@ -38,6 +38,9 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain("event.key === 'ArrowRight'");
     expect(script).toContain('openArchiveConfirmation');
     expect(script).toContain('archive-confirmation-dialog');
+    expect(script).toContain('archive-transition-action');
+    expect(script).toContain('/api/transition/');
+    expect(script).toContain('进入归档准备');
     expect(script).toContain("setAttribute('role', 'dialog')");
     expect(script).toContain('change-workspace-header');
     expect(script).toContain('change-workspace-context');

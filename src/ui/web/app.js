@@ -274,6 +274,11 @@ function activeChangeCard(change) {
     archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
     heading.append(archiveButton);
   }
+  if (candidate?.transitionable) {
+    const transitionButton = button('进入归档准备 →', 'archive-transition-action', () => transitionToArchive(change.id));
+    transitionButton.setAttribute('aria-label', `将 ${text(change.title, change.id)} 进入归档准备`);
+    heading.append(transitionButton);
+  }
   detail.append(heading, element('h2', 'active-change-card-title', text(change.title, '未命名 Change')));
   detail.append(element('p', 'muted active-change-card-meta', `${text(change.mode, '模式未知')} · ${levelLabel(change.sddLevel)}`));
   const moduleTags = changeModuleTags(change);
@@ -850,6 +855,13 @@ async function openArchiveConfirmation(candidate) {
   backdrop.append(dialog);
   document.body.append(backdrop);
   dialog.querySelector('.primary-button')?.focus();
+}
+
+async function transitionToArchive(changeId) {
+  const result = await api(`/api/transition/${encodeURIComponent(changeId)}`, { method: 'POST' });
+  index = result.index;
+  renderCurrentScreen();
+  if (commandHelperOpen) renderCommandHelper();
 }
 
 function renderSearchResults(documents, query) {

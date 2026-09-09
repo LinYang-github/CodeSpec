@@ -94,6 +94,21 @@ describe('startUiServer', () => {
     expect(await preview.json()).toMatchObject({ error: 'invalid_change_id' });
   });
 
+  it('rejects archive-transition requests that do not use a canonical Change ID', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-server-'));
+    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));
+    tempRoots.push(root, assetsDir);
+    await fs.mkdir(path.join(root, 'codespec'), { recursive: true });
+    await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html>');
+    const server = await startUiServer({ projectRoot: root, assetsDir, port: 0 });
+    servers.push(server);
+
+    const response = await fetch(`${server.url}/api/transition/not-a-change`, { method: 'POST' });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'invalid_change_id' });
+  });
+
   it('fails closed for a canonical Change when the workspace cannot pass archive preflight', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-server-'));
     const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));

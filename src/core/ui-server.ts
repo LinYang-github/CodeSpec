@@ -6,6 +6,7 @@ import path from 'node:path';
 import { buildUiIndex, findUiDocument, searchUiIndex, type UiIndex } from './ui-content-index.js';
 import { archiveChange, commitArchive, prepareArchive, preflightArchive } from './codespec-workflow/archive-transaction.js';
 import { loadChangeArtifacts, loadWorkspace } from './codespec-workflow/loaders.js';
+import { transitionChange } from './codespec-workflow/state-machine.js';
 import { parseVerificationDocument } from './codespec-workflow/verification.js';
 
 export interface UiServer {
@@ -70,6 +71,23 @@ export async function startUiServer(options: {
         source === 'codespec' || source === 'superpowers-plans' ? source : undefined
       );
       sendJson(response, 200, { documents });
+      return;
+    }
+    if (request.method === 'POST' && url.pathname.startsWith('/api/transition/')) {
+      const changeId = decodeURIComponent(url.pathname.slice('/api/transition/'.length));
+      if (!CANONICAL_CHANGE_ID.test(changeId)) {
+        sendJson(response, 400, { error: 'invalid_change_id' });
+        return;
+      }
+      try {
+        const workspace = await loadWorkspace(path.join(options.projectRoot, 'codespec'));
+        const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+        const result = await transitionChange(workspace, artifacts, 'ARCHIVE', 'UI 已确认验证完成，准备归档');
+        index = await buildUiIndex(options.projectRoot);
+        sendJson(response, 200, { result: { changeId, status: result.change.status, revision: result.change.revision }, index });
+      } catch (error) {
+        sendJson(response, 409, { error: 'transition_failed', message: safeArchiveError(error, options.projectRoot) });
+      }
       return;
     }
     if ((request.method === 'GET' || request.method === 'POST') && url.pathname.startsWith('/api/archive/')) {
