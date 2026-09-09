@@ -5,26 +5,40 @@ import path from 'node:path';
 const webRoot = path.resolve(process.cwd(), 'src/ui/web');
 
 describe('CodeSpec UI web shell', () => {
-  it('declares the primary navigation in the top bar', async () => {
+  it('declares the reference sidebar and workspace shell', async () => {
     const html = await fs.readFile(path.join(webRoot, 'index.html'), 'utf8');
 
-    expect(html).toContain('capabilities');
-    expect(html).toContain('id="primary-navigation"');
-    expect(html).toContain('data-view="changes"');
-    expect(html).toContain('>变更管理</button>');
-    expect(html).not.toContain('class="sidebar"');
+    expect(html).toContain('id="sidebar"');
+    expect(html).toContain('id="project-tree"');
+    expect(html).toContain('class="sidebar-tools"');
+    expect(html).toContain('class="workspace-header"');
+    expect(html).toContain('class="global-search"');
+    expect(html).toContain('id="rebuild"');
+    expect(html).not.toContain('id="primary-navigation"');
+    expect(html).not.toContain('data-view="capabilities"');
+    expect(html).not.toContain('data-view="changes"');
     expect(html).not.toContain('data-view="active-changes"');
     expect(html).not.toContain('data-view="archiveable-changes"');
     expect(html).not.toContain('data-view="archive-history"');
-    expect(html).toContain('theme-toggle');
-    expect(html).toContain('command-helper');
-    expect(html).toContain('业务功能');
+    expect(html).toContain('id="theme-toggle"');
+    expect(html).toContain('id="command-helper"');
     expect(html).not.toContain('只读观测');
   });
 
   it('uses two Change tabs and keeps archive actions on eligible active cards', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 
+    expect(script).toContain('renderSidebar');
+    expect(script).toContain("setAttribute('data-node', 'change-management')");
+    expect(script).toContain('businessModules');
+    expect(script).toContain("type: 'module'");
+    expect(script).toContain("type: 'changes'");
+    expect(script).toContain("type: 'change'");
+    expect(script).toContain("type: 'search'");
+    expect(script).not.toContain('let currentView');
+    expect(script).not.toContain('function navigate(view, changeTab)');
+    expect(script).not.toContain("type: 'view'");
+    expect(script).not.toContain("type: 'document'");
     expect(script).toContain('renderCapabilities');
     expect(script).toContain('renderChangesWorkspace');
     expect(script).toContain('change-tablist');

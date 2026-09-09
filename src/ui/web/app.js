@@ -1,16 +1,17 @@
 const page = document.querySelector('#page');
-const nav = document.querySelector('#primary-navigation');
+const projectTree = document.querySelector('#project-tree');
 const search = document.querySelector('#search');
 const themeToggle = document.querySelector('#theme-toggle');
 const commandHelperToggle = document.querySelector('#command-helper');
 const rebuild = document.querySelector('#rebuild');
 const projectName = document.querySelector('#project-name');
+const sidebar = document.querySelector('#sidebar');
+const sidebarToggle = document.querySelector('#sidebar-toggle');
 const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ARCHIVED'];
 let index;
-let currentView = 'capabilities';
-let currentScreen = { type: 'view', view: currentView };
+let currentScreen = { type: 'module', moduleId: null };
 let commandHelperOpen = false;
-let currentChangeTab = 'active';
+let documentReturnScreen;
 
 const api = async (path, init) => {
   const response = await fetch(path, init);
@@ -65,12 +66,8 @@ function backButton(label, handler) {
 function screenLabel(screen) {
   if (!screen) return '业务功能';
   if (screen.type === 'search') return '搜索结果';
-  if (screen.type === 'view') {
-    return {
-      capabilities: '业务功能',
-      changes: '变更管理',
-    }[screen.view] ?? '业务功能';
-  }
+  if (screen.type === 'module') return moduleLabel(screen.moduleId);
+  if (screen.type === 'changes') return '变更管理';
   return '上一级';
 }
 
@@ -379,7 +376,7 @@ function renderCapabilities() {
         : undefined));
       card.append(details);
       const actions = element('div', 'business-card-actions');
-      actions.append(button('查看 Change', 'secondary-button', () => navigate('changes', 'active')));
+      actions.append(button('查看 Change', 'secondary-button', () => navigateTo({ type: 'changes', filters: { tab: 'active' } })));
       card.append(actions);
       grid.append(card);
     }
@@ -438,8 +435,7 @@ function renderChangesWorkspace() {
   const view = document.createElement('div');
   view.classList.add('changes-workspace-view');
 
-  const selected = CHANGE_TABS.find((tab) => tab.id === currentChangeTab) ?? CHANGE_TABS[0];
-  currentChangeTab = selected.id;
+  const selected = CHANGE_TABS.find((tab) => tab.id === currentScreen.filters?.tab) ?? CHANGE_TABS[0];
   const tabs = element('div', 'change-tablist');
   tabs.setAttribute('role', 'tablist');
   tabs.setAttribute('aria-label', 'Change 分类');
@@ -457,11 +453,11 @@ function renderChangesWorkspace() {
     if (nextIndex < 0) return;
     event.preventDefault();
     const nextTab = CHANGE_TABS[nextIndex];
-    navigate('changes', nextTab.id);
+    navigateTo({ type: 'changes', filters: { ...currentScreen.filters, tab: nextTab.id } });
     document.getElementById(`change-tab-${nextTab.id}`)?.focus();
   };
   for (const tab of CHANGE_TABS) {
-    const tabButton = button(tab.label, 'change-tab', () => navigate('changes', tab.id));
+    const tabButton = button(tab.label, 'change-tab', () => navigateTo({ type: 'changes', filters: { ...currentScreen.filters, tab: tab.id } }));
     tabButton.id = `change-tab-${tab.id}`;
     tabButton.setAttribute('role', 'tab');
     tabButton.setAttribute('aria-selected', String(tab.id === selected.id));
@@ -552,11 +548,12 @@ function changeDocumentOrder(left, right) {
 }
 
 function renderChangeDetail(change, options = {}) {
+  documentReturnScreen = undefined;
   const returnScreen = currentScreen.type === 'change'
     ? currentScreen.returnScreen
-    : currentScreen.type === 'view' || currentScreen.type === 'search'
+    : currentScreen.type === 'module' || currentScreen.type === 'changes' || currentScreen.type === 'search'
       ? { ...currentScreen }
-      : { type: 'view', view: 'capabilities' };
+      : { type: 'module', moduleId: index.businessModules[0]?.id ?? null };
   const activeDocumentId = currentScreen.type === 'change' && currentScreen.changeId === change.id
     ? currentScreen.activeDocumentId
     : null;
@@ -797,7 +794,10 @@ function renderDocument(detail, target) {
 }
 
 async function openDocument(doc, returnScreen = currentScreen) {
-  currentScreen = { type: 'document', docId: doc.id, returnScreen };
+  documentReturnScreen = returnScreen;
+  if (returnScreen.type === 'module' || returnScreen.type === 'change') {
+    currentScreen = { ...returnScreen, activeDocumentId: doc.id };
+  }
   const detail = await api(`/api/documents/${doc.id}`);
   const view = document.createElement('div');
   view.classList.add('document-view');
@@ -811,7 +811,8 @@ async function openDocument(doc, returnScreen = currentScreen) {
 }
 
 function goBackFromScreen() {
-  const target = currentScreen.returnScreen ?? { type: 'view', view: 'capabilities' };
+  const target = documentReturnScreen ?? currentScreen.returnScreen ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null };
+  documentReturnScreen = undefined;
   currentScreen = target;
   renderCurrentScreen();
 }
@@ -844,7 +845,7 @@ async function openArchiveConfirmation(candidate) {
       const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
       index = result.index;
       backdrop.remove();
-      navigate('changes', 'history');
+      navigateTo({ type: 'changes', filters: { tab: 'history' } });
     } catch (error) {
       const existing = dialog.querySelector('.inline-error');
       if (existing) existing.remove();
@@ -865,7 +866,8 @@ async function transitionToArchive(changeId) {
 }
 
 function renderSearchResults(documents, query) {
-  currentScreen = { type: 'search', query, documents };
+  const returnScreen = currentScreen.type === 'search' ? currentScreen.returnScreen : currentScreen;
+  currentScreen = { type: 'search', query, documents, returnScreen };
   const view = document.createElement('div');
   view.classList.add('search-view');
   view.append(sectionHeader('SEARCH', `搜索结果：${query}`, '搜索结果仅提供只读查看。'));
@@ -878,17 +880,43 @@ function renderSearchResults(documents, query) {
   page.replaceChildren(view);
 }
 
-function renderView() {
-  for (const item of nav.querySelectorAll('[data-view]')) item.classList.toggle('active', item.dataset.view === currentView);
-  if (currentView === 'capabilities') page.replaceChildren(renderCapabilities());
-  if (currentView === 'changes') page.replaceChildren(renderChangesWorkspace());
+function renderSidebar() {
+  projectTree.replaceChildren();
+  const activeScreen = currentScreen;
+  const moduleSection = element('section', 'project-tree-section');
+  moduleSection.append(element('p', 'nav-caption', '业务管理'));
+  for (const module of index?.businessModules ?? []) {
+    const node = element('button', 'tree-node', `${module.id} · ${module.name}`);
+    node.type = 'button';
+    node.setAttribute('data-node', 'business-module');
+    node.dataset.moduleId = module.id;
+    node.classList.toggle('active', activeScreen.type === 'module' && activeScreen.moduleId === module.id);
+    node.setAttribute('aria-current', activeScreen.type === 'module' && activeScreen.moduleId === module.id ? 'page' : 'false');
+    moduleSection.append(node);
+  }
+  if (!moduleSection.querySelector('.tree-node')) moduleSection.append(element('p', 'sidebar-empty', '暂无业务模块'));
+  projectTree.append(moduleSection);
+
+  const changeSection = element('section', 'project-tree-section');
+  changeSection.append(element('p', 'nav-caption', '工作区'));
+  const changeNode = element('button', 'tree-node', '变更管理');
+  changeNode.type = 'button';
+  changeNode.setAttribute('data-node', 'change-management');
+  const changesActive = activeScreen.type === 'changes' || activeScreen.type === 'change';
+  changeNode.classList.toggle('active', changesActive);
+  changeNode.setAttribute('aria-current', changesActive ? 'page' : 'false');
+  changeSection.append(changeNode);
+  projectTree.append(changeSection);
 }
 
 function renderCurrentScreen() {
-  if (currentScreen.type === 'view') {
-    currentView = currentScreen.view;
-    if (currentScreen.view === 'changes' && currentScreen.tab) currentChangeTab = currentScreen.tab;
-    renderView();
+  renderSidebar();
+  if (currentScreen.type === 'module') {
+    page.replaceChildren(renderCapabilities());
+    return;
+  }
+  if (currentScreen.type === 'changes') {
+    page.replaceChildren(renderChangesWorkspace());
     return;
   }
   if (currentScreen.type === 'change') {
@@ -897,21 +925,21 @@ function renderCurrentScreen() {
     else showError(new Error('当前 Change 已不存在，请返回列表。'));
     return;
   }
-  if (currentScreen.type === 'document') {
-    const doc = documentById(currentScreen.docId);
-    if (doc) openDocument(doc, currentScreen.returnScreen).catch(showInlineError);
-    else showError(new Error('当前文档已不存在，请返回上一级。'));
-    return;
-  }
   if (currentScreen.type === 'search') {
     renderSearchResults(currentScreen.documents ?? [], currentScreen.query ?? '');
   }
 }
 
-function navigate(view, changeTab) {
-  if (view === 'changes' && changeTab) currentChangeTab = changeTab;
-  currentView = view;
-  currentScreen = view === 'changes' ? { type: 'view', view, tab: currentChangeTab } : { type: 'view', view };
+function navigateTo(screen) {
+  documentReturnScreen = undefined;
+  const nextScreen = { ...screen };
+  if (nextScreen.type === 'change'
+    && currentScreen.type === 'change'
+    && currentScreen.changeId === nextScreen.changeId
+    && nextScreen.activeDocumentId === undefined) {
+    nextScreen.activeDocumentId = currentScreen.activeDocumentId;
+  }
+  currentScreen = nextScreen;
   renderCurrentScreen();
 }
 
@@ -935,15 +963,30 @@ async function load() {
   try {
     index = await api('/api/index');
     projectName.textContent = index.projectName ?? '当前工程';
+    if (currentScreen.type === 'module' && currentScreen.moduleId === null) {
+      currentScreen = { type: 'module', moduleId: index.businessModules[0]?.id ?? null };
+    }
     renderCurrentScreen();
   } catch (error) {
     showError(error);
   }
 }
 
-nav.onclick = (event) => {
-  const target = event.target.closest('[data-view]');
-  if (target) navigate(target.dataset.view);
+projectTree.onclick = (event) => {
+  const target = event.target.closest('[data-node]');
+  if (!target || !projectTree.contains(target)) return;
+  if (target.dataset.node === 'business-module') {
+    navigateTo({ type: 'module', moduleId: target.dataset.moduleId });
+  }
+  if (target.dataset.node === 'change-management') {
+    navigateTo({ type: 'changes', filters: { tab: 'active' } });
+  }
+};
+
+sidebarToggle.onclick = () => {
+  const open = sidebar.classList.toggle('is-open');
+  sidebarToggle.setAttribute('aria-expanded', String(open));
+  sidebarToggle.setAttribute('aria-label', open ? '关闭工程树' : '打开工程树');
 };
 
 let searchTimer;
@@ -951,8 +994,7 @@ search.oninput = () => {
   clearTimeout(searchTimer);
   const query = search.value.trim();
   if (!query) {
-    currentScreen = { type: 'view', view: currentView };
-    renderCurrentScreen();
+    navigateTo(currentScreen.returnScreen ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null });
     return;
   }
   searchTimer = setTimeout(async () => {
