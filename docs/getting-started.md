@@ -132,8 +132,9 @@ The system SHALL expire sessions after 30 minutes of inactivity.
 When you archive a canonical `code-spec` Change:
 
 1. Core validates the two approvals, completed tasks, structured verification, relations, and runtime configuration.
-2. The transaction installs the affected module's three current files and regenerates `business.yaml`, `api.yaml`, and `configuration.yaml` projections.
-3. After the commit marker is durable, the active Change and index entry are removed. Existing legacy archive directories are never deleted automatically.
+2. The transaction projects each current module's `spec.md`, `interface.yaml`, and derived `api.yaml`, and regenerates the root `business.yaml` and `configuration.yaml` snapshots.
+3. For a UI Change, Core first starts the real project, waits for configured services, and reruns browser E2E; missing startup/browser data or a failed run blocks archive.
+4. After the commit marker is durable, the active Change and index entry are removed. No `test-cases.md` or static graph file is created.
 
 ## Example: Your First Change
 

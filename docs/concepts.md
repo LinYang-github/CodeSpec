@@ -53,7 +53,7 @@ For the default `code-spec` schema, each current module keeps exactly three file
 codespec/specs/<module>/{spec.md,interface.yaml,api.yaml}
 ```
 
-The root also contains `business.yaml` and `configuration.yaml`. An active Change contains `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. `interface.yaml` is the relationship source, `api.yaml` and the business projections are regenerated from it, and `verification.yaml` is checked against each task's verification plan. Archive is a recoverable transaction that updates these current files and removes the active Change; it does not create a new Change history copy. The legacy artifact tree described later is retained for `spec-driven` compatibility and migration only.
+The root also contains `business.yaml` and `configuration.yaml`. An active Change contains `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. After archive, each module has only `spec.md`, `interface.yaml`, and derived `api.yaml`; `interface.yaml` is the relationship source, and the business projections are regenerated from the complete graph. `spec.md` owns requirements, scenarios, readable test cases, the latest verification summary, and engineering files; `design.md` only references those IDs. UI archive reruns the real project and browser E2E. Archive is a recoverable transaction that updates these current files and removes the active Change; it creates neither `test-cases.md` nor a static graph file. The legacy artifact tree described later is retained for `spec-driven` compatibility and migration only.
 
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 

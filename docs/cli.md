@@ -270,7 +270,7 @@ codespec store setup team-context --path ~/codespec/team-context --no-init-git -
 Register an existing local store folder. During the stores beta, a root may be
 registered before any changes exist, specs have been applied, or changes have
 been archived; canonical workspaces use `codespec/changes/`, `codespec/specs/`, and
-`codespec/archive/changes/`. Generic `spec-driven` stores may retain historical paths.
+`codespec/archive/changes/`. Generic `spec-driven` stores may retain historical paths; canonical `code-spec` archive does not create a second Change copy.
 A config-only repo that declares `store: <id>` remains a pointer to another
 store and is not registered as a store root unless that pointer is removed.
 

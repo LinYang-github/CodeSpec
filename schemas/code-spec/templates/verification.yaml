@@ -1,4 +1,6 @@
 # Requirement ID、Scenario ID、Task ID 与实际测试证据必须完整记录。
 # ERROR 必须已填写；缺失或为空时验证不得通过，Change 不得归档。
 version: 1
+# 归档前由 Core 写入当前 Change revision，证据必须匹配 baseline 工作树。
+changeRevision: 1
 testCases: []

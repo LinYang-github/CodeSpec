@@ -2,7 +2,7 @@
 
 ## 当前 code-spec 协议
 
-代码变更使用 `codespec/changes/CHG-YYYYMMDD-NNN/metadata.yaml` 作为状态权威；当前规格位于 `codespec/specs/<模块>/`，业务关系与验证配置分别位于根级 `business.yaml`、`configuration.yaml`。同一 workspace 支持多个 active Change。需求使用稳定的 Requirement ID，每个 Scenario 都必须包含 `ERROR` 异常处理；完成后须在 `verification.yaml` 写入 fresh 证据，并显式执行 archive。
+代码变更使用 `codespec/changes/CHG-YYYYMMDD-NNN/metadata.yaml` 作为状态权威；归档后的唯一规范位于 `codespec/specs/<模块>/{spec.md,interface.yaml,api.yaml}`，业务注册表与验证连接快照分别位于根级 `business.yaml`、`configuration.yaml`。同一 workspace 支持多个 active Change。需求使用稳定的 Requirement ID，每个 Scenario 都必须包含 `ERROR` 异常处理；完成后须在 `verification.yaml` 写入绑定 Change revision 和 baseline 的 fresh 证据，并显式执行 archive。
 
 **CodeSpec is a lightweight agreement layer between you and your AI.** You write down what a change should do, the AI drafts the details, you both look at the same plan, and only then does code get written. This page is the whole mental model on one screen. When you want the long version, [Concepts](concepts.md) has it.
 
@@ -27,7 +27,7 @@ design ──► spec ──► tasks.yaml ──► implement ──► verific
 
 You can revisit any of them at any time. Their contents remain editable, while the two explicit approvals act as gates before implementation and archive.
 
-**5. Archiving folds the change back into the truth.** For canonical code-spec, the archive transaction validates approved YAML deltas, updates `codespec/specs/`, `business.yaml`, and `configuration.yaml`, then removes the active Change. It does not create an archived Change copy or history record. Generic `spec-driven` workflows retain their historical paths and behavior.
+**5. Archiving folds the change back into the truth.** For canonical code-spec, the archive transaction validates approved YAML deltas, projects every module's `spec.md`, `interface.yaml`, and `api.yaml`, refreshes `business.yaml` and `configuration.yaml`, then removes the active Change. It does not create `test-cases.md` or a static graph file. UI Changes must rerun the real project and browser E2E during archive. Generic `spec-driven` workflows retain their historical paths and behavior.
 
 ## The picture
 

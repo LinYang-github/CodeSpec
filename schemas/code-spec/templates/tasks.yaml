@@ -12,8 +12,11 @@ tasks:
       testCase: MOD-###-REQ-###-SCN-001-TC-API-01
       runner: vitest
       command: pnpm vitest run test/example.test.ts
+      # UI Change 必须填写可启动的真实工程命令和浏览器 E2E 标识；归档会重新执行。
+      startup: pnpm dev
       profile: test
       services: []
+      browser: not-applicable
       prepare: 准备隔离测试数据
       cleanup: 清理隔离测试数据
 moduleDeltas: []

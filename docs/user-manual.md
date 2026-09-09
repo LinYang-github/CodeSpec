@@ -235,8 +235,9 @@ codespec status --change CHG-20260906-001
 - Requirement 和 Scenario 已验证。
 - 必需的测试、构建和 Lint 已通过。
 - `tasks.yaml` 中的任务已完成，且任务确认仍对应当前 revision。
-- `verification.yaml` 包含当前 baseline 的命令和证据。
+- `verification.yaml` 包含当前 Change revision、baseline 工作树指纹对应的命令和证据。
 - 归档影响分析已经处理，不存在未解决的冲突。
+- UI Change 还必须声明真实工程启动命令和浏览器 E2E；归档会重新执行，缺少环境或执行失败都会阻止归档。
 
 ### 执行归档
 
@@ -250,9 +251,9 @@ codespec archive CHG-20260906-001
 
 归档完成后，CodeSpec 会：
 
-1. 将 approved module delta 合并到 `codespec/specs/<MOD-ID>/` 的 `spec.md`、`interface.yaml` 和派生 `api.yaml`。
-2. 更新根级 `business.yaml` 和 `configuration.yaml`。
-3. 通过 `.transactions/` 写入可恢复事务，提交后删除活动 Change 和索引项。
+1. 将 approved module delta 投影到每个受影响模块的 `codespec/specs/<MOD-ID>/`：`spec.md`、`interface.yaml` 和派生 `api.yaml`。
+2. 从完整 `interface.yaml` 关系图更新根级 `business.yaml` 的输入、输出、关联模块，并更新 `configuration.yaml` 验证连接快照。
+3. 通过 `.transactions/` 写入可恢复事务，提交后删除活动 Change 和索引项；不生成 `test-cases.md` 或静态流程图文件。
 
 默认情况下，归档后的 Change 不保留新的副本；Git 历史仍由项目自身负责。
 

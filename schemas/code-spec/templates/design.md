@@ -1,5 +1,5 @@
 # 技术设计
-<!-- Requirement ID 与 stable scenario ID 必须可追踪。 -->
+<!-- Requirement ID、Scenario ID 与 Task ID 只用于引用 spec.md；不要在本文件复制行为规范、测试步骤或工程文件表。 -->
 
 ## SDD 分级依据
 <!-- 说明 metadata.yaml 的 sdd_level、影响因素和未升级理由。Level 3 还必须补充架构、接口契约、迁移、回滚和发布章节。 -->
@@ -14,4 +14,4 @@
 | --- | --- | --- |
 | MOD-###-REQ-### | MOD-### | 中文说明 |
 ## 风险与迁移
-GIVEN 需求已确认 WHEN 设计变更 THEN 保留 Requirement ID。
+<!-- 仅引用 spec.md 中已有的 Requirement / Scenario ID；GIVEN/WHEN/THEN/ERROR 行属于 spec.md。 -->

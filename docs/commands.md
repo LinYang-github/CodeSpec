@@ -70,8 +70,8 @@ Core checks the archive preconditions and runs the transaction:
 
 1. `preflightArchive()` checks completion, verification, traceability, canonical spec validity, and conflicts.
 2. `prepareArchive()` calculates the included delta and prepares the recoverable write set.
-3. `commitArchive()` applies the delta to Current Specification and moves the Change into the archive.
-4. `archiveTransaction()` preserves the transaction boundary and recovery behavior.
+3. `commitArchive()` applies the delta or complete projection to Current Specification through the transaction boundary.
+4. Canonical `code-spec` archive removes the active Change after commit; it does not create `test-cases.md`, a static graph file, or a second Change history copy. Generic `spec-driven` keeps its own archive behavior.
 
 `archive` is the only public entry that can commit Current Specification. `syncSpecs()`, `applyDelta()`, `detectArchiveConflict()`, and `archiveTransaction()` are Core capabilities, not separate Skills.
 
