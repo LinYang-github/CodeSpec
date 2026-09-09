@@ -467,7 +467,10 @@ export async function archiveChange(workspace: WorkspaceContext, changeId: strin
     const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
     const business = parseBusinessRegistry(parseYaml(await fs.readFile(workspace.paths.business, 'utf8')));
     const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
-    const newModuleIds = new Set(tasks.moduleRegistrations.upsert.map((registration) => registration.id));
+    const registeredModuleIds = new Set(business.modules.map((module) => module.id));
+    const newModuleIds = new Set(tasks.moduleRegistrations.upsert
+      .map((registration) => registration.id)
+      .filter((moduleId) => !registeredModuleIds.has(moduleId)));
     const interfaces = new Map<string, ReturnType<typeof parseModuleInterface>>();
     for (const module of business.modules) {
       const interfacePath = path.join(workspace.paths.currentSpecs, module.id, 'interface.yaml');
