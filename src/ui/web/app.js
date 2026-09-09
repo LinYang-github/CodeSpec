@@ -890,17 +890,40 @@ function goBackFromScreen() {
 }
 
 function renderArchivePreviewSummary(preview) {
-  const summary = element('div', 'preview-card');
-  summary.append(element('p', '', `${levelLabel(preview.sddLevel)} · ${preview.mode}`));
-  summary.append(element('p', 'muted', `目标：${preview.archiveTarget}`));
-  summary.append(element('p', 'muted', `Verification Receipt：${preview.verificationReceipt}`));
-  summary.append(element('p', 'muted', `影响模块：${(preview.modules ?? []).join('、') || '无'}`));
-  summary.append(element('p', 'muted', `归档影响：${preview.archiveImpact?.outcome === 'affected' ? `受影响（${preview.archiveImpact.references?.length ?? 0} 条映射）` : '无当前 Spec 行为影响'}`));
+  const summary = element('div', 'archive-preview-sections');
+  const section = (title, entries) => {
+    const panel = element('section', 'archive-preview-section');
+    panel.append(element('h3', '', title));
+    const details = element('dl', 'archive-preview-details');
+    for (const [label, value] of entries) {
+      details.append(element('dt', '', label), element('dd', '', text(value, '未读取')));
+    }
+    panel.append(details);
+    return panel;
+  };
+  const impact = preview.archiveImpact ?? {};
+  const gateReasons = preview.reasons?.length ? preview.reasons.join('；') : '全部门禁已满足';
+  summary.append(
+    section('Change 信息', [['Change ID', preview.changeId], ['标题', preview.title]]),
+    section('关联模块/需求', [
+      ['模块', (preview.modules ?? []).join('、') || '无'],
+      ['Requirement', (preview.requirements ?? []).join('、') || '无'],
+    ]),
+    section('SDD 等级与状态', [['SDD 等级', levelLabel(preview.sddLevel)], ['模式', preview.mode], ['状态', statusLabel(preview.status)]]),
+    section('门禁结果', [['结果', preview.ready ? '可归档' : '不可归档'], ['冲突', preview.conflict ? '存在冲突' : '无冲突'], ['原因', gateReasons]]),
+    section('Spec 影响', [
+      ['结果', impact.outcome === 'affected' ? `受影响（${impact.references?.length ?? 0} 条映射）` : '无当前 Spec 行为影响'],
+      ['验证', (impact.verification ?? []).join('、') || '无'],
+    ]),
+    section('归档目标', [['路径', preview.archiveTarget], ['Change Index', '归档事务更新']]),
+    section('Verification Receipt', [['Receipt', preview.verificationReceipt]]),
+  );
   return summary;
 }
 
 async function openArchiveConfirmation(candidate) {
   const preview = await api(`/api/archive/${encodeURIComponent(candidate.id)}`);
+  const returnScreen = currentScreen.type === 'changes' ? copyScreen(currentScreen) : { type: 'changes', filters: {} };
   const backdrop = element('div', 'archive-confirmation-backdrop');
   const dialog = element('section', 'archive-confirmation-dialog');
   dialog.setAttribute('role', 'dialog');
@@ -910,31 +933,33 @@ async function openArchiveConfirmation(candidate) {
   const title = element('h2', '', '确认归档 Change');
   title.id = 'archive-confirmation-title';
   header.append(title, button('取消', 'quiet-button', () => backdrop.remove()));
-  dialog.append(header, element('p', 'muted', `${preview.changeId} · ${preview.title}`), renderArchivePreviewSummary(preview));
+  dialog.append(header, renderArchivePreviewSummary(preview));
+  const impactConfirmation = document.createElement('input');
+  impactConfirmation.type = 'checkbox';
+  impactConfirmation.id = 'archive-impact-confirmation';
+  const impactLabel = element('label', 'archive-impact-confirmation');
+  impactLabel.append(impactConfirmation, element('span', '', '我已阅读并确认上述 Spec 影响、归档目标和 Verification Receipt。'));
+  dialog.append(impactLabel);
   const actions = element('div', 'card-actions');
-  actions.append(button('确认归档 Change', 'primary-button', async () => {
+  const confirmButton = button('确认归档', 'primary-button', async () => {
     try {
       const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
       index = result.index;
       backdrop.remove();
-      navigateTo({ type: 'changes', filters: {} });
+      navigateTo(returnScreen);
     } catch (error) {
       const existing = dialog.querySelector('.inline-error');
       if (existing) existing.remove();
       dialog.append(element('div', 'inline-error', `归档失败：${error.message}`));
     }
-  }));
+  });
+  confirmButton.disabled = true;
+  impactConfirmation.onchange = () => { confirmButton.disabled = !impactConfirmation.checked; };
+  actions.append(confirmButton);
   dialog.append(actions);
   backdrop.append(dialog);
   document.body.append(backdrop);
   dialog.querySelector('.primary-button')?.focus();
-}
-
-async function transitionToArchive(changeId) {
-  const result = await api(`/api/transition/${encodeURIComponent(changeId)}`, { method: 'POST' });
-  index = result.index;
-  renderCurrentScreen();
-  if (commandHelperOpen) renderCommandHelper();
 }
 
 function renderSearchResults(documents, query) {

@@ -93,6 +93,17 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('disabled-reason');
     expect(script).toContain("setAttribute('aria-describedby'");
     expect(script).toContain('openArchiveConfirmation');
+    expect(script).toContain('Change 信息');
+    expect(script).toContain('关联模块/需求');
+    expect(script).toContain('SDD 等级与状态');
+    expect(script).toContain('门禁结果');
+    expect(script).toContain('Spec 影响');
+    expect(script).toContain('归档目标');
+    expect(script).toContain('Verification Receipt');
+    expect(script).toContain('确认归档');
+    expect(script).toContain('archive-impact-confirmation');
+    expect(script).toContain('impactConfirmation.checked');
+    expect(script).toContain("openArchiveConfirmation(archiveCandidateFor(change))");
     const tableDeclaration = script.indexOf("const table = element('table', 'change-table');");
     const emptyTableRow = script.indexOf("element('tr', 'change-table-empty-row')");
     expect(tableDeclaration).toBeGreaterThanOrEqual(0);
@@ -124,6 +135,7 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain("setAttribute('role', 'dialog')");
     expect(script).toContain('/api/archive/');
     expect(script).not.toContain('window.confirm');
+    expect(script).not.toContain('/api/edit');
     expect(script).toContain('matchMedia');
     expect(script).toContain("saved === 'light' || saved === 'dark'");
     expect(script).not.toContain("labels = { system");
@@ -141,6 +153,7 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('codespec-archive-change');
     expect(script).toContain('navigator.clipboard.writeText');
     expect(script).not.toContain('/api/exec');
+    expect(script).not.toContain('/api/transition/');
     expect(script).not.toContain('child_process');
     expect(styles).toContain('.module-workspace');
     expect(styles).toContain('.change-table');

@@ -4,7 +4,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { buildUiIndex, findUiDocument, searchUiIndex, type UiIndex } from './ui-content-index.js';
-import { archiveChange, commitArchive, prepareArchive, preflightArchive } from './codespec-workflow/archive-transaction.js';
+import { commitArchive, prepareArchive, preflightArchive } from './codespec-workflow/archive-transaction.js';
 import { loadChangeArtifacts, loadWorkspace } from './codespec-workflow/loaders.js';
 import { transitionChange } from './codespec-workflow/state-machine.js';
 import { parseVerificationDocument } from './codespec-workflow/verification.js';
@@ -98,17 +98,6 @@ export async function startUiServer(options: {
       }
       try {
         const workspace = await loadWorkspace(path.join(options.projectRoot, 'codespec'));
-        const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
-        if (!artifacts.metadata.artifacts.proposal) {
-          if (request.method === 'GET') {
-            sendJson(response, 200, { changeId, mode: 'current-spec', ready: artifacts.metadata.change.status === 'ARCHIVE' });
-            return;
-          }
-          const result = await archiveChange(workspace, changeId);
-          index = await buildUiIndex(options.projectRoot);
-          sendJson(response, 200, { result, index });
-          return;
-        }
         const plan = await preflightArchive(workspace, changeId);
         if (request.method === 'GET') {
           sendJson(response, 200, archivePreview(plan, options.projectRoot));
