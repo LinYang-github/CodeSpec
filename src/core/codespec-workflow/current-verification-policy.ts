@@ -8,9 +8,12 @@ function sameValues(left: string[], right: string[]): boolean {
 export function validateCurrentVerificationPlan(
   tasks: CurrentTasks,
   verification: CurrentVerification,
-  baseline?: { commit: string | null; working_tree_fingerprint: string },
+  baseline?: { commit: string | null; working_tree_fingerprint: string; revision?: number },
 ): string[] {
   const errors = validateCurrentVerificationTraceability(tasks, verification);
+  if (baseline?.revision !== undefined && tasks.tasks.length > 0 && verification.changeRevision !== baseline.revision) {
+    errors.push(`Verification Change revision differs (expected ${baseline.revision})`);
+  }
   const executed = new Map(verification.testCases.map((record) => [record.testCase, record]));
   for (const task of tasks.tasks) {
     for (const plan of task.verificationPlan) {

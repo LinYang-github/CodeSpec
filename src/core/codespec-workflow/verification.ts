@@ -80,6 +80,7 @@ export async function validateCurrentVerificationArtifacts(
     const errors = validateCurrentVerificationPlan(tasks, verification, {
       commit: artifacts.metadata.baseline.commit,
       working_tree_fingerprint: artifacts.metadata.baseline.working_tree_fingerprint,
+      revision: artifacts.metadata.change.revision,
     });
     try {
       const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
@@ -427,7 +428,7 @@ async function recordFreshCurrentVerification(
   }
 
   const parsedVerification = parseCurrentVerification({ version: 1, testCases: records });
-  const nextVerification = stringifyYaml({ version: 1, testCases: parsedVerification.testCases });
+  const nextVerification = stringifyYaml({ version: 1, changeRevision: metadata.change.revision, testCases: parsedVerification.testCases });
   const errors = await validateCurrentVerificationArtifacts(workspace, { ...artifacts, verification: nextVerification });
   if (errors.length) throw new Error(`当前规格验证未通过：${errors.join('; ')}`);
 

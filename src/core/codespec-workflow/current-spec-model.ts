@@ -386,6 +386,27 @@ export function validateCurrentSpecificationTraceability(specification: CurrentS
   return issues;
 }
 
+/** Ensures design.md points at the canonical spec instead of becoming a second behavior source. */
+export function validateCurrentDesignOwnership(design: string, specification: CurrentSpecification): string[] {
+  const known = new Set<string>();
+  for (const requirement of specification.requirements) {
+    known.add(requirement.id);
+    for (const scenario of requirement.scenarios) {
+      known.add(scenario.id);
+      for (const testCase of scenario.testCases) known.add(testCase.id);
+    }
+  }
+  const issues: string[] = [];
+  const ids = design.match(/MOD-\d{3}-REQ-\d{3}(?:-SCN-\d{3}(?:-TC-[A-Z]+-\d{2})?)?/gu) ?? [];
+  for (const id of ids) if (!known.has(id)) issues.push(`design.md 引用了当前 spec.md 不存在的 ID：${id}`);
+  if (/^#{2,6}\s*(?:Scenario\b|测试用例|Requirement\b)/mu.test(design) ||
+      /^(?:\s*)-\s*(?:GIVEN|WHEN|THEN|ERROR)\b/mu.test(design) ||
+      /^\s*\|\s*步骤\s*\|/mu.test(design)) {
+    issues.push('design.md 不得重复 Scenario、测试用例或行为步骤；请引用 spec.md ID');
+  }
+  return issues;
+}
+
 export function validateCurrentSpecification(specification: CurrentSpecification): string[] {
   const issues = validateCurrentSpecificationTraceability(specification);
   for (const requirement of specification.requirements) {

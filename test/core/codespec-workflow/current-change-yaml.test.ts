@@ -111,6 +111,10 @@ describe('current Change YAML contracts', () => {
     });
   });
 
+  it('preserves the current Change revision on verification documents', () => {
+    expect(parseCurrentVerification({ version: 1, changeRevision: 7, testCases: [] }).changeRevision).toBe(7);
+  });
+
   it('requires machine-mergeable module deltas to use typed relation and configuration records', () => {
     expect(() => parseCurrentTasks({
       ...tasks,

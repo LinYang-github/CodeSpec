@@ -20,7 +20,7 @@ import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitte
 import { mergeCurrentModuleDeltas } from './current-archive-merge.js';
 import { buildArchiveProjection } from './archive-projection.js';
 import { parseBusinessRegistry, parseConfiguration, parseModuleInterface } from './current-spec-yaml.js';
-import { parseCurrentSpecification, validateCurrentSpecification } from './current-spec-model.js';
+import { parseCurrentSpecification, validateCurrentDesignOwnership, validateCurrentSpecification } from './current-spec-model.js';
 import { isUiChange, runUiArchiveGate } from './ui-archive-gate.js';
 import {
   validateChangeArchiveImpact,
@@ -242,7 +242,11 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
       designApproved: m.approvals?.design.status === 'approved' && m.approvals.design.revision === m.change.revision,
       planApproved: m.approvals?.plan.status === 'approved' && m.approvals.plan.revision === m.change.revision,
       taskStatuses: tasks.tasks.map((task) => task.status),
-      verificationErrors: validateCurrentVerificationPlan(tasks, verification),
+      verificationErrors: validateCurrentVerificationPlan(tasks, verification, {
+        commit: m.baseline.commit,
+        working_tree_fingerprint: m.baseline.working_tree_fingerprint,
+        revision: m.change.revision,
+      }),
     });
     if (preflightErrors.length) throw new Error(`当前 Change 归档预检失败：${preflightErrors.join('; ')}`);
     return;
@@ -479,6 +483,10 @@ export async function archiveChange(workspace: WorkspaceContext, changeId: strin
     if (changeSpec.version !== '1') throw new Error('当前 Change spec.md 必须是版本 1 规格');
     const specIssues = validateCurrentSpecification(changeSpec);
     if (specIssues.length) throw new Error(`当前 Change spec.md 校验失败：${specIssues.join('; ')}`);
+    const designIssues = validateCurrentDesignOwnership(artifacts.design, changeSpec);
+    if (designIssues.length) throw new Error(`当前 Change design.md 归属校验失败：${designIssues.join('; ')}`);
+    const changeEntries = await fs.readdir(artifacts.changeDir);
+    if (changeEntries.includes('test-cases.md')) throw new Error('当前 Change 不得包含独立的 test-cases.md');
     const targetModule = merged.business.modules.find((module) => module.id === changeSpec.module);
     if (!targetModule) throw new Error(`当前 Change spec.md 引用了未注册模块：${changeSpec.module}`);
     if (targetModule.status === 'RETIRED') throw new Error(`当前 Change 不能归档到已退役模块：${changeSpec.module}`);

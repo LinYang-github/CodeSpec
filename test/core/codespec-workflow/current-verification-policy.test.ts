@@ -54,6 +54,8 @@ describe('current verification policy', () => {
 
     const baseline = { commit: '9ec4bf1', working_tree_fingerprint: 'sha256:f4bd3f5c3cdb8f27ab9910f241313c5c3a138f91a7be2534de45fa7b745a4365' };
     expect(validateCurrentVerificationPlan(tasks, verification, baseline)).toEqual([]);
+    expect(validateCurrentVerificationPlan(tasks, { ...verification, changeRevision: 2 }, { ...baseline, revision: 1 }))
+      .toContainEqual(expect.stringMatching(/revision/i));
     expect(validateCurrentVerificationPlan(tasks, parseCurrentVerification({ version: 1, testCases: [] }), baseline))
       .toContainEqual(expect.stringMatching(/missing verification record/i));
     expect(validateCurrentVerificationPlan(tasks, parseCurrentVerification({
@@ -110,6 +112,7 @@ describe('current verification policy', () => {
       }));
       await fs.writeFile(path.join(changeDir, 'verification.yaml'), stringifyYaml({
         version: 1,
+        changeRevision: 1,
         testCases: [{
           testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', result: 'PASS', testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
           command: 'pnpm playwright test e2e/users.spec.ts', profile: 'test', services: ['users'], browser: 'chromium', exitCode: 0,

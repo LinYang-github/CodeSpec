@@ -1,8 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseCurrentSpecification, renderCurrentSpecification, validateCurrentSpecification, validateCurrentSpecificationTraceability } from '../../../src/core/codespec-workflow/current-spec-model.js';
+import { parseCurrentSpecification, renderCurrentSpecification, validateCurrentDesignOwnership, validateCurrentSpecification, validateCurrentSpecificationTraceability } from '../../../src/core/codespec-workflow/current-spec-model.js';
 
 describe('current specification Markdown model', () => {
+  it('allows design IDs but rejects duplicated scenario bodies', () => {
+    const specification = parseCurrentSpecification(`# 用户管理
+
+- **模块编号：** MOD-002
+- **规格版本：** 1
+
+## MOD-002-REQ-001：管理员新增用户
+
+#### Scenario: MOD-002-REQ-001-SCN-001 新增有效用户
+- GIVEN 管理员已登录
+- WHEN 管理员提交合法用户信息
+- THEN 用户列表出现新用户
+- ERROR 参数不合法时不创建用户
+`);
+    expect(validateCurrentDesignOwnership('## 方案\n\n关联 `MOD-002-REQ-001` 与 `MOD-002-REQ-001-SCN-001`。\n', specification)).toEqual([]);
+    expect(validateCurrentDesignOwnership('## Scenario\n- GIVEN 已登录\n- WHEN 提交\n- THEN 创建\n- ERROR 拒绝\n', specification))
+      .toContainEqual(expect.stringMatching(/重复|scenario|行为/i));
+    expect(validateCurrentDesignOwnership('## 方案\n关联 `MOD-002-REQ-999`。\n', specification))
+      .toContainEqual(expect.stringMatching(/不存在|unknown/i));
+  });
   it('reads the fixed requirement, scenario, and UI test-case hierarchy from Markdown AST', () => {
     const parsed = parseCurrentSpecification(`# 用户管理
 

@@ -195,6 +195,6 @@ export async function runUiArchiveGate(
   }
 
   if (firstFailure) throw firstFailure;
-  const verification = parseCurrentVerification({ version: 1, testCases: records });
+  const verification = parseCurrentVerification({ version: 1, changeRevision: artifacts.metadata.change.revision, testCases: records });
   return { passed: true, verification, outputSummary: output.join('\n').slice(0, 4000) };
 }

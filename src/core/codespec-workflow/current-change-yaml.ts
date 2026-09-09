@@ -158,6 +158,7 @@ const verificationCaseSchema = z.object({
 });
 const currentVerificationSchema = z.object({
   version: z.literal(1),
+  changeRevision: z.number().int().positive().optional(),
   testCases: z.array(verificationCaseSchema),
 }).strict();
 
