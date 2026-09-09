@@ -1,6 +1,8 @@
 const page = document.querySelector('#page');
 const projectTree = document.querySelector('#project-tree');
 const search = document.querySelector('#search');
+const searchSubmit = document.querySelector('#search-submit');
+const searchSuggestions = document.querySelector('#search-suggestions');
 const themeToggle = document.querySelector('#theme-toggle');
 const commandHelperToggle = document.querySelector('#command-helper');
 const rebuild = document.querySelector('#rebuild');
@@ -9,12 +11,10 @@ const sidebar = document.querySelector('#sidebar');
 const sidebarToggle = document.querySelector('#sidebar-toggle');
 const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ARCHIVED'];
 let index;
-let currentScreen = { type: 'module', moduleId: null };
+let currentScreen = { type: 'overview' };
 let commandHelperOpen = false;
 let currentChangeOptions = {};
 let currentChangeReturnScreen;
-let searchDocuments = [];
-let searchReturnScreen;
 let documentReturnScreen;
 
 const api = async (path, init) => {
@@ -30,8 +30,7 @@ function setTheme(value, { persist = true } = {}) {
   const labels = { light: '浅色', dark: '深色' };
   const icons = { light: '☀', dark: '☾' };
   themeToggle.textContent = icons[theme];
-  themeToggle.title = `主题：${labels[theme]}（点击切换）`;
-  themeToggle.setAttribute('aria-label', themeToggle.title);
+  themeToggle.setAttribute('aria-label', `当前为${labels[theme]}主题，点击切换`);
   if (persist) localStorage.setItem('codespec-theme', theme);
 }
 
@@ -69,7 +68,7 @@ function backButton(label, handler) {
 
 function screenLabel(screen) {
   if (!screen) return '业务功能';
-  if (screen.type === 'search') return '搜索结果';
+  if (screen.type === 'overview') return '业务管理';
   if (screen.type === 'module') return moduleLabel(screen.moduleId);
   if (screen.type === 'changes') return '变更管理';
   return '上一级';
@@ -93,9 +92,7 @@ function documentById(id) {
 
 function copyScreen(screen) {
   if (!screen) return screen;
-  return screen.type === 'changes'
-    ? { ...screen, ...(screen.filters ? { filters: { ...screen.filters } } : {}) }
-    : { ...screen };
+  return { ...screen };
 }
 
 const AI_WORKFLOW_SKILLS = [
@@ -235,20 +232,6 @@ function emptyState(message) {
   return element('div', 'empty-state', message);
 }
 
-function metric(label, value) {
-  const item = element('div', 'metric');
-  item.append(element('span', 'metric-label', label), element('strong', '', text(value, '0')));
-  return item;
-}
-
-function moduleChangeCount(moduleId) {
-  return (index.allChanges ?? []).filter((change) => change.modules?.includes(moduleId) && !isArchivedChange(change)).length;
-}
-
-function currentSpecForModule(moduleId) {
-  return (index.archive.currentSpecs ?? []).find((doc) => doc.relativePath.includes(`/${moduleId}/spec.md`));
-}
-
 function isArchivedChange(change) {
   return change.status === 'ARCHIVED'
     || Boolean(change.archiveState?.archivedAt)
@@ -256,51 +239,66 @@ function isArchivedChange(change) {
       || document.relativePath.includes('/archive/changes/'));
 }
 
-function renderWorkspaceSummary(description, badges, className = '', controls) {
-  const summary = element('div', `change-summary ${className}`.trim());
-  summary.append(element('p', 'change-workspace-description', description));
-  if (controls || badges.length) {
-    const actions = element('div', 'workspace-summary-actions');
-    if (controls) actions.append(controls);
-    if (badges.length) {
-      const summaryBadges = element('div', 'change-summary-badges');
-      for (const badge of badges) {
-        summaryBadges.append(element('span', `change-summary-badge ${badge.tone ?? ''}`.trim(), `${badge.label} ${badge.value}`));
-      }
-      actions.append(summaryBadges);
-    }
-    summary.append(actions);
-  }
-  return summary;
-}
-
-function compactWorkspaceHeader({ className, contextClass, kicker, title, trailing }) {
-  const header = element('header', `compact-workspace-header ${className}`.trim());
-  const context = element('div', `compact-workspace-context ${contextClass}`.trim());
-  context.append(element('p', 'kicker', kicker), element('h1', '', title));
-  header.append(context);
-  if (trailing) header.append(trailing);
-  return header;
-}
-
 function moduleDocuments(moduleId) {
-  const spec = currentSpecForModule(moduleId);
-  if (!spec) return [];
   const marker = `/${moduleId}/`;
-  const markerIndex = spec.relativePath.indexOf(marker);
-  if (markerIndex < 0) return [spec];
-  const prefix = spec.relativePath.slice(0, markerIndex + marker.length);
   return index.documents
-    .filter((document) => document.relativePath.startsWith(prefix))
-    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    .filter((document) => document.category === '当前 Spec' && document.relativePath.includes(marker))
+    .sort((left, right) => moduleDocumentOrder(left, right));
+}
+
+const MODULE_DOCUMENT_ORDER = ['spec.md', 'api.yaml', 'interface.yaml'];
+
+function moduleDocumentOrder(left, right) {
+  const leftName = left.relativePath.split('/').at(-1) ?? '';
+  const rightName = right.relativePath.split('/').at(-1) ?? '';
+  const leftPosition = MODULE_DOCUMENT_ORDER.indexOf(leftName);
+  const rightPosition = MODULE_DOCUMENT_ORDER.indexOf(rightName);
+  return (leftPosition < 0 ? MODULE_DOCUMENT_ORDER.length : leftPosition)
+    - (rightPosition < 0 ? MODULE_DOCUMENT_ORDER.length : rightPosition)
+    || left.relativePath.localeCompare(right.relativePath);
+}
+
+async function copyDocumentPath(document, control) {
+  try {
+    await navigator.clipboard.writeText(document.relativePath);
+    control.textContent = '✓';
+    control.title = '已复制路径';
+  } catch {
+    control.textContent = '!';
+    control.title = '复制失败';
+  }
+  setTimeout(() => {
+    control.textContent = '⧉';
+    control.title = '复制文件路径';
+  }, 1200);
+}
+
+function createDocumentTab(document, label, activate) {
+  const item = element('div', 'document-tab-item');
+  const tab = button(label, 'document-tab', () => activate(document, tab));
+  const copy = button('⧉', 'document-tab-copy', () => copyDocumentPath(document, copy));
+  copy.setAttribute('aria-label', `复制 ${label} 的文件路径`);
+  copy.title = '复制文件路径';
+  item.append(tab, copy);
+  return { item, tab };
+}
+
+function activateDocumentTab(tabs, activeTab) {
+  for (const item of tabs.children) item.classList.remove('active');
+  for (const tab of tabs.querySelectorAll('.document-tab')) tab.classList.remove('active');
+  activeTab.classList.add('active');
+  activeTab.closest('.document-tab-item')?.classList.add('active');
 }
 
 function renderModuleDocumentPanel(moduleId) {
   const documents = moduleDocuments(moduleId);
+  const module = moduleDefinition(moduleId);
   const panel = element('section', 'document-panel module-document-panel');
-  panel.append(element('h2', '', '模块文档（只读）'));
+  const documentHeader = element('div', 'document-panel-header');
+  documentHeader.append(element('h3', '', module ? `${module.id} · ${module.name}` : moduleId));
+  panel.append(documentHeader);
   if (!documents.length) {
-    panel.append(emptyState('当前 Spec 未建立，暂无模块文档。'));
+    panel.append(emptyState('暂无模块文档。'));
     return panel;
   }
   const tabs = element('nav', 'document-tabs');
@@ -308,19 +306,22 @@ function renderModuleDocumentPanel(moduleId) {
   const activeDocumentId = currentScreen.type === 'module' ? currentScreen.activeDocumentId : undefined;
   const activate = async (doc, activeTab) => {
     currentScreen.activeDocumentId = doc.id;
-    for (const tab of tabs.children) tab.classList.remove('active');
-    activeTab.classList.add('active');
+    activateDocumentTab(tabs, activeTab);
     const detail = await api(`/api/documents/${doc.id}`);
     content.replaceChildren();
     renderDocument(detail, content);
   };
+  const tabButtons = [];
   documents.forEach((doc, position) => {
-    const tab = button(documentTabLabel(doc), 'document-tab', () => activate(doc, tab));
+    const { item, tab } = createDocumentTab(doc, doc.relativePath.split('/').at(-1) ?? documentTabLabel(doc), activate);
+    tab.classList.add('module-document-tab');
     if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
-    tabs.append(tab);
+    if (tab.classList.contains('active')) item.classList.add('active');
+    tabButtons.push(tab);
+    tabs.append(item);
   });
   const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? documents[0];
-  const activeTab = [...tabs.children][documents.indexOf(activeDocument)];
+  const activeTab = tabButtons[documents.indexOf(activeDocument)];
   panel.append(tabs, content);
   activate(activeDocument, activeTab).catch(showError);
   return panel;
@@ -330,82 +331,282 @@ function renderModuleWorkspace(moduleId) {
   const module = moduleDefinition(moduleId);
   if (!module) return emptyState('当前模块不存在，请重新扫描工程索引。');
   const view = element('div', 'module-workspace');
-  view.append(compactWorkspaceHeader({
-    className: 'module-workspace-header',
-    contextClass: 'module-workspace-context',
-    kicker: 'BUSINESS MANAGEMENT',
-    title: module.name,
-  }));
-  view.append(element('p', 'module-breadcrumb', `工程 / 业务管理 / ${module.name}`));
-
-  const facts = element('dl', 'module-facts');
-  for (const [label, value] of [
-    ['模块 ID', module.id],
-    ['职责', text(module.responsibility, '未读取')],
-    ['活动 Change', moduleChangeCount(module.id)],
-    ['当前 Spec', currentSpecForModule(module.id) ? '已建立' : '未建立'],
-  ]) {
-    facts.append(element('dt', '', label), element('dd', '', text(value, '未读取')));
-  }
-  view.append(facts);
-
-  const spec = currentSpecForModule(module.id);
-  const specSection = element('section', 'module-summary-section');
-  specSection.append(element('h2', '', '当前 Spec'));
-  specSection.append(spec
-    ? element('p', 'document-path', spec.relativePath)
-    : emptyState('当前 Spec 未建立'));
-  view.append(specSection);
-
-  const relatedChanges = (index.allChanges ?? []).filter((change) => change.modules?.includes(module.id));
-  const changesSection = element('section', 'module-summary-section');
-  changesSection.append(element('h2', '', '关联 Change'));
-  if (!relatedChanges.length) changesSection.append(emptyState('暂无关联 Change'));
-  else {
-    const list = element('div', 'module-change-list');
-    for (const change of relatedChanges) {
-      const row = element('div', 'module-change-row');
-      row.append(element('span', 'change-id', text(change.id)), element('strong', '', text(change.title, '未命名 Change')));
-      row.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
-      row.append(button('查看', 'secondary-button', () => navigateTo({
-        type: 'change',
-        changeId: change.id,
-        activeDocumentId: firstChangeDocument(change)?.id,
-      })));
-      list.append(row);
-    }
-    changesSection.append(list);
-  }
-  view.append(changesSection);
-
-  const recentArchives = relatedChanges.filter(isArchivedChange).sort((left, right) =>
-    changeUpdatedAt(right).localeCompare(changeUpdatedAt(left)));
-  const archiveSection = element('section', 'module-summary-section');
-  archiveSection.append(element('h2', '', '最近归档'));
-  archiveSection.append(recentArchives[0]
-    ? element('p', 'muted', `${recentArchives[0].id} · ${recentArchives[0].archiveState?.archivedAt ?? (changeUpdatedAt(recentArchives[0]) || '时间未读取')}`)
-    : emptyState('暂无归档 Change'));
-  view.append(archiveSection);
-
-  const relations = (index.currentSpecGraph?.relations ?? []).filter((relation) =>
-    relation.fromModule === module.id || relation.toModule === module.id);
-  const relationSection = element('section', 'module-summary-section');
-  relationSection.append(element('h2', '', '依赖关系'));
-  if (!relations.length) relationSection.append(emptyState('暂无关联关系'));
-  else {
-    const relationList = element('ul', 'module-relation-list');
-    for (const relation of relations) {
-      relationList.append(element('li', '', `${relation.id} · ${relation.fromModule} → ${relation.toModule}`));
-    }
-    relationSection.append(relationList);
-  }
-  view.append(relationSection, renderModuleDocumentPanel(module.id));
+  const header = element('div', 'section-header detail-section-header');
+  const summaryRow = element('div', 'detail-summary-row');
+  summaryRow.append(backButton('返回业务管理', () => navigateTo({ type: 'overview' })));
+  header.append(summaryRow);
+  view.append(header, renderModuleDocumentPanel(module.id));
   return view;
 }
 
-function changeUpdatedAt(change) {
-  return (change.documents ?? []).reduce((latest, document) =>
+function businessCanvasEdges(modules) {
+  const moduleIds = new Set(modules.map((module) => module.id));
+  const edges = new Map();
+  for (const relation of index.currentSpecGraph?.relations ?? []) {
+    if (!moduleIds.has(relation.fromModule) || !moduleIds.has(relation.toModule)) continue;
+    edges.set(`${relation.fromModule}->${relation.toModule}`, {
+      from: relation.fromModule,
+      to: relation.toModule,
+    });
+  }
+  for (const module of modules) {
+    for (const relatedId of module.relatedModules ?? []) {
+      if (!moduleIds.has(relatedId) || relatedId === module.id) continue;
+      edges.set(`${module.id}->${relatedId}`, { from: module.id, to: relatedId });
+    }
+  }
+  return [...edges.values()];
+}
+
+function businessCanvasLayout(modules) {
+  const nodeWidth = 208;
+  const nodeHeight = 78;
+  const horizontalGap = 44;
+  const verticalGap = 70;
+  const padding = 40;
+  const edges = businessCanvasEdges(modules);
+  const depths = new Map(modules.map((module) => [module.id, 0]));
+  if (edges.length) {
+    const incoming = new Map(modules.map((module) => [module.id, 0]));
+    const outgoing = new Map(modules.map((module) => [module.id, []]));
+    for (const edge of edges) {
+      incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1);
+      outgoing.get(edge.from)?.push(edge.to);
+    }
+    const queue = modules.filter((module) => incoming.get(module.id) === 0).map((module) => module.id);
+    const visited = new Set();
+    while (queue.length) {
+      const moduleId = queue.shift();
+      if (visited.has(moduleId)) continue;
+      visited.add(moduleId);
+      for (const childId of outgoing.get(moduleId) ?? []) {
+        depths.set(childId, Math.max(depths.get(childId) ?? 0, (depths.get(moduleId) ?? 0) + 1));
+        incoming.set(childId, (incoming.get(childId) ?? 1) - 1);
+        if (incoming.get(childId) === 0) queue.push(childId);
+      }
+    }
+  }
+  const groups = new Map();
+  for (const module of modules) {
+    const depth = edges.length ? depths.get(module.id) ?? 0 : Math.floor(modules.indexOf(module) / 4);
+    groups.set(depth, [...(groups.get(depth) ?? []), module]);
+  }
+  const widest = Math.max(...[...groups.values()].map((group) => group.length), 1);
+  const width = padding * 2 + widest * nodeWidth + Math.max(widest - 1, 0) * horizontalGap;
+  const maxDepth = Math.max(...groups.keys(), 0);
+  const height = padding * 2 + (maxDepth + 1) * nodeHeight + maxDepth * verticalGap;
+  const nodes = [];
+  for (const [depth, group] of [...groups.entries()].sort(([left], [right]) => left - right)) {
+    const rowWidth = group.length * nodeWidth + Math.max(group.length - 1, 0) * horizontalGap;
+    const offsetX = (width - rowWidth) / 2;
+    group.forEach((module, position) => nodes.push({
+      module,
+      x: offsetX + position * (nodeWidth + horizontalGap),
+      y: padding + depth * (nodeHeight + verticalGap),
+    }));
+  }
+  return { nodes, edges, width, height, nodeWidth, nodeHeight };
+}
+
+function renderBusinessTable(modules) {
+  const wrap = element('div', 'business-table-wrap');
+  const table = element('table', 'business-table');
+  const head = element('thead');
+  const heading = element('tr');
+  for (const label of ['序号', '业务模块ID', '业务模块', '关联模块', '最后修改时间', '操作']) heading.append(element('th', '', label));
+  head.append(heading);
+  const body = element('tbody');
+  if (!modules.length) {
+    const row = element('tr');
+    const cell = element('td', 'business-table-empty', '暂无业务模块。');
+    cell.colSpan = 6;
+    row.append(cell);
+    body.append(row);
+  } else {
+    modules.forEach((module, position) => {
+      const row = element('tr');
+      const moduleCell = element('td', 'business-table-module');
+      moduleCell.append(element('strong', '', module.name));
+      const relatedCell = element('td', 'business-table-related');
+      const relatedIds = new Set(module.relatedModules ?? []);
+      for (const relation of index.currentSpecGraph?.relations ?? []) {
+        if (relation.fromModule === module.id) relatedIds.add(relation.toModule);
+        if (relation.toModule === module.id) relatedIds.add(relation.fromModule);
+      }
+      for (const relatedId of relatedIds) relatedCell.append(element('span', 'module-tag', moduleLabel(relatedId)));
+      if (!relatedIds.size) relatedCell.append(element('span', 'muted', '未关联'));
+      row.append(
+        element('td', 'business-table-sequence', String(position + 1)),
+        element('td', 'business-table-id', module.id),
+        moduleCell,
+        relatedCell,
+        element('td', 'business-table-modified-at', formatDateTime(moduleLastModifiedAt(module.id))),
+      );
+      const actions = element('td', 'business-table-actions');
+      actions.append(button('详情', 'table-action view-action', () => navigateTo({ type: 'module', moduleId: module.id })));
+      row.append(actions);
+      body.append(row);
+    });
+  }
+  table.append(head, body);
+  wrap.append(table);
+  return wrap;
+}
+
+function renderBusinessCanvas(modules) {
+  const layout = businessCanvasLayout(modules);
+  const workbench = element('section', 'business-canvas-workbench');
+  const toolbar = element('div', 'business-canvas-toolbar');
+  toolbar.append(element('span', 'canvas-toolbar-hint', '拖动平移 · Ctrl/⌘ + 滚轮缩放 · F 适应'));
+  const viewport = element('div', 'business-canvas-viewport');
+  viewport.tabIndex = 0;
+  viewport.setAttribute('aria-label', '业务模块总览画布');
+  const shell = element('div', 'business-canvas-stage-shell');
+  const stage = element('div', 'business-canvas-stage');
+  const edgeLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  edgeLayer.classList.add('business-canvas-edges');
+  edgeLayer.setAttribute('viewBox', `0 0 ${layout.width} ${layout.height}`);
+  const nodeById = new Map(layout.nodes.map((node) => [node.module.id, node]));
+  for (const edge of layout.edges) {
+    const from = nodeById.get(edge.from);
+    const to = nodeById.get(edge.to);
+    if (!from || !to) continue;
+    const startX = from.x + layout.nodeWidth / 2;
+    const startY = from.y + layout.nodeHeight;
+    const endX = to.x + layout.nodeWidth / 2;
+    const endY = to.y;
+    const middleY = startY + (endY - startY) / 2;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${startX} ${startY} C ${startX} ${middleY}, ${endX} ${middleY}, ${endX} ${endY}`);
+    edgeLayer.append(path);
+  }
+  stage.append(edgeLayer);
+  for (const node of layout.nodes) {
+    const nodeButton = button('', 'business-canvas-node', () => navigateTo({ type: 'module', moduleId: node.module.id }));
+    nodeButton.style.left = `${node.x}px`;
+    nodeButton.style.top = `${node.y}px`;
+    nodeButton.style.width = `${layout.nodeWidth}px`;
+    nodeButton.style.height = `${layout.nodeHeight}px`;
+    nodeButton.append(
+      element('span', '', node.module.status === 'RETIRED' ? '已退役' : '业务模块'),
+      element('strong', '', node.module.name),
+      element('small', '', node.module.id),
+    );
+    stage.append(nodeButton);
+  }
+  if (!modules.length) viewport.append(element('div', 'business-canvas-empty', '当前还没有可展示的业务模块'));
+  else {
+    shell.append(stage);
+    viewport.append(shell);
+  }
+  let scale = 1;
+  const scaleOutput = element('output', '', '100%');
+  const applyScale = () => {
+    scaleOutput.textContent = `${Math.round(scale * 100)}%`;
+    shell.style.width = `${layout.width * scale}px`;
+    shell.style.height = `${layout.height * scale}px`;
+    stage.style.width = `${layout.width}px`;
+    stage.style.height = `${layout.height}px`;
+    stage.style.transform = `scale(${scale})`;
+  };
+  const changeScale = (delta) => {
+    scale = Math.min(1.5, Math.max(0.5, Number((scale + delta).toFixed(2))));
+    applyScale();
+  };
+  const fitCanvas = () => {
+    if (!modules.length) return;
+    scale = Math.min(1, Math.max(0.5, Number(Math.min(
+      (viewport.clientWidth - 24) / layout.width,
+      (viewport.clientHeight - 24) / layout.height,
+    ).toFixed(2))));
+    applyScale();
+    viewport.scrollTo({ top: 0, left: 0 });
+  };
+  toolbar.append(
+    button('缩小', 'quiet-button business-canvas-control', () => changeScale(-0.1)),
+    scaleOutput,
+    button('放大', 'quiet-button business-canvas-control', () => changeScale(0.1)),
+    button('适应', 'quiet-button business-canvas-control', fitCanvas),
+    button('复位', 'quiet-button business-canvas-control', () => {
+      scale = 1;
+      applyScale();
+      viewport.scrollTo({ top: 0, left: 0 });
+    }),
+  );
+  let pan;
+  viewport.onpointerdown = (event) => {
+    if (event.target.closest('.business-canvas-node')) return;
+    pan = { x: event.clientX, y: event.clientY, left: viewport.scrollLeft, top: viewport.scrollTop };
+    viewport.classList.add('is-panning');
+    viewport.setPointerCapture(event.pointerId);
+  };
+  viewport.onpointermove = (event) => {
+    if (!pan) return;
+    viewport.scrollLeft = pan.left - (event.clientX - pan.x);
+    viewport.scrollTop = pan.top - (event.clientY - pan.y);
+  };
+  const endPan = () => {
+    pan = undefined;
+    viewport.classList.remove('is-panning');
+  };
+  viewport.onpointerup = endPan;
+  viewport.onpointercancel = endPan;
+  viewport.onwheel = (event) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    changeScale(event.deltaY > 0 ? -0.1 : 0.1);
+  };
+  viewport.onkeydown = (event) => {
+    if (event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      fitCanvas();
+    }
+  };
+  workbench.append(toolbar, viewport);
+  applyScale();
+  requestAnimationFrame(fitCanvas);
+  return workbench;
+}
+
+function renderBusinessOverview() {
+  const view = element('div', 'business-overview');
+  const modules = index.businessModules ?? [];
+  const activeView = currentScreen.businessView === 'canvas' ? 'canvas' : 'table';
+  const toolbar = element('div', 'business-management-toolbar');
+  const switcher = element('div', 'business-view-switch');
+  switcher.setAttribute('aria-label', '业务管理视图');
+  for (const option of [{ value: 'table', label: '表格' }, { value: 'canvas', label: '画布' }]) {
+    const viewButton = button(option.label, `business-view-option${activeView === option.value ? ' active' : ''}`, () => {
+      currentScreen = { ...currentScreen, businessView: option.value };
+      renderCurrentScreen();
+    });
+    viewButton.setAttribute('aria-pressed', String(activeView === option.value));
+    switcher.append(viewButton);
+  }
+  toolbar.append(switcher);
+  view.append(toolbar, activeView === 'canvas' ? renderBusinessCanvas(modules) : renderBusinessTable(modules));
+  return view;
+}
+
+function formatDateTime(value) {
+  if (!value || Number.isNaN(Date.parse(value))) return '—';
+  return new Date(value).toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+}
+
+function moduleLastModifiedAt(moduleId) {
+  return moduleDocuments(moduleId).reduce((latest, document) =>
     document.modifiedAt > latest ? document.modifiedAt : latest, '');
+}
+
+function changeCreatedAt(change) {
+  const metadata = (change.documents ?? []).find((document) =>
+    document.relativePath.split('/').at(-1) === 'metadata.yaml');
+  return metadata?.structuredContent?.change?.created_at
+    ?? metadata?.structuredContent?.created_at
+    ?? '';
 }
 
 function associationTags(change) {
@@ -417,24 +618,26 @@ function associationTags(change) {
 }
 
 function archiveReasonFor(change) {
-  if (isArchivedChange(change)) return '已归档 Change 不可再次归档';
   const candidate = archiveCandidateFor(change);
   if (candidate?.ready) return null;
   if (candidate?.gateReasons?.[0]) return candidate.gateReasons[0];
   return '归档候选未读取';
 }
 
-function renderChangeRow(change) {
+function renderChangeRow(change, position) {
   const row = element('tr', 'change-table-row');
+  row.append(element('td', 'change-table-sequence', String(position + 1)));
   row.append(element('td', 'change-table-id', text(change.id)));
   row.append(element('td', 'change-table-title', text(change.title, '未命名 Change')));
   const associations = element('td', 'change-table-associations');
   associations.append(associationTags(change));
   row.append(associations);
+  row.append(element('td', 'change-table-created-at', formatDateTime(changeCreatedAt(change))));
   const status = element('td', 'change-table-status');
   status.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
-  const reason = archiveReasonFor(change);
-  status.append(element('span', reason ? 'disabled-reason' : 'gate-success', reason ?? '可归档'));
+  const archived = isArchivedChange(change);
+  const reason = archived ? null : archiveReasonFor(change);
+  if (!archived) status.append(element('span', reason ? 'disabled-reason' : 'gate-success', reason ?? '可归档'));
   row.append(status);
   const actions = element('td', 'change-table-actions');
   const firstDocument = firstChangeDocument(change);
@@ -445,94 +648,29 @@ function renderChangeRow(change) {
   }, { changeOptions: { archived: isArchivedChange(change) } })));
   const archiveButton = button('归档', 'table-action archive-action', () => openArchiveConfirmation(archiveCandidateFor(change)));
   archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
-  if (reason) {
-    const reasonId = `archive-reason-${String(change.id).replace(/[^a-zA-Z0-9_-]/gu, '-')}`;
+  if (archived || reason) {
     archiveButton.disabled = true;
-    archiveButton.title = reason;
-    archiveButton.setAttribute('aria-describedby', reasonId);
-    const reasonNode = element('span', 'disabled-reason', reason);
-    reasonNode.id = reasonId;
-    actions.append(archiveButton, reasonNode);
-  } else {
-    actions.append(archiveButton);
+    if (reason) archiveButton.title = reason;
   }
+  actions.append(archiveButton);
   row.append(actions);
   return row;
 }
 
-function filterValueChanged(key, value) {
-  const filters = { ...(currentScreen.filters ?? {}) };
-  if (value) filters[key] = value;
-  else delete filters[key];
-  currentScreen = { ...currentScreen, filters };
-  renderCurrentScreen();
-}
-
-function changeFilter(label, key, options, value) {
-  const select = element('select', 'change-filter');
-  select.setAttribute('aria-label', label);
-  select.append(element('option', '', `全部${label}`));
-  for (const option of options) {
-    const optionNode = element('option', '', option.label);
-    optionNode.value = option.value;
-    select.append(optionNode);
-  }
-  select.value = value ?? '';
-  select.onchange = () => filterValueChanged(key, select.value);
-  return select;
-}
-
-function filteredChanges() {
-  const filters = currentScreen.filters ?? {};
-  return (index.allChanges ?? []).filter((change) => {
-    if (filters.status && change.status !== filters.status) return false;
-    if (filters.mode && change.mode !== filters.mode) return false;
-    if (filters.moduleId && !(change.modules ?? []).includes(filters.moduleId)) return false;
-    if (filters.updatedAfter && changeUpdatedAt(change).slice(0, 10) < filters.updatedAfter) return false;
-    return true;
-  });
-}
-
 function renderAllChangesWorkspace() {
   const view = element('div', 'changes-workspace-view');
-  view.append(compactWorkspaceHeader({
-    className: 'change-workspace-header',
-    contextClass: 'change-workspace-context',
-    kicker: 'CHANGE MANAGEMENT',
-    title: '变更管理',
-  }));
-  const filters = element('div', 'change-filters');
-  const currentFilters = currentScreen.filters ?? {};
-  filters.append(changeFilter('状态', 'status', [
-    ...new Set((index.allChanges ?? []).map((change) => change.status).filter(Boolean)),
-  ].map((status) => ({ label: statusLabel(status), value: status })), currentFilters.status));
-  filters.append(changeFilter('模式', 'mode', [
-    ...new Set((index.allChanges ?? []).map((change) => change.mode).filter(Boolean)),
-  ].map((mode) => ({ label: mode, value: mode })), currentFilters.mode));
-  filters.append(changeFilter('业务模块', 'moduleId', (index.businessModules ?? []).map((module) => ({ label: moduleLabel(module.id), value: module.id })), currentFilters.moduleId));
-  filters.append(element('label', 'change-date-filter', '更新时间'));
-  const updatedAfter = element('input', 'change-filter', '');
-  updatedAfter.type = 'date';
-  updatedAfter.value = currentFilters.updatedAfter ?? '';
-  updatedAfter.setAttribute('aria-label', '更新时间');
-  updatedAfter.onchange = () => filterValueChanged('updatedAfter', updatedAfter.value);
-  filters.append(updatedAfter);
-  view.append(filters);
-
   const tableWrap = element('div', 'change-table-wrap');
   const table = element('table', 'change-table');
   const head = element('thead');
   const heading = element('tr');
-  for (const label of ['变更ID', '变更标题', '关联模块/需求', '状态', '操作']) heading.append(element('th', '', label));
+  for (const label of ['序号', '变更ID', '变更标题', '关联模块/需求', '创建时间', '状态', '操作']) heading.append(element('th', '', label));
   head.append(heading);
   const body = element('tbody');
-  const changes = filteredChanges();
+  const changes = index.allChanges ?? [];
   if (!changes.length) {
     const emptyRow = element('tr', 'change-table-empty-row');
-    const emptyCell = element('td', 'change-table-empty-cell', index.allChanges?.length
-      ? '没有符合筛选条件的 Change。'
-      : '暂无 Change');
-    emptyCell.colSpan = 5;
+    const emptyCell = element('td', 'change-table-empty-cell', '暂无 Change');
+    emptyCell.colSpan = 7;
     emptyRow.append(emptyCell);
     body.append(emptyRow);
   } else {
@@ -555,60 +693,13 @@ function lifecycleStepper(change) {
   return stepper;
 }
 
-function gatePanel(change) {
-  const panel = element('aside', 'gate-panel');
-  if (change.status === 'ABANDONED') {
-    const reason = archiveCandidateFor(change)?.gateReasons?.[0] ?? '该 Change 的生命周期已终止，请检查 Change 文档并按工作流处理。';
-    panel.classList.add('change-failure-panel');
-    panel.append(element('h3', '', '生命周期失败'));
-    panel.append(element('p', 'failure-reason', reason));
-    panel.append(element('p', 'muted', '该状态下不可归档，但文档仍可只读查看。'));
-    return panel;
-  }
-  panel.append(element('h3', '', '本等级要求'));
-  panel.append(element('p', 'muted', levelDescription(change.sddLevel)));
-  const details = element('ul', 'gate-list');
-  const entries = [
-    ['任务', change.taskProgress ? `${change.taskProgress.completed}/${change.taskProgress.total}` : '未读取'],
-    ['Requirement', change.verification?.requirementsVerified ? '已验证' : '待验证'],
-    ['测试', change.verification?.testsPassed ? '通过' : '待验证'],
-    ['构建', change.verification?.buildPassed ? '通过' : '待验证'],
-    ['Lint', change.verification?.lintPassed ? '通过' : '待验证'],
-  ];
-  for (const [label, value] of entries) {
-    const item = element('li');
-    item.append(element('span', '', label), element('strong', value === '待验证' ? 'gate-warn' : 'gate-success', value));
-    details.append(item);
-  }
-  panel.append(details);
-  return panel;
-}
-
-function levelDescription(level) {
-  if (level === 1) return 'Level 1：小范围单模块变更，设计说明内嵌在 spec.md。';
-  if (level === 3) return 'Level 3：高风险或复杂变更，需要完整设计、追踪矩阵和代码引用。';
-  return 'Level 2：常规功能或跨模块变更，需要 design.md、BDD 和集成验证。';
-}
-
 function documentTabLabel(doc) {
   const name = doc.relativePath.split('/').at(-1) ?? doc.title;
   return name.replace(/\.md$/u, '');
 }
 
-const CHANGE_DOCUMENT_ORDER = ['design.md', 'proposal.md', 'spec.md', 'tasks.md', 'verification.md', 'metadata.yaml'];
-
-function changeDocumentOrder(left, right) {
-  const leftName = left.relativePath.split('/').at(-1) ?? '';
-  const rightName = right.relativePath.split('/').at(-1) ?? '';
-  const leftPosition = CHANGE_DOCUMENT_ORDER.indexOf(leftName);
-  const rightPosition = CHANGE_DOCUMENT_ORDER.indexOf(rightName);
-  return (leftPosition < 0 ? CHANGE_DOCUMENT_ORDER.length : leftPosition)
-    - (rightPosition < 0 ? CHANGE_DOCUMENT_ORDER.length : rightPosition)
-    || left.relativePath.localeCompare(right.relativePath);
-}
-
 function orderedChangeDocuments(change) {
-  return [...(change.documents ?? [])].sort(changeDocumentOrder);
+  return [...(change.documents ?? [])];
 }
 
 function firstChangeDocument(change) {
@@ -621,7 +712,7 @@ function renderChangeDetail(change, options = currentChangeOptions, returnScreen
     || currentScreen.type === 'changes'
     || currentScreen.type === 'search'
     ? copyScreen(currentScreen)
-    : { type: 'module', moduleId: index.businessModules[0]?.id ?? null };
+    : { type: 'overview' };
   const detailReturnScreen = returnScreen ?? fallbackReturnScreen;
   const activeDocumentId = currentScreen.type === 'change' && currentScreen.changeId === change.id
     ? currentScreen.activeDocumentId
@@ -630,72 +721,47 @@ function renderChangeDetail(change, options = currentChangeOptions, returnScreen
   view.classList.add('detail-view');
   const archived = options.archived === true || change.status === 'ARCHIVED';
   if (archived) view.classList.add('archived-detail-view');
-  const badges = element('div', 'detail-badges');
-  badges.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
-  badges.append(element('span', 'sdd-level-badge', levelLabel(change.sddLevel)));
   const header = element('div', 'section-header detail-section-header');
-  header.append(backButton(`返回${screenLabel(detailReturnScreen)}`, goBackFromScreen));
-  header.append(element('p', 'kicker', 'CHANGE DETAIL'));
-  const headerRow = element('div', 'detail-header-row');
-  headerRow.append(element('h1', '', text(change.title, change.id)), badges);
-  const subrow = element('div', 'detail-subrow detail-meta-row');
-  subrow.append(
-    element('p', 'section-description', `${change.id} · ${change.mode ?? '模式未知'}`),
-    lifecycleStepper(change),
+  const summaryRow = element('div', 'detail-summary-row');
+  summaryRow.append(
+    backButton(`返回${screenLabel(detailReturnScreen)}`, goBackFromScreen),
+    element('span', 'sdd-level-badge', levelLabel(change.sddLevel)),
   );
-  header.append(headerRow, subrow);
+  header.append(summaryRow);
   view.append(header);
-  if (archived) {
-    const archivedDocument = change.documents?.[0];
-    const historyMeta = element('div', 'history-meta');
-    historyMeta.append(element('span', '', `归档路径：${archivedDocument?.relativePath?.split('/').slice(0, -1).join('/') ?? '未读取'}`));
-    historyMeta.append(element('span', '', `归档时间：${change.archiveState?.archivedAt ?? '未读取'}`));
-    historyMeta.append(element('span', '', `Verification Receipt：${change.verification?.evidenceReceipt ?? '未读取'}`));
-    view.append(historyMeta);
-  }
-  const associationSummary = element('section', 'change-association-summary');
-  associationSummary.append(element('h2', '', '关联模块/需求'));
-  const associationGrid = element('div', 'association-summary-grid');
-  const moduleValues = element('div', 'association-summary-values');
-  moduleValues.append(element('strong', '', '模块'));
-  for (const moduleId of change.modules ?? []) moduleValues.append(element('span', 'module-tag', moduleLabel(moduleId)));
-  if (!change.modules?.length) moduleValues.append(element('span', 'muted', '未关联'));
-  const requirementValues = element('div', 'association-summary-values');
-  requirementValues.append(element('strong', '', 'Requirement'));
-  for (const requirementId of change.requirements ?? []) requirementValues.append(element('span', 'requirement-tag', requirementId));
-  if (!change.requirements?.length) requirementValues.append(element('span', 'muted', '未关联'));
-  associationGrid.append(moduleValues, requirementValues);
-  associationSummary.append(associationGrid);
-  view.append(associationSummary);
-  const columns = element('div', 'detail-columns');
-  columns.append(gatePanel(change));
   const documents = orderedChangeDocuments(change);
   const docs = element('section', 'document-panel');
-  docs.append(element('h3', '', 'Change 文档（只读）'));
+  const documentHeader = element('div', 'document-panel-header');
+  documentHeader.append(
+    element('h3', '', `${change.id} · ${text(change.title, '未命名 Change')}`),
+    lifecycleStepper(change),
+  );
+  docs.append(documentHeader);
   const tabs = element('nav', 'document-tabs');
   const content = element('div', 'document-content');
   const activate = async (doc, activeButton) => {
     currentScreen.activeDocumentId = doc.id;
-    for (const tab of tabs.children) tab.classList.remove('active');
-    activeButton.classList.add('active');
+    activateDocumentTab(tabs, activeButton);
     const detail = await api(`/api/documents/${doc.id}`);
     content.replaceChildren();
     renderDocument(detail, content);
   };
   if (!documents.length) docs.append(emptyState('暂无 Change 文档'));
   else {
+    const tabButtons = [];
     documents.forEach((doc, position) => {
-      const tab = button(documentTabLabel(doc), 'document-tab', () => activate(doc, tab));
+      const { item, tab } = createDocumentTab(doc, documentTabLabel(doc), activate);
       if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
-      tabs.append(tab);
+      if (tab.classList.contains('active')) item.classList.add('active');
+      tabButtons.push(tab);
+      tabs.append(item);
     });
     docs.append(tabs, content);
     const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? documents[0];
-    const activeTab = [...tabs.children][documents.indexOf(activeDocument)];
+    const activeTab = tabButtons[documents.indexOf(activeDocument)];
     activate(activeDocument, activeTab).catch(showError);
   }
-  columns.append(docs);
-  view.append(columns);
+  view.append(docs);
   page.replaceChildren(view);
 }
 
@@ -880,27 +946,7 @@ function renderDocumentReaderControls(detail, getMode, setMode) {
   structuredButton.setAttribute('aria-label', '切换到结构化视图');
   sourceButton.setAttribute('aria-label', '切换到源文件视图');
   modeControls.append(structuredButton, sourceButton);
-  const actions = element('div', 'document-reader-actions');
-  const copyButton = button('复制路径', 'secondary-button', async () => {
-    try {
-      await navigator.clipboard.writeText(detail.relativePath);
-      copyButton.textContent = '已复制路径';
-      setTimeout(() => { copyButton.textContent = '复制路径'; }, 1200);
-    } catch {
-      copyButton.textContent = '复制失败，请手动复制';
-    }
-  });
-  const revealButton = button('在文件管理器中定位', 'secondary-button', async () => {
-    try {
-      await api(`/api/reveal/${detail.id}`, { method: 'POST' });
-      revealButton.textContent = '已打开文件位置';
-      setTimeout(() => { revealButton.textContent = '在文件管理器中定位'; }, 1200);
-    } catch {
-      revealButton.textContent = '无法打开文件位置';
-    }
-  });
-  actions.append(copyButton, revealButton);
-  toolbar.append(modeControls, actions);
+  toolbar.append(modeControls);
   updateMode();
   return { toolbar, updateMode };
 }
@@ -914,7 +960,7 @@ function renderDocument(detail, target) {
     controls.updateMode();
   });
   const renderBody = () => {
-    body.replaceChildren(element('p', 'document-path', detail.relativePath));
+    body.replaceChildren();
     if (mode === 'structured' && supportsStructuredDocument(detail)) renderStructuredDocument(detail, body);
     else body.append(element('pre', '', detail.content));
   };
@@ -961,39 +1007,37 @@ async function openDocument(doc, returnScreen = currentScreen) {
 function goBackFromScreen() {
   const target = documentReturnScreen
     ?? (currentScreen.type === 'change' ? currentChangeReturnScreen : undefined)
-    ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null };
+    ?? { type: 'overview' };
   documentReturnScreen = undefined;
   navigateTo(target);
 }
 
 function renderArchivePreviewSummary(preview) {
-  const summary = element('div', 'archive-preview-sections');
+  const summary = element('form', 'archive-preview-form');
+  summary.onsubmit = (event) => event.preventDefault();
   const section = (title, entries) => {
-    const panel = element('section', 'archive-preview-section');
-    panel.append(element('h3', '', title));
-    const details = element('dl', 'archive-preview-details');
+    const panel = element('fieldset', 'archive-preview-section');
+    panel.append(element('legend', '', title));
+    const details = element('div', 'archive-preview-fields');
     for (const [label, value] of entries) {
-      details.append(element('dt', '', label), element('dd', '', text(value, '未读取')));
+      const resolvedValue = text(value, '未读取');
+      const field = element('label', `archive-preview-field${resolvedValue.length > 38 ? ' archive-preview-field-wide' : ''}`);
+      const control = document.createElement('input');
+      control.type = 'text';
+      control.readOnly = true;
+      control.value = resolvedValue;
+      field.append(element('span', 'archive-preview-label', label), control);
+      details.append(field);
     }
     panel.append(details);
     return panel;
   };
-  const impact = preview.archiveImpact ?? {};
-  const gateReasons = preview.reasons?.length ? preview.reasons.join('；') : '全部门禁已满足';
   summary.append(
     section('Change 信息', [['Change ID', preview.changeId], ['标题', preview.title]]),
     section('关联模块/需求', [
       ['模块', (preview.modules ?? []).join('、') || '无'],
       ['Requirement', (preview.requirements ?? []).join('、') || '无'],
     ]),
-    section('SDD 等级与状态', [['SDD 等级', levelLabel(preview.sddLevel)], ['模式', preview.mode], ['状态', statusLabel(preview.status)]]),
-    section('门禁结果', [['结果', preview.ready ? '可归档' : '不可归档'], ['冲突', preview.conflict ? '存在冲突' : '无冲突'], ['原因', gateReasons]]),
-    section('Spec 影响', [
-      ['结果', impact.outcome === 'affected' ? `受影响（${impact.references?.length ?? 0} 条映射）` : '无当前 Spec 行为影响'],
-      ['验证', (impact.verification ?? []).join('、') || '无'],
-    ]),
-    section('归档目标', [['路径', preview.archiveTarget], ['Change Index', '归档事务更新']]),
-    section('Verification Receipt', [['Receipt', preview.verificationReceipt]]),
   );
   return summary;
 }
@@ -1016,7 +1060,7 @@ function renderArchivePreflightError(error, dialog) {
 }
 
 async function openArchiveConfirmation(candidate) {
-  const returnScreen = currentScreen.type === 'changes' ? copyScreen(currentScreen) : { type: 'changes', filters: {} };
+  const returnScreen = currentScreen.type === 'changes' ? copyScreen(currentScreen) : { type: 'changes' };
   const backdrop = element('div', 'archive-confirmation-backdrop');
   const dialog = element('section', 'archive-confirmation-dialog');
   dialog.setAttribute('role', 'dialog');
@@ -1025,7 +1069,10 @@ async function openArchiveConfirmation(candidate) {
   const header = element('div', 'archive-confirmation-header');
   const title = element('h2', '', '读取归档信息');
   title.id = 'archive-confirmation-title';
-  header.append(title, button('取消', 'quiet-button', () => backdrop.remove()));
+  const closeButton = button('×', 'archive-confirmation-close', () => backdrop.remove());
+  closeButton.setAttribute('aria-label', '关闭归档弹窗');
+  closeButton.title = '关闭';
+  header.append(title, closeButton);
   dialog.append(header, element('p', 'archive-loading muted', '正在重新检查归档门禁，请稍候。'));
   backdrop.append(dialog);
   document.body.append(backdrop);
@@ -1038,9 +1085,9 @@ async function openArchiveConfirmation(candidate) {
     impactConfirmation.type = 'checkbox';
     impactConfirmation.id = 'archive-impact-confirmation';
     const impactLabel = element('label', 'archive-impact-confirmation');
-    impactLabel.append(impactConfirmation, element('span', '', '我已阅读并确认上述 Spec 影响、归档目标和 Verification Receipt。'));
+    impactLabel.append(impactConfirmation, element('span', '', '我已确认归档此 Change。'));
     dialog.append(impactLabel);
-    const actions = element('div', 'card-actions');
+    const actions = element('div', 'card-actions archive-confirmation-actions');
     const confirmButton = button('确认归档', 'primary-button', async () => {
       try {
         const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
@@ -1053,63 +1100,74 @@ async function openArchiveConfirmation(candidate) {
         dialog.append(element('div', 'inline-error', `归档失败：${error.message}`));
       }
     });
+    const cancelButton = button('取消', 'quiet-button', () => backdrop.remove());
     confirmButton.disabled = true;
     impactConfirmation.onchange = () => { confirmButton.disabled = !impactConfirmation.checked; };
-    actions.append(confirmButton);
+    actions.append(confirmButton, cancelButton);
     dialog.append(actions);
     confirmButton.focus();
   } catch (error) {
     renderArchivePreflightError(error, dialog);
+    const actions = element('div', 'card-actions archive-confirmation-actions');
+    actions.append(button('取消', 'quiet-button', () => backdrop.remove()));
+    dialog.append(actions);
   }
 }
 
-function renderSearchResults(documents, query) {
-  if (currentScreen.type !== 'search') searchReturnScreen = copyScreen(currentScreen);
-  searchDocuments = documents;
-  currentScreen = { type: 'search', query };
-  const view = document.createElement('div');
-  view.classList.add('search-view');
-  view.append(sectionHeader('SEARCH', `搜索结果：${query}`, '搜索结果仅提供只读查看。'));
-  if (!documents.length) view.append(emptyState('没有匹配的文档。'));
-  else {
-    const list = element('div', 'search-results');
-    for (const doc of documents) list.append(button(`${doc.title} · ${doc.relativePath}`, 'search-result', () => openDocument(doc)));
-    view.append(list);
+function closeSearchSuggestions() {
+  searchSuggestions.replaceChildren();
+  searchSuggestions.hidden = true;
+  search.setAttribute('aria-expanded', 'false');
+}
+
+function renderSearchSuggestions(documents, query) {
+  searchSuggestions.replaceChildren();
+  searchSuggestions.hidden = false;
+  search.setAttribute('aria-expanded', 'true');
+  if (!documents.length) {
+    searchSuggestions.append(element('p', 'search-suggestion-empty', '没有匹配的文件'));
+    return;
   }
-  page.replaceChildren(view);
+  for (const doc of documents) {
+    const option = button('', 'search-suggestion', async () => {
+      closeSearchSuggestions();
+      await openDocument(doc, copyScreen(currentScreen));
+    });
+    option.setAttribute('role', 'option');
+    option.append(
+      element('strong', '', text(doc.title, doc.relativePath.split('/').at(-1))),
+      element('small', '', doc.relativePath),
+    );
+    searchSuggestions.append(option);
+  }
+  searchSuggestions.dataset.query = query;
 }
 
 function renderSidebar() {
   projectTree.replaceChildren();
   const activeScreen = currentScreen;
-  const moduleSection = element('section', 'project-tree-section');
-  moduleSection.append(element('p', 'nav-caption', '业务管理'));
-  for (const module of index?.businessModules ?? []) {
-    const node = element('button', 'tree-node', `${module.id} · ${module.name}`);
-    node.type = 'button';
-    node.setAttribute('data-node', 'business-module');
-    node.dataset.moduleId = module.id;
-    node.classList.toggle('active', activeScreen.type === 'module' && activeScreen.moduleId === module.id);
-    node.setAttribute('aria-current', activeScreen.type === 'module' && activeScreen.moduleId === module.id ? 'page' : 'false');
-    moduleSection.append(node);
-  }
-  if (!moduleSection.querySelector('.tree-node')) moduleSection.append(element('p', 'sidebar-empty', '暂无业务模块'));
-  projectTree.append(moduleSection);
+  const businessNode = element('button', 'tree-node', '业务管理');
+  businessNode.type = 'button';
+  businessNode.setAttribute('data-node', 'business-overview');
+  const businessActive = activeScreen.type === 'overview' || activeScreen.type === 'module';
+  businessNode.classList.toggle('active', businessActive);
+  businessNode.setAttribute('aria-current', businessActive ? 'page' : 'false');
 
-  const changeSection = element('section', 'project-tree-section');
-  changeSection.append(element('p', 'nav-caption', '工作区'));
   const changeNode = element('button', 'tree-node', '变更管理');
   changeNode.type = 'button';
   changeNode.setAttribute('data-node', 'change-management');
   const changesActive = activeScreen.type === 'changes' || activeScreen.type === 'change';
   changeNode.classList.toggle('active', changesActive);
   changeNode.setAttribute('aria-current', changesActive ? 'page' : 'false');
-  changeSection.append(changeNode);
-  projectTree.append(changeSection);
+  projectTree.append(businessNode, changeNode);
 }
 
 function renderCurrentScreen() {
   renderSidebar();
+  if (currentScreen.type === 'overview') {
+    page.replaceChildren(renderBusinessOverview());
+    return;
+  }
   if (currentScreen.type === 'module') {
     page.replaceChildren(currentScreen.moduleId
       ? renderModuleWorkspace(currentScreen.moduleId)
@@ -1126,17 +1184,10 @@ function renderCurrentScreen() {
     else showError(new Error('当前 Change 已不存在，请返回列表。'));
     return;
   }
-  if (currentScreen.type === 'search') {
-    renderSearchResults(searchDocuments, currentScreen.query ?? '');
-  }
 }
 
 function navigateTo(screen, { changeOptions } = {}) {
   documentReturnScreen = undefined;
-  if (screen.type !== 'search') {
-    searchDocuments = [];
-    searchReturnScreen = undefined;
-  }
   const nextScreen = copyScreen(screen);
   if (nextScreen.type === 'change'
     && currentScreen.type === 'change'
@@ -1178,9 +1229,6 @@ async function load() {
   try {
     index = await api('/api/index');
     projectName.textContent = index.projectName ?? '当前工程';
-    if (currentScreen.type === 'module' && currentScreen.moduleId === null) {
-      currentScreen = { type: 'module', moduleId: index.businessModules[0]?.id ?? null };
-    }
     renderCurrentScreen();
   } catch (error) {
     showError(error);
@@ -1193,8 +1241,11 @@ projectTree.onclick = (event) => {
   if (target.dataset.node === 'business-module') {
     navigateTo({ type: 'module', moduleId: target.dataset.moduleId });
   }
+  if (target.dataset.node === 'business-overview') {
+    navigateTo({ type: 'overview' });
+  }
   if (target.dataset.node === 'change-management') {
-    navigateTo({ type: 'changes', filters: {} });
+    navigateTo({ type: 'changes' });
   }
 };
 
@@ -1205,25 +1256,50 @@ sidebarToggle.onclick = () => {
 };
 
 let searchTimer;
+async function searchFiles(query) {
+  try {
+    const result = await api(`/api/search?q=${encodeURIComponent(query)}`);
+    if (search.value.trim() === query) renderSearchSuggestions(result.documents, query);
+  } catch (error) {
+    searchSuggestions.hidden = false;
+    searchSuggestions.replaceChildren(element('p', 'search-suggestion-empty', `搜索失败：${error.message}`));
+    search.setAttribute('aria-expanded', 'true');
+  }
+}
+
 search.oninput = () => {
   clearTimeout(searchTimer);
   const query = search.value.trim();
   if (!query) {
-    const target = searchReturnScreen ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null };
-    searchDocuments = [];
-    searchReturnScreen = undefined;
-    navigateTo(target);
+    closeSearchSuggestions();
     return;
   }
-  searchTimer = setTimeout(async () => {
-    try {
-      const result = await api(`/api/search?q=${encodeURIComponent(query)}`);
-      renderSearchResults(result.documents, query);
-    } catch (error) {
-      showError(error);
-    }
-  }, 200);
+  searchTimer = setTimeout(() => searchFiles(query), 200);
 };
+
+search.onkeydown = (event) => {
+  if (event.key === 'Escape') closeSearchSuggestions();
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    clearTimeout(searchTimer);
+    const query = search.value.trim();
+    if (query) searchFiles(query);
+  }
+};
+
+searchSubmit.onclick = () => {
+  clearTimeout(searchTimer);
+  const query = search.value.trim();
+  if (query) searchFiles(query);
+  else {
+    closeSearchSuggestions();
+    search.focus();
+  }
+};
+
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.sidebar-search')) closeSearchSuggestions();
+});
 
 commandHelperToggle.onclick = () => {
   commandHelperOpen = !commandHelperOpen;

@@ -210,7 +210,7 @@ function getYamlLabels(content: string): string[] {
 }
 
 function getStructuredContent(content: string, contentType: UiContentType, filePath: string): unknown {
-  if (contentType !== 'yaml' || !new Set(['metadata.yaml', 'tasks.yaml', 'verification.yaml']).has(path.basename(filePath))) return undefined;
+  if (contentType !== 'yaml' || !new Set(['api.yaml', 'interface.yaml', 'metadata.yaml', 'tasks.yaml', 'verification.yaml']).has(path.basename(filePath))) return undefined;
   try {
     const value = parseYaml(content);
     JSON.stringify(value);

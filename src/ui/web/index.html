@@ -3,33 +3,46 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>CodeSpec UI</title>
+    <title>CodeSpec</title>
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <div class="app-shell">
       <aside id="sidebar" class="sidebar">
         <header class="sidebar-header">
-          <div class="brand">CodeSpec <em>UI</em></div>
+          <div class="brand">CodeSpec</div>
           <div class="project-meta">
             <span id="project-name">当前工程</span>
           </div>
         </header>
+        <div class="sidebar-search">
+          <div class="sidebar-search-row">
+            <label class="global-search">
+              <span class="sr-only">搜索文件</span>
+              <input id="search" type="search" placeholder="搜索文件" autocomplete="off" aria-controls="search-suggestions" aria-expanded="false">
+            </label>
+            <button id="search-submit" class="search-icon-button" type="button" aria-label="搜索" title="搜索">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg>
+            </button>
+          </div>
+          <div id="search-suggestions" class="search-suggestions" role="listbox" hidden></div>
+        </div>
         <div id="project-tree" class="project-tree"></div>
         <div class="sidebar-tools">
-          <button id="theme-toggle" class="icon-button" type="button" aria-label="切换主题" title="切换主题"></button>
-          <button id="command-helper" class="icon-button" type="button" aria-label="打开命令助手" title="命令助手">⌘</button>
+          <button id="theme-toggle" class="icon-button" type="button" aria-label="切换主题" data-tooltip="主题"></button>
+          <button id="command-helper" class="icon-button" type="button" aria-label="打开命令行" data-tooltip="命令行">⌘</button>
+          <button id="rebuild" class="icon-button sidebar-rebuild-button" type="button" aria-label="重新扫描" data-tooltip="重新扫描">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 6v5h-5"></path>
+              <path d="M4 18v-5h5"></path>
+              <path d="M6.1 9a7 7 0 0 1 11.7-2.6L20 11"></path>
+              <path d="M17.9 15a7 7 0 0 1-11.7 2.6L4 13"></path>
+            </svg>
+          </button>
         </div>
       </aside>
       <button id="sidebar-toggle" class="sidebar-drawer-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="打开工程树" title="打开工程树">☰</button>
       <section class="workspace-shell">
-        <header class="workspace-header">
-          <label class="global-search">
-            <span class="sr-only">搜索</span>
-            <input id="search" type="search" placeholder="搜索 Change、Spec 和计划">
-          </label>
-          <button id="rebuild" class="quiet-button" type="button">重新扫描</button>
-        </header>
         <main id="workspace" class="workspace" aria-live="polite">
           <section id="page" class="page"></section>
         </main>

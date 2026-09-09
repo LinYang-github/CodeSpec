@@ -135,6 +135,33 @@ describe('buildUiIndex', () => {
     });
   });
 
+  it('marks module API and interface YAML as structured-readable documents', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const moduleDir = path.join(root, 'codespec', 'specs', 'MOD-001');
+    await fs.mkdir(moduleDir, { recursive: true });
+    await fs.writeFile(path.join(root, 'codespec', 'business.md'), [
+      '# 业务',
+      '',
+      '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
+      '| --- | --- | --- | --- | --- |',
+      '| MOD-001 | 账户 | 管理账户 | 管理账户 | 账户 |',
+      '',
+    ].join('\n'));
+    await fs.writeFile(path.join(moduleDir, 'spec.md'), '# 账户规范\n');
+    await fs.writeFile(path.join(moduleDir, 'api.yaml'), 'version: 1\nmodule: MOD-001\nroutes: []\n');
+    await fs.writeFile(path.join(moduleDir, 'interface.yaml'), 'version: 1\nmodule: MOD-001\nrelations: []\n');
+
+    const index = await buildUiIndex(root);
+
+    expect(index.documents.filter((document) => document.relativePath.includes('/MOD-001/'))).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relativePath: 'codespec/specs/MOD-001/api.yaml', structuredContent: expect.any(Object) }),
+        expect.objectContaining({ relativePath: 'codespec/specs/MOD-001/interface.yaml', structuredContent: expect.any(Object) }),
+      ])
+    );
+  });
+
   it('groups archive Spec snapshots separately from archived Change history', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
