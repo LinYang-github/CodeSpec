@@ -258,6 +258,70 @@ describe('buildUiIndex', () => {
     ]);
   });
 
+  it('exposes canonical requirement IDs and merges active and archived Change rows', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const activeChange = path.join(root, 'codespec', 'changes', 'CHG-20260909-001');
+    const archivedChange = path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260909-002');
+    await Promise.all([
+      fs.mkdir(activeChange, { recursive: true }),
+      fs.mkdir(archivedChange, { recursive: true }),
+    ]);
+    await fs.writeFile(path.join(activeChange, 'metadata.yaml'), [
+      'change:',
+      '  id: CHG-20260909-001',
+      '  title: 新增注册功能',
+      '  status: ARCHIVE',
+      'modules:',
+      '  confirmed:',
+      '    - module: MOD-001',
+      'requirements:',
+      '  added:',
+      '    - id: MOD-001-REQ-001',
+      '  modified: []',
+      '  removed: []',
+      '',
+    ].join('\n'));
+    await fs.writeFile(path.join(activeChange, 'proposal.md'), '# 新增注册功能');
+    await fs.writeFile(path.join(archivedChange, 'metadata.yaml'), [
+      'change:',
+      '  id: CHG-20260909-002',
+      '  title: 已归档注册功能',
+      '  status: ARCHIVED',
+      'requirements:',
+      '  added:',
+      '    - id: MOD-001-REQ-002',
+      '    - malformed: true',
+      '  modified:',
+      '    - id: MOD-001-REQ-003',
+      '  removed:',
+      '    - id: MOD-001-REQ-004',
+      '',
+    ].join('\n'));
+    await fs.writeFile(path.join(archivedChange, 'proposal.md'), '# 已归档注册功能');
+
+    const index = await buildUiIndex(root);
+
+    expect(index.changes).toEqual([
+      expect.objectContaining({
+        id: 'CHG-20260909-001',
+        modules: ['MOD-001'],
+        requirements: ['MOD-001-REQ-001'],
+      }),
+    ]);
+    expect(index.archive.historyChanges).toEqual([
+      expect.objectContaining({
+        id: 'CHG-20260909-002',
+        requirements: ['MOD-001-REQ-002', 'MOD-001-REQ-003', 'MOD-001-REQ-004'],
+      }),
+    ]);
+    expect(index.allChanges.map((change) => change.id)).toEqual([
+      'CHG-20260909-001',
+      'CHG-20260909-002',
+    ]);
+    expect(index.archive.candidates.map((candidate) => candidate.id)).toEqual(['CHG-20260909-001']);
+  });
+
   it('marks a VERIFY Change with fresh successful evidence as ready to enter ARCHIVE', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);

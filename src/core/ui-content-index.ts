@@ -36,6 +36,7 @@ export interface UiChangeGroup {
   sddLevel?: SddLevel;
   status?: ChangeStatus;
   modules?: string[];
+  requirements?: string[];
   taskProgress?: { total: number; completed: number };
   verification?: {
     requirementsVerified: boolean;
@@ -64,6 +65,7 @@ export interface UiIndex {
   businessModules: BusinessModule[];
   currentSpecGraph: UiCurrentSpecGraph | null;
   changes: UiChangeGroup[];
+  allChanges: UiChangeGroup[];
   archive: {
     currentSpecs: UiDocument[];
     legacySpecSnapshots: UiDocument[];
@@ -261,6 +263,7 @@ function toChangeGroup(id: string, documents: UiDocument[]): UiChangeGroup {
     ...(metadata.sddLevel === undefined ? {} : { sddLevel: metadata.sddLevel }),
     ...(metadata.status === undefined ? {} : { status: metadata.status }),
     ...(metadata.modules === undefined ? {} : { modules: metadata.modules }),
+    ...(metadata.requirements === undefined ? {} : { requirements: metadata.requirements }),
     ...(metadata.taskProgress === undefined ? {} : { taskProgress: metadata.taskProgress }),
     ...(metadata.verification === undefined ? {} : { verification: metadata.verification }),
     ...(metadata.archiveState === undefined ? {} : { archiveState: metadata.archiveState }),
@@ -292,6 +295,7 @@ function getChangeMetadata(documents: UiDocument[]): {
   sddLevel?: SddLevel;
   status?: ChangeStatus;
   modules?: string[];
+  requirements?: string[];
   taskProgress?: { total: number; completed: number };
   verification?: UiChangeGroup['verification'];
   archiveState?: UiChangeGroup['archiveState'];
@@ -304,6 +308,7 @@ function getChangeMetadata(documents: UiDocument[]): {
     const root = asRecord(parseYaml(metadata.content));
     const change = asRecord(root?.change);
     const modules = asRecord(root?.modules);
+    const requirements = asRecord(root?.requirements);
     const tasks = asRecord(root?.tasks);
     const verification = asRecord(root?.verification);
     const archive = asRecord(root?.archive);
@@ -315,6 +320,11 @@ function getChangeMetadata(documents: UiDocument[]): {
     const confirmedModules = Array.isArray(modules?.confirmed)
       ? modules.confirmed.map((item) => asString(asRecord(item)?.module)).filter((item): item is string => Boolean(item))
       : undefined;
+    const requirementLists = [requirements?.added, requirements?.modified, requirements?.removed]
+      .filter((items): items is unknown[] => Array.isArray(items));
+    const requirementIds = requirementLists.flatMap((items) =>
+      items.map((item) => asString(asRecord(item)?.id)).filter((item): item is string => Boolean(item))
+    );
     const total = asNumber(tasks?.total);
     const completed = asNumber(tasks?.completed);
     const verificationSummary = [
@@ -334,6 +344,7 @@ function getChangeMetadata(documents: UiDocument[]): {
         ? { status: status as ChangeStatus }
         : {}),
       ...(confirmedModules === undefined ? {} : { modules: confirmedModules }),
+      ...(requirementLists.length === 0 ? {} : { requirements: requirementIds }),
       ...(total !== undefined && completed !== undefined ? { taskProgress: { total, completed } } : {}),
       ...(hasVerification ? {
         verification: {
@@ -409,6 +420,13 @@ function getArchiveGroups(documents: UiDocument[], uiPaths: UiWorkspacePaths): U
   const history = documents.filter((document) => historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix)));
   const historyChanges = mergeChangeGroups(historyPrefixes.flatMap((prefix) => groupChangeDocuments(documents, prefix)));
   return { currentSpecs, legacySpecSnapshots, history, historyCount: historyChanges.length, historyChanges, candidates: [] };
+}
+
+function mergeChangeProjections(active: UiChangeGroup[], archived: UiChangeGroup[]): UiChangeGroup[] {
+  const merged = new Map<string, UiChangeGroup>();
+  for (const change of archived) merged.set(change.id, change);
+  for (const change of active) merged.set(change.id, change);
+  return [...merged.values()].sort((left, right) => left.id.localeCompare(right.id));
 }
 
 function relativePrefix(projectRoot: string, directory: string): string {
@@ -541,6 +559,7 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   );
   const archive = getArchiveGroups(documents, uiPaths);
   archive.candidates = changes.map(getArchiveCandidate);
+  const allChanges = mergeChangeProjections(changes, archive.historyChanges);
 
   return {
     documents,
@@ -549,6 +568,7 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
     businessModules: businessDocument ? parseBusinessModules(businessDocument.content) : [],
     currentSpecGraph,
     changes,
+    allChanges,
     archive,
     skipped,
     rebuiltAt: new Date().toISOString(),
