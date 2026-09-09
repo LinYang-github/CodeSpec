@@ -18,8 +18,10 @@ import { validateCurrentVerificationPlan } from './current-verification-policy.j
 import { validateCurrentArchivePreflight } from './current-archive-preflight.js';
 import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
 import { mergeCurrentModuleDeltas } from './current-archive-merge.js';
+import { buildArchiveProjection } from './archive-projection.js';
 import { parseBusinessRegistry, parseConfiguration, parseModuleInterface } from './current-spec-yaml.js';
 import { parseCurrentSpecification, validateCurrentSpecification } from './current-spec-model.js';
+import { isUiChange, runUiArchiveGate } from './ui-archive-gate.js';
 import {
   validateChangeArchiveImpact,
   validateArchiveRegressionEvidence,
@@ -449,7 +451,11 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
 
 export async function archiveChange(workspace: WorkspaceContext, changeId: string): Promise<ArchiveResult> {
   await recoverPendingTransactions(workspace.paths);
-  const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  let artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  if (!artifacts.metadata.artifacts.proposal && isUiChange(artifacts)) {
+    const gate = await runUiArchiveGate(workspace, artifacts);
+    artifacts = { ...artifacts, verification: stringifyYaml({ version: 1, testCases: gate.verification.testCases }) };
+  }
   if (!artifacts.metadata.artifacts.proposal) {
     ensureArchiveGates(artifacts);
     const verificationErrors = await validateCurrentVerificationArtifacts(workspace, artifacts);
@@ -457,10 +463,16 @@ export async function archiveChange(workspace: WorkspaceContext, changeId: strin
     const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
     const business = parseBusinessRegistry(parseYaml(await fs.readFile(workspace.paths.business, 'utf8')));
     const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
-    const interfaces = new Map(await Promise.all(business.modules.map(async (module) => [
-      module.id,
-      parseModuleInterface(parseYaml(await fs.readFile(path.join(workspace.paths.currentSpecs, module.id, 'interface.yaml'), 'utf8'))),
-    ] as const)));
+    const newModuleIds = new Set(tasks.moduleRegistrations.upsert.map((registration) => registration.id));
+    const interfaces = new Map<string, ReturnType<typeof parseModuleInterface>>();
+    for (const module of business.modules) {
+      const interfacePath = path.join(workspace.paths.currentSpecs, module.id, 'interface.yaml');
+      const raw = await fs.readFile(interfacePath, 'utf8').catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT' && newModuleIds.has(module.id)) return null;
+        throw error;
+      });
+      if (raw) interfaces.set(module.id, parseModuleInterface(parseYaml(raw)));
+    }
     const merged = mergeCurrentModuleDeltas({ business, interfaces, configuration, moduleDeltas: tasks.moduleDeltas, moduleRegistrations: tasks.moduleRegistrations });
     await validateCurrentModuleLayout(workspace, merged.business.modules.map((module) => module.id));
     const changeSpec = parseCurrentSpecification(artifacts.spec);
@@ -472,22 +484,25 @@ export async function archiveChange(workspace: WorkspaceContext, changeId: strin
     if (targetModule.status === 'RETIRED') throw new Error(`当前 Change 不能归档到已退役模块：${changeSpec.module}`);
     await validateCurrentEngineeringFiles(workspace, changeSpec);
     const verification = parseCurrentVerification(parseYaml(artifacts.verification));
-    const moduleFiles = new Map<string, { spec: string; interface: string; api: string }>();
-    for (const [module, document] of merged.interfaces) {
-      const spec = module === changeSpec.module
+    const specs = new Map<string, string>();
+    for (const module of merged.business.modules) {
+      specs.set(module.id, module.id === changeSpec.module
         ? appendLatestVerificationSummary(artifacts.spec, verification)
-        : await fs.readFile(path.join(workspace.paths.currentSpecs, module, 'spec.md'), 'utf8');
-      const api = merged.apis.get(module);
-      if (!api) continue;
-      moduleFiles.set(module, { spec, interface: stringifyYaml(document), api: stringifyYaml(api) });
+        : await fs.readFile(path.join(workspace.paths.currentSpecs, module.id, 'spec.md'), 'utf8'));
     }
+    const projection = buildArchiveProjection({
+      specs,
+      business: merged.business,
+      interfaces: merged.interfaces,
+      configuration: merged.configuration,
+    });
     await installCurrentArchiveFiles({
       paths: workspace.paths,
       changeId,
       changeDir: artifacts.changeDir,
-      moduleFiles,
-      business: stringifyYaml(merged.business),
-      configuration: stringifyYaml(merged.configuration),
+      moduleFiles: projection.modules,
+      business: projection.business,
+      configuration: projection.configuration,
     });
     return { changeId, archivedPath: '', staleChanges: await detectStaleChanges(workspace, []), requirementIds: [] };
   }
