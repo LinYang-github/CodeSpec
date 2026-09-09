@@ -11,6 +11,10 @@ const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', '
 let index;
 let currentScreen = { type: 'module', moduleId: null };
 let commandHelperOpen = false;
+let currentChangeOptions = {};
+let currentChangeReturnScreen;
+let searchDocuments = [];
+let searchReturnScreen;
 let documentReturnScreen;
 
 const api = async (path, init) => {
@@ -92,6 +96,13 @@ function allDocuments() {
 
 function documentById(id) {
   return allDocuments().find((doc) => doc.id === id) ?? null;
+}
+
+function copyScreen(screen) {
+  if (!screen) return screen;
+  return screen.type === 'changes'
+    ? { ...screen, ...(screen.filters ? { filters: { ...screen.filters } } : {}) }
+    : { ...screen };
 }
 
 const AI_WORKFLOW_SKILLS = [
@@ -242,7 +253,7 @@ function changeModuleTags(change) {
 function changeButton(change, options = {}) {
   const card = element('button', 'change-row');
   card.type = 'button';
-  card.onclick = () => renderChangeDetail(change, options);
+  card.onclick = () => navigateTo({ type: 'change', changeId: change.id }, { changeOptions: options });
   const main = element('span', 'change-row-main');
   main.append(element('strong', 'change-id', text(change.id)));
   main.append(element('span', 'change-title', text(change.title, '未命名 Change')));
@@ -262,7 +273,7 @@ function archiveCandidateFor(change) {
 function activeChangeCard(change) {
   const card = element('article', `active-change-card ${change.status === 'ABANDONED' ? 'active-change-card-failed' : ''}`);
   const candidate = archiveCandidateFor(change);
-  const detail = button('', 'active-change-card-main', () => renderChangeDetail(change));
+  const detail = button('', 'active-change-card-main', () => navigateTo({ type: 'change', changeId: change.id }));
   const heading = element('div', 'active-change-card-heading');
   heading.append(element('strong', 'change-id', text(change.id)));
   heading.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
@@ -547,17 +558,17 @@ function changeDocumentOrder(left, right) {
     || left.relativePath.localeCompare(right.relativePath);
 }
 
-function renderChangeDetail(change, options = {}) {
+function renderChangeDetail(change, options = currentChangeOptions, returnScreen = currentChangeReturnScreen) {
   documentReturnScreen = undefined;
-  const returnScreen = currentScreen.type === 'change'
-    ? currentScreen.returnScreen
-    : currentScreen.type === 'module' || currentScreen.type === 'changes' || currentScreen.type === 'search'
-      ? { ...currentScreen }
-      : { type: 'module', moduleId: index.businessModules[0]?.id ?? null };
+  const fallbackReturnScreen = currentScreen.type === 'module'
+    || currentScreen.type === 'changes'
+    || currentScreen.type === 'search'
+    ? copyScreen(currentScreen)
+    : { type: 'module', moduleId: index.businessModules[0]?.id ?? null };
+  const detailReturnScreen = returnScreen ?? fallbackReturnScreen;
   const activeDocumentId = currentScreen.type === 'change' && currentScreen.changeId === change.id
     ? currentScreen.activeDocumentId
     : null;
-  currentScreen = { type: 'change', changeId: change.id, options, returnScreen, activeDocumentId };
   const view = document.createElement('div');
   view.classList.add('detail-view');
   const archived = options.archived === true || change.status === 'ARCHIVED';
@@ -566,7 +577,7 @@ function renderChangeDetail(change, options = {}) {
   badges.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
   badges.append(element('span', 'sdd-level-badge', levelLabel(change.sddLevel)));
   const header = element('div', 'section-header detail-section-header');
-  header.append(backButton(`返回${screenLabel(returnScreen)}`, goBackFromScreen));
+  header.append(backButton(`返回${screenLabel(detailReturnScreen)}`, goBackFromScreen));
   header.append(element('p', 'kicker', 'CHANGE DETAIL'));
   const headerRow = element('div', 'detail-header-row');
   headerRow.append(element('h1', '', text(change.title, change.id)), badges);
@@ -794,9 +805,12 @@ function renderDocument(detail, target) {
 }
 
 async function openDocument(doc, returnScreen = currentScreen) {
-  documentReturnScreen = returnScreen;
+  const activeScreen = returnScreen.type === 'module' || returnScreen.type === 'change'
+    ? { ...returnScreen, activeDocumentId: doc.id }
+    : copyScreen(returnScreen);
+  documentReturnScreen = activeScreen;
   if (returnScreen.type === 'module' || returnScreen.type === 'change') {
-    currentScreen = { ...returnScreen, activeDocumentId: doc.id };
+    currentScreen = activeScreen;
   }
   const detail = await api(`/api/documents/${doc.id}`);
   const view = document.createElement('div');
@@ -811,10 +825,11 @@ async function openDocument(doc, returnScreen = currentScreen) {
 }
 
 function goBackFromScreen() {
-  const target = documentReturnScreen ?? currentScreen.returnScreen ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null };
+  const target = documentReturnScreen
+    ?? (currentScreen.type === 'change' ? currentChangeReturnScreen : undefined)
+    ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null };
   documentReturnScreen = undefined;
-  currentScreen = target;
-  renderCurrentScreen();
+  navigateTo(target);
 }
 
 function renderArchivePreviewSummary(preview) {
@@ -866,8 +881,9 @@ async function transitionToArchive(changeId) {
 }
 
 function renderSearchResults(documents, query) {
-  const returnScreen = currentScreen.type === 'search' ? currentScreen.returnScreen : currentScreen;
-  currentScreen = { type: 'search', query, documents, returnScreen };
+  if (currentScreen.type !== 'search') searchReturnScreen = copyScreen(currentScreen);
+  searchDocuments = documents;
+  currentScreen = { type: 'search', query };
   const view = document.createElement('div');
   view.classList.add('search-view');
   view.append(sectionHeader('SEARCH', `搜索结果：${query}`, '搜索结果仅提供只读查看。'));
@@ -921,23 +937,37 @@ function renderCurrentScreen() {
   }
   if (currentScreen.type === 'change') {
     const change = currentChange();
-    if (change) renderChangeDetail(change, currentScreen.options);
+    if (change) renderChangeDetail(change);
     else showError(new Error('当前 Change 已不存在，请返回列表。'));
     return;
   }
   if (currentScreen.type === 'search') {
-    renderSearchResults(currentScreen.documents ?? [], currentScreen.query ?? '');
+    renderSearchResults(searchDocuments, currentScreen.query ?? '');
   }
 }
 
-function navigateTo(screen) {
+function navigateTo(screen, { changeOptions } = {}) {
   documentReturnScreen = undefined;
-  const nextScreen = { ...screen };
+  if (screen.type !== 'search') {
+    searchDocuments = [];
+    searchReturnScreen = undefined;
+  }
+  const nextScreen = copyScreen(screen);
   if (nextScreen.type === 'change'
     && currentScreen.type === 'change'
     && currentScreen.changeId === nextScreen.changeId
     && nextScreen.activeDocumentId === undefined) {
     nextScreen.activeDocumentId = currentScreen.activeDocumentId;
+  }
+  if (nextScreen.type === 'change') {
+    const sameChange = currentScreen.type === 'change' && currentScreen.changeId === nextScreen.changeId;
+    currentChangeOptions = changeOptions ?? (sameChange ? currentChangeOptions : {});
+    currentChangeReturnScreen = currentChangeReturnScreen ?? (currentScreen.type === 'change'
+      ? undefined
+      : copyScreen(currentScreen));
+  } else {
+    currentChangeOptions = {};
+    currentChangeReturnScreen = undefined;
   }
   currentScreen = nextScreen;
   renderCurrentScreen();
@@ -994,7 +1024,10 @@ search.oninput = () => {
   clearTimeout(searchTimer);
   const query = search.value.trim();
   if (!query) {
-    navigateTo(currentScreen.returnScreen ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null });
+    const target = searchReturnScreen ?? { type: 'module', moduleId: index?.businessModules[0]?.id ?? null };
+    searchDocuments = [];
+    searchReturnScreen = undefined;
+    navigateTo(target);
     return;
   }
   searchTimer = setTimeout(async () => {
