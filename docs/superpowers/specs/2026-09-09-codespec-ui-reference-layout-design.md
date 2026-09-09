@@ -42,9 +42,9 @@
 
 `变更管理` 是左侧树中的固定节点。点击后，右侧工作区进入 Change 视图，并在工作区内部通过 Tab 或分区显示：
 
-- 活动 Change；
-- 可归档 Change；
-- 归档历史。
+- 全部 Change；
+- 可按状态、模块、模式和更新时间筛选；
+- 已归档 Change 仍作为普通 Change 条目显示。
 
 不再在顶部显示独立的“业务功能”和“变更管理”导航按钮。
 
@@ -84,7 +84,7 @@ Tab 按当前文档实际存在情况动态生成。默认优先显示与节点�
 ```ts
 type UiScreen =
   | { type: 'module'; moduleId: string; activeDocumentId?: string }
-  | { type: 'changes'; tab: 'active' | 'archiveable' | 'history'; changeId?: string }
+  | { type: 'changes'; changeId?: string; filters?: { status?: string; mode?: string; moduleId?: string; updatedAfter?: string } }
   | { type: 'change'; changeId: string; activeDocumentId?: string }
   | { type: 'search'; query: string };
 ```
@@ -103,9 +103,9 @@ type UiScreen =
 
 ### 3.2 变更管理节点
 
-点击 `变更管理` 后，右侧显示 Change 工作区。活动、可归档和归档历史都属于该工作区，不再作为顶部导航页面。
+点击 `变更管理` 后，右侧显示全部 Change 的统一管理工作区。活动、可归档、已归档和异常终止的 Change 都属于同一列表，不再拆出独立的归档历史页面。
 
-Change 列表继续显示：Change ID、标题、状态、SDD 等级、模式、影响模块、任务进度、Verification 状态和下一阶段。点击 Change 后切换到 Change 详情。
+Change 列表继续显示：Change ID、标题、状态、SDD 等级、模式、影响模块、任务进度、Verification 状态、归档时间和下一阶段。列表支持按状态、模式、业务模块和最近更新时间筛选。点击 Change 后切换到 Change 详情。
 
 Change 详情继续保留现有生命周期 stepper：
 
@@ -117,7 +117,7 @@ ANALYZE → DESIGN → PLAN → IMPLEMENT → VERIFY → ARCHIVE → ARCHIVED
 
 ### 3.3 归档操作
 
-归档仍然是 UI 唯一允许写入工程的操作。可归档 Change 必须继续经过现有后端归档事务和最新门禁检查。左侧树只提供进入归档候选工作区的入口，不直接执行归档。
+归档仍然是 UI 唯一允许写入工程的操作。可归档 Change 必须继续经过现有后端归档事务和最新门禁检查。左侧树只提供进入全部 Change 管理工作区的入口，不直接执行归档。
 
 归档预览和确认流程保持现有设计：展示 SDD 等级、Spec 影响、归档目标、Change Index 更新、Verification Receipt，用户确认影响后再执行二次确认和归档事务。
 
@@ -133,19 +133,20 @@ ANALYZE → DESIGN → PLAN → IMPLEMENT → VERIFY → ARCHIVE → ARCHIVED
 
 - `src/ui/web/app.js`：新增树节点渲染和模块工作区渲染。
 - 将现有 `renderCapabilities()` 的模块卡片网格改为模块节点选择后的详情工作区。
-- 将现有 `renderChangesWorkspace()` 作为变更管理工作区的内容渲染器，移除其对顶部导航的依赖。
+- 将现有 `renderChangesWorkspace()` 扩展为全部 Change 管理工作区，移除其对顶部导航的依赖，并将活动、待归档、已归档和异常终止状态统一纳入列表。
 - 复用 `renderChangeDetail()`、生命周期 stepper、门禁面板和文档 Tab，不重新实现 Change 领域规则。
 - 关闭或改造独立 `openDocument()` 页面，使文档优先在右侧工作区中打开；搜索结果仍可以进入统一文档工作区。
 
 ### 4.3 索引数据
 
-现有 `UiIndex` 已包含业务模块、当前 Spec、活动 Change、归档候选和归档历史，可作为新布局的主要数据源。模块工作区所需的职责、依赖和最近归档信息若当前索引缺失，应从已有 canonical 数据补充；不得在前端硬编码。
+现有 `UiIndex` 已包含业务模块、当前 Spec、活动 Change、归档候选和已归档 Change 投影，可作为新布局的主要数据源。模块工作区所需的职责、依赖和最近归档信息若当前索引缺失，应从已有 canonical 数据补充；不得在前端硬编码。
 
 Change 文档 Tab 必须继续使用 `UiChangeGroup.documents` 动态生成。新增的结构化视图不得改变现有 `structuredContent` 的解析范围。
 
 ## 5. 错误与空状态
 
 - 没有业务模块：左树保留 `业务管理`，右侧显示“暂无业务模块”和 AI 工作流提示。
+- 没有 Change：左树保留 `变更管理`，右侧显示“暂无 Change”。
 - 模块没有当前 Spec：显示明确的“当前 Spec 未建立”，不显示空白文档区。
 - 模块没有关联 Change：显示“暂无关联 Change”。
 - 文档解析失败：保留源文件视图，并显示解析失败说明。
@@ -166,15 +167,16 @@ Change 文档 Tab 必须继续使用 `UiChangeGroup.documents` 动态生成。�
 ## 7. 验收标准
 
 1. 页面视觉结构为左侧工程树、右侧工作区，顶部不再出现“业务功能 / 变更管理”并列页面按钮。
-2. 左侧显示当前工程名称、业务管理、业务模块和变更管理，底部显示主题与命令助手入口。
+2. 左侧显示当前工程名称、业务管理、业务模块和变更管理；不显示独立的归档历史入口，底部显示主题与命令助手入口。
 3. 点击模块后，右侧显示该模块的文档、当前 Spec 和关联 Change。
-4. 点击变更管理后，右侧显示活动 Change、可归档 Change 和归档历史。
+4. 点击变更管理后，右侧显示全部 Change，并可按状态、模块、模式和更新时间筛选。
 5. 点击 Change 后，右侧显示生命周期、门禁、关联信息和动态文档 Tab。
 6. 文档 Tab 只显示索引中真实存在的文件，不固定伪造 `api.yaml` 或 `interface.yaml`。
 7. 结构化/源文件切换只在文档确实支持结构化渲染时显示。
 8. 搜索和重新扫描功能保持可用，且不改变文件。
 9. 归档仍是唯一写入入口，并继续复用现有归档事务和后端门禁。
-10. 主题、命令助手、空状态、错误状态和窄屏布局均不破坏上述信息层级。
+10. 已归档 Change 的归档时间、归档路径和 Verification Receipt 在 Change 详情中可追溯；不单独创建归档历史页面。
+11. 主题、命令助手、空状态、错误状态和窄屏布局均不破坏上述信息层级。
 
 ## 8. 测试范围
 
