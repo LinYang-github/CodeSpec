@@ -100,8 +100,17 @@ async function resolveConfigurationSource(projectRoot: string, source: Configura
   const file = path.resolve(projectRoot, source.file);
   const relative = path.relative(projectRoot, file);
   if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('source file is outside the project');
+  let cursor = file;
+  while (true) {
+    const stat = await fs.lstat(cursor);
+    if (stat.isSymbolicLink()) throw new Error('source file must not pass through a symlink');
+    if (cursor === projectRoot) break;
+    const parent = path.dirname(cursor);
+    if (parent === cursor) throw new Error('source file is outside the project');
+    cursor = parent;
+  }
   const stat = await fs.lstat(file);
-  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('source file must be a regular repository file');
+  if (!stat.isFile()) throw new Error('source file must be a regular repository file');
   const raw = await fs.readFile(file, 'utf8');
   if (source.format === 'dotenv') {
     const line = raw.split(/\r?\n/u).find((candidate) => candidate.trim().startsWith(`${source.key}=`));

@@ -1,0 +1,4 @@
+# Requirement ID、Scenario ID、Task ID 与实际测试证据必须完整记录。
+# ERROR 必须已填写；缺失或为空时验证不得通过，Change 不得归档。
+version: 1
+testCases: []

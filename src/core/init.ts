@@ -30,8 +30,9 @@ import { PALETTE } from './styles/palette.js';
 import { isInteractive } from '../utils/interactive.js';
 import {
   CANONICAL_SCHEMA,
-  renderBusinessTemplate,
+  renderBusinessRegistryTemplate,
   renderCanonicalWorkspaceConfig,
+  renderConfigurationTemplate,
   renderEmptyChangeIndex,
 } from './codespec-workflow/default-config.js';
 import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
@@ -1608,8 +1609,7 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
     codespecPath,
     path.join(codespecPath, 'specs'),
     path.join(codespecPath, 'changes'),
-    path.join(codespecPath, 'archive'),
-    path.join(codespecPath, 'archive', 'changes'),
+    path.join(codespecPath, '.transactions'),
   ];
 
   for (const dir of directories) {
@@ -1619,16 +1619,16 @@ export async function initializeCodeSpecWorkspace(projectRoot: string): Promise<
 
   const defaultFiles = [
     {
-      path: path.join(codespecPath, 'business.md'),
-      content: renderBusinessTemplate(),
+      path: path.join(codespecPath, 'business.yaml'),
+      content: renderBusinessRegistryTemplate(),
+    },
+    {
+      path: path.join(codespecPath, 'configuration.yaml'),
+      content: renderConfigurationTemplate(),
     },
     {
       path: path.join(codespecPath, 'changes', 'index.yaml'),
       content: renderEmptyChangeIndex(),
-    },
-    {
-      path: path.join(codespecPath, 'archive', 'README.md'),
-      content: '# 归档\n\n此目录保存已归档的规范和 Change。\n',
     },
   ];
 

@@ -1,0 +1,22 @@
+# Requirement ID、Scenario ID、Test Case ID 与计划修改文件必须可追踪。
+version: 1
+tasks:
+  - id: CHG-20260907-001-TASK-01
+    title: 实现 Requirement 并覆盖 Scenario
+    status: PENDING
+    requirements: [MOD-###-REQ-###]
+    scenarios: [MOD-###-REQ-###-SCN-001]
+    testCases: [MOD-###-REQ-###-SCN-001-TC-API-01]
+    plannedFiles: [src/example.ts, test/example.test.ts]
+    verificationPlan:
+      testCase: MOD-###-REQ-###-SCN-001-TC-API-01
+      runner: vitest
+      command: pnpm vitest run test/example.test.ts
+      profile: test
+      services: []
+      prepare: 准备隔离测试数据
+      cleanup: 清理隔离测试数据
+moduleDeltas: []
+moduleRegistrations:
+  upsert: []
+  retire: []

@@ -82,7 +82,9 @@ These options work with all commands:
 
 Initialize CodeSpec in your project. Creates the folder structure and configures AI tool integrations.
 
-Default behavior uses global config defaults: profile `core`, delivery `both`, workflows `propose, explore, apply, update, sync, archive`.
+Default behavior uses global config defaults: profile `core`, delivery `both`, and the canonical `workflow`, `rebase`, and `archive` entries.
+
+For `schema: code-spec`, initialization creates `business.yaml`, `configuration.yaml`, `specs/<module>/{spec.md,interface.yaml,api.yaml}`, and five-file `CHG-*` Changes. The `migrate --json` command converts legacy roots and invalidates approvals on active legacy Changes. Canonical archive removes the active Change after its journal commit; it does not create a new archive Change copy. Generic `spec-driven` schemas keep their own artifact and archive behavior.
 
 ```
 codespec init [path] [options]
@@ -1302,4 +1304,4 @@ suppress that tip entirely.
 - [Getting Started](getting-started.md) - First-time setup guide
 # code-spec 文件协议
 
-初始化后检查 `codespec/config.yaml` 与 `codespec/business.md`。创建 Change 使用 `CHG-YYYYMMDD-NNN`，不要使用旧式 slug；通过 `metadata.yaml` 选择和恢复 Change。归档前检查 fresh `verification.md`，然后显式执行 archive；工具不会自动归档或猜测多个 Change。
+初始化后检查 `codespec/config.yaml`、`codespec/business.yaml` 与 `codespec/configuration.yaml`。创建 Change 使用 `CHG-YYYYMMDD-NNN`，不要使用旧式 slug；通过 `metadata.yaml` 选择和恢复 Change。归档前检查 fresh `verification.yaml`，然后显式执行 archive；工具不会自动归档或猜测多个 Change。

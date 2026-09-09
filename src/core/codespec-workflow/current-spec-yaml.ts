@@ -84,7 +84,7 @@ const eventRelationSchema = z.object({
   scenarios: z.array(scenarioIdSchema).min(1),
 }).strict();
 
-const relationSchema = z.discriminatedUnion('kind', [httpRelationSchema, eventRelationSchema])
+export const relationSchema = z.discriminatedUnion('kind', [httpRelationSchema, eventRelationSchema])
   .superRefine((relation, context) => {
     if (relation.fromModule === relation.toModule) {
       context.addIssue({ code: 'custom', path: ['toModule'], message: 'a relation must connect two modules' });
@@ -162,7 +162,8 @@ const businessRegistrySchema = z.object({
 });
 
 const relativeRepositoryFileSchema = z.string().min(1).refine(
-  (value) => !value.startsWith('/') && !value.split(/[\\/]+/u).includes('..'),
+  (value) => !value.includes('\0') && !value.includes('\\') && !value.startsWith('/') &&
+    !/^[A-Za-z]:\//u.test(value) && !value.split('/').includes('..') && !value.split('/').includes(''),
   'must be a repository-relative file path'
 );
 const configurationSourceSchema = z.discriminatedUnion('format', [
@@ -183,7 +184,7 @@ const routeBindingSchema = z.object({
   module: moduleIdSchema,
   path: canonicalRoutePathSchema,
 }).strict();
-const serviceSchema = z.object({
+export const serviceSchema = z.object({
   id: nonEmptyString,
   hostAlias: nonEmptyString,
   endpoint: z.string().url().optional(),
@@ -220,6 +221,8 @@ export type ModuleInterface = z.infer<typeof moduleInterfaceSchema>;
 export type ModuleApi = z.infer<typeof moduleApiSchema>;
 export type BusinessRegistry = z.infer<typeof businessRegistrySchema>;
 export type ConfigurationSnapshot = z.infer<typeof configurationSchema>;
+export type RuntimeConfiguration = ConfigurationSnapshot;
+export type Relation = z.infer<typeof relationSchema>;
 
 export function parseModuleInterface(value: unknown): ModuleInterface {
   return moduleInterfaceSchema.parse(value);
@@ -235,4 +238,9 @@ export function parseBusinessRegistry(value: unknown): BusinessRegistry {
 
 export function parseConfiguration(value: unknown): ConfigurationSnapshot {
   return configurationSchema.parse(value);
+}
+
+/** Public contract name used by the current-spec consolidation plan. */
+export function parseRuntimeConfiguration(value: unknown): RuntimeConfiguration {
+  return parseConfiguration(value);
 }

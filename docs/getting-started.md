@@ -27,6 +27,8 @@ Two terminal steps to set up, then you live in chat. The rest of this guide unpa
 
 > **Not sure what to build yet? Start with `/codespec:workflow`.** The workflow entry delegates brainstorming and planning to Superpowers, then routes the approved Change through implementation and verification.
 
+> **Canonical `code-spec` layout.** New workspaces use `business.yaml` and `configuration.yaml` at the CodeSpec root. Each active Change contains exactly `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. After successful archive, Core updates the current module's `spec.md`, `interface.yaml`, `api.yaml`, the root YAML projections, and removes the active Change; it does not create an archive Change copy or history record. The older Markdown artifact examples below apply only to legacy `spec-driven` workspaces and migration.
+
 ## How It Works
 
 CodeSpec helps you and your AI coding assistant agree on what to build before any code is written.
@@ -49,24 +51,20 @@ After running `codespec init`, your project has this structure:
 
 ```
 codespec/
-├── specs/      # Current Specification (system behavior)
-│   └── <domain>/
-│       └── spec.md
-├── changes/            # Proposed updates (one folder per change)
-│   └── <change-name>/
-│       ├── proposal.md
-│       ├── design.md
-│       ├── tasks.md
-│       ├── spec.md     # Requirement deltas (what's changing)
-│       └── verification.md
-└── config.yaml         # Project configuration (optional)
+├── business.yaml       # Module registry and generated business projections
+├── configuration.yaml  # Verification connection snapshot
+├── specs/<module>/     # spec.md, interface.yaml, api.yaml
+├── changes/<CHG-ID>/   # metadata.yaml, design.md, spec.md, tasks.yaml, verification.yaml
+├── changes/index.yaml
+├── .transactions/      # Recoverable short-lived archive journals
+└── config.yaml
 ```
 
 **Two key directories:**
 
 - **`specs/`** - The Current Specification. These specs describe how your system currently behaves. Organized by domain (e.g., `specs/auth/`, `specs/payments/`).
 
-- **`changes/`** - Proposed modifications. Each Change gets its own folder with all related artifacts. When a Change is complete, its delta merges into Current Specification through `/codespec:archive`.
+- **`changes/`** - Proposed modifications. Each canonical Change gets its own CHG-ID folder. When a Change is complete, its approved typed delta merges into Current Specification through `/codespec:archive`, then the active folder is removed.
 
 ## Understanding Artifacts
 
@@ -74,10 +72,11 @@ Each change folder contains artifacts that guide the work:
 
 | Artifact | Purpose |
 |----------|---------|
-| `proposal.md` | The "why" and "what" - captures intent, scope, and approach |
-| `specs/` | Delta specs showing ADDED/MODIFIED/REMOVED requirements |
-| `design.md` | The "how" - technical approach and architecture decisions |
-| `tasks.md` | Implementation checklist with checkboxes |
+| `metadata.yaml` | Change identity, baseline, approvals, status, and gates |
+| `design.md` | Goals, scope, and technical decisions |
+| `spec.md` | Readable Requirements, Scenarios, test cases, and engineering-file traceability |
+| `tasks.yaml` | Typed implementation tasks, planned files, verification plans, and module deltas |
+| `verification.yaml` | Per-test execution evidence and runtime fingerprints |
 
 **Artifacts build on each other:**
 
@@ -130,13 +129,11 @@ The system SHALL expire sessions after 30 minutes of inactivity.
 
 ### What Happens on Archive
 
-When you archive a change:
+When you archive a canonical `code-spec` Change:
 
-1. **ADDED** requirements are appended to the main spec
-2. **MODIFIED** requirements replace the existing version
-3. **REMOVED** requirements are deleted from the main spec
-
-The Change folder moves to `codespec/archive/changes/` for audit history.
+1. Core validates the two approvals, completed tasks, structured verification, relations, and runtime configuration.
+2. The transaction installs the affected module's three current files and regenerates `business.yaml`, `api.yaml`, and `configuration.yaml` projections.
+3. After the commit marker is durable, the active Change and index entry are removed. Existing legacy archive directories are never deleted automatically.
 
 ## Example: Your First Change
 

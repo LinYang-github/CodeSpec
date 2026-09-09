@@ -1,3 +1,4 @@
+# Requirement ID 与 Scenario/Task 追踪关系记录在 spec.md、tasks.yaml 和 verification.yaml。
 schema_version: 1
 change:
   id: CHG-20260901-001
@@ -39,11 +40,10 @@ requirements:
   removed: []
 artifacts:
   metadata: changes/CHG-20260901-001/metadata.yaml
-  proposal: changes/CHG-20260901-001/proposal.md
   design: changes/CHG-20260901-001/design.md
   spec: changes/CHG-20260901-001/spec.md
-  tasks: changes/CHG-20260901-001/tasks.md
-  verification: changes/CHG-20260901-001/verification.md
+  tasks: changes/CHG-20260901-001/tasks.yaml
+  verification: changes/CHG-20260901-001/verification.yaml
 tasks:
   total: 0
   completed: 0

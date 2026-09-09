@@ -2,7 +2,7 @@
 
 ## 当前 code-spec 协议
 
-代码变更使用 `codespec/changes/CHG-YYYYMMDD-NNN/metadata.yaml` 作为状态权威；当前规格位于 `codespec/specs`。同一 workspace 支持多个 active Change。需求使用稳定的 Requirement ID，每个 Scenario 都必须包含 `ERROR` 异常处理；完成后须在 `verification.md` 写入 fresh 证据，并显式执行 archive。
+代码变更使用 `codespec/changes/CHG-YYYYMMDD-NNN/metadata.yaml` 作为状态权威；当前规格位于 `codespec/specs/<模块>/`，业务关系与验证配置分别位于根级 `business.yaml`、`configuration.yaml`。同一 workspace 支持多个 active Change。需求使用稳定的 Requirement ID，每个 Scenario 都必须包含 `ERROR` 异常处理；完成后须在 `verification.yaml` 写入 fresh 证据，并显式执行 archive。
 
 **CodeSpec is a lightweight agreement layer between you and your AI.** You write down what a change should do, the AI drafts the details, you both look at the same plan, and only then does code get written. This page is the whole mental model on one screen. When you want the long version, [Concepts](concepts.md) has it.
 
@@ -14,20 +14,20 @@ Everything in CodeSpec is built from five concepts. Learn these and the rest is 
 
 **1. Specs are the truth.** A code-spec spec describes how your system behaves *right now*. It lives in `codespec/specs/`, organized by stable module IDs. Specs are made of Requirement IDs and scenarios (concrete GIVEN/WHEN/THEN examples with explicit ERROR handling). Think of specs as the single agreed-upon answer to "what does this software do?"
 
-**2. A change is one unit of work.** In canonical code-spec, create `codespec/changes/CHG-YYYYMMDD-NNN/` with `metadata.yaml`, proposal, design, delta spec, tasks, and verification. Generic `spec-driven` workspaces may retain the older slug-based `codespec/changes/<slug>/` layout.
+**2. A change is one unit of work.** In canonical code-spec, create `codespec/changes/CHG-YYYYMMDD-NNN/` with `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. Generic `spec-driven` workspaces may retain the older slug-based layout.
 
 **3. Delta specs describe what's changing, not the whole world.** Canonical code-spec deltas live in `spec.md` and merge into `codespec/specs/`; generic `spec-driven` workspaces may use their historical `codespec/changes/<slug>/specs/` layout.
 
 **4. Artifacts build on each other.** A change contains a few documents, created in a natural order, each feeding the next:
 
 ```text
-proposal ──► specs ──► design ──► tasks ──► implement
-   why        what       how       steps      do it
+design ──► spec ──► tasks.yaml ──► implement ──► verification.yaml
+  scope      behavior     steps          do it          evidence
 ```
 
-You can revisit any of them at any time. They're enablers, not gates. (More on that below.)
+You can revisit any of them at any time. Their contents remain editable, while the two explicit approvals act as gates before implementation and archive.
 
-**5. Archiving folds the change back into the truth.** For canonical code-spec, deltas merge into `codespec/specs/` and immutable history goes to `codespec/archive/changes/`. Generic `spec-driven` workflows retain their historical paths and behavior.
+**5. Archiving folds the change back into the truth.** For canonical code-spec, the archive transaction validates approved YAML deltas, updates `codespec/specs/`, `business.yaml`, and `configuration.yaml`, then removes the active Change. It does not create an archived Change copy or history record. Generic `spec-driven` workflows retain their historical paths and behavior.
 
 ## The picture
 
@@ -39,15 +39,16 @@ You can revisit any of them at any time. They're enablers, not gates. (More on t
 │   │ specs/   │         │        changes/          │    │
 │   │                  │ ◄─────  │                          │    │
 │   │ source of truth  │  merge  │ one folder per change    │    │
-│   │ how things work  │  on     │ proposal · design ·      │    │
-│   │ today            │ archive │ tasks · delta specs      │    │
+│   │ how things work  │  on     │ design · spec ·          │    │
+│   │ today            │ archive │ tasks.yaml · verification│   │
 │   └──────────────────┘         └──────────────────────────┘    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 Two folders. `codespec/specs/` is what's true. `changes/` is what
-you're proposing. Archiving applies a delta to the Current Specification.
+you're proposing. Archiving applies approved deltas to the Current
+Specification and removes the active Change after the transaction commits.
 
 ## The loop you'll actually run
 
@@ -70,9 +71,9 @@ Those are slash commands, typed in your AI assistant's chat. Setup (`codespec in
 
 This phrase shows up everywhere in CodeSpec, so here's what it means in plain terms.
 
-Old-school spec processes are waterfalls: finish planning, *then* you're allowed to implement, and going back is painful. CodeSpec refuses that. The order `proposal → specs → design → tasks` shows what becomes *possible* next, not what you're *forced* to do next.
+Old-school spec processes are waterfalls: finish planning, *then* you're allowed to implement, and going back is painful. CodeSpec keeps the workflow reviewable while requiring two independent confirmations: design first, then tasks. The order `design → spec → tasks.yaml → verification.yaml` describes the current contract.
 
-Discover during implementation that the design was wrong? Edit `design.md` and keep going. Realize the scope should shrink? Update the proposal. Nothing locks. The dependencies exist only so the AI has the context it needs (you can't write good tasks without specs to base them on), not to box you in.
+Discover during implementation that the design was wrong? Update the relevant artifact and repeat the affected confirmation. Approval fingerprints prevent semantic changes from silently reusing an old confirmation; locator-only verification updates can remain valid.
 
 The strength here is honesty: real work is messy and iterative, and CodeSpec lets it be. The tradeoff is discipline: because nothing forces you forward, it's on you to keep a change focused rather than letting it sprawl. The [Workflows](workflows.md) guide has good habits for that.
 

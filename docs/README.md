@@ -4,12 +4,13 @@
 
 CodeSpec 让你和 AI 编码助手在写代码前就**对要构建的内容达成一致**。你描述 Change，AI 生成简短的 Spec 和任务清单，你们共同审阅计划，然后再开始实现。
 
-默认 Schema 是 `code-spec`。新的 canonical Change 使用 `CHG-YYYYMMDD-NNN` ID 和 `codespec/archive/` 目录。旧 Change 标识不会被读取，旧文件可以保留。
+默认 Schema 是 `code-spec`。新的 canonical Change 使用 `CHG-YYYYMMDD-NNN` ID；活动 Change 只包含 `metadata.yaml`、`design.md`、`spec.md`、`tasks.yaml` 和 `verification.yaml`。归档会把已确认内容合并到当前规格并删除活动 Change，不创建归档副本；旧文件可以保留并通过迁移命令处理。
 
 如果只读两页，请阅读：
 
-1. [Getting Started](getting-started.md): install, initialize, and ship your first change.
-2. [How Commands Work](how-commands-work.md): where you type the three public CodeSpec entries in your AI chat, not the terminal.
+1. [用户手册](user-manual.md)：从安装、初始化到归档的完整使用流程。
+2. [Getting Started](getting-started.md)：install, initialize, and ship your first change.
+3. [How Commands Work](how-commands-work.md)：where you type the three public CodeSpec entries in your AI chat, not the terminal.
 
 CodeSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用的 skills。区分两个入口可以避免最常见的使用错误。
 
@@ -43,6 +44,7 @@ CodeSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用
 
 | Doc | What it gives you |
 |-----|-------------------|
+| [用户手册](user-manual.md) | 面向使用者的安装、初始化、Change、UI、归档和故障排查 |
 | [Getting Started](getting-started.md) | Install, initialize, and run your first change end to end |
 | [AI entries](commands.md) | Use `workflow`, `rebase`, and `archive` as the three public entries |
 | [How Commands Work](how-commands-work.md) | Where slash commands run, what "interactive mode" means, terminal vs chat |

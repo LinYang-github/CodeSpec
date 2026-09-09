@@ -133,11 +133,13 @@ export function validateCurrentVerificationTraceability(
   const records = new Map<string, number>();
   for (const record of verification.testCases) records.set(record.testCase, (records.get(record.testCase) ?? 0) + 1);
   for (const task of tasks.tasks) {
-    if (!task.testCases.includes(task.verificationPlan.testCase)) {
-      errors.push(`Task ${task.id} does not reference verification test case ${task.verificationPlan.testCase}`);
+    for (const plan of task.verificationPlan) {
+      if (!task.testCases.includes(plan.testCase)) {
+        errors.push(`Task ${task.id} does not reference verification test case ${plan.testCase}`);
+      }
+      const count = records.get(plan.testCase) ?? 0;
+      if (count !== 1) errors.push(`Verification plan ${plan.testCase} must have exactly one execution record`);
     }
-    const count = records.get(task.verificationPlan.testCase) ?? 0;
-    if (count !== 1) errors.push(`Verification plan ${task.verificationPlan.testCase} must have exactly one execution record`);
   }
   return errors;
 }

@@ -7,6 +7,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { getWorkspacePaths } from './codespec-workflow/paths.js';
 import { loadCurrentSpecGraph } from './codespec-workflow/current-spec-graph-loader.js';
+import { parseBusinessRegistry } from './codespec-workflow/current-spec-yaml.js';
 import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
 import type { CurrentSpecGraph } from './codespec-workflow/current-spec-graph.js';
 import type { ChangeMode, ChangeStatus, SddLevel } from './codespec-workflow/types.js';
@@ -88,9 +89,29 @@ export interface BusinessModule {
   description: string;
   responsibility: string;
   keywords: string[];
+  status?: 'ACTIVE' | 'RETIRED';
+  inputs?: string[];
+  outputs?: string[];
+  relatedModules?: string[];
 }
 
 export function parseBusinessModules(content: string): BusinessModule[] {
+  try {
+    const parsed = parseBusinessRegistry(parseYaml(content));
+    return parsed.modules.map((module) => ({
+      id: module.id,
+      name: module.name,
+      description: '',
+      responsibility: '',
+      keywords: [],
+      status: module.status,
+      inputs: module.inputs,
+      outputs: module.outputs,
+      relatedModules: module.relatedModules,
+    }));
+  } catch {
+    // Legacy workspaces keep the Markdown registry until migration is run.
+  }
   let inFence = false;
   return content.split(/\r?\n/u).flatMap((line) => {
     if (/^\s*```/u.test(line)) {

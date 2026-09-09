@@ -27,6 +27,14 @@ export interface VerificationCommand {
   kind?: VerificationKind;
   requirementIds?: string[];
   scenarioIds?: string[];
+  /** v1 structured verification fields; legacy callers may omit them. */
+  testCase?: string;
+  testFile?: string;
+  testId?: string;
+  profile?: string;
+  services?: string[];
+  browser?: string;
+  cleanupSucceeded?: boolean;
 }
 export interface VerificationEvidence {
   schema_version: 1;
@@ -76,14 +84,16 @@ export async function validateCurrentVerificationArtifacts(
     try {
       const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
       for (const task of tasks.tasks) {
-        const profile = configuration.profiles.find((candidate) => candidate.id === task.verificationPlan.profile);
-        if (!profile) {
-          errors.push(`Verification profile is not configured: ${task.verificationPlan.profile}`);
-          continue;
-        }
-        for (const serviceId of task.verificationPlan.services) {
-          if (!profile.services.some((service) => service.id === serviceId)) {
-            errors.push(`Verification service is not configured for profile ${profile.id}: ${serviceId}`);
+        for (const plan of task.verificationPlan) {
+          const profile = configuration.profiles.find((candidate) => candidate.id === plan.profile);
+          if (!profile) {
+            errors.push(`Verification profile is not configured: ${plan.profile}`);
+            continue;
+          }
+          for (const serviceId of plan.services) {
+            if (!profile.services.some((service) => service.id === serviceId)) {
+              errors.push(`Verification service is not configured for profile ${profile.id}: ${serviceId}`);
+            }
           }
         }
       }
@@ -358,10 +368,121 @@ async function validateCodeReferences(workspace: WorkspaceContext, rows: readonl
   }
 }
 
+async function runVerificationCommand(command: string, cwd: string): Promise<{ status: number; output: string }> {
+  const child = spawn(command, { shell: true, cwd });
+  let output = '';
+  child.stdout?.on('data', (data: Buffer) => { output += data.toString(); });
+  child.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
+  return new Promise((resolve) => {
+    child.on('error', () => resolve({ status: 1, output }));
+    child.on('close', (status) => resolve({ status: status ?? 1, output }));
+  });
+}
+
+/** Records v1 execution evidence directly into verification.yaml. */
+async function recordFreshCurrentVerification(
+  workspace: WorkspaceContext,
+  artifacts: ChangeArtifacts,
+  commands: VerificationCommand[],
+): Promise<VerificationEvidence> {
+  const metadata = structuredClone(artifacts.metadata);
+  const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+  const plans = tasks.tasks.flatMap((task) => task.verificationPlan);
+  if (!plans.length) throw new Error('当前 Change 没有可执行的 verificationPlan。');
+
+  const supplied = new Map<string, VerificationCommand>();
+  for (const command of commands) {
+    const key = command.testCase ?? command.command;
+    if (supplied.has(key)) throw new Error(`重复的当前规格验证命令：${key}`);
+    supplied.set(key, command);
+  }
+  const baselineCommit = metadata.baseline.commit ?? '0000000';
+  const baselineFingerprint = metadata.baseline.working_tree_fingerprint;
+  const records: Array<Record<string, unknown>> = [];
+  let failed = false;
+  for (const plan of plans) {
+    const command = supplied.get(plan.testCase) ?? supplied.get(plan.command);
+    if (!command) throw new Error(`缺少 ${plan.testCase} 的验证命令。`);
+    if (command.command !== plan.command) throw new Error(`验证命令与任务计划不一致：${plan.testCase}`);
+    const executedAt = new Date().toISOString();
+    const result = await runVerificationCommand(command.command, path.dirname(workspace.codespecDir));
+    const record = {
+      testCase: plan.testCase,
+      result: result.status === 0 ? 'PASS' : 'FAIL',
+      testFile: command.testFile ?? tasks.tasks.find((task) => task.verificationPlan.some((candidate) => candidate.testCase === plan.testCase))?.plannedFiles[0] ?? 'unknown',
+      testId: command.testId ?? plan.testCase,
+      command: plan.command,
+      profile: command.profile ?? plan.profile,
+      services: command.services ?? plan.services,
+      browser: command.browser ?? 'not-applicable',
+      exitCode: result.status,
+      gitRevision: baselineCommit,
+      treeFingerprint: baselineFingerprint,
+      executedAt,
+      summary: result.output.slice(0, 2000) || (result.status === 0 ? '验证通过' : '验证失败'),
+      cleanupSucceeded: command.cleanupSucceeded ?? result.status === 0,
+    };
+    records.push(record);
+    if (result.status !== 0) failed = true;
+  }
+
+  const parsedVerification = parseCurrentVerification({ version: 1, testCases: records });
+  const nextVerification = stringifyYaml({ version: 1, testCases: parsedVerification.testCases });
+  const errors = await validateCurrentVerificationArtifacts(workspace, { ...artifacts, verification: nextVerification });
+  if (errors.length) throw new Error(`当前规格验证未通过：${errors.join('; ')}`);
+
+  const metadataPath = path.join(workspace.codespecDir, metadata.artifacts.metadata);
+  const verificationPath = path.join(workspace.codespecDir, metadata.artifacts.verification);
+  const originalMetadata = await fs.readFile(metadataPath, 'utf8');
+  const originalVerification = await fs.readFile(verificationPath, 'utf8');
+  try {
+    const token = `.current-verification-${process.pid}-${Date.now()}`;
+    const verificationTmp = `${verificationPath}.${token}.tmp`;
+    const metadataTmp = `${metadataPath}.${token}.tmp`;
+    metadata.verification = {
+      ...metadata.verification,
+      requirements_verified: !failed,
+      tests_passed: !failed,
+      build_passed: !failed,
+      lint_passed: !failed,
+      verified_at: failed ? null : new Date().toISOString(),
+    };
+    await fs.writeFile(verificationTmp, nextVerification);
+    await fs.writeFile(metadataTmp, stringifyYaml(metadata));
+    await fs.rename(verificationTmp, verificationPath);
+    await fs.rename(metadataTmp, metadataPath);
+  } catch (error) {
+    await fs.writeFile(verificationPath, originalVerification).catch(() => undefined);
+    await fs.writeFile(metadataPath, originalMetadata).catch(() => undefined);
+    throw error;
+  }
+  if (failed) throw new Error('验证命令失败，当前规格验证未通过。');
+  return {
+    schema_version: 1,
+    change_id: artifacts.changeId,
+    verified_at: metadata.verification.verified_at ?? new Date().toISOString(),
+    revision: metadata.change.revision,
+    status: 'PASS',
+    requirement_ids: [...new Set(tasks.tasks.flatMap((task) => task.requirements))].sort(),
+    scenario_ids: [...new Set(tasks.tasks.flatMap((task) => task.scenarios))].sort(),
+    baseline_identity: baselineFingerprint,
+    receipt: hash(parsedVerification),
+    commands: parsedVerification.testCases.map((record) => ({
+      command: record.command,
+      kind: 'requirements' as const,
+      exit_code: record.exitCode,
+      output_summary: record.summary,
+      started_at: record.executedAt,
+      finished_at: record.executedAt,
+    })),
+  };
+}
+
 export async function recordFreshVerification(workspace: WorkspaceContext, changeId: string, commands: VerificationCommand[]): Promise<VerificationEvidence> {
   if (!commands.length) throw new Error('至少需要一条验证命令。');
   const artifacts = await loadChangeArtifacts(workspace.paths, changeId); const metadata = structuredClone(artifacts.metadata);
   if (!['VERIFY', 'ARCHIVE'].includes(metadata.change.status)) throw new Error('验证证据要求 Change 处于 VERIFY 或 ARCHIVE 状态。');
+  if (!metadata.artifacts.proposal) return recordFreshCurrentVerification(workspace, artifacts, commands);
   const expectedRequirements = requirementIds(metadata);
   const parsed = parseDeltaSpec(artifacts.spec);
   const errorIssues = parsed.entries.flatMap((entry) => collectEmptyScenarioErrorIssues(entry.id, entry.scenarios, changeId));
@@ -416,11 +537,7 @@ export async function recordFreshVerification(workspace: WorkspaceContext, chang
   for (const item of commands) {
     if (!item.command.trim()) throw new Error('验证命令不能为空。');
     const kind = verificationKindSchema.parse(item.kind ?? 'other'); const started_at = new Date().toISOString();
-    const result = await new Promise<{ status: number; output: string }>((resolve) => {
-      const child = spawn(item.command, { shell: true, cwd: workspace.codespecDir }); let output = '';
-      child.stdout?.on('data', (data: Buffer) => { output += data.toString(); }); child.stderr?.on('data', (data: Buffer) => { output += data.toString(); });
-      child.on('error', () => resolve({ status: 1, output })); child.on('close', (status) => resolve({ status: status ?? 1, output }));
-    });
+    const result = await runVerificationCommand(item.command, workspace.codespecDir);
     const finished_at = new Date().toISOString();
     evidence.commands.push({ command: item.command, kind, exit_code: result.status, output_summary: result.output.slice(0, 2000), started_at, finished_at,
       requirement_ids: [...new Set(item.requirementIds ?? [])], scenario_ids: [...new Set(item.scenarioIds ?? [])] });

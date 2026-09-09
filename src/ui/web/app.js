@@ -1,5 +1,5 @@
 const page = document.querySelector('#page');
-const nav = document.querySelector('#nav');
+const nav = document.querySelector('#primary-navigation');
 const search = document.querySelector('#search');
 const themeToggle = document.querySelector('#theme-toggle');
 const commandHelperToggle = document.querySelector('#command-helper');
@@ -10,6 +10,7 @@ let index;
 let currentView = 'capabilities';
 let currentScreen = { type: 'view', view: currentView };
 let commandHelperOpen = false;
+let currentChangeTab = 'active';
 
 const api = async (path, init) => {
   const response = await fetch(path, init);
@@ -67,9 +68,7 @@ function screenLabel(screen) {
   if (screen.type === 'view') {
     return {
       capabilities: '业务功能',
-      'active-changes': '活动 Change',
-      'archiveable-changes': '可归档 Change',
-      'archive-history': '归档历史',
+      changes: '变更管理',
     }[screen.view] ?? '业务功能';
   }
   return '上一级';
@@ -193,7 +192,9 @@ function renderCommandHelper() {
 }
 
 function statusLabel(status) {
-  return status === 'ARCHIVED' ? '已归档' : text(status, '状态未知');
+  if (status === 'ARCHIVED') return '已归档';
+  if (status === 'ABANDONED') return '生命周期失败';
+  return text(status, '状态未知');
 }
 
 function levelLabel(level) {
@@ -257,6 +258,38 @@ function changeButton(change, options = {}) {
   return card;
 }
 
+function archiveCandidateFor(change) {
+  return (index.archive?.candidates ?? []).find((candidate) => candidate.id === change.id);
+}
+
+function activeChangeCard(change) {
+  const card = element('article', `active-change-card ${change.status === 'ABANDONED' ? 'active-change-card-failed' : ''}`);
+  const detail = button('', 'active-change-card-main', () => renderChangeDetail(change));
+  const heading = element('div', 'active-change-card-heading');
+  heading.append(element('strong', 'change-id', text(change.id)));
+  heading.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
+  detail.append(heading, element('h2', 'active-change-card-title', text(change.title, '未命名 Change')));
+  detail.append(element('p', 'muted active-change-card-meta', `${text(change.mode, '模式未知')} · ${levelLabel(change.sddLevel)}`));
+  const moduleTags = changeModuleTags(change);
+  if (moduleTags) detail.append(moduleTags);
+  card.append(detail);
+
+  const candidate = archiveCandidateFor(change);
+  const footer = element('div', 'active-change-card-footer');
+  if (change.status === 'ABANDONED') {
+    const reason = candidate?.gateReasons?.[0] ?? '该 Change 的生命周期已终止，请在详情中查看并处理。';
+    footer.classList.add('failure-reason');
+    footer.append(element('span', '', reason));
+  } else if (candidate?.ready) {
+    footer.append(element('span', 'gate-success', '可归档'));
+    footer.append(button('归档 →', 'archive-action', () => openArchiveConfirmation(candidate)));
+  } else {
+    footer.append(element('span', 'muted', candidate?.gateReasons?.[0] ?? '尚未满足归档门禁'));
+  }
+  card.append(footer);
+  return card;
+}
+
 function sectionHeader(kicker, title, description) {
   const header = element('div', 'section-header');
   header.append(element('p', 'kicker', kicker));
@@ -283,28 +316,61 @@ function currentSpecForModule(moduleId) {
   return (index.archive.currentSpecs ?? []).find((doc) => doc.relativePath.includes(`/${moduleId}/spec.md`));
 }
 
+function renderWorkspaceSummary(description, badges, className = '', controls) {
+  const summary = element('div', `change-summary ${className}`.trim());
+  summary.append(element('p', 'change-workspace-description', description));
+  if (controls || badges.length) {
+    const actions = element('div', 'workspace-summary-actions');
+    if (controls) actions.append(controls);
+    if (badges.length) {
+      const summaryBadges = element('div', 'change-summary-badges');
+      for (const badge of badges) {
+        summaryBadges.append(element('span', `change-summary-badge ${badge.tone ?? ''}`.trim(), `${badge.label} ${badge.value}`));
+      }
+      actions.append(summaryBadges);
+    }
+    summary.append(actions);
+  }
+  return summary;
+}
+
+function compactWorkspaceHeader({ className, contextClass, kicker, title, trailing }) {
+  const header = element('header', `compact-workspace-header ${className}`.trim());
+  const context = element('div', `compact-workspace-context ${contextClass}`.trim());
+  context.append(element('p', 'kicker', kicker), element('h1', '', title));
+  header.append(context);
+  if (trailing) header.append(trailing);
+  return header;
+}
+
 function renderCapabilities() {
   const view = document.createElement('div');
-  view.append(sectionHeader('BUSINESS FEATURES', '业务功能', '查看当前业务模块、关联 Spec 和活动变更。模块内容由 AI 工作流维护。'));
+  view.classList.add('list-view');
+  view.append(compactWorkspaceHeader({
+    className: 'business-workspace-header',
+    contextClass: 'business-workspace-context',
+    kicker: 'BUSINESS MANAGEMENT',
+    title: '业务功能',
+  }));
+  view.append(renderWorkspaceSummary('查看当前业务模块、关联 Spec 和活动变更。', [], 'business-summary'));
   const grid = element('div', 'capability-grid');
   if (!index.businessModules.length) {
-    grid.append(emptyState('暂无业务模块。请通过 AI 工作流建立 codespec/business.md。'));
+    grid.append(emptyState('暂无业务模块。请通过 AI 工作流建立 codespec/business.yaml。'));
   } else {
     for (const module of index.businessModules) {
       const card = element('article', 'capability-card');
       const heading = element('div', 'capability-heading');
       heading.append(element('span', 'module-id', module.id), element('h2', '', module.name));
       const spec = currentSpecForModule(module.id);
-      if (spec) heading.append(button('查看 Spec', 'secondary-button module-spec-action', () => openDocument(spec, currentScreen)));
       card.append(heading);
-      card.append(element('p', 'muted', module.description || module.responsibility || '未填写模块说明'));
-      const metrics = element('div', 'metrics');
-      metrics.append(metric('活动 Change', moduleChangeCount(module.id)));
-      metrics.append(metric('当前 Spec', spec ? '已建立' : '未建立'));
-      card.append(metrics);
-      const actions = element('div', 'card-actions');
-      const related = index.changes.filter((change) => change.modules?.includes(module.id));
-      if (related.length) actions.append(button('查看 Change', 'secondary-button', () => navigate('active-changes')));
+      const details = element('div', 'business-card-details');
+      details.append(businessCardRow('活动 Change', moduleChangeCount(module.id)));
+      details.append(businessCardRow('当前 Spec', spec ? '已建立' : '未建立', spec
+        ? button('查看 Spec', 'quiet-button module-spec-action', () => openDocument(spec, currentScreen))
+        : undefined));
+      card.append(details);
+      const actions = element('div', 'business-card-actions');
+      actions.append(button('查看 Change', 'secondary-button', () => navigate('changes', 'active')));
       card.append(actions);
       grid.append(card);
     }
@@ -313,95 +379,30 @@ function renderCapabilities() {
   return view;
 }
 
-function renderChangeList(changes, title) {
-  const view = document.createElement('div');
-  view.classList.add('list-view');
-  view.append(sectionHeader('CHANGE WORKSPACE', title, 'Change 和文档仅供查看，新增、修改和推进由 AI 工作流完成。'));
-  const groupsList = element('div', 'change-groups-scroll change-list-scroll');
-  const groups = groupChangesByModule(changes);
-  if (!groups.length) groupsList.append(emptyState('暂无 Change'));
-  else {
-    for (const group of groups) {
-      const section = element('section', 'change-module-group');
-      const heading = element('div', 'change-module-heading');
-      heading.append(element('h2', '', group.label), element('span', 'module-count', `${group.changes.length} 个 Change`));
-      const list = element('div', 'change-list change-module-list');
-      list.append(...group.changes.map(changeButton));
-      section.append(heading, list);
-      groupsList.append(section);
-    }
-  }
-  view.append(groupsList);
-  return view;
+function businessCardRow(label, value, action) {
+  const row = element('div', 'business-card-row');
+  row.append(element('span', 'business-card-label', label));
+  row.append(action ?? element('strong', 'business-card-value', String(value)));
+  return row;
 }
 
 function renderActiveChanges() {
-  return renderChangeList(index.changes, '活动 Change');
-}
-
-function archiveCandidateCard(candidate) {
-  const card = element('article', `archive-card ${candidate.ready ? 'archive-ready' : 'archive-blocked'}`);
-  const heading = element('div', 'archive-card-heading');
-  heading.append(element('strong', '', text(candidate.id)));
-  heading.append(element('span', 'sdd-level-badge', levelLabel(candidate.sddLevel)));
-  card.append(heading);
-  card.append(element('h2', '', text(candidate.title, '未命名 Change')));
-  card.append(element('p', 'muted', `${statusLabel(candidate.status)} · ${candidate.mode ?? '模式未知'}`));
-  if (candidate.ready) {
-    card.append(element('p', 'gate-success', '已满足归档门禁，可查看归档预览。'));
-    card.append(button('查看归档预览', 'primary-button', () => renderArchivePreview(candidate)));
-  } else {
-    const reasons = element('ul', 'gate-reasons');
-    for (const reason of candidate.gateReasons ?? ['归档门禁状态未知']) reasons.append(element('li', '', reason));
-    card.append(reasons);
-    card.append(button('查看 Change', 'secondary-button', () => renderChangeDetail(candidate)));
-  }
-  return card;
-}
-
-function renderArchiveableChanges() {
   const view = document.createElement('div');
-  view.classList.add('archive-workbench-view');
-  const header = sectionHeader('ARCHIVE WORKBENCH', '可归档 Change', '仅对已通过校验和 ARCHIVE 门禁的 Change 提供归档操作。');
-  const candidates = index.archive.candidates ?? [];
-  const ready = candidates.filter((candidate) => candidate.ready);
-  const blocked = candidates.filter((candidate) => !candidate.ready);
-  header.classList.add('archive-header');
-  const summary = element('div', 'summary-strip archive-summary');
-  summary.setAttribute('aria-label', '归档状态计数');
-  summary.append(metric('可归档', ready.length), metric('暂不可归档', blocked.length));
-  header.append(summary);
-  view.append(header);
-  if (!candidates.length) view.append(emptyState('暂无活动 Change。'));
-  const groupsList = element('div', 'archive-module-groups-scroll');
-  for (const group of groupChangesByModule(candidates)) {
-    const groupReady = group.changes.filter((candidate) => candidate.ready);
-    const groupBlocked = group.changes.filter((candidate) => !candidate.ready);
-    const section = element('section', 'archive-module-group');
-    const heading = element('div', 'change-module-heading');
-    heading.append(element('h2', '', group.label), element('span', 'module-count', `${group.changes.length} 个 Change`));
-    section.append(heading);
-    for (const [items, label, className] of [[groupReady, '可归档', 'archive-ready-list'], [groupBlocked, '暂不可归档', 'archive-blocked-list']]) {
-      if (!items.length) continue;
-      section.append(element('h3', 'subsection-title', label));
-      const list = element('div', `archive-list-scroll ${className}`);
-      const grid = element('div', 'archive-grid');
-      grid.append(...items.map(archiveCandidateCard));
-      list.append(grid);
-      section.append(list);
-    }
-    groupsList.append(section);
-  }
-  if (candidates.length) view.append(groupsList);
+  view.classList.add('list-view');
+  const grid = element('div', 'active-change-grid');
+  grid.setAttribute('aria-label', 'ACTIVE CHANGES');
+  if (!index.changes.length) grid.append(emptyState('暂无活动 Change。'));
+  else grid.append(...index.changes.map(activeChangeCard));
+  view.append(grid);
   return view;
 }
 
 function renderArchiveHistory() {
   const view = document.createElement('div');
   view.classList.add('list-view');
-  view.append(sectionHeader('ARCHIVE HISTORY', '归档历史', '查看已归档 Change 与当前 Spec 的追溯关系。'));
   const history = index.archive.historyChanges ?? [];
   const groupsList = element('div', 'change-groups-scroll change-list-scroll');
+  groupsList.setAttribute('aria-label', 'ARCHIVE HISTORY');
   const groups = groupChangesByModule(history);
   if (!groups.length) groupsList.append(emptyState('暂无归档 Change。'));
   else {
@@ -419,6 +420,70 @@ function renderArchiveHistory() {
   return view;
 }
 
+const CHANGE_TABS = [
+  { id: 'active', label: '活动 Change', render: renderActiveChanges },
+  { id: 'history', label: '归档历史', render: renderArchiveHistory },
+];
+
+function renderChangesWorkspace() {
+  const view = document.createElement('div');
+  view.classList.add('changes-workspace-view');
+
+  const selected = CHANGE_TABS.find((tab) => tab.id === currentChangeTab) ?? CHANGE_TABS[0];
+  currentChangeTab = selected.id;
+  const tabs = element('div', 'change-tablist');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Change 分类');
+  tabs.onkeydown = (event) => {
+    const selectedIndex = CHANGE_TABS.findIndex((tab) => tab.id === selected.id);
+    const nextIndex = event.key === 'ArrowRight'
+      ? (selectedIndex + 1) % CHANGE_TABS.length
+      : event.key === 'ArrowLeft'
+        ? (selectedIndex - 1 + CHANGE_TABS.length) % CHANGE_TABS.length
+        : event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? CHANGE_TABS.length - 1
+            : -1;
+    if (nextIndex < 0) return;
+    event.preventDefault();
+    const nextTab = CHANGE_TABS[nextIndex];
+    navigate('changes', nextTab.id);
+    document.getElementById(`change-tab-${nextTab.id}`)?.focus();
+  };
+  for (const tab of CHANGE_TABS) {
+    const tabButton = button(tab.label, 'change-tab', () => navigate('changes', tab.id));
+    tabButton.id = `change-tab-${tab.id}`;
+    tabButton.setAttribute('role', 'tab');
+    tabButton.setAttribute('aria-selected', String(tab.id === selected.id));
+    tabButton.setAttribute('aria-controls', 'change-tab-panel');
+    tabButton.tabIndex = tab.id === selected.id ? 0 : -1;
+    if (tab.id === selected.id) tabButton.classList.add('active');
+    tabs.append(tabButton);
+  }
+
+  const controls = element('div', 'change-workspace-controls');
+  controls.append(tabs);
+  const header = compactWorkspaceHeader({
+    className: 'change-workspace-header',
+    contextClass: 'change-workspace-context',
+    kicker: 'CHANGE MANAGEMENT',
+    title: '变更管理',
+  });
+  const summary = renderWorkspaceSummary('查看活动 Change 与归档历史。', [
+    { label: '活动', value: index.changes.length, tone: 'active' },
+    { label: '已归档', value: (index.archive.historyChanges ?? []).length, tone: 'archived' },
+  ], '', controls);
+
+  const panel = element('div', 'change-tab-panel');
+  panel.id = 'change-tab-panel';
+  panel.setAttribute('role', 'tabpanel');
+  panel.setAttribute('aria-labelledby', `change-tab-${selected.id}`);
+  panel.append(selected.render());
+  view.append(header, summary, panel);
+  return view;
+}
+
 function lifecycleStepper(change) {
   const stepper = element('ol', 'lifecycle-stepper');
   const currentIndex = lifecycleStatuses.indexOf(change.status);
@@ -432,6 +497,14 @@ function lifecycleStepper(change) {
 
 function gatePanel(change) {
   const panel = element('aside', 'gate-panel');
+  if (change.status === 'ABANDONED') {
+    const reason = archiveCandidateFor(change)?.gateReasons?.[0] ?? '该 Change 的生命周期已终止，请检查 Change 文档并按工作流处理。';
+    panel.classList.add('change-failure-panel');
+    panel.append(element('h3', '', '生命周期失败'));
+    panel.append(element('p', 'failure-reason', reason));
+    panel.append(element('p', 'muted', '该状态下不可归档，但文档仍可只读查看。'));
+    return panel;
+  }
   panel.append(element('h3', '', '本等级要求'));
   panel.append(element('p', 'muted', levelDescription(change.sddLevel)));
   const details = element('ul', 'gate-list');
@@ -463,7 +536,7 @@ function documentTabLabel(doc) {
 }
 
 function changeDocumentOrder(left, right) {
-  const order = ['metadata.yaml', 'proposal.md', 'design.md', 'spec.md', 'tasks.md', 'verification.md'];
+  const order = ['metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml', 'proposal.md', 'tasks.md', 'verification.md'];
   return (order.indexOf(left.relativePath.split('/').at(-1)) + order.length) % order.length
     - (order.indexOf(right.relativePath.split('/').at(-1)) + order.length) % order.length
     || left.relativePath.localeCompare(right.relativePath);
@@ -564,35 +637,45 @@ function goBackFromScreen() {
   renderCurrentScreen();
 }
 
-async function renderArchivePreview(candidate) {
-  const returnScreen = currentScreen.type === 'preview'
-    ? currentScreen.returnScreen
-    : currentScreen.type === 'view' || currentScreen.type === 'search'
-    ? { ...currentScreen }
-    : { type: 'view', view: 'archiveable-changes' };
-  currentScreen = { type: 'preview', changeId: candidate.id, returnScreen };
-  const preview = await api(`/api/archive/${encodeURIComponent(candidate.id)}`);
-  const view = document.createElement('div');
-  view.classList.add('preview-view');
-  const header = sectionHeader('ARCHIVE PREVIEW', '确认归档影响', `${preview.changeId} · ${preview.title}`);
-  header.prepend(backButton(`返回${screenLabel(returnScreen)}`, goBackFromScreen));
-  view.append(header);
+function renderArchivePreviewSummary(preview) {
   const summary = element('div', 'preview-card');
   summary.append(element('p', '', `${levelLabel(preview.sddLevel)} · ${preview.mode}`));
   summary.append(element('p', 'muted', `目标：${preview.archiveTarget}`));
   summary.append(element('p', 'muted', `Verification Receipt：${preview.verificationReceipt}`));
   summary.append(element('p', 'muted', `影响模块：${(preview.modules ?? []).join('、') || '无'}`));
   summary.append(element('p', 'muted', `归档影响：${preview.archiveImpact?.outcome === 'affected' ? `受影响（${preview.archiveImpact.references?.length ?? 0} 条映射）` : '无当前 Spec 行为影响'}`));
+  return summary;
+}
+
+async function openArchiveConfirmation(candidate) {
+  const preview = await api(`/api/archive/${encodeURIComponent(candidate.id)}`);
+  const backdrop = element('div', 'archive-confirmation-backdrop');
+  const dialog = element('section', 'archive-confirmation-dialog');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'archive-confirmation-title');
+  const header = element('div', 'archive-confirmation-header');
+  const title = element('h2', '', '确认归档 Change');
+  title.id = 'archive-confirmation-title';
+  header.append(title, button('取消', 'quiet-button', () => backdrop.remove()));
+  dialog.append(header, element('p', 'muted', `${preview.changeId} · ${preview.title}`), renderArchivePreviewSummary(preview));
   const actions = element('div', 'card-actions');
   actions.append(button('确认归档 Change', 'primary-button', async () => {
-    if (!window.confirm(`确认归档 Change "${preview.changeId}"？`)) return;
-    const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
-    index = result.index;
-    navigate('archive-history');
+    try {
+      const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
+      index = result.index;
+      backdrop.remove();
+      navigate('changes', 'history');
+    } catch (error) {
+      const existing = dialog.querySelector('.inline-error');
+      if (existing) existing.remove();
+      dialog.append(element('div', 'inline-error', `归档失败：${error.message}`));
+    }
   }));
-  summary.append(actions);
-  view.append(summary);
-  page.replaceChildren(view);
+  dialog.append(actions);
+  backdrop.append(dialog);
+  document.body.append(backdrop);
+  dialog.querySelector('.primary-button')?.focus();
 }
 
 function renderSearchResults(documents, query) {
@@ -612,14 +695,13 @@ function renderSearchResults(documents, query) {
 function renderView() {
   for (const item of nav.querySelectorAll('[data-view]')) item.classList.toggle('active', item.dataset.view === currentView);
   if (currentView === 'capabilities') page.replaceChildren(renderCapabilities());
-  if (currentView === 'active-changes') page.replaceChildren(renderActiveChanges());
-  if (currentView === 'archiveable-changes') page.replaceChildren(renderArchiveableChanges());
-  if (currentView === 'archive-history') page.replaceChildren(renderArchiveHistory());
+  if (currentView === 'changes') page.replaceChildren(renderChangesWorkspace());
 }
 
 function renderCurrentScreen() {
   if (currentScreen.type === 'view') {
     currentView = currentScreen.view;
+    if (currentScreen.view === 'changes' && currentScreen.tab) currentChangeTab = currentScreen.tab;
     renderView();
     return;
   }
@@ -635,20 +717,15 @@ function renderCurrentScreen() {
     else showError(new Error('当前文档已不存在，请返回上一级。'));
     return;
   }
-  if (currentScreen.type === 'preview') {
-    const candidate = (index.archive?.candidates ?? []).find((item) => item.id === currentScreen.changeId);
-    if (candidate) renderArchivePreview(candidate).catch(showInlineError);
-    else showError(new Error('当前归档预览已不存在，请返回可归档列表。'));
-    return;
-  }
   if (currentScreen.type === 'search') {
     renderSearchResults(currentScreen.documents ?? [], currentScreen.query ?? '');
   }
 }
 
-function navigate(view) {
+function navigate(view, changeTab) {
+  if (view === 'changes' && changeTab) currentChangeTab = changeTab;
   currentView = view;
-  currentScreen = { type: 'view', view };
+  currentScreen = view === 'changes' ? { type: 'view', view, tab: currentChangeTab } : { type: 'view', view };
   renderCurrentScreen();
 }
 

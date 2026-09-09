@@ -18,11 +18,11 @@ metadata:
 
 将 code-spec 工作通过 `codespec-workflow` 适配器路由。解析或创建匹配 `CHG-YYYYMMDD-NNN` 的 canonical Change ID；不要使用 slug Change 或旧版 `.codespec.yaml` 元数据。Change 目录为 `codespec/changes/<CHG-ID>/`，状态以 `metadata.yaml` 为准。
 
-在每次提示和命令中传递 Change ID、生命周期 status、baseline、Requirement ID（`MOD-###-REQ-###`）、Scenario、Task ID（`SP-##`）和元数据产物路径。`tasks.md` 只作为简洁的 `SP-##` 状态投影，不要在其中重复详细的 Superpowers 计划。在验证产物中记录必需的 Requirement/test/build/lint 命令及证据。
+在每次提示和命令中传递 Change ID、生命周期 status、baseline、Requirement ID（`MOD-###-REQ-###`）、Scenario、Task ID（`CHG-YYYYMMDD-NNN-TASK-##`）和元数据产物路径。活动 Change 只生成五个 canonical 文件：`metadata.yaml`、`design.md`、`spec.md`、`tasks.yaml`、`verification.yaml`；PLAN 仅作为兼容旧状态的内部状态，不创建额外文件。在验证产物中记录必需的 Requirement/test/build/lint 命令及证据。
 
 ### 执行前解析并注入上下文
 
-运行 `codespec context --json` 解析 canonical workspace。通过明确的 `CHG-YYYYMMDD-NNN` ID 或绑定上下文解析 Change，然后运行 `codespec status --change "<CHG-ID>" --json` 并加载 `codespec/changes/<CHG-ID>/metadata.yaml` 及其声明的产物路径。将实际 Change ID、status、baseline、受影响 Requirement ID 和 Scenario ID、Task ID、已有证据以及 canonical proposal/design/spec/tasks/verification 路径注入每个 Superpowers 提示。上下文缺失、元数据缺失或解析有歧义时，明确失败并停止；不要猜测，也不要回退到 slug/旧版元数据。
+运行 `codespec context --json` 解析 canonical workspace。通过明确的 `CHG-YYYYMMDD-NNN` ID 或绑定上下文解析 Change，然后运行 `codespec status --change "<CHG-ID>" --json` 并加载 `codespec/changes/<CHG-ID>/metadata.yaml` 及其声明的产物路径。将实际 Change ID、status、baseline、受影响 Requirement ID 和 Scenario ID、Task ID、已有证据以及 canonical metadata/design/spec/tasks/verification 路径注入每个 Superpowers 提示。上下文缺失、元数据缺失或解析有歧义时，明确失败并停止；不要猜测，也不要回退到 slug/旧版元数据。
 
 在规划、实现、验证或归档前，重新解析 status 和产物，并将结果上下文传给对应的 Superpowers skill。每次有实质动作后刷新状态，并将追踪关系/证据写回 canonical 产物。必需命令必须从解析出的 workspace 执行，并逐字记录命令及结果。
 
@@ -52,10 +52,18 @@ Core 内部负责模块解析、Requirement/Scenario ID 分配、captureBaseline
 
 ### 路由门禁
 
-1. 运行 codespec context --json，再运行 codespec status --change "<CHG-ID>" --json，读取 metadata、proposal、design、spec、tasks 和 verification 的实际路径。
+1. 运行 codespec context --json，再运行 codespec status --change "<CHG-ID>" --json，读取 metadata、design、spec、tasks 和 verification 的实际路径。
 2. 先由 Core 检查 Change、模块、Requirement、baseline 和 status。若 baseline 为 STALE、存在多 Change 冲突或需要重建基线，立即转交 codespec-rebase-change。
 3. 规划阶段只写 canonical Change 规划产物；实现阶段只按 tasks 和 Superpowers 计划修改代码；验证阶段记录 Requirement、Scenario、Task 与命令证据。
 4. 完成后刷新 status。只有所有必要验证通过且 Core 报告可归档时，才转交 codespec-archive-change。
 5. 任何阶段都不得直接修改 Current Specification；Current Specification 只能由 archive 事务写入。
 
-**Store 选择：** 如果用户指定了 store（store 是本机注册的独立 CodeSpec 仓库），或当前工作位于 store 中，请运行 `codespec store list --json` 查找已注册的 store ID，然后在读写 Spec 和 Change 的命令中传入 `--store <id>`（包括 `new change`、`change new`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`、`schemas`、`view`、`rebase`、`transition`、`abandon`、`detect-stale`、`allocate-requirements`）。选择后，在本次工作流的后续步骤中持续使用 `--store <id>`。下面未带范围的命令示例都只是简写：执行前要追加该选项。例如运行 `codespec status --change "<name>" --json --store "<id>"`，不要直接运行未带选项的形式。其他命令不接受该选项。命令打印的后续提示已经带有该选项，继续使用即可。没有 store 时，命令作用于最近的本地 `codespec/` 根目录。
+### 人工批准门禁
+
+DESIGN 完成后必须停止：展示设计摘要、Requirement/Scenario 影响和计划范围；不得创建计划、执行任务或修改业务代码。明确要求用户在独立的新用户消息中确认设计。收到该独立确认后，先运行 `codespec approve --change "<CHG-ID>" --stage design`，成功后才可转换到 PLAN。
+
+PLAN 完成后必须停止：展示任务、验证范围和实施影响；不得执行实现任务或修改业务代码。明确要求用户在独立的新用户消息中确认计划。收到该独立确认后，先运行 `codespec approve --change "<CHG-ID>" --stage plan`，成功后才可转换到 IMPLEMENT。
+
+确认设计不等于确认计划或确认实现。用户补充内容如影响目标、范围、模块、Requirement、Scenario、验收条件、SDD 等级或 Current Specification 影响，必须停止并重新解析 Change；旧确认可能已经失效，不得直接修改 `metadata.yaml` 的 `approvals` 字段绕过 `codespec approve`。
+
+**Store 选择：** 如果用户指定了 store（store 是本机注册的独立 CodeSpec 仓库），或当前工作位于 store 中，请运行 `codespec store list --json` 查找已注册的 store ID，然后在读写 Spec 和 Change 的命令中传入 `--store <id>`（包括 `new change`、`change new`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`、`schemas`、`view`、`rebase`、`transition`、`approve`、`abandon`、`detect-stale`、`allocate-requirements`）。选择后，在本次工作流的后续步骤中持续使用 `--store <id>`。下面未带范围的命令示例都只是简写：执行前要追加该选项。例如运行 `codespec status --change "<name>" --json --store "<id>"`，不要直接运行未带选项的形式。其他命令不接受该选项。命令打印的后续提示已经带有该选项，继续使用即可。没有 store 时，命令作用于最近的本地 `codespec/` 根目录。

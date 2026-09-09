@@ -6,10 +6,10 @@ export type WorkflowStage = 'analyze' | 'design' | 'plan' | 'implement' | 'new' 
 
 export function renderCanonicalChangeContext(metadata: ChangeMetadata, spec = ''): string {
   const requirements = Object.values(metadata.requirements).flatMap((items) => items.map((item) => item.id));
-  const scenarioMatches = [...spec.matchAll(/####\s+Scenario:\s*\[?(SCN-\d{3})\]?\s*[^\n]*/gu)];
+  const scenarioMatches = [...spec.matchAll(/####\s+Scenario:\s*\[?((?:MOD-\d{3}-REQ-\d{3}-)?SCN-\d{3})\]?\s*[^\n]*/gu)];
   const scenarios = [...new Set(scenarioMatches.map((match) => match[1]))];
   const tasks = Object.entries(metadata.tasks.items).map(([id, task]) => `${id}:${task.status}`);
-  return `当前状态：${metadata.change.status}\n\n已解析的 Change 上下文：ID=${metadata.change.id}；status=${metadata.change.status}；mode=${metadata.change.mode}；baseline=${metadata.baseline.stale ? 'STALE' : 'CURRENT'}；Requirements=${requirements.join(',') || 'none'}；Scenarios=${scenarios.join(',') || 'none'}；Tasks=${tasks.join(',') || 'none'}；必需验证命令=requirements,test,build,lint；证据=requirements:${metadata.verification.requirements_verified},tests:${metadata.verification.tests_passed},build:${metadata.verification.build_passed},lint:${metadata.verification.lint_passed}；产物路径：metadata=${metadata.artifacts.metadata}, proposal=${metadata.artifacts.proposal}, design=${metadata.artifacts.design}, spec=${metadata.artifacts.spec}, tasks=${metadata.artifacts.tasks}, verification=${metadata.artifacts.verification}。`;
+  return `当前状态：${metadata.change.status}\n\n已解析的 Change 上下文：ID=${metadata.change.id}；status=${metadata.change.status}；mode=${metadata.change.mode}；baseline=${metadata.baseline.stale ? 'STALE' : 'CURRENT'}；Requirements=${requirements.join(',') || 'none'}；Scenarios=${scenarios.join(',') || 'none'}；Tasks=${tasks.join(',') || 'none'}；必需验证命令=requirements,test,build,lint；证据=requirements:${metadata.verification.requirements_verified},tests:${metadata.verification.tests_passed},build:${metadata.verification.build_passed},lint:${metadata.verification.lint_passed}；产物路径：metadata=${metadata.artifacts.metadata}, design=${metadata.artifacts.design ?? 'design.md'}, spec=${metadata.artifacts.spec}, tasks=${metadata.artifacts.tasks}, verification=${metadata.artifacts.verification}。`;
 }
 
 export function getStageAdapterGuidance(stage: WorkflowStage): string {
@@ -30,11 +30,11 @@ export const CODESPEC_WORKFLOW_GUIDANCE = `
 
 将 code-spec 工作通过 \`codespec-workflow\` 适配器路由。解析或创建匹配 \`CHG-YYYYMMDD-NNN\` 的 canonical Change ID；不要使用 slug Change 或旧版 \`.codespec.yaml\` 元数据。Change 目录为 \`codespec/changes/<CHG-ID>/\`，状态以 \`metadata.yaml\` 为准。
 
-在每次提示和命令中传递 Change ID、生命周期 status、baseline、Requirement ID（\`MOD-###-REQ-###\`）、Scenario、Task ID（\`SP-##\`）和元数据产物路径。\`tasks.md\` 只作为简洁的 \`SP-##\` 状态投影，不要在其中重复详细的 Superpowers 计划。在验证产物中记录必需的 Requirement/test/build/lint 命令及证据。
+在每次提示和命令中传递 Change ID、生命周期 status、baseline、Requirement ID（\`MOD-###-REQ-###\`）、Scenario、Task ID（\`CHG-YYYYMMDD-NNN-TASK-##\`）和元数据产物路径。活动 Change 只生成五个 canonical 文件：\`metadata.yaml\`、\`design.md\`、\`spec.md\`、\`tasks.yaml\`、\`verification.yaml\`；PLAN 仅作为兼容旧状态的内部状态，不创建额外文件。在验证产物中记录必需的 Requirement/test/build/lint 命令及证据。
 
 ### 执行前解析并注入上下文
 
-运行 \`codespec context --json\` 解析 canonical workspace。通过明确的 \`CHG-YYYYMMDD-NNN\` ID 或绑定上下文解析 Change，然后运行 \`codespec status --change "<CHG-ID>" --json\` 并加载 \`codespec/changes/<CHG-ID>/metadata.yaml\` 及其声明的产物路径。将实际 Change ID、status、baseline、受影响 Requirement ID 和 Scenario ID、Task ID、已有证据以及 canonical proposal/design/spec/tasks/verification 路径注入每个 Superpowers 提示。上下文缺失、元数据缺失或解析有歧义时，明确失败并停止；不要猜测，也不要回退到 slug/旧版元数据。
+运行 \`codespec context --json\` 解析 canonical workspace。通过明确的 \`CHG-YYYYMMDD-NNN\` ID 或绑定上下文解析 Change，然后运行 \`codespec status --change "<CHG-ID>" --json\` 并加载 \`codespec/changes/<CHG-ID>/metadata.yaml\` 及其声明的产物路径。将实际 Change ID、status、baseline、受影响 Requirement ID 和 Scenario ID、Task ID、已有证据以及 canonical metadata/design/spec/tasks/verification 路径注入每个 Superpowers 提示。上下文缺失、元数据缺失或解析有歧义时，明确失败并停止；不要猜测，也不要回退到 slug/旧版元数据。
 
 在规划、实现、验证或归档前，重新解析 status 和产物，并将结果上下文传给对应的 Superpowers skill。每次有实质动作后刷新状态，并将追踪关系/证据写回 canonical 产物。必需命令必须从解析出的 workspace 执行，并逐字记录命令及结果。
 
@@ -49,6 +49,14 @@ canonical spec.md 和 Current Specification 的每个 Scenario 都必须包含 E
 export function withCodeSpecWorkflowGuidance(instructions: string): string {
   return `${CODESPEC_WORKFLOW_GUIDANCE}\n\n${instructions}`;
 }
+
+const APPROVAL_GATE_GUIDANCE = `### 人工批准门禁
+
+DESIGN 完成后必须停止：展示设计摘要、Requirement/Scenario 影响和计划范围；不得创建计划、执行任务或修改业务代码。明确要求用户在独立的新用户消息中确认设计。收到该独立确认后，先运行 \`codespec approve --change "<CHG-ID>" --stage design\`，成功后才可转换到 PLAN。
+
+PLAN 完成后必须停止：展示任务、验证范围和实施影响；不得执行实现任务或修改业务代码。明确要求用户在独立的新用户消息中确认计划。收到该独立确认后，先运行 \`codespec approve --change "<CHG-ID>" --stage plan\`，成功后才可转换到 IMPLEMENT。
+
+确认设计不等于确认计划或确认实现。用户补充内容如影响目标、范围、模块、Requirement、Scenario、验收条件、SDD 等级或 Current Specification 影响，必须停止并重新解析 Change；旧确认可能已经失效，不得直接修改 \`metadata.yaml\` 的 \`approvals\` 字段绕过 \`codespec approve\`。`;
 
 const DEVELOPMENT_ORCHESTRATION = `## 唯一开发入口
 
@@ -68,11 +76,13 @@ Core 内部负责模块解析、Requirement/Scenario ID 分配、captureBaseline
 
 ### 路由门禁
 
-1. 运行 codespec context --json，再运行 codespec status --change "<CHG-ID>" --json，读取 metadata、proposal、design、spec、tasks 和 verification 的实际路径。
+1. 运行 codespec context --json，再运行 codespec status --change "<CHG-ID>" --json，读取 metadata、design、spec、tasks 和 verification 的实际路径。
 2. 先由 Core 检查 Change、模块、Requirement、baseline 和 status。若 baseline 为 STALE、存在多 Change 冲突或需要重建基线，立即转交 codespec-rebase-change。
 3. 规划阶段只写 canonical Change 规划产物；实现阶段只按 tasks 和 Superpowers 计划修改代码；验证阶段记录 Requirement、Scenario、Task 与命令证据。
 4. 完成后刷新 status。只有所有必要验证通过且 Core 报告可归档时，才转交 codespec-archive-change。
-5. 任何阶段都不得直接修改 Current Specification；Current Specification 只能由 archive 事务写入。`;
+5. 任何阶段都不得直接修改 Current Specification；Current Specification 只能由 archive 事务写入。
+
+${APPROVAL_GATE_GUIDANCE}`;
 
 export function getCodeSpecWorkflowSkillTemplate() {
   return {
@@ -97,6 +107,8 @@ export function getCodespecWorkflowCommandTemplate(): CommandTemplate {
 ${STORE_SELECTION_GUIDANCE}
 
 根据用户意图路由到分析、规划、实现或验证阶段：工程方法交给 Superpowers，Change、Requirement、Baseline、STALE 和状态事务交给 CodeSpec Core。发现 STALE、多 Change 冲突或需要重建基线时，转交 \`codespec-rebase-change\`；完成且验证通过后，转交 \`codespec-archive-change\`。不要直接修改 Current Specification。
+
+${APPROVAL_GATE_GUIDANCE}
 `)}`,
   };
 }

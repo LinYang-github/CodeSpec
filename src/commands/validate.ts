@@ -121,9 +121,17 @@ export class ValidateCommand {
     let messages: string[];
     try {
       const content = await fs.readFile(file, 'utf8');
+      const moduleId = path.basename(path.dirname(file));
       messages = content.includes('**规格版本：**')
-        ? validateCurrentSpecification(parseCurrentSpecification(content))
-        : validateCurrentSpec(content);
+        ? (() => {
+            const specification = parseCurrentSpecification(content);
+            const issues = validateCurrentSpecification(specification);
+            if (/^MOD-\d{3}$/u.test(moduleId) && specification.module !== moduleId) {
+              issues.push(`模块编号 ${specification.module} 不匹配目录模块 ${moduleId}`);
+            }
+            return issues;
+          })()
+        : validateCurrentSpec(content, /^MOD-\d{3}$/u.test(moduleId) ? moduleId : undefined);
     } catch (error) {
       messages = [error instanceof Error ? error.message : String(error)];
     }

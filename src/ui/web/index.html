@@ -12,6 +12,10 @@
       <div class="project-meta">
         <span id="project-name">当前工程</span>
       </div>
+      <nav id="primary-navigation" class="primary-navigation" aria-label="CodeSpec 主导航">
+        <button class="nav-item active" type="button" data-view="capabilities">业务功能</button>
+        <button class="nav-item" type="button" data-view="changes">变更管理</button>
+      </nav>
       <label class="global-search">
         <span class="sr-only">搜索</span>
         <input id="search" type="search" placeholder="搜索 Change、Spec 和计划">
@@ -21,14 +25,6 @@
       <button id="rebuild" class="quiet-button" type="button">重新扫描</button>
     </header>
     <div class="app-shell">
-      <nav id="nav" class="sidebar" aria-label="CodeSpec 业务导航">
-        <p class="nav-caption">观测台</p>
-        <button class="nav-item active" type="button" data-view="capabilities">业务功能</button>
-        <button class="nav-item" type="button" data-view="active-changes">活动 Change</button>
-        <button class="nav-item" type="button" data-view="archiveable-changes">可归档 Change</button>
-        <button class="nav-item" type="button" data-view="archive-history">归档历史</button>
-        <p class="sidebar-note">业务数据由 AI 工作流维护，页面仅提供查看和归档操作。</p>
-      </nav>
       <main id="workspace" class="workspace" aria-live="polite">
         <section id="page" class="page"></section>
       </main>

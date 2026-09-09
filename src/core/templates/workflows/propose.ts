@@ -14,11 +14,11 @@ function renderProposeWorkflow(input: string): string {
 
 默认 \`code-spec\` schema 的工件与依赖顺序由 \`codespec status --change "<name>" --json\` 的实际输出决定：
 - \`metadata.yaml\`（Change 控制数据与状态权威）
-- \`proposal.md\`（变更动机与模块映射）
+- \`metadata.yaml\`（变更目标、模块影响与状态）
 - \`design.md\`（技术设计）
 - \`spec.md\`（需求增量）
-- \`tasks.md\`（SP-## 任务投影）
-- \`verification.md\`（验证证据）
+- \`tasks.yaml\`（CHG-YYYYMMDD-NNN-TASK-## 任务与追踪关系）
+- \`verification.yaml\`（验证证据）
 
 用户准备实施时，必须显式启动 apply 工作流。
 

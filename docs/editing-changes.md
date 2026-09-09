@@ -9,11 +9,11 @@ traceability.
 
 ```text
 codespec/changes/CHG-YYYYMMDD-NNN/
-├── proposal.md
-├── spec.md
+├── metadata.yaml
 ├── design.md
-├── tasks.md
-└── verification.md
+├── spec.md
+├── tasks.yaml
+└── verification.yaml
 ```
 
 After a substantive edit, return to `/codespec:workflow`. It should resolve the
@@ -22,8 +22,7 @@ planning or implementation methods as appropriate.
 
 ## Code and spec disagree
 
-- If the code is correct, update the delta and verification evidence to match
-  what was actually shipped.
+- If the code is correct, update the typed delta and verification evidence to match what was actually shipped.
 - If the spec is correct, keep implementing until the code matches it.
 - If the baseline changed underneath the Change, use `/codespec:rebase` before
   continuing.

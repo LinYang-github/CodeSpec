@@ -10,11 +10,11 @@ Terms are grouped by topic, then alphabetized within each group.
 
 **Source of truth.** The `codespec/specs/` directory as a whole. It holds the current, agreed-upon behavior of your system. Changes propose edits to it; archiving applies them.
 
-**Change.** One unit of work, packaged as a folder under `codespec/changes/<name>/`. A change holds everything about that work: its proposal, design, tasks, and the spec edits it introduces. One change, one feature or fix.
+**Change.** One unit of work, packaged as a folder under `codespec/changes/<CHG-ID>/`. A canonical Change holds metadata, design, readable spec content, a typed task plan, and structured verification evidence. One Change, one feature or fix.
 
-**Artifact.** A document inside a change. The standard artifacts are the proposal, the delta specs, the design, and the tasks. They're created in dependency order and feed into each other.
+**Artifact.** A document inside a Change. The canonical artifacts are `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. Legacy `proposal.md`/Markdown task files belong to migration or generic `spec-driven` schemas.
 
-**Delta spec.** A spec inside a change that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMOVED` sections, rather than restating the entire spec. This is what lets CodeSpec edit existing systems cleanly. See [Concepts](concepts.md#delta-specs).
+**Delta spec.** In a legacy `spec-driven` Change, a spec describes only what's changing with `ADDED`, `MODIFIED`, and `REMOVED`. Canonical `code-spec` Changes instead carry a v1 readable `spec.md` plus typed YAML module deltas, and the archive transaction merges them into Current Specification.
 
 **Domain.** A logical grouping for specs, like `auth/`, `payments/`, or `ui/`. You choose domains that match how you think about your system.
 
@@ -28,15 +28,15 @@ Terms are grouped by topic, then alphabetized within each group.
 
 ## The artifacts
 
-**Proposal (`proposal.md`).** The *why* and *what* of a change: its intent, scope, and high-level approach. The first artifact you create.
+**Proposal (`proposal.md`).** A legacy `spec-driven` artifact containing the *why* and *what*. Canonical `code-spec` Changes use `design.md` and `metadata.yaml` instead.
 
 **Design (`design.md`).** The *how*: technical approach, architecture decisions, and the files you expect to touch. Optional for simple changes.
 
-**Tasks (`tasks.md`).** The implementation checklist, with checkboxes. The AI works through it inside `workflow` and checks items off as it goes.
+**Tasks (`tasks.yaml`).** The canonical implementation plan: task IDs, Requirement/Scenario/Test Case links, planned files, verification plans, and typed module deltas. A legacy `tasks.md` is accepted only for migration or generic schemas.
 
 ## The lifecycle
 
-**Archive.** The act of finishing a Change. Its delta merges into Current Specification, and the Change folder moves to `codespec/archive/changes/YYYY-MM-DD-<name>/`. After archiving, your specs describe the new reality. See [Concepts](concepts.md#archive).
+**Archive.** The act of finishing a Change. Its approved content merges into Current Specification and root YAML through a recoverable transaction. Canonical `code-spec` then removes the active Change; it does not create a new archive Change or history copy. See [Concepts](concepts.md#archive).
 
 **Sync.** An internal Core operation that applies a Change's delta to Current Specification during the archive transaction. It is not a public AI entry.
 

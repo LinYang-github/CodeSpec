@@ -45,6 +45,16 @@ For canonical `code-spec` workspaces (`codespec/config.yaml` with `schema: code-
 
 Canonical Scenarios use four protocol tokens: `GIVEN`, `WHEN`, `THEN`, and `ERROR`. `ERROR` describes how the system handles an exception. An explicit empty `ERROR` row is allowed only as an analysis placeholder; Core rejects it during Verification and archive until a human fills it in.
 
+### Canonical v1 storage
+
+For the default `code-spec` schema, each current module keeps exactly three files:
+
+```text
+codespec/specs/<module>/{spec.md,interface.yaml,api.yaml}
+```
+
+The root also contains `business.yaml` and `configuration.yaml`. An active Change contains `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. `interface.yaml` is the relationship source, `api.yaml` and the business projections are regenerated from it, and `verification.yaml` is checked against each task's verification plan. Archive is a recoverable transaction that updates these current files and removes the active Change; it does not create a new Change history copy. The legacy artifact tree described later is retained for `spec-driven` compatibility and migration only.
+
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 
 This separation is key. You can work on multiple Changes in parallel without conflicts. You can review a Change before it affects Current Specification. When you archive a Change, Core applies its delta transactionally to the source of truth.

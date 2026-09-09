@@ -17,20 +17,20 @@ Open the active Change in this order:
 
 ```text
 codespec/changes/CHG-YYYYMMDD-NNN/
-├── proposal.md       intent, scope, and non-goals
-├── spec.md           requirement deltas and scenarios
-├── design.md         technical approach when needed
-├── tasks.md          implementation checklist
-└── verification.md   fresh evidence collected before archive
+├── metadata.yaml     status, baseline, approvals, and gates
+├── design.md         goals, scope, and technical decisions
+├── spec.md           readable requirements, scenarios, and test cases
+├── tasks.yaml        implementation plan and typed module deltas
+└── verification.yaml fresh per-test execution evidence
 ```
 
 Check that:
 
-- the intent matches the requested outcome;
+- the design and scope match the requested outcome;
 - the scope has no unrelated work;
 - every requirement is observable and has useful scenarios;
 - design decisions are consistent with the repository;
-- tasks map to requirements and are independently reviewable.
+- tasks map to requirements, scenarios, test cases, planned files, and verification plans.
 
 Use Superpowers brainstorming, writing-plans, and requesting-code-review when
 the problem or design needs deeper engineering discussion. These methods do
@@ -55,8 +55,7 @@ If the baseline is stale or multiple Changes conflict, stop and invoke
 
 Run `/codespec:archive` only after verification evidence is fresh and the Change is
 ready to become part of the Current Specification. Archive is the only public
-entry allowed to write `codespec/specs/`; its transaction must validate,
-detect conflicts, apply the delta, and preserve immutable Change history.
+entry allowed to write `codespec/specs/`; its transaction must validate, detect conflicts, apply the typed delta, update `business.yaml`/`configuration.yaml`, and remove the active Change without creating a new history copy.
 
 ## Quick checklist
 

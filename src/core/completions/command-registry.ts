@@ -21,6 +21,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     ],
   },
   {
+    name: 'approve',
+    description: '在阶段门禁通过后记录用户对设计或计划的确认',
+    flags: [
+      { name: 'change', description: 'canonical Change ID', takesValue: true },
+      { name: 'stage', description: '要确认的阶段：design 或 plan', takesValue: true, values: ['design', 'plan'] },
+      COMMON_FLAGS.store,
+    ],
+  },
+  {
+    name: 'migrate',
+    description: '将旧版 CodeSpec 工作区转换为当前规格 v1 文件结构',
+    flags: [{ name: 'json', description: '以 JSON 输出' }],
+  },
+  {
     name: 'abandon',
     description: '通过生命周期门禁放弃 canonical Change',
     flags: [

@@ -26,24 +26,24 @@ workflow ──► 分析/规划 ──► 实现 ──► 验证 ──► 人
 
 ## CodeSpec 产物顺序
 
-`code-spec` 默认 Change 使用 `CHG-YYYYMMDD-NNN` ID，目录为 `codespec/changes/<CHG-ID>/`。Core 按依赖顺序管理以下产物：
+`code-spec` 默认 Change 使用 `CHG-YYYYMMDD-NNN` ID，目录为 `codespec/changes/<CHG-ID>/`。Core 按依赖顺序管理以下五个 canonical 产物：
 
 ```text
 metadata.yaml
-    ├── proposal.md
-    │       ├── design.md
-    │       └── spec.md
-    │               └── tasks.md
-    │                       └── verification.md
+    ├── design.md
+    ├── spec.md
+    ├── tasks.yaml
+    └── verification.yaml
     └── 状态、基线、Requirement、Task 和验证证据
 ```
 
 - `metadata.yaml`：状态权威，记录 Change、模式、Baseline、模块、Requirement、Task、验证和归档门禁。
-- `proposal.md`：说明为什么改、改哪些模块以及影响范围。
 - `design.md`：说明实现方案、边界和技术决策。
-- `spec.md`：记录 Requirement 和 Scenario。每个 Scenario 必须使用 `GIVEN`、`WHEN`、`THEN` 和 `ERROR`；`ERROR` 可以在分析阶段暂时为空，但必须由人工补写异常发生时的系统处理方式。
-- `tasks.md`：只保留 `SP-##` 的简洁任务投影，不复制 Superpowers 的详细执行计划。
-- `verification.md`：记录 Requirement、Scenario、测试、构建、lint、Baseline 和 fresh verification 证据。
+- `spec.md`：记录 Requirement、Scenario、Markdown 测试用例和工程文件追溯。每个 Scenario 必须使用 `GIVEN`、`WHEN`、`THEN` 和 `ERROR`。
+- `tasks.yaml`：记录任务、计划修改文件、验证计划以及经确认的 `moduleDeltas`。
+- `verification.yaml`：按测试用例记录实际执行、profile、服务、工程版本、退出码和清理结果。
+
+旧版 `proposal.md`、`tasks.md`、`verification.md` 只在迁移或 `spec-driven` 工作流中出现，不属于新的 canonical `code-spec` Change。
 
 ## 一次正常开发如何运行
 
@@ -76,9 +76,9 @@ metadata.yaml
 - 指出要修改的文件、模块和关键接口。
 - 按依赖关系排列实施步骤。
 - 为每一步指定验证方式和预期结果。
-- 将可追踪的实施项投影为 `tasks.md` 中的 `SP-##`。
+- 将可追踪的实施项投影为 `tasks.yaml` 中的 `CHG-...-TASK-##`。
 
-CodeSpec 同时保存 `proposal.md`、`design.md` 和 `spec.md`。Superpowers 的详细计划不重复塞进 `tasks.md`。
+CodeSpec 保存 `design.md`、`spec.md` 和结构化 `tasks.yaml`。Superpowers 的详细计划不重复塞进 Change。
 
 ### 4. 编写需求和异常场景
 
@@ -96,13 +96,13 @@ Core 负责校验 Requirement、Scenario、ID、Traceability 和 canonical Spec 
 
 ### 5. 实现：Superpowers TDD
 
-`superpowers:test-driven-development` 按 `RED → GREEN → REFACTOR` 推进每个 `SP-##`：
+`superpowers:test-driven-development` 按 `RED → GREEN → REFACTOR` 推进每个 `CHG-...-TASK-##`：
 
 1. **RED**：先写一个能表达 Requirement 或 Scenario 的失败测试。
 2. **GREEN**：用最小实现使测试通过。
 3. **REFACTOR**：在测试保护下整理结构，不改变已确认行为。
 
-每个任务完成后刷新 `status`，并记录 Requirement、Scenario、Task 与测试的对应关系。代码实现遵循 `tasks.md` 和已确认的 Superpowers 计划，不自行扩展范围。
+每个任务完成后刷新 `status`，并记录 Requirement、Scenario、Task 与测试的对应关系。代码实现遵循 `tasks.yaml` 和已确认的 Superpowers 计划，不自行扩展范围。
 
 ### 6. 遇到失败：Superpowers systematic-debugging
 
@@ -124,7 +124,7 @@ Core 负责校验 Requirement、Scenario、ID、Traceability 和 canonical Spec 
 - 重新运行构建和 lint。
 - 检查 Requirement 和 Scenario 覆盖。
 - 确认没有把旧的测试输出当作当前结果。
-- 将命令、退出码、摘要和时间写入 `verification.md`。
+- 将命令、退出码、摘要和时间写入 `verification.yaml`。
 
 需要协作审查时，再使用 `superpowers:requesting-code-review`。需要结束开发分支时，使用 `superpowers:finishing-a-development-branch`。这些技能负责工程协作，不替代 Core 的状态和归档门禁。
 
