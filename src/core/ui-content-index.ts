@@ -281,6 +281,11 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
+function asRequirementId(value: unknown): string | undefined {
+  const id = asString(value);
+  return id !== undefined && /^MOD-\d{3}-REQ-\d{3}$/u.test(id) ? id : undefined;
+}
+
 function asBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
@@ -323,7 +328,7 @@ function getChangeMetadata(documents: UiDocument[]): {
     const requirementLists = [requirements?.added, requirements?.modified, requirements?.removed]
       .filter((items): items is unknown[] => Array.isArray(items));
     const requirementIds = requirementLists.flatMap((items) =>
-      items.map((item) => asString(asRecord(item)?.id)).filter((item): item is string => Boolean(item))
+      items.map((item) => asRequirementId(asRecord(item)?.id)).filter((item): item is string => Boolean(item))
     );
     const total = asNumber(tasks?.total);
     const completed = asNumber(tasks?.completed);
