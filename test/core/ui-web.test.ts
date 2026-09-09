@@ -31,6 +31,8 @@ describe('CodeSpec UI web shell', () => {
     expect(script).not.toContain("{ id: 'archiveable'");
     expect(script).toContain('active-change-card');
     expect(script).toContain('archive-action');
+    expect(script).toContain("const archiveButton = button('归档 →', 'archive-action'");
+    expect(script).toContain('heading.append(archiveButton)');
     expect(script).toContain('failure-reason');
     expect(script).toContain("setAttribute('role', 'tablist')");
     expect(script).toContain("event.key === 'ArrowRight'");
@@ -67,6 +69,24 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('navigator.clipboard.writeText');
     expect(script).not.toContain('/api/exec');
     expect(script).not.toContain('child_process');
+  });
+
+  it('renders Change artifacts as structured readable views instead of raw source', async () => {
+    const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
+
+    expect(script).toContain('renderMetadataDocument');
+    expect(script).toContain('renderTasksDocument');
+    expect(script).toContain('renderVerificationDocument');
+    expect(script).toContain('renderChangeMarkdownDocument');
+    expect(script).toContain('structuredContent');
+    expect(script).toContain('document-data-table');
+    expect(script).toContain('document-checklist');
+    expect(script).toContain('document-section');
+    expect(script).toContain("name === 'metadata.yaml'");
+    expect(script).toContain("name === 'tasks.yaml'");
+    expect(script).toContain("name === 'verification.yaml'");
+    expect(script).toContain("name === 'design.md'");
+    expect(script).toContain("name === 'spec.md'");
   });
 
   it('keeps business summary focused on its description and stacks card details vertically', async () => {

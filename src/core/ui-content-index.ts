@@ -24,6 +24,7 @@ export interface UiDocument {
   title: string;
   labels: string[];
   content: string;
+  structuredContent?: unknown;
   modifiedAt: string;
 }
 
@@ -202,6 +203,17 @@ function getYamlLabels(content: string): string[] {
       .map(String);
   } catch {
     return [];
+  }
+}
+
+function getStructuredContent(content: string, contentType: UiContentType, filePath: string): unknown {
+  if (contentType !== 'yaml' || !new Set(['metadata.yaml', 'tasks.yaml', 'verification.yaml']).has(path.basename(filePath))) return undefined;
+  try {
+    const value = parseYaml(content);
+    JSON.stringify(value);
+    return value;
+  } catch {
+    return undefined;
   }
 }
 
@@ -479,6 +491,7 @@ async function collectFiles(
         title: getTitle(content, filePath, contentType),
         labels: contentType === 'yaml' ? getYamlLabels(content) : [],
         content,
+        structuredContent: getStructuredContent(content, contentType, filePath),
         modifiedAt: stats.mtime.toISOString(),
       });
     } catch {

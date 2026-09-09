@@ -264,17 +264,22 @@ function archiveCandidateFor(change) {
 
 function activeChangeCard(change) {
   const card = element('article', `active-change-card ${change.status === 'ABANDONED' ? 'active-change-card-failed' : ''}`);
+  const candidate = archiveCandidateFor(change);
   const detail = button('', 'active-change-card-main', () => renderChangeDetail(change));
   const heading = element('div', 'active-change-card-heading');
   heading.append(element('strong', 'change-id', text(change.id)));
   heading.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
+  if (candidate?.ready) {
+    const archiveButton = button('归档 →', 'archive-action', () => openArchiveConfirmation(candidate));
+    archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
+    heading.append(archiveButton);
+  }
   detail.append(heading, element('h2', 'active-change-card-title', text(change.title, '未命名 Change')));
   detail.append(element('p', 'muted active-change-card-meta', `${text(change.mode, '模式未知')} · ${levelLabel(change.sddLevel)}`));
   const moduleTags = changeModuleTags(change);
   if (moduleTags) detail.append(moduleTags);
   card.append(detail);
 
-  const candidate = archiveCandidateFor(change);
   const footer = element('div', 'active-change-card-footer');
   if (change.status === 'ABANDONED') {
     const reason = candidate?.gateReasons?.[0] ?? '该 Change 的生命周期已终止，请在详情中查看并处理。';
@@ -282,7 +287,6 @@ function activeChangeCard(change) {
     footer.append(element('span', '', reason));
   } else if (candidate?.ready) {
     footer.append(element('span', 'gate-success', '可归档'));
-    footer.append(button('归档 →', 'archive-action', () => openArchiveConfirmation(candidate)));
   } else {
     footer.append(element('span', 'muted', candidate?.gateReasons?.[0] ?? '尚未满足归档门禁'));
   }
@@ -611,10 +615,180 @@ function renderChangeDetail(change, options = {}) {
   page.replaceChildren(view);
 }
 
+function documentName(detail) {
+  return detail.relativePath.split('/').at(-1) ?? '';
+}
+
+function documentValueText(value) {
+  if (value === undefined || value === null || value === '') return '—';
+  if (Array.isArray(value)) return value.length ? value.map(documentValueText).join('、') : '无';
+  if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key}: ${documentValueText(item)}`).join('；');
+  return String(value);
+}
+
+function documentKeyLabel(key) {
+  const labels = {
+    id: 'ID', title: '标题', status: '状态', mode: '模式', sdd_level: 'SDD 等级',
+    created_at: '创建时间', updated_at: '更新时间', change_id: 'Change ID',
+    requirements_verified: '需求已验证', tests_passed: '测试通过', build_passed: '构建通过',
+    lint_passed: 'Lint 通过', verified_at: '验证时间', evidence_receipt: '验证凭据',
+    testCase: 'Test Case', testFile: '测试文件', testId: '测试标识',
+    plannedFiles: '计划修改文件', verificationPlan: '验证计划',
+  };
+  return labels[key] ?? key.replaceAll('_', ' ');
+}
+
+function documentValue(value) {
+  if (Array.isArray(value)) {
+    const list = element('ul', 'document-checklist');
+    if (!value.length) list.append(element('li', 'muted', '无'));
+    else value.forEach((item) => {
+      const row = element('li');
+      if (item && typeof item === 'object' && !Array.isArray(item)) row.append(documentObjectList(item));
+      else row.textContent = documentValueText(item);
+      list.append(row);
+    });
+    return list;
+  }
+  if (value && typeof value === 'object') return documentObjectList(value);
+  const node = element('span', '', documentValueText(value));
+  if (typeof value === 'boolean') node.classList.add('document-badge', value ? 'document-badge-success' : 'document-badge-warn');
+  return node;
+}
+
+function documentObjectList(record) {
+  const list = element('dl', 'document-key-value-list');
+  for (const [key, value] of Object.entries(record)) {
+    list.append(element('dt', '', documentKeyLabel(key)), element('dd', '', ''));
+    list.lastChild.append(documentValue(value));
+  }
+  return list;
+}
+
+function documentSection(title, content) {
+  const section = element('section', 'document-section');
+  section.append(element('h3', '', title), content);
+  return section;
+}
+
+function documentRecordSection(title, record) {
+  const entries = record && typeof record === 'object' && !Array.isArray(record) ? Object.entries(record) : [];
+  const table = element('table', 'document-data-table');
+  const body = element('tbody');
+  for (const [key, value] of entries) {
+    const row = element('tr');
+    row.append(element('th', '', documentKeyLabel(key)), element('td', '', ''));
+    row.lastChild.append(documentValue(value));
+    body.append(row);
+  }
+  table.append(body);
+  return documentSection(title, entries.length ? table : emptyState('暂无数据'));
+}
+
+function documentCollectionSection(title, items, columns) {
+  const rows = Array.isArray(items) ? items : [];
+  if (!rows.length) return documentSection(title, emptyState('暂无数据'));
+  const wrapper = element('div', 'document-table-scroll');
+  const table = element('table', 'document-data-table');
+  const head = element('thead');
+  const heading = element('tr');
+  for (const [, label] of columns) heading.append(element('th', '', label));
+  head.append(heading);
+  const body = element('tbody');
+  for (const item of rows) {
+    const row = element('tr');
+    for (const [key] of columns) {
+      const cell = element('td', '', '');
+      cell.append(documentValue(item && typeof item === 'object' ? item[key] : undefined));
+      row.append(cell);
+    }
+    body.append(row);
+  }
+  table.append(head, body);
+  wrapper.append(table);
+  return documentSection(title, wrapper);
+}
+
+function renderMetadataDocument(data, target) {
+  target.classList.add('structured-document', 'metadata-document');
+  target.append(
+    documentRecordSection('Change 信息', data?.change),
+    documentRecordSection('影响范围', data?.impact),
+    documentRecordSection('基线与关系', { baseline: data?.baseline, relations: data?.relations }),
+    documentRecordSection('模块与需求', { modules: data?.modules, requirements: data?.requirements }),
+    documentRecordSection('产物', data?.artifacts),
+    documentRecordSection('任务与验证', { tasks: data?.tasks, verification: data?.verification }),
+    documentRecordSection('门禁与归档', { gates: data?.gates, archive: data?.archive }),
+  );
+}
+
+function renderTasksDocument(data, target) {
+  target.classList.add('structured-document', 'tasks-document');
+  target.append(
+    documentCollectionSection('任务清单', data?.tasks, [
+      ['id', '任务 ID'],
+      ['title', '任务'],
+      ['status', '状态'],
+      ['module', '模块'],
+      ['requirements', 'Requirements'],
+      ['scenarios', 'Scenarios'],
+      ['testCases', 'Test Cases'],
+      ['plannedFiles', '计划修改文件'],
+      ['verificationPlan', '验证计划'],
+    ]),
+    documentCollectionSection('模块变更', data?.moduleDeltas, [
+      ['module', '模块'],
+      ['interfaces', '接口变更'],
+      ['configurationChanges', '配置变更'],
+    ]),
+    documentRecordSection('模块注册', data?.moduleRegistrations),
+  );
+}
+
+function renderVerificationDocument(data, target) {
+  target.classList.add('structured-document', 'verification-document');
+  target.append(
+    documentRecordSection('验证摘要', { version: data?.version, testCases: Array.isArray(data?.testCases) ? data.testCases.length : 0 }),
+    documentCollectionSection('测试用例', data?.testCases, [
+      ['testCase', 'Test Case'],
+      ['id', 'ID'],
+      ['result', '结果'],
+      ['testFile', '测试文件'],
+      ['testId', '测试标识'],
+      ['command', '命令'],
+      ['profile', 'Profile'],
+      ['services', '服务'],
+      ['browser', '浏览器'],
+      ['exitCode', 'Exit Code'],
+      ['summary', '摘要'],
+      ['executedAt', '执行时间'],
+      ['cleanupSucceeded', '清理'],
+    ]),
+  );
+}
+
+function renderChangeMarkdownDocument(detail, target) {
+  const name = documentName(detail);
+  target.classList.add('structured-document', 'markdown-document', name === 'design.md' ? 'design-document' : 'spec-document');
+  const rendered = element('div', 'document-markdown-body');
+  rendered.insertAdjacentHTML('beforeend', markdownit({ html: false }).render(detail.content));
+  target.append(rendered);
+}
+
 function renderDocument(detail, target) {
   target.append(element('p', 'document-path', detail.relativePath));
-  if (detail.contentType === 'markdown') target.insertAdjacentHTML('beforeend', markdownit({ html: false }).render(detail.content));
-  else target.append(element('pre', '', detail.content));
+  const name = documentName(detail);
+  if (detail.contentType === 'yaml' && detail.structuredContent !== undefined) {
+    if (name === 'metadata.yaml') renderMetadataDocument(detail.structuredContent, target);
+    else if (name === 'tasks.yaml') renderTasksDocument(detail.structuredContent, target);
+    else if (name === 'verification.yaml') renderVerificationDocument(detail.structuredContent, target);
+    else target.append(documentRecordSection('文档内容', detail.structuredContent));
+    return;
+  }
+  if (detail.contentType === 'markdown') {
+    if (name === 'design.md' || name === 'spec.md') renderChangeMarkdownDocument(detail, target);
+    else target.insertAdjacentHTML('beforeend', markdownit({ html: false }).render(detail.content));
+  } else target.append(element('pre', '', detail.content));
 }
 
 async function openDocument(doc, returnScreen = currentScreen) {

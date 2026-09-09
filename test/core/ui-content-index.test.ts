@@ -338,6 +338,11 @@ describe('buildUiIndex', () => {
     expect(metadata).toMatchObject({
       contentType: 'yaml',
       labels: ['CHG-001', 'PLAN', '2026-09-04'],
+      structuredContent: {
+        id: 'CHG-001',
+        status: 'PLAN',
+        updated_at: '2026-09-04',
+      },
     });
   });
 

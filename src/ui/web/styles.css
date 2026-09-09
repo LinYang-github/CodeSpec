@@ -213,6 +213,28 @@ button { cursor: pointer; }
 .document-path { color: var(--muted); font-size: 12px; }
 .standalone-document { max-width: 900px; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .document-view .document-content { flex: 1 1 auto; max-width: none; min-height: 0; overflow: auto; }
+.structured-document { display: grid; gap: 14px; }
+.document-section { min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
+.document-section h3 { margin: 0 0 10px; color: var(--text); font-size: 14px; }
+.document-table-scroll { min-width: 0; overflow-x: auto; }
+.document-data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.document-data-table th, .document-data-table td { min-width: 100px; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; line-height: 1.45; }
+.document-data-table thead th { background: color-mix(in srgb, var(--accent-soft) 58%, var(--surface-soft)); color: var(--muted); font-size: 11px; letter-spacing: .03em; text-transform: uppercase; }
+.document-data-table tbody th { width: 22%; color: var(--muted); font-weight: 700; }
+.document-data-table tr:last-child th, .document-data-table tr:last-child td { border-bottom: 0; }
+.document-checklist { display: grid; gap: 5px; margin: 0; padding-left: 18px; }
+.document-checklist li { padding-left: 2px; }
+.document-key-value-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 5px 10px; margin: 0; }
+.document-key-value-list dt { color: var(--muted); font-size: 12px; font-weight: 700; }
+.document-key-value-list dd { min-width: 0; margin: 0; }
+.document-badge { display: inline-flex; border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 800; }
+.document-badge-success { background: var(--success-soft); color: var(--success); }
+.document-badge-warn { background: var(--warn-soft); color: var(--warn); }
+.document-markdown-body { min-width: 0; }
+.document-markdown-body table { width: 100%; border-collapse: collapse; }
+.document-markdown-body th, .document-markdown-body td { padding: 8px 9px; border: 1px solid var(--line); vertical-align: top; text-align: left; }
+.document-markdown-body th { background: var(--surface-soft); }
+.document-markdown-body ul, .document-markdown-body ol { padding-left: 22px; }
 .preview-card { max-width: 720px; }
 .preview-view .preview-card { max-height: 100%; overflow-y: auto; }
 .archive-confirmation-backdrop { position: fixed; z-index: 12; inset: 0; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, #0f172a 52%, transparent); }
