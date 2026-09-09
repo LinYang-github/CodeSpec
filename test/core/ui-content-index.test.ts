@@ -262,7 +262,7 @@ describe('buildUiIndex', () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
     const activeChange = path.join(root, 'codespec', 'changes', 'CHG-20260909-001');
-    const archivedChange = path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260909-002');
+    const archivedChange = path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260909-001');
     await Promise.all([
       fs.mkdir(activeChange, { recursive: true }),
       fs.mkdir(archivedChange, { recursive: true }),
@@ -278,27 +278,27 @@ describe('buildUiIndex', () => {
       'requirements:',
       '  added:',
       '    - id: MOD-001-REQ-001',
-      '  modified: []',
-      '  removed: []',
+      '    - 42',
+      '  modified:',
+      '    - null',
+      '    - id: MOD-001-REQ-002',
+      '  removed:',
+      '    - scalar-entry',
+      '    - id: MOD-001-REQ-003',
       '',
     ].join('\n'));
     await fs.writeFile(path.join(activeChange, 'proposal.md'), '# 新增注册功能');
     await fs.writeFile(path.join(archivedChange, 'metadata.yaml'), [
       'change:',
-      '  id: CHG-20260909-002',
-      '  title: 已归档注册功能',
+      '  id: CHG-20260909-001',
+      '  title: 历史注册功能',
       '  status: ARCHIVED',
       'requirements:',
       '  added:',
-      '    - id: MOD-001-REQ-002',
-      '    - malformed: true',
-      '  modified:',
-      '    - id: MOD-001-REQ-003',
-      '  removed:',
-      '    - id: MOD-001-REQ-004',
+      '    - id: MOD-001-REQ-999',
       '',
     ].join('\n'));
-    await fs.writeFile(path.join(archivedChange, 'proposal.md'), '# 已归档注册功能');
+    await fs.writeFile(path.join(archivedChange, 'proposal.md'), '# 历史注册功能');
 
     const index = await buildUiIndex(root);
 
@@ -306,18 +306,25 @@ describe('buildUiIndex', () => {
       expect.objectContaining({
         id: 'CHG-20260909-001',
         modules: ['MOD-001'],
-        requirements: ['MOD-001-REQ-001'],
+        requirements: ['MOD-001-REQ-001', 'MOD-001-REQ-002', 'MOD-001-REQ-003'],
       }),
     ]);
     expect(index.archive.historyChanges).toEqual([
       expect.objectContaining({
-        id: 'CHG-20260909-002',
-        requirements: ['MOD-001-REQ-002', 'MOD-001-REQ-003', 'MOD-001-REQ-004'],
+        id: 'CHG-20260909-001',
+        title: '历史注册功能',
+        status: 'ARCHIVED',
+        requirements: ['MOD-001-REQ-999'],
       }),
     ]);
-    expect(index.allChanges.map((change) => change.id)).toEqual([
-      'CHG-20260909-001',
-      'CHG-20260909-002',
+    expect(index.allChanges).toEqual([
+      expect.objectContaining({
+        id: 'CHG-20260909-001',
+        title: '新增注册功能',
+        status: 'ARCHIVE',
+        modules: ['MOD-001'],
+        requirements: ['MOD-001-REQ-001', 'MOD-001-REQ-002', 'MOD-001-REQ-003'],
+      }),
     ]);
     expect(index.archive.candidates.map((candidate) => candidate.id)).toEqual(['CHG-20260909-001']);
   });
