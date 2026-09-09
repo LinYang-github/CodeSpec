@@ -520,20 +520,26 @@ function renderAllChangesWorkspace() {
   view.append(filters);
 
   const tableWrap = element('div', 'change-table-wrap');
+  const table = element('table', 'change-table');
+  const head = element('thead');
+  const heading = element('tr');
+  for (const label of ['变更ID', '变更标题', '关联模块/需求', '状态', '操作']) heading.append(element('th', '', label));
+  head.append(heading);
+  const body = element('tbody');
   const changes = filteredChanges();
   if (!changes.length) {
-    tableWrap.append(emptyState(index.allChanges?.length ? '没有符合筛选条件的 Change。' : '暂无 Change'));
+    const emptyRow = element('tr', 'change-table-empty-row');
+    const emptyCell = element('td', 'change-table-empty-cell', index.allChanges?.length
+      ? '没有符合筛选条件的 Change。'
+      : '暂无 Change');
+    emptyCell.colSpan = 5;
+    emptyRow.append(emptyCell);
+    body.append(emptyRow);
   } else {
-    const table = element('table', 'change-table');
-    const head = element('thead');
-    const heading = element('tr');
-    for (const label of ['变更ID', '变更标题', '关联模块/需求', '状态', '操作']) heading.append(element('th', '', label));
-    head.append(heading);
-    const body = element('tbody');
     body.append(...changes.map(renderChangeRow));
-    table.append(head, body);
-    tableWrap.append(table);
   }
+  table.append(head, body);
+  tableWrap.append(table);
   view.append(tableWrap);
   return view;
 }

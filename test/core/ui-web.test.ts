@@ -93,6 +93,11 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('disabled-reason');
     expect(script).toContain("setAttribute('aria-describedby'");
     expect(script).toContain('openArchiveConfirmation');
+    const tableDeclaration = script.indexOf("const table = element('table', 'change-table');");
+    const emptyTableRow = script.indexOf("element('tr', 'change-table-empty-row')");
+    expect(tableDeclaration).toBeGreaterThanOrEqual(0);
+    expect(emptyTableRow).toBeGreaterThan(tableDeclaration);
+    expect(script).toContain('emptyCell.colSpan = 5');
     expect(script).not.toContain("label: '归档历史'");
     expect(script).not.toContain('active-change-card');
     expect(script).not.toContain('CHANGE_TABS');
