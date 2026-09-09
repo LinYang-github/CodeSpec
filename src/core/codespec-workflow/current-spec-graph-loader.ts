@@ -13,7 +13,7 @@ export async function loadCurrentSpecGraph(paths: WorkspacePaths): Promise<Curre
       return parseModuleInterface(parseYaml(await fs.readFile(file, 'utf8')));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return parseModuleInterface({ version: 1, module: module.id, relations: [] });
+        throw new Error(`Missing interface.yaml for registered module ${module.id}`);
       }
       throw error;
     }

@@ -26,6 +26,13 @@ describe('codespec workflow loaders', () => {
     await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'interface.yaml'), 'version: 1\nmodule: MOD-001\nrelations: []\n');
     expect((await loadCurrentSpecGraph(fixture.paths)).business.modules[0]?.id).toBe('MOD-001');
   });
+  it('fails closed when a registered module has no interface.yaml', async () => {
+    const fixture = await createWorkflowFixture({ v1: true });
+    afterEach(fixture.cleanup);
+    await fs.rm(path.join(fixture.paths.currentSpecs, 'MOD-001', 'interface.yaml'));
+
+    await expect(loadCurrentSpecGraph(fixture.paths)).rejects.toThrow(/Missing interface\.yaml.*MOD-001/i);
+  });
   it('loads the generated current business.yaml registry without Markdown-only fields', async () => {
     const fixture = await createWorkflowFixture({ configOverrides: {
       paths: { business: 'business.yaml', configuration: 'configuration.yaml' },
