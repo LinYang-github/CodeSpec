@@ -180,6 +180,46 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain("name === 'spec.md'");
   });
 
+  it('keeps rejected archive preflight errors inline without replacing the Change workspace', async () => {
+    const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
+    const start = script.indexOf('async function openArchiveConfirmation');
+    const end = script.indexOf('\nfunction renderSearchResults', start);
+    const archiveFlow = script.slice(start, end);
+
+    expect(script).toContain('renderArchivePreflightError');
+    expect(script).toContain('archive-preflight-error');
+    expect(script).toContain('currentScreen.filters');
+    expect(archiveFlow).toContain('catch (error)');
+    expect(archiveFlow).toContain('renderArchivePreflightError');
+    expect(archiveFlow).not.toContain('showError(error)');
+  });
+
+  it('keeps document tabs in one horizontally scrollable row on narrow screens', async () => {
+    const styles = await fs.readFile(path.join(webRoot, 'styles.css'), 'utf8');
+
+    const tabsRule = styles.slice(styles.indexOf('.document-tabs {'), styles.indexOf('.document-tab {'));
+    expect(tabsRule).toContain('flex-wrap: nowrap;');
+    expect(tabsRule).toContain('overflow-x: auto;');
+    expect(tabsRule).toContain('overflow-y: hidden;');
+  });
+
+  it('exposes read-only document reader controls and Change associations', async () => {
+    const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
+
+    expect(script).toContain('renderDocumentReaderControls');
+    expect(script).toContain('structured-view');
+    expect(script).toContain('source-view');
+    expect(script).toContain('复制路径');
+    expect(script).toContain('在文件管理器中定位');
+    expect(script).toContain('/api/reveal/');
+    expect(script).toContain('change-association-summary');
+    expect(script).toContain('change.modules');
+    expect(script).toContain('change.requirements');
+    expect(script).toContain('Requirement');
+    expect(script).not.toContain('/api/edit');
+    expect(script).not.toContain('/api/exec');
+  });
+
   it('keeps module facts and empty states grounded in indexed records', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 

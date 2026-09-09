@@ -653,6 +653,20 @@ function renderChangeDetail(change, options = currentChangeOptions, returnScreen
     historyMeta.append(element('span', '', `Verification Receipt：${change.verification?.evidenceReceipt ?? '未读取'}`));
     view.append(historyMeta);
   }
+  const associationSummary = element('section', 'change-association-summary');
+  associationSummary.append(element('h2', '', '关联模块/需求'));
+  const associationGrid = element('div', 'association-summary-grid');
+  const moduleValues = element('div', 'association-summary-values');
+  moduleValues.append(element('strong', '', '模块'));
+  for (const moduleId of change.modules ?? []) moduleValues.append(element('span', 'module-tag', moduleLabel(moduleId)));
+  if (!change.modules?.length) moduleValues.append(element('span', 'muted', '未关联'));
+  const requirementValues = element('div', 'association-summary-values');
+  requirementValues.append(element('strong', '', 'Requirement'));
+  for (const requirementId of change.requirements ?? []) requirementValues.append(element('span', 'requirement-tag', requirementId));
+  if (!change.requirements?.length) requirementValues.append(element('span', 'muted', '未关联'));
+  associationGrid.append(moduleValues, requirementValues);
+  associationSummary.append(associationGrid);
+  view.append(associationSummary);
   const columns = element('div', 'detail-columns');
   columns.append(gatePanel(change));
   const documents = orderedChangeDocuments(change);
@@ -845,20 +859,83 @@ function renderChangeMarkdownDocument(detail, target) {
   target.append(rendered);
 }
 
+function supportsStructuredDocument(detail) {
+  return detail.contentType === 'markdown'
+    || (detail.contentType === 'yaml' && detail.structuredContent !== undefined);
+}
+
+function renderDocumentReaderControls(detail, getMode, setMode) {
+  const toolbar = element('div', 'document-reader-toolbar');
+  const modeControls = element('div', 'document-view-modes');
+  const structuredButton = button('结构化', 'document-view-toggle structured-view', () => setMode('structured'));
+  const sourceButton = button('源文件', 'document-view-toggle source-view', () => setMode('source'));
+  structuredButton.disabled = !supportsStructuredDocument(detail);
+  const updateMode = () => {
+    const mode = getMode();
+    structuredButton.classList.toggle('active', mode === 'structured');
+    sourceButton.classList.toggle('active', mode === 'source');
+    structuredButton.setAttribute('aria-pressed', String(mode === 'structured'));
+    sourceButton.setAttribute('aria-pressed', String(mode === 'source'));
+  };
+  structuredButton.setAttribute('aria-label', '切换到结构化视图');
+  sourceButton.setAttribute('aria-label', '切换到源文件视图');
+  modeControls.append(structuredButton, sourceButton);
+  const actions = element('div', 'document-reader-actions');
+  const copyButton = button('复制路径', 'secondary-button', async () => {
+    try {
+      await navigator.clipboard.writeText(detail.relativePath);
+      copyButton.textContent = '已复制路径';
+      setTimeout(() => { copyButton.textContent = '复制路径'; }, 1200);
+    } catch {
+      copyButton.textContent = '复制失败，请手动复制';
+    }
+  });
+  const revealButton = button('在文件管理器中定位', 'secondary-button', async () => {
+    try {
+      await api(`/api/reveal/${detail.id}`, { method: 'POST' });
+      revealButton.textContent = '已打开文件位置';
+      setTimeout(() => { revealButton.textContent = '在文件管理器中定位'; }, 1200);
+    } catch {
+      revealButton.textContent = '无法打开文件位置';
+    }
+  });
+  actions.append(copyButton, revealButton);
+  toolbar.append(modeControls, actions);
+  updateMode();
+  return { toolbar, updateMode };
+}
+
 function renderDocument(detail, target) {
-  target.append(element('p', 'document-path', detail.relativePath));
-  const name = documentName(detail);
-  if (detail.contentType === 'yaml' && detail.structuredContent !== undefined) {
-    if (name === 'metadata.yaml') renderMetadataDocument(detail.structuredContent, target);
-    else if (name === 'tasks.yaml') renderTasksDocument(detail.structuredContent, target);
-    else if (name === 'verification.yaml') renderVerificationDocument(detail.structuredContent, target);
-    else target.append(documentRecordSection('文档内容', detail.structuredContent));
-    return;
-  }
-  if (detail.contentType === 'markdown') {
-    if (name === 'design.md' || name === 'spec.md') renderChangeMarkdownDocument(detail, target);
-    else target.insertAdjacentHTML('beforeend', markdownit({ html: false }).render(detail.content));
-  } else target.append(element('pre', '', detail.content));
+  let mode = supportsStructuredDocument(detail) ? 'structured' : 'source';
+  const body = element('div', 'document-reader-body');
+  const controls = renderDocumentReaderControls(detail, () => mode, (nextMode) => {
+    mode = nextMode;
+    renderBody();
+    controls.updateMode();
+  });
+  const renderBody = () => {
+    body.replaceChildren(element('p', 'document-path', detail.relativePath));
+    if (mode === 'structured' && supportsStructuredDocument(detail)) renderStructuredDocument(detail, body);
+    else body.append(element('pre', '', detail.content));
+  };
+  const renderStructuredDocument = (documentDetail, structuredTarget) => {
+    const name = documentName(documentDetail);
+    if (documentDetail.contentType === 'yaml' && documentDetail.structuredContent !== undefined) {
+      if (name === 'metadata.yaml') renderMetadataDocument(documentDetail.structuredContent, structuredTarget);
+      else if (name === 'tasks.yaml') renderTasksDocument(documentDetail.structuredContent, structuredTarget);
+      else if (name === 'verification.yaml') renderVerificationDocument(documentDetail.structuredContent, structuredTarget);
+      else structuredTarget.append(documentRecordSection('文档内容', documentDetail.structuredContent));
+      return;
+    }
+    if (documentDetail.contentType === 'markdown') {
+      if (name === 'design.md' || name === 'spec.md') renderChangeMarkdownDocument(documentDetail, structuredTarget);
+      else structuredTarget.insertAdjacentHTML('beforeend', markdownit({ html: false }).render(documentDetail.content));
+      return;
+    }
+    structuredTarget.append(element('pre', '', documentDetail.content));
+  };
+  target.append(controls.toolbar, body);
+  renderBody();
 }
 
 async function openDocument(doc, returnScreen = currentScreen) {
@@ -921,8 +998,24 @@ function renderArchivePreviewSummary(preview) {
   return summary;
 }
 
+function renderArchivePreflightError(error, dialog) {
+  const existingDialogError = dialog.querySelector('.archive-preflight-error');
+  if (existingDialogError) existingDialogError.remove();
+  dialog.querySelector('.archive-loading')?.remove();
+  const message = `归档预检失败：${error.message}`;
+  const dialogError = element('div', 'inline-error archive-preflight-error', message);
+  dialogError.setAttribute('role', 'alert');
+  dialog.append(dialogError);
+  const workspace = page.querySelector('.changes-workspace-view');
+  if (workspace) {
+    workspace.querySelector('.archive-preflight-error')?.remove();
+    const workspaceError = element('div', 'inline-error archive-preflight-error', message);
+    workspaceError.setAttribute('role', 'alert');
+    workspace.prepend(workspaceError);
+  }
+}
+
 async function openArchiveConfirmation(candidate) {
-  const preview = await api(`/api/archive/${encodeURIComponent(candidate.id)}`);
   const returnScreen = currentScreen.type === 'changes' ? copyScreen(currentScreen) : { type: 'changes', filters: {} };
   const backdrop = element('div', 'archive-confirmation-backdrop');
   const dialog = element('section', 'archive-confirmation-dialog');
@@ -930,36 +1023,44 @@ async function openArchiveConfirmation(candidate) {
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', 'archive-confirmation-title');
   const header = element('div', 'archive-confirmation-header');
-  const title = element('h2', '', '确认归档 Change');
+  const title = element('h2', '', '读取归档信息');
   title.id = 'archive-confirmation-title';
   header.append(title, button('取消', 'quiet-button', () => backdrop.remove()));
-  dialog.append(header, renderArchivePreviewSummary(preview));
-  const impactConfirmation = document.createElement('input');
-  impactConfirmation.type = 'checkbox';
-  impactConfirmation.id = 'archive-impact-confirmation';
-  const impactLabel = element('label', 'archive-impact-confirmation');
-  impactLabel.append(impactConfirmation, element('span', '', '我已阅读并确认上述 Spec 影响、归档目标和 Verification Receipt。'));
-  dialog.append(impactLabel);
-  const actions = element('div', 'card-actions');
-  const confirmButton = button('确认归档', 'primary-button', async () => {
-    try {
-      const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
-      index = result.index;
-      backdrop.remove();
-      navigateTo(returnScreen);
-    } catch (error) {
-      const existing = dialog.querySelector('.inline-error');
-      if (existing) existing.remove();
-      dialog.append(element('div', 'inline-error', `归档失败：${error.message}`));
-    }
-  });
-  confirmButton.disabled = true;
-  impactConfirmation.onchange = () => { confirmButton.disabled = !impactConfirmation.checked; };
-  actions.append(confirmButton);
-  dialog.append(actions);
+  dialog.append(header, element('p', 'archive-loading muted', '正在重新检查归档门禁，请稍候。'));
   backdrop.append(dialog);
   document.body.append(backdrop);
-  dialog.querySelector('.primary-button')?.focus();
+  try {
+    const preview = await api(`/api/archive/${encodeURIComponent(candidate?.id ?? '')}`);
+    title.textContent = '确认归档 Change';
+    dialog.querySelector('.archive-loading')?.remove();
+    dialog.append(renderArchivePreviewSummary(preview));
+    const impactConfirmation = document.createElement('input');
+    impactConfirmation.type = 'checkbox';
+    impactConfirmation.id = 'archive-impact-confirmation';
+    const impactLabel = element('label', 'archive-impact-confirmation');
+    impactLabel.append(impactConfirmation, element('span', '', '我已阅读并确认上述 Spec 影响、归档目标和 Verification Receipt。'));
+    dialog.append(impactLabel);
+    const actions = element('div', 'card-actions');
+    const confirmButton = button('确认归档', 'primary-button', async () => {
+      try {
+        const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
+        index = result.index;
+        backdrop.remove();
+        navigateTo(returnScreen);
+      } catch (error) {
+        const existing = dialog.querySelector('.inline-error');
+        if (existing) existing.remove();
+        dialog.append(element('div', 'inline-error', `归档失败：${error.message}`));
+      }
+    });
+    confirmButton.disabled = true;
+    impactConfirmation.onchange = () => { confirmButton.disabled = !impactConfirmation.checked; };
+    actions.append(confirmButton);
+    dialog.append(actions);
+    confirmButton.focus();
+  } catch (error) {
+    renderArchivePreflightError(error, dialog);
+  }
 }
 
 function renderSearchResults(documents, query) {
