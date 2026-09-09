@@ -77,20 +77,13 @@ function screenLabel(screen) {
 
 function currentChange() {
   if (!currentScreen.changeId || !index) return null;
-  const all = [
-    ...(index.changes ?? []),
-    ...(index.archive?.candidates ?? []),
-    ...(index.archive?.historyChanges ?? []),
-  ];
-  return all.find((change) => change.id === currentScreen.changeId) ?? null;
+  return (index.allChanges ?? []).find((change) => change.id === currentScreen.changeId) ?? null;
 }
 
 function allDocuments() {
   return [
     ...(index?.archive?.currentSpecs ?? []),
-    ...(index?.changes ?? []).flatMap((change) => change.documents ?? []),
-    ...(index?.archive?.candidates ?? []).flatMap((change) => change.documents ?? []),
-    ...(index?.archive?.historyChanges ?? []).flatMap((change) => change.documents ?? []),
+    ...(index?.allChanges ?? []).flatMap((change) => change.documents ?? []),
   ];
 }
 
@@ -226,85 +219,8 @@ function moduleLabel(moduleId) {
   return `${module.id} · ${module.name}`;
 }
 
-function groupChangesByModule(changes) {
-  const groups = new Map();
-  for (const change of changes) {
-    const moduleId = change.modules?.[0] ?? 'unassigned';
-    if (!groups.has(moduleId)) groups.set(moduleId, { id: moduleId, label: moduleLabel(moduleId), changes: [] });
-    groups.get(moduleId).changes.push(change);
-  }
-  return [...groups.values()].sort((left, right) => {
-    if (left.id === 'unassigned') return 1;
-    if (right.id === 'unassigned') return -1;
-    return (index.businessModules.findIndex((module) => module.id === left.id)
-      - index.businessModules.findIndex((module) => module.id === right.id))
-      || left.label.localeCompare(right.label);
-  });
-}
-
-function changeModuleTags(change) {
-  const modules = change.modules ?? [];
-  if (!modules.length) return null;
-  const tags = element('span', 'change-module-tags');
-  for (const moduleId of modules) tags.append(element('span', 'module-tag', moduleLabel(moduleId)));
-  return tags;
-}
-
-function changeButton(change, options = {}) {
-  const card = element('button', 'change-row');
-  card.type = 'button';
-  card.onclick = () => navigateTo({ type: 'change', changeId: change.id }, { changeOptions: options });
-  const main = element('span', 'change-row-main');
-  main.append(element('strong', 'change-id', text(change.id)));
-  main.append(element('span', 'change-title', text(change.title, '未命名 Change')));
-  const meta = element('span', 'change-row-meta');
-  meta.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
-  meta.append(element('span', 'sdd-level-badge', levelLabel(change.sddLevel)));
-  const moduleTags = changeModuleTags(change);
-  if (moduleTags) meta.append(moduleTags);
-  card.append(main, meta);
-  return card;
-}
-
 function archiveCandidateFor(change) {
   return (index.archive?.candidates ?? []).find((candidate) => candidate.id === change.id);
-}
-
-function activeChangeCard(change) {
-  const card = element('article', `active-change-card ${change.status === 'ABANDONED' ? 'active-change-card-failed' : ''}`);
-  const candidate = archiveCandidateFor(change);
-  const detail = button('', 'active-change-card-main', () => navigateTo({ type: 'change', changeId: change.id }));
-  const heading = element('div', 'active-change-card-heading');
-  heading.append(element('strong', 'change-id', text(change.id)));
-  heading.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
-  if (candidate?.ready) {
-    const archiveButton = button('归档 →', 'archive-action', () => openArchiveConfirmation(candidate));
-    archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
-    heading.append(archiveButton);
-  }
-  if (candidate?.transitionable) {
-    const transitionButton = button('进入归档准备 →', 'archive-transition-action', () => transitionToArchive(change.id));
-    transitionButton.setAttribute('aria-label', `将 ${text(change.title, change.id)} 进入归档准备`);
-    heading.append(transitionButton);
-  }
-  detail.append(heading, element('h2', 'active-change-card-title', text(change.title, '未命名 Change')));
-  detail.append(element('p', 'muted active-change-card-meta', `${text(change.mode, '模式未知')} · ${levelLabel(change.sddLevel)}`));
-  const moduleTags = changeModuleTags(change);
-  if (moduleTags) detail.append(moduleTags);
-  card.append(detail);
-
-  const footer = element('div', 'active-change-card-footer');
-  if (change.status === 'ABANDONED') {
-    const reason = candidate?.gateReasons?.[0] ?? '该 Change 的生命周期已终止，请在详情中查看并处理。';
-    footer.classList.add('failure-reason');
-    footer.append(element('span', '', reason));
-  } else if (candidate?.ready) {
-    footer.append(element('span', 'gate-success', '可归档'));
-  } else {
-    footer.append(element('span', 'muted', candidate?.gateReasons?.[0] ?? '尚未满足归档门禁'));
-  }
-  card.append(footer);
-  return card;
 }
 
 function sectionHeader(kicker, title, description) {
@@ -326,11 +242,18 @@ function metric(label, value) {
 }
 
 function moduleChangeCount(moduleId) {
-  return index.changes.filter((change) => change.modules?.includes(moduleId)).length;
+  return (index.allChanges ?? []).filter((change) => change.modules?.includes(moduleId) && !isArchivedChange(change)).length;
 }
 
 function currentSpecForModule(moduleId) {
   return (index.archive.currentSpecs ?? []).find((doc) => doc.relativePath.includes(`/${moduleId}/spec.md`));
+}
+
+function isArchivedChange(change) {
+  return change.status === 'ARCHIVED'
+    || Boolean(change.archiveState?.archivedAt)
+    || (change.documents ?? []).some((document) => document.category === '归档 Change'
+      || document.relativePath.includes('/archive/changes/'));
 }
 
 function renderWorkspaceSummary(description, badges, className = '', controls) {
@@ -360,143 +283,258 @@ function compactWorkspaceHeader({ className, contextClass, kicker, title, traili
   return header;
 }
 
-function renderCapabilities() {
-  const view = document.createElement('div');
-  view.classList.add('list-view');
-  view.append(compactWorkspaceHeader({
-    className: 'business-workspace-header',
-    contextClass: 'business-workspace-context',
-    kicker: 'BUSINESS MANAGEMENT',
-    title: '业务功能',
-  }));
-  view.append(renderWorkspaceSummary('查看当前业务模块、关联 Spec 和活动变更。', [], 'business-summary'));
-  const grid = element('div', 'capability-grid');
-  if (!index.businessModules.length) {
-    grid.append(emptyState('暂无业务模块。请通过 AI 工作流建立 codespec/business.yaml。'));
-  } else {
-    for (const module of index.businessModules) {
-      const card = element('article', 'capability-card');
-      const heading = element('div', 'capability-heading');
-      heading.append(element('span', 'module-id', module.id), element('h2', '', module.name));
-      const spec = currentSpecForModule(module.id);
-      card.append(heading);
-      const details = element('div', 'business-card-details');
-      details.append(businessCardRow('活动 Change', moduleChangeCount(module.id)));
-      details.append(businessCardRow('当前 Spec', spec ? '已建立' : '未建立', spec
-        ? button('查看 Spec', 'quiet-button module-spec-action', () => openDocument(spec, currentScreen))
-        : undefined));
-      card.append(details);
-      const actions = element('div', 'business-card-actions');
-      actions.append(button('查看 Change', 'secondary-button', () => navigateTo({ type: 'changes', filters: { tab: 'active' } })));
-      card.append(actions);
-      grid.append(card);
-    }
+function moduleDocuments(moduleId) {
+  const spec = currentSpecForModule(moduleId);
+  if (!spec) return [];
+  const marker = `/${moduleId}/`;
+  const markerIndex = spec.relativePath.indexOf(marker);
+  if (markerIndex < 0) return [spec];
+  const prefix = spec.relativePath.slice(0, markerIndex + marker.length);
+  return index.documents
+    .filter((document) => document.relativePath.startsWith(prefix))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+function renderModuleDocumentPanel(moduleId) {
+  const documents = moduleDocuments(moduleId);
+  const panel = element('section', 'document-panel module-document-panel');
+  panel.append(element('h2', '', '模块文档（只读）'));
+  if (!documents.length) {
+    panel.append(emptyState('当前 Spec 未建立，暂无模块文档。'));
+    return panel;
   }
-  view.append(grid);
+  const tabs = element('nav', 'document-tabs');
+  const content = element('div', 'document-content');
+  const activeDocumentId = currentScreen.type === 'module' ? currentScreen.activeDocumentId : undefined;
+  const activate = async (doc, activeTab) => {
+    currentScreen.activeDocumentId = doc.id;
+    for (const tab of tabs.children) tab.classList.remove('active');
+    activeTab.classList.add('active');
+    const detail = await api(`/api/documents/${doc.id}`);
+    content.replaceChildren();
+    renderDocument(detail, content);
+  };
+  documents.forEach((doc, position) => {
+    const tab = button(documentTabLabel(doc), 'document-tab', () => activate(doc, tab));
+    if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
+    tabs.append(tab);
+  });
+  const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? documents[0];
+  const activeTab = [...tabs.children][documents.indexOf(activeDocument)];
+  panel.append(tabs, content);
+  activate(activeDocument, activeTab).catch(showError);
+  return panel;
+}
+
+function renderModuleWorkspace(moduleId) {
+  const module = moduleDefinition(moduleId);
+  if (!module) return emptyState('当前模块不存在，请重新扫描工程索引。');
+  const view = element('div', 'module-workspace');
+  view.append(compactWorkspaceHeader({
+    className: 'module-workspace-header',
+    contextClass: 'module-workspace-context',
+    kicker: 'BUSINESS MANAGEMENT',
+    title: module.name,
+  }));
+  view.append(element('p', 'module-breadcrumb', `工程 / 业务管理 / ${module.name}`));
+
+  const facts = element('dl', 'module-facts');
+  for (const [label, value] of [
+    ['模块 ID', module.id],
+    ['职责', text(module.responsibility, '未读取')],
+    ['活动 Change', moduleChangeCount(module.id)],
+    ['当前 Spec', currentSpecForModule(module.id) ? '已建立' : '未建立'],
+  ]) {
+    facts.append(element('dt', '', label), element('dd', '', text(value, '未读取')));
+  }
+  view.append(facts);
+
+  const spec = currentSpecForModule(module.id);
+  const specSection = element('section', 'module-summary-section');
+  specSection.append(element('h2', '', '当前 Spec'));
+  specSection.append(spec
+    ? element('p', 'document-path', spec.relativePath)
+    : emptyState('当前 Spec 未建立'));
+  view.append(specSection);
+
+  const relatedChanges = (index.allChanges ?? []).filter((change) => change.modules?.includes(module.id));
+  const changesSection = element('section', 'module-summary-section');
+  changesSection.append(element('h2', '', '关联 Change'));
+  if (!relatedChanges.length) changesSection.append(emptyState('暂无关联 Change'));
+  else {
+    const list = element('div', 'module-change-list');
+    for (const change of relatedChanges) {
+      const row = element('div', 'module-change-row');
+      row.append(element('span', 'change-id', text(change.id)), element('strong', '', text(change.title, '未命名 Change')));
+      row.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
+      row.append(button('查看', 'secondary-button', () => navigateTo({
+        type: 'change',
+        changeId: change.id,
+        activeDocumentId: firstChangeDocument(change)?.id,
+      })));
+      list.append(row);
+    }
+    changesSection.append(list);
+  }
+  view.append(changesSection);
+
+  const recentArchives = relatedChanges.filter(isArchivedChange).sort((left, right) =>
+    changeUpdatedAt(right).localeCompare(changeUpdatedAt(left)));
+  const archiveSection = element('section', 'module-summary-section');
+  archiveSection.append(element('h2', '', '最近归档'));
+  archiveSection.append(recentArchives[0]
+    ? element('p', 'muted', `${recentArchives[0].id} · ${recentArchives[0].archiveState?.archivedAt ?? (changeUpdatedAt(recentArchives[0]) || '时间未读取')}`)
+    : emptyState('暂无归档 Change'));
+  view.append(archiveSection);
+
+  const relations = (index.currentSpecGraph?.relations ?? []).filter((relation) =>
+    relation.fromModule === module.id || relation.toModule === module.id);
+  const relationSection = element('section', 'module-summary-section');
+  relationSection.append(element('h2', '', '依赖关系'));
+  if (!relations.length) relationSection.append(emptyState('暂无关联关系'));
+  else {
+    const relationList = element('ul', 'module-relation-list');
+    for (const relation of relations) {
+      relationList.append(element('li', '', `${relation.id} · ${relation.fromModule} → ${relation.toModule}`));
+    }
+    relationSection.append(relationList);
+  }
+  view.append(relationSection, renderModuleDocumentPanel(module.id));
   return view;
 }
 
-function businessCardRow(label, value, action) {
-  const row = element('div', 'business-card-row');
-  row.append(element('span', 'business-card-label', label));
-  row.append(action ?? element('strong', 'business-card-value', String(value)));
+function changeUpdatedAt(change) {
+  return (change.documents ?? []).reduce((latest, document) =>
+    document.modifiedAt > latest ? document.modifiedAt : latest, '');
+}
+
+function associationTags(change) {
+  const tags = element('div', 'association-tags');
+  for (const moduleId of change.modules ?? []) tags.append(element('span', 'module-tag', moduleLabel(moduleId)));
+  for (const requirementId of change.requirements ?? []) tags.append(element('span', 'requirement-tag', requirementId));
+  if (!tags.children.length) tags.append(element('span', 'muted', '未关联'));
+  return tags;
+}
+
+function archiveReasonFor(change) {
+  if (isArchivedChange(change)) return '已归档 Change 不可再次归档';
+  const candidate = archiveCandidateFor(change);
+  if (candidate?.ready) return null;
+  if (candidate?.gateReasons?.[0]) return candidate.gateReasons[0];
+  return '归档候选未读取';
+}
+
+function renderChangeRow(change) {
+  const row = element('tr', 'change-table-row');
+  row.append(element('td', 'change-table-id', text(change.id)));
+  row.append(element('td', 'change-table-title', text(change.title, '未命名 Change')));
+  const associations = element('td', 'change-table-associations');
+  associations.append(associationTags(change));
+  row.append(associations);
+  const status = element('td', 'change-table-status');
+  status.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
+  const reason = archiveReasonFor(change);
+  status.append(element('span', reason ? 'disabled-reason' : 'gate-success', reason ?? '可归档'));
+  row.append(status);
+  const actions = element('td', 'change-table-actions');
+  const firstDocument = firstChangeDocument(change);
+  actions.append(button('查看', 'table-action view-action', () => navigateTo({
+    type: 'change',
+    changeId: change.id,
+    ...(firstDocument ? { activeDocumentId: firstDocument.id } : {}),
+  }, { changeOptions: { archived: isArchivedChange(change) } })));
+  const archiveButton = button('归档', 'table-action archive-action', () => openArchiveConfirmation(archiveCandidateFor(change)));
+  archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
+  if (reason) {
+    const reasonId = `archive-reason-${String(change.id).replace(/[^a-zA-Z0-9_-]/gu, '-')}`;
+    archiveButton.disabled = true;
+    archiveButton.title = reason;
+    archiveButton.setAttribute('aria-describedby', reasonId);
+    const reasonNode = element('span', 'disabled-reason', reason);
+    reasonNode.id = reasonId;
+    actions.append(archiveButton, reasonNode);
+  } else {
+    actions.append(archiveButton);
+  }
+  row.append(actions);
   return row;
 }
 
-function renderActiveChanges() {
-  const view = document.createElement('div');
-  view.classList.add('list-view');
-  const grid = element('div', 'active-change-grid');
-  grid.setAttribute('aria-label', 'ACTIVE CHANGES');
-  if (!index.changes.length) grid.append(emptyState('暂无活动 Change。'));
-  else grid.append(...index.changes.map(activeChangeCard));
-  view.append(grid);
-  return view;
+function filterValueChanged(key, value) {
+  const filters = { ...(currentScreen.filters ?? {}) };
+  if (value) filters[key] = value;
+  else delete filters[key];
+  currentScreen = { ...currentScreen, filters };
+  renderCurrentScreen();
 }
 
-function renderArchiveHistory() {
-  const view = document.createElement('div');
-  view.classList.add('list-view');
-  const history = index.archive.historyChanges ?? [];
-  const groupsList = element('div', 'change-groups-scroll change-list-scroll');
-  groupsList.setAttribute('aria-label', 'ARCHIVE HISTORY');
-  const groups = groupChangesByModule(history);
-  if (!groups.length) groupsList.append(emptyState('暂无归档 Change。'));
-  else {
-    for (const group of groups) {
-      const section = element('section', 'change-module-group');
-      const heading = element('div', 'change-module-heading');
-      heading.append(element('h2', '', group.label), element('span', 'module-count', `${group.changes.length} 个 Change`));
-      const list = element('div', 'change-list change-module-list archive-history-list');
-      list.append(...group.changes.map((change) => changeButton(change, { archived: true })));
-      section.append(heading, list);
-      groupsList.append(section);
-    }
+function changeFilter(label, key, options, value) {
+  const select = element('select', 'change-filter');
+  select.setAttribute('aria-label', label);
+  select.append(element('option', '', `全部${label}`));
+  for (const option of options) {
+    const optionNode = element('option', '', option.label);
+    optionNode.value = option.value;
+    select.append(optionNode);
   }
-  view.append(groupsList);
-  return view;
+  select.value = value ?? '';
+  select.onchange = () => filterValueChanged(key, select.value);
+  return select;
 }
 
-const CHANGE_TABS = [
-  { id: 'active', label: '活动 Change', render: renderActiveChanges },
-  { id: 'history', label: '归档历史', render: renderArchiveHistory },
-];
+function filteredChanges() {
+  const filters = currentScreen.filters ?? {};
+  return (index.allChanges ?? []).filter((change) => {
+    if (filters.status && change.status !== filters.status) return false;
+    if (filters.mode && change.mode !== filters.mode) return false;
+    if (filters.moduleId && !(change.modules ?? []).includes(filters.moduleId)) return false;
+    if (filters.updatedAfter && changeUpdatedAt(change).slice(0, 10) < filters.updatedAfter) return false;
+    return true;
+  });
+}
 
-function renderChangesWorkspace() {
-  const view = document.createElement('div');
-  view.classList.add('changes-workspace-view');
-
-  const selected = CHANGE_TABS.find((tab) => tab.id === currentScreen.filters?.tab) ?? CHANGE_TABS[0];
-  const tabs = element('div', 'change-tablist');
-  tabs.setAttribute('role', 'tablist');
-  tabs.setAttribute('aria-label', 'Change 分类');
-  tabs.onkeydown = (event) => {
-    const selectedIndex = CHANGE_TABS.findIndex((tab) => tab.id === selected.id);
-    const nextIndex = event.key === 'ArrowRight'
-      ? (selectedIndex + 1) % CHANGE_TABS.length
-      : event.key === 'ArrowLeft'
-        ? (selectedIndex - 1 + CHANGE_TABS.length) % CHANGE_TABS.length
-        : event.key === 'Home'
-          ? 0
-          : event.key === 'End'
-            ? CHANGE_TABS.length - 1
-            : -1;
-    if (nextIndex < 0) return;
-    event.preventDefault();
-    const nextTab = CHANGE_TABS[nextIndex];
-    navigateTo({ type: 'changes', filters: { ...currentScreen.filters, tab: nextTab.id } });
-    document.getElementById(`change-tab-${nextTab.id}`)?.focus();
-  };
-  for (const tab of CHANGE_TABS) {
-    const tabButton = button(tab.label, 'change-tab', () => navigateTo({ type: 'changes', filters: { ...currentScreen.filters, tab: tab.id } }));
-    tabButton.id = `change-tab-${tab.id}`;
-    tabButton.setAttribute('role', 'tab');
-    tabButton.setAttribute('aria-selected', String(tab.id === selected.id));
-    tabButton.setAttribute('aria-controls', 'change-tab-panel');
-    tabButton.tabIndex = tab.id === selected.id ? 0 : -1;
-    if (tab.id === selected.id) tabButton.classList.add('active');
-    tabs.append(tabButton);
-  }
-
-  const controls = element('div', 'change-workspace-controls');
-  controls.append(tabs);
-  const header = compactWorkspaceHeader({
+function renderAllChangesWorkspace() {
+  const view = element('div', 'changes-workspace-view');
+  view.append(compactWorkspaceHeader({
     className: 'change-workspace-header',
     contextClass: 'change-workspace-context',
     kicker: 'CHANGE MANAGEMENT',
     title: '变更管理',
-  });
-  const summary = renderWorkspaceSummary('查看活动 Change 与归档历史。', [
-    { label: '活动', value: index.changes.length, tone: 'active' },
-    { label: '已归档', value: (index.archive.historyChanges ?? []).length, tone: 'archived' },
-  ], '', controls);
+  }));
+  const filters = element('div', 'change-filters');
+  const currentFilters = currentScreen.filters ?? {};
+  filters.append(changeFilter('状态', 'status', [
+    ...new Set((index.allChanges ?? []).map((change) => change.status).filter(Boolean)),
+  ].map((status) => ({ label: statusLabel(status), value: status })), currentFilters.status));
+  filters.append(changeFilter('模式', 'mode', [
+    ...new Set((index.allChanges ?? []).map((change) => change.mode).filter(Boolean)),
+  ].map((mode) => ({ label: mode, value: mode })), currentFilters.mode));
+  filters.append(changeFilter('业务模块', 'moduleId', (index.businessModules ?? []).map((module) => ({ label: moduleLabel(module.id), value: module.id })), currentFilters.moduleId));
+  filters.append(element('label', 'change-date-filter', '更新时间'));
+  const updatedAfter = element('input', 'change-filter', '');
+  updatedAfter.type = 'date';
+  updatedAfter.value = currentFilters.updatedAfter ?? '';
+  updatedAfter.setAttribute('aria-label', '更新时间');
+  updatedAfter.onchange = () => filterValueChanged('updatedAfter', updatedAfter.value);
+  filters.append(updatedAfter);
+  view.append(filters);
 
-  const panel = element('div', 'change-tab-panel');
-  panel.id = 'change-tab-panel';
-  panel.setAttribute('role', 'tabpanel');
-  panel.setAttribute('aria-labelledby', `change-tab-${selected.id}`);
-  panel.append(selected.render());
-  view.append(header, summary, panel);
+  const tableWrap = element('div', 'change-table-wrap');
+  const changes = filteredChanges();
+  if (!changes.length) {
+    tableWrap.append(emptyState(index.allChanges?.length ? '没有符合筛选条件的 Change。' : '暂无 Change'));
+  } else {
+    const table = element('table', 'change-table');
+    const head = element('thead');
+    const heading = element('tr');
+    for (const label of ['变更ID', '变更标题', '关联模块/需求', '状态', '操作']) heading.append(element('th', '', label));
+    head.append(heading);
+    const body = element('tbody');
+    body.append(...changes.map(renderChangeRow));
+    table.append(head, body);
+    tableWrap.append(table);
+  }
+  view.append(tableWrap);
   return view;
 }
 
@@ -551,11 +589,24 @@ function documentTabLabel(doc) {
   return name.replace(/\.md$/u, '');
 }
 
+const CHANGE_DOCUMENT_ORDER = ['design.md', 'proposal.md', 'spec.md', 'tasks.md', 'verification.md', 'metadata.yaml'];
+
 function changeDocumentOrder(left, right) {
-  const order = ['metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml', 'proposal.md', 'tasks.md', 'verification.md'];
-  return (order.indexOf(left.relativePath.split('/').at(-1)) + order.length) % order.length
-    - (order.indexOf(right.relativePath.split('/').at(-1)) + order.length) % order.length
+  const leftName = left.relativePath.split('/').at(-1) ?? '';
+  const rightName = right.relativePath.split('/').at(-1) ?? '';
+  const leftPosition = CHANGE_DOCUMENT_ORDER.indexOf(leftName);
+  const rightPosition = CHANGE_DOCUMENT_ORDER.indexOf(rightName);
+  return (leftPosition < 0 ? CHANGE_DOCUMENT_ORDER.length : leftPosition)
+    - (rightPosition < 0 ? CHANGE_DOCUMENT_ORDER.length : rightPosition)
     || left.relativePath.localeCompare(right.relativePath);
+}
+
+function orderedChangeDocuments(change) {
+  return [...(change.documents ?? [])].sort(changeDocumentOrder);
+}
+
+function firstChangeDocument(change) {
+  return orderedChangeDocuments(change)[0] ?? null;
 }
 
 function renderChangeDetail(change, options = currentChangeOptions, returnScreen = currentChangeReturnScreen) {
@@ -598,7 +649,7 @@ function renderChangeDetail(change, options = currentChangeOptions, returnScreen
   }
   const columns = element('div', 'detail-columns');
   columns.append(gatePanel(change));
-  const documents = [...(change.documents ?? [])].sort(changeDocumentOrder);
+  const documents = orderedChangeDocuments(change);
   const docs = element('section', 'document-panel');
   docs.append(element('h3', '', 'Change 文档（只读）'));
   const tabs = element('nav', 'document-tabs');
@@ -860,7 +911,7 @@ async function openArchiveConfirmation(candidate) {
       const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
       index = result.index;
       backdrop.remove();
-      navigateTo({ type: 'changes', filters: { tab: 'history' } });
+      navigateTo({ type: 'changes', filters: {} });
     } catch (error) {
       const existing = dialog.querySelector('.inline-error');
       if (existing) existing.remove();
@@ -928,11 +979,13 @@ function renderSidebar() {
 function renderCurrentScreen() {
   renderSidebar();
   if (currentScreen.type === 'module') {
-    page.replaceChildren(renderCapabilities());
+    page.replaceChildren(currentScreen.moduleId
+      ? renderModuleWorkspace(currentScreen.moduleId)
+      : emptyState('暂无业务模块。请通过 AI 工作流建立 codespec/business.yaml。'));
     return;
   }
   if (currentScreen.type === 'changes') {
-    page.replaceChildren(renderChangesWorkspace());
+    page.replaceChildren(renderAllChangesWorkspace());
     return;
   }
   if (currentScreen.type === 'change') {
@@ -1009,7 +1062,7 @@ projectTree.onclick = (event) => {
     navigateTo({ type: 'module', moduleId: target.dataset.moduleId });
   }
   if (target.dataset.node === 'change-management') {
-    navigateTo({ type: 'changes', filters: { tab: 'active' } });
+    navigateTo({ type: 'changes', filters: {} });
   }
 };
 

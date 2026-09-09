@@ -59,6 +59,7 @@ describe('CodeSpec UI web shell', () => {
     expect(html).not.toContain('data-view="active-changes"');
     expect(html).not.toContain('data-view="archiveable-changes"');
     expect(html).not.toContain('data-view="archive-history"');
+    expect(html).not.toContain('archive-history');
     expect(html).toContain('id="theme-toggle"');
     expect(html).toContain('id="command-helper"');
     expect(html).not.toContain('只读观测');
@@ -68,10 +69,33 @@ describe('CodeSpec UI web shell', () => {
     expect(findAll(workspaceHeader, (node) => node.attributes.id === 'rebuild')).toHaveLength(1);
   });
 
-  it('uses two Change tabs and keeps archive actions on eligible active cards', async () => {
+  it('renders the module workspace and unified all-Change management table', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
+    const styles = await fs.readFile(path.join(webRoot, 'styles.css'), 'utf8');
 
     expect(script).toContain('renderSidebar');
+    expect(script).toContain('renderModuleWorkspace');
+    expect(script).toContain('renderAllChangesWorkspace');
+    expect(script).toContain('renderChangeRow');
+    expect(script).toContain('index.businessModules');
+    expect(script).toContain('index.archive.currentSpecs');
+    expect(script).toContain('index.allChanges');
+    expect(script).toContain('index.currentSpecGraph');
+    expect(script).toContain('变更ID');
+    expect(script).toContain('变更标题');
+    expect(script).toContain('关联模块/需求');
+    expect(script).toContain('状态');
+    expect(script).toContain('操作');
+    expect(script).toContain('查看');
+    expect(script).toContain('归档');
+    expect(script).toContain("design.md");
+    expect(script).toContain('updatedAfter');
+    expect(script).toContain('disabled-reason');
+    expect(script).toContain("setAttribute('aria-describedby'");
+    expect(script).toContain('openArchiveConfirmation');
+    expect(script).not.toContain("label: '归档历史'");
+    expect(script).not.toContain('active-change-card');
+    expect(script).not.toContain('CHANGE_TABS');
     expect(script).toContain("setAttribute('data-node', 'change-management')");
     expect(script).toContain('businessModules');
     expect(script).toContain("type: 'module'");
@@ -90,33 +114,9 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('documentReturnScreen = activeScreen');
     expect(script).toContain('const activeScreen = returnScreen.type === \'module\' || returnScreen.type === \'change\'');
     expect((script.match(/setAttribute\('data-node', 'change-management'\)/gu) ?? [])).toHaveLength(1);
-    expect(script).toContain('renderCapabilities');
-    expect(script).toContain('renderChangesWorkspace');
-    expect(script).toContain('change-tablist');
-    expect(script).not.toContain("{ id: 'archiveable'");
-    expect(script).toContain('active-change-card');
-    expect(script).toContain('archive-action');
-    expect(script).toContain("const archiveButton = button('归档 →', 'archive-action'");
-    expect(script).toContain('heading.append(archiveButton)');
-    expect(script).toContain('failure-reason');
-    expect(script).toContain("setAttribute('role', 'tablist')");
-    expect(script).toContain("event.key === 'ArrowRight'");
-    expect(script).toContain('openArchiveConfirmation');
+    expect(script).toContain('renderChangeDetail');
     expect(script).toContain('archive-confirmation-dialog');
-    expect(script).toContain('archive-transition-action');
-    expect(script).toContain('/api/transition/');
-    expect(script).toContain('进入归档准备');
     expect(script).toContain("setAttribute('role', 'dialog')");
-    expect(script).toContain('change-workspace-header');
-    expect(script).toContain('change-workspace-context');
-    expect(script).toContain('change-summary');
-    expect(script).toContain('change-summary-badge');
-    expect(script).toContain('compact-workspace-header');
-    expect(script).toContain('business-workspace-header');
-    expect(script).toContain('renderWorkspaceSummary');
-    expect(script).toContain('business-summary');
-    expect(script).toContain('workspace-summary-actions');
-    expect(script).toContain('change-workspace-controls');
     expect(script).toContain('/api/archive/');
     expect(script).not.toContain('window.confirm');
     expect(script).toContain('matchMedia');
@@ -137,6 +137,11 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('navigator.clipboard.writeText');
     expect(script).not.toContain('/api/exec');
     expect(script).not.toContain('child_process');
+    expect(styles).toContain('.module-workspace');
+    expect(styles).toContain('.change-table');
+    expect(styles).toContain('.change-table-wrap');
+    expect(styles).toContain('.disabled-reason');
+    expect(styles).toContain('overflow-x: auto');
   });
 
   it('renders Change artifacts as structured readable views instead of raw source', async () => {
@@ -157,13 +162,14 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain("name === 'spec.md'");
   });
 
-  it('keeps business summary focused on its description and stacks card details vertically', async () => {
+  it('keeps module facts and empty states grounded in indexed records', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 
-    expect(script).toContain("], 'business-summary')");
-    expect(script).toContain("element('div', 'business-card-details')");
-    expect(script).toContain("element('div', 'business-card-row')");
-    expect(script).toContain("element('div', 'business-card-actions')");
+    expect(script).toContain("['模块 ID', module.id]");
+    expect(script).toContain("['职责', text(module.responsibility, '未读取')]");
+    expect(script).toContain("emptyState('当前 Spec 未建立')");
+    expect(script).toContain("emptyState('暂无关联 Change')");
+    expect(script).toContain("emptyState('暂无关联关系')");
   });
 
   it('defines light and dark theme tokens with system-based initial fallback', async () => {
