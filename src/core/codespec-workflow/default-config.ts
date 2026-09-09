@@ -17,12 +17,12 @@ export function renderCanonicalWorkspaceConfig(projectName: string, context?: st
 
   lines.push(
     'paths:',
-    '  business: business.md',
+    '  business: business.yaml',
+    '  configuration: configuration.yaml',
     '  changes: changes',
     '  change_index: changes/index.yaml',
-    '  archive: archive',
     '  specs: specs',
-    '  archived_changes: archive/changes',
+    '  transactions: .transactions',
     'workflow:',
     '  multiple_active_changes: true',
     'requirements:',
@@ -55,6 +55,14 @@ export function renderBusinessTemplate(): string {
     '| --- | --- | --- | --- | --- |',
     '',
   ].join('\n');
+}
+
+export function renderBusinessRegistryTemplate(): string {
+  return 'version: 1\nmodules: []\n';
+}
+
+export function renderConfigurationTemplate(): string {
+  return 'version: 1\nprofiles: []\n';
 }
 
 export function renderEmptyChangeIndex(): string {

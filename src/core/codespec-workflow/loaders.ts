@@ -7,6 +7,7 @@ import { loadBusinessRegistry, type BusinessRegistry } from './business-registry
 import { loadChangeIndex, type ChangeIndex } from './change-index.js';
 import { getWorkspacePaths, type WorkspacePaths } from './paths.js';
 import { parseWorkspaceConfig } from './schemas.js';
+import { recoverPendingTransactions } from './transaction-journal.js';
 import type { WorkspaceConfig } from './types.js';
 
 export interface WorkspaceContext {
@@ -45,6 +46,7 @@ export async function loadWorkspace(codespecDir: string): Promise<WorkspaceConte
   const config = await readWorkspaceConfig(codespecDir);
   const paths = getWorkspacePaths(codespecDir, config);
   await assertConfiguredPathsAreSafe(paths);
+  await recoverPendingTransactions(paths);
   const [registry, index] = await Promise.all([
     loadBusinessRegistry(paths),
     loadChangeIndex(paths),

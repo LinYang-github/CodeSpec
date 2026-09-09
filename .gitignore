@@ -146,6 +146,7 @@ vite.config.ts.timestamp-*
 CLAUDE.md
 .DS_Store
 .worktrees/
+.superpowers/
 
 # Pnpm
 .pnpm-store/

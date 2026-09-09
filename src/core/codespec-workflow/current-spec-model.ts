@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import path from 'node:path';
 
 export interface CurrentSpecTestCase {
   id: string;
@@ -7,6 +8,12 @@ export interface CurrentSpecTestCase {
   automationTest: string;
   testId: string;
   latestVerification: string;
+  engineeringLocations?: string[];
+  verificationSource?: string;
+  executionCommand?: string;
+  verificationEnvironment?: string;
+  verificationTime?: string;
+  verificationSummary?: string;
   steps: CurrentSpecTestStep[];
 }
 
@@ -20,6 +27,8 @@ export interface CurrentSpecEngineeringFile {
   path: string;
   role: string;
   references: string[];
+  module?: string;
+  change?: '新增' | '修改' | '删除';
 }
 
 export interface CurrentSpecScenario {
@@ -165,11 +174,22 @@ function requireTableRows(tokens: Token[], index: number, headers: string[]): st
   return rows.slice(1);
 }
 
+function isSafeRepositoryPath(value: string): boolean {
+  return Boolean(value) && !value.includes('\0') && !value.includes('\\') && !path.isAbsolute(value) &&
+    !/^[A-Za-z]:\//u.test(value) && !value.split('/').includes('..') && !value.split('/').includes('');
+}
+
 function readReferenceList(value: string): string[] {
   const references = value.split('；').map((entry) => readCodeValue(entry.trim(), '工程文件关联'));
   if (references.length === 0 || references.some((reference) => !reference)) {
     throw new Error('工程文件必须关联至少一个需求、场景或测试用例');
   }
+  return references;
+}
+
+function readCodeList(value: string, label: string): string[] {
+  const references = value.split('；').map((entry) => readCodeValue(entry.trim(), label));
+  if (references.length === 0 || references.some((reference) => !reference)) throw new Error(`${label} 必须至少包含一个引用`);
   return references;
 }
 
@@ -205,12 +225,39 @@ export function parseCurrentSpecification(content: string): CurrentSpecification
       continue;
     }
     if (h3 === '当前模块工程文件') {
-      engineeringFiles = requireTableRows(tokens, index, ['文件', '作用', '关联需求 / 场景 / 测试用例'])
-        .map(([filePath, role, references]) => ({
-          path: readCodeValue(filePath!, '工程文件'),
-          role: role!,
-          references: readReferenceList(references!),
-        }));
+      const rows = tableAfter(tokens, index);
+      const headers = rows[0] ?? [];
+      const fileIndex = headers.indexOf('文件');
+      const roleIndex = headers.indexOf('作用');
+      const referencesIndex = headers.indexOf('关联需求 / 场景 / 测试用例');
+      const moduleIndex = headers.indexOf('模块编号');
+      const changeIndex = headers.indexOf('变更');
+      if (fileIndex < 0 || roleIndex < 0 || referencesIndex < 0) {
+        throw new Error('Current specification requires table: 文件 / 作用 / 关联需求 / 场景 / 测试用例');
+      }
+      const dataRows = rows.slice(1);
+      if (dataRows.some((row) => row.length !== headers.length)) {
+        throw new Error(`Current specification table has an invalid column count: ${headers.join(' / ')}`);
+      }
+      engineeringFiles = dataRows.map((row) => {
+        const filePath = readCodeValue(row[fileIndex]!, '工程文件');
+        const entry: CurrentSpecEngineeringFile = {
+          path: filePath,
+          role: row[roleIndex]!,
+          references: readReferenceList(row[referencesIndex]!),
+        };
+        if (moduleIndex >= 0) {
+          const moduleValue = row[moduleIndex]!.trim();
+          if (!/^MOD-\d{3}$/u.test(moduleValue)) throw new Error(`工程文件模块编号无效：${moduleValue}`);
+          entry.module = moduleValue;
+        }
+        if (changeIndex >= 0) {
+          const change = row[changeIndex]!.trim();
+          if (change !== '新增' && change !== '修改' && change !== '删除') throw new Error(`工程文件变更无效：${change}`);
+          entry.change = change;
+        }
+        return entry;
+      });
       continue;
     }
     const h4 = headingContent(tokens, index, 'h4');
@@ -237,12 +284,21 @@ export function parseCurrentSpecification(content: string): CurrentSpecification
     const fields = fieldMap(listItemsAfter(tokens, index));
     const steps = requireTableRows(tokens, index, ['步骤', '用户操作', '预期结果'])
       .map(([number, action, expected]) => ({ number: number!, action: action!, expected: expected! }));
+    const optional = {
+      ...(fields.has('工程定位') ? { engineeringLocations: readCodeList(fields.get('工程定位')!, '工程定位') } : {}),
+      ...(fields.has('验证来源') ? { verificationSource: requireField(fields, '验证来源') } : {}),
+      ...(fields.has('执行命令') ? { executionCommand: readCodeValue(requireField(fields, '执行命令'), '执行命令') } : {}),
+      ...(fields.has('验证环境') ? { verificationEnvironment: requireField(fields, '验证环境') } : {}),
+      ...(fields.has('验证时间') ? { verificationTime: requireField(fields, '验证时间') } : {}),
+      ...(fields.has('验证摘要') ? { verificationSummary: requireField(fields, '验证摘要') } : {}),
+    };
     scenario.testCases.push({
       ...parsed,
       type: requireField(fields, '类型'),
       automationTest: readCodeValue(requireField(fields, '自动化测试'), '自动化测试'),
       testId: readCodeValue(requireField(fields, '测试标识'), '测试标识'),
       latestVerification: requireField(fields, '最近验证'),
+      ...optional,
       steps,
     });
   }
@@ -271,14 +327,30 @@ export function renderCurrentSpecification(specification: CurrentSpecification):
       for (const testCase of scenario.testCases) {
         lines.push('', `#### ${testCase.id}：${testCase.title}`, '', `- **类型：** ${testCase.type}`,
           `- **自动化测试：** \`${testCase.automationTest}\``, `- **测试标识：** \`${testCase.testId}\``,
+          ...(testCase.engineeringLocations?.length ? [`- **工程定位：** ${testCase.engineeringLocations.map((value) => `\`${value}\``).join('；')}`] : []),
+          ...(testCase.verificationSource ? [`- **验证来源：** ${testCase.verificationSource}`] : []),
+          ...(testCase.executionCommand ? [`- **执行命令：** \`${testCase.executionCommand}\``] : []),
+          ...(testCase.verificationEnvironment ? [`- **验证环境：** ${testCase.verificationEnvironment}`] : []),
+          ...(testCase.verificationTime ? [`- **验证时间：** ${testCase.verificationTime}`] : []),
+          ...(testCase.verificationSummary ? [`- **验证摘要：** ${testCase.verificationSummary}`] : []),
           `- **最近验证：** ${testCase.latestVerification}`, '', '| 步骤 | 用户操作 | 预期结果 |', '| --- | --- | --- |');
         for (const step of testCase.steps) lines.push(`| ${step.number} | ${step.action} | ${step.expected} |`);
       }
     }
   }
-  lines.push('', '### 当前模块工程文件', '', '| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |', '| --- | --- | --- |');
+  const hasActivity = specification.engineeringFiles.some((file) => file.module || file.change);
+  lines.push('', '### 当前模块工程文件', '');
+  if (hasActivity) {
+    lines.push('| 文件 | 模块编号 | 变更 | 作用 | 关联需求 / 场景 / 测试用例 |', '| --- | --- | --- | --- | --- |');
+  } else {
+    lines.push('| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |', '| --- | --- | --- |');
+  }
   for (const file of specification.engineeringFiles) {
-    lines.push(`| \`${file.path}\` | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
+    if (hasActivity) {
+      lines.push(`| \`${file.path}\` | ${file.module ?? specification.module} | ${file.change ?? '修改'} | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
+    } else {
+      lines.push(`| \`${file.path}\` | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
+    }
   }
   return `${lines.join('\n')}\n`;
 }
@@ -294,6 +366,7 @@ export function validateCurrentSpecificationTraceability(specification: CurrentS
   }
   const issues: string[] = [];
   for (const file of specification.engineeringFiles) {
+    if (!isSafeRepositoryPath(file.path)) issues.push(`工程文件路径必须是仓库内相对路径：${file.path}`);
     for (const reference of file.references) {
       if (!known.has(reference)) {
         issues.push(`工程文件 ${file.path} 引用了不存在的 ID：${reference}`);

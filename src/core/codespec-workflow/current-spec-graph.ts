@@ -75,6 +75,18 @@ export function buildCurrentSpecificationGraph(input: CurrentSpecificationGraphI
     throw new Error('Each module may have only one interface document');
   }
   const relations = collectMirroredRelations(input.interfaces);
+  const httpTriggers = new Set(
+    relations.filter((relation): relation is Extract<Relation, { kind: 'http' }> => relation.kind === 'http')
+      .map((relation) => `${relation.path}\u0000${relation.method}`),
+  );
+  for (const relation of relations) {
+    if (relation.kind !== 'event') continue;
+    for (const trigger of relation.triggeredBy ?? []) {
+      if (!httpTriggers.has(`${trigger.path}\u0000${trigger.method}`)) {
+        throw new Error(`Event relation ${relation.id} references a missing HTTP trigger ${trigger.method} ${trigger.path}`);
+      }
+    }
+  }
 
   const concepts = new Map(modules.map((module) => [module.id, {
     inputs: new Set<string>(), outputs: new Set<string>(), relatedModules: new Set<string>(),

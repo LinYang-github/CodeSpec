@@ -1,0 +1,8 @@
+version: 1
+modules:
+  - id: MOD-001
+    name: CodeSpec 工作流
+    status: ACTIVE
+    inputs: []
+    outputs: []
+    relatedModules: []

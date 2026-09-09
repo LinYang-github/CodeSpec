@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { ChangeArtifacts } from './artifacts.js';
 import { loadChangeArtifacts, type WorkspaceContext } from './loaders.js';
+import type { WorkspacePaths } from './paths.js';
 import { loadChangeIndex } from './change-index.js';
 import { parseDeltaSpec } from './delta-parser.js';
 import { detectStaleChanges } from './stale.js';
@@ -12,6 +13,13 @@ import { validateChangeTraceability } from './traceability.js';
 import { appendLatestVerificationSummary, parseVerificationDocument, validateCurrentVerificationArtifacts, validateVerificationEvidence } from './verification.js';
 import { validateCurrentSpec } from './current-spec-parser.js';
 import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
+import { parseCurrentTasks, parseCurrentVerification } from './current-change-yaml.js';
+import { validateCurrentVerificationPlan } from './current-verification-policy.js';
+import { validateCurrentArchivePreflight } from './current-archive-preflight.js';
+import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
+import { mergeCurrentModuleDeltas } from './current-archive-merge.js';
+import { parseBusinessRegistry, parseConfiguration, parseModuleInterface } from './current-spec-yaml.js';
+import { parseCurrentSpecification, validateCurrentSpecification } from './current-spec-model.js';
 import {
   validateChangeArchiveImpact,
   validateArchiveRegressionEvidence,
@@ -46,6 +54,15 @@ export interface ArchiveResult {
   staleChanges: string[];
   requirementIds: string[];
 }
+
+export interface CurrentArchiveInstallInput {
+  paths: WorkspacePaths;
+  changeId: string;
+  changeDir: string;
+  moduleFiles: Map<string, { spec: string; interface: string; api: string }>;
+  business: string;
+  configuration: string;
+}
 interface ArchiveTestHooks { beforeCommitStep?: (step: string) => void | Promise<void> }
 let archiveTestHooks: ArchiveTestHooks | null = null;
 export function __setArchiveTestHooksForTests(hooks: ArchiveTestHooks | null): void { archiveTestHooks = hooks; }
@@ -53,6 +70,97 @@ export function __setArchiveTestHooksForTests(hooks: ArchiveTestHooks | null): v
 const exists = async (file: string) => fs.access(file).then(() => true).catch(() => false);
 const normalize = (value: string) => value.replace(/\r\n/g, '\n').trim();
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+const readOptional = async (file: string): Promise<string | null> => fs.readFile(file, 'utf8').catch((error: NodeJS.ErrnoException) => {
+  if (error.code === 'ENOENT') return null;
+  throw error;
+});
+
+async function validateCurrentEngineeringFiles(
+  workspace: WorkspaceContext,
+  specification: ReturnType<typeof parseCurrentSpecification>,
+): Promise<void> {
+  const projectRoot = path.dirname(workspace.codespecDir);
+  for (const file of specification.engineeringFiles) {
+    if (file.path.includes('\0') || file.path.includes('\\') || path.isAbsolute(file.path) || file.path.split('/').includes('..')) {
+      throw new Error(`工程文件路径必须是仓库内相对 POSIX 路径：${file.path}`);
+    }
+    const target = path.resolve(projectRoot, file.path);
+    const relative = path.relative(projectRoot, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error(`工程文件路径越界：${file.path}`);
+    let cursor = target;
+    while (true) {
+      const stat = await fs.lstat(cursor).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!stat) {
+        if (file.change !== '删除') throw new Error(`工程文件不存在：${file.path}`);
+        if (cursor === projectRoot) break;
+        cursor = path.dirname(cursor);
+        continue;
+      }
+      if (stat.isSymbolicLink()) throw new Error(`工程文件不得经过软链接：${file.path}`);
+      if (cursor === projectRoot) break;
+      const parent = path.dirname(cursor);
+      if (parent === cursor) throw new Error(`工程文件路径越界：${file.path}`);
+      cursor = parent;
+    }
+    if (file.change !== '删除') {
+      const stat = await fs.lstat(target);
+      if (!stat.isFile()) throw new Error(`工程文件必须是普通文件：${file.path}`);
+    }
+  }
+}
+
+async function validateCurrentModuleLayout(workspace: WorkspaceContext, moduleIds: readonly string[]): Promise<void> {
+  const allowed = new Set(['spec.md', 'interface.yaml', 'api.yaml']);
+  for (const moduleId of moduleIds) {
+    const directory = path.join(workspace.paths.currentSpecs, moduleId);
+    const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    });
+    for (const entry of entries) {
+      if (!allowed.has(entry.name)) {
+        throw new Error(`当前模块目录 ${moduleId} 只能包含 spec.md、interface.yaml、api.yaml：${entry.name}`);
+      }
+      if (entry.isSymbolicLink()) throw new Error(`当前模块文件不得是软链接：${moduleId}/${entry.name}`);
+    }
+  }
+}
+
+/** Installs v1 projections through a durable journal, deleting the Change only after the commit marker. */
+export async function installCurrentArchiveFiles(input: CurrentArchiveInstallInput): Promise<void> {
+  const files: Array<{ target: string; before: string | null; after: string | null }> = [];
+  for (const [module, document] of input.moduleFiles) {
+    const directory = path.join(input.paths.currentSpecs, module);
+    for (const [name, after] of Object.entries({ 'spec.md': document.spec, 'interface.yaml': document.interface, 'api.yaml': document.api })) {
+      const target = path.join(directory, name);
+      files.push({ target, before: await readOptional(target), after });
+    }
+  }
+  files.push(
+    { target: input.paths.business, before: await readOptional(input.paths.business), after: input.business },
+    { target: input.paths.configuration, before: await readOptional(input.paths.configuration), after: input.configuration },
+  );
+  const index = parseYaml(await fs.readFile(input.paths.changeIndex, 'utf8')) as { version?: unknown; changes?: unknown[] };
+  if (index.version !== 1 || !Array.isArray(index.changes)) throw new Error('Change index must use version 1 before current archive');
+  files.push({
+    target: input.paths.changeIndex,
+    before: await readOptional(input.paths.changeIndex),
+    after: stringifyYaml({ ...index, changes: index.changes.filter((entry) => !(entry && typeof entry === 'object' && (entry as { id?: unknown }).id === input.changeId)) }),
+  });
+  const journal = await createArchiveJournal({
+    paths: input.paths,
+    transactionId: `archive-${input.changeId}-${Date.now()}`,
+    files,
+    cleanupAfterCommit: [input.changeDir],
+  });
+  await installArchiveJournal(journal);
+  await markArchiveJournalCommitted(journal);
+  await recoverPendingTransactions(input.paths);
+}
 
 async function processAlive(pid: number): Promise<boolean> {
   try { process.kill(pid, 0); return true; }
@@ -125,6 +233,18 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   if (!m.archive.ready || !m.gates.archive.satisfied) throw new Error('归档门禁未满足');
   if (m.archive.conflict) throw new Error('归档前必须先解决冲突');
   if (m.baseline.stale) throw new Error('归档被阻塞：baseline 已过期');
+  if (!m.artifacts.proposal) {
+    const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+    const verification = parseCurrentVerification(parseYaml(artifacts.verification));
+    const preflightErrors = validateCurrentArchivePreflight({
+      designApproved: m.approvals?.design.status === 'approved' && m.approvals.design.revision === m.change.revision,
+      planApproved: m.approvals?.plan.status === 'approved' && m.approvals.plan.revision === m.change.revision,
+      taskStatuses: tasks.tasks.map((task) => task.status),
+      verificationErrors: validateCurrentVerificationPlan(tasks, verification),
+    });
+    if (preflightErrors.length) throw new Error(`当前 Change 归档预检失败：${preflightErrors.join('; ')}`);
+    return;
+  }
   if (m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((t) => t.status !== 'DONE')) throw new Error('归档要求所有 Task 均为 DONE');
   if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) throw new Error('归档要求最新的 Verification 证据');
   const deltaErrors = parseDeltaSpec(artifacts.spec).entries.flatMap((entry) => collectEmptyScenarioErrorIssues(entry.id, entry.scenarios, m.change.id));
@@ -328,5 +448,48 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
 }
 
 export async function archiveChange(workspace: WorkspaceContext, changeId: string): Promise<ArchiveResult> {
+  await recoverPendingTransactions(workspace.paths);
+  const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  if (!artifacts.metadata.artifacts.proposal) {
+    ensureArchiveGates(artifacts);
+    const verificationErrors = await validateCurrentVerificationArtifacts(workspace, artifacts);
+    if (verificationErrors.length) throw new Error(`当前 Change 验证预检失败：${verificationErrors.join('; ')}`);
+    const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+    const business = parseBusinessRegistry(parseYaml(await fs.readFile(workspace.paths.business, 'utf8')));
+    const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
+    const interfaces = new Map(await Promise.all(business.modules.map(async (module) => [
+      module.id,
+      parseModuleInterface(parseYaml(await fs.readFile(path.join(workspace.paths.currentSpecs, module.id, 'interface.yaml'), 'utf8'))),
+    ] as const)));
+    const merged = mergeCurrentModuleDeltas({ business, interfaces, configuration, moduleDeltas: tasks.moduleDeltas, moduleRegistrations: tasks.moduleRegistrations });
+    await validateCurrentModuleLayout(workspace, merged.business.modules.map((module) => module.id));
+    const changeSpec = parseCurrentSpecification(artifacts.spec);
+    if (changeSpec.version !== '1') throw new Error('当前 Change spec.md 必须是版本 1 规格');
+    const specIssues = validateCurrentSpecification(changeSpec);
+    if (specIssues.length) throw new Error(`当前 Change spec.md 校验失败：${specIssues.join('; ')}`);
+    const targetModule = merged.business.modules.find((module) => module.id === changeSpec.module);
+    if (!targetModule) throw new Error(`当前 Change spec.md 引用了未注册模块：${changeSpec.module}`);
+    if (targetModule.status === 'RETIRED') throw new Error(`当前 Change 不能归档到已退役模块：${changeSpec.module}`);
+    await validateCurrentEngineeringFiles(workspace, changeSpec);
+    const verification = parseCurrentVerification(parseYaml(artifacts.verification));
+    const moduleFiles = new Map<string, { spec: string; interface: string; api: string }>();
+    for (const [module, document] of merged.interfaces) {
+      const spec = module === changeSpec.module
+        ? appendLatestVerificationSummary(artifacts.spec, verification)
+        : await fs.readFile(path.join(workspace.paths.currentSpecs, module, 'spec.md'), 'utf8');
+      const api = merged.apis.get(module);
+      if (!api) continue;
+      moduleFiles.set(module, { spec, interface: stringifyYaml(document), api: stringifyYaml(api) });
+    }
+    await installCurrentArchiveFiles({
+      paths: workspace.paths,
+      changeId,
+      changeDir: artifacts.changeDir,
+      moduleFiles,
+      business: stringifyYaml(merged.business),
+      configuration: stringifyYaml(merged.configuration),
+    });
+    return { changeId, archivedPath: '', staleChanges: await detectStaleChanges(workspace, []), requirementIds: [] };
+  }
   return commitArchive(await prepareArchive(await preflightArchive(workspace, changeId)));
 }
