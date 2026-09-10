@@ -239,6 +239,68 @@ function isArchivedChange(change) {
       || document.relativePath.includes('/archive/changes/'));
 }
 
+function activeChangesForModule(moduleId) {
+  return (index.allChanges ?? []).filter((change) => (change.modules ?? []).includes(moduleId)
+    && change.status !== 'ABANDONED'
+    && !isArchivedChange(change));
+}
+
+function openBusinessChangesModal(module, changes) {
+  const backdrop = element('div', 'business-change-modal-backdrop');
+  const dialog = element('section', 'business-change-modal');
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'business-change-modal-title');
+  const close = () => {
+    backdrop.remove();
+    document.removeEventListener('keydown', onKeydown);
+  };
+  const onKeydown = (event) => {
+    if (event.key === 'Escape') close();
+  };
+  const header = element('div', 'business-change-modal-header');
+  const heading = element('div', 'business-change-modal-heading');
+  const title = element('h2', '', '进行中变更');
+  title.id = 'business-change-modal-title';
+  heading.append(title, element('p', 'muted', `${module.id} · ${module.name}，共 ${changes.length} 项`));
+  const closeButton = button('×', 'business-change-modal-close', close);
+  closeButton.setAttribute('aria-label', '关闭进行中变更弹窗');
+  closeButton.title = '关闭';
+  header.append(heading, closeButton);
+  const changeList = element('div', 'business-change-modal-list');
+  for (const change of changes) {
+    const changeButton = button('', 'business-change-modal-item', () => {
+      const firstDocument = firstChangeDocument(change);
+      close();
+      navigateTo({
+        type: 'change',
+        changeId: change.id,
+        ...(firstDocument ? { activeDocumentId: firstDocument.id } : {}),
+      }, { changeOptions: { archived: false } });
+    });
+    const itemHeading = element('div', 'business-change-modal-item-heading');
+    itemHeading.append(
+      element('strong', '', change.id),
+      element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)),
+    );
+    const requirements = (change.requirements ?? []).join('、') || '未关联需求';
+    changeButton.append(
+      itemHeading,
+      element('span', 'business-change-modal-item-title', text(change.title, '未命名 Change')),
+      element('small', '', requirements),
+    );
+    changeList.append(changeButton);
+  }
+  dialog.append(header, changeList);
+  backdrop.append(dialog);
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) close();
+  };
+  document.addEventListener('keydown', onKeydown);
+  document.body.append(backdrop);
+  closeButton.focus();
+}
+
 function moduleDocuments(moduleId) {
   const marker = `/${moduleId}/`;
   return index.documents
@@ -435,6 +497,7 @@ function renderBusinessTable(modules) {
       }
       for (const relatedId of relatedIds) relatedCell.append(element('span', 'module-tag', moduleLabel(relatedId)));
       if (!relatedIds.size) relatedCell.append(element('span', 'muted', '未关联'));
+      const activeChanges = activeChangesForModule(module.id);
       row.append(
         element('td', 'business-table-sequence', String(position + 1)),
         element('td', 'business-table-id', module.id),
@@ -444,6 +507,9 @@ function renderBusinessTable(modules) {
       );
       const actions = element('td', 'business-table-actions');
       actions.append(button('详情', 'table-action view-action', () => navigateTo({ type: 'module', moduleId: module.id })));
+      if (activeChanges.length) {
+        actions.append(button('查看变更', 'table-action business-change-action', () => openBusinessChangesModal(module, activeChanges)));
+      }
       row.append(actions);
       body.append(row);
     });

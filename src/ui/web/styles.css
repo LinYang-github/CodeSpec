@@ -125,7 +125,7 @@ button { cursor: pointer; }
 .business-view-option:hover, .business-view-option.active { background: var(--accent-soft); color: var(--accent); }
 .business-view-option:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--accent); outline-offset: -2px; }
 .business-table-wrap { min-width: 0; min-height: 0; flex: 1 1 auto; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-.business-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 13px; }
+.business-table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 13px; }
 .business-table th, .business-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; text-align: center; }
 .business-table thead th { position: sticky; z-index: 1; top: 0; background: var(--surface-soft); color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
 .business-table tbody tr:last-child td { border-bottom: 0; }
@@ -136,8 +136,23 @@ button { cursor: pointer; }
 .business-table-related { min-width: 240px; }
 .business-table-related .module-tag { display: inline-flex; margin: 2px; }
 .business-table-modified-at { min-width: 170px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.business-table-actions { width: 100px; }
+.business-table-actions { min-width: 190px; white-space: nowrap; }
 .business-table-empty { padding: 30px 14px !important; color: var(--muted); }
+.business-change-modal-backdrop { position: fixed; z-index: 12; inset: 0; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, #0f172a 52%, transparent); }
+.business-change-modal { display: flex; width: min(620px, 100%); max-height: min(720px, calc(100dvh - 48px)); flex-direction: column; overflow: hidden; padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 24px 70px color-mix(in srgb, var(--text) 38%, transparent); }
+.business-change-modal-header { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.business-change-modal-heading h2 { margin: 0; font-size: 20px; }
+.business-change-modal-heading p { margin: 6px 0 0; font-size: 12px; }
+.business-change-modal-close { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 7px; padding: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; }
+.business-change-modal-close:hover { background: var(--surface-soft); color: var(--text); }
+.business-change-modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.business-change-modal-list { display: grid; min-height: 0; gap: 8px; margin-top: 18px; overflow-y: auto; }
+.business-change-modal-item { display: grid; min-width: 0; gap: 7px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; background: var(--surface-soft); color: var(--text); text-align: left; }
+.business-change-modal-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+.business-change-modal-item-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
+.business-change-modal-item-heading strong { overflow: hidden; color: var(--accent); font: 700 12px/18px ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.business-change-modal-item-title { overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.business-change-modal-item small { color: var(--muted); font-size: 11px; }
 .business-canvas-workbench { display: flex; min-width: 0; min-height: 420px; flex: 1 1 auto; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .business-canvas-toolbar { display: flex; min-height: 42px; flex: 0 0 auto; align-items: center; justify-content: flex-end; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .canvas-toolbar-hint { margin-right: auto; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }

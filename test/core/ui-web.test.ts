@@ -95,6 +95,16 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain('business-canvas-node');
     expect(script).toContain('Ctrl/⌘ + 滚轮缩放');
     expect(script).toContain("for (const label of ['序号', '业务模块ID', '业务模块', '关联模块', '最后修改时间', '操作'])");
+    expect(script).toContain('activeChangesForModule');
+    expect(script).toContain('openBusinessChangesModal');
+    expect(script).toContain("button('查看变更'");
+    expect(script).toContain('business-change-modal-list');
+    expect(script).toContain("dialog.setAttribute('role', 'dialog')");
+    expect(script).toContain("change.status !== 'ABANDONED'");
+    expect(script).toContain('changeId: change.id');
+    expect(styles).toContain('.business-change-modal-backdrop');
+    expect(styles).toContain('.business-change-modal-item');
+    expect(script).not.toContain('business-change-disclosure');
     expect(script).toContain('renderModuleWorkspace');
     expect(script).toContain('renderModuleDocumentPanel');
     expect(styles).toContain('.page > .module-workspace');
