@@ -5,6 +5,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import type { WorkspacePaths } from './paths.js';
 import { releaseArchiveIndexLock } from './archive-index-lock.js';
+import { withIndexLockMutation } from './index-lock-gate.js';
 
 interface JournalEntry {
   target: string;
@@ -144,12 +145,48 @@ async function installOwnedEntry(paths: WorkspacePaths, directory: string, entry
   return await readTarget(target) === desired && (preserved === null || await readTarget(displaced) === preserved);
 }
 
+/** Preserve original inodes indefinitely, including writes through handles
+ * opened before displacement and resumed after our final ownership check.
+ * No timeout or final read can prove those handles no longer exist. This
+ * diagnostic escrow is separate from business inputs and pending journals;
+ * normal recovery/archive never garbage-collects it.
+ */
+async function retainDisplacedInodes(paths: WorkspacePaths, directory: string, manifest: JournalManifest, committed: boolean): Promise<void> {
+  const escrow = path.join(paths.archive, '.recovery-escrow', manifest.transactionId);
+  const retained: Array<{ phase: string; target: string; file: string; expectedChecksum: string | null }> = [];
+  for (const [index, entry] of manifest.entries.entries()) {
+    for (const phase of ['installation', 'recovery']) {
+      const relative = `${phase}/${index}/displaced`;
+      const displaced = path.join(directory, relative);
+      const identity = await fs.stat(displaced).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!identity) continue;
+      const saved = path.join(escrow, relative);
+      await fs.mkdir(path.dirname(saved), { recursive: true });
+      if (!await linkWithoutReplacing(displaced, saved)) {
+        const existing = await fs.stat(saved);
+        if (existing.dev !== identity.dev || existing.ino !== identity.ino) throw new Error(`ARCHIVE CONFLICT: recovery escrow inode differs: ${saved}`);
+      }
+      retained.push({ phase, target: entry.target, file: relative, expectedChecksum: phase === 'installation' ? entry.beforeChecksum : committed ? entry.beforeChecksum : entry.afterChecksum });
+    }
+  }
+  if (retained.length) {
+    await writeDurable(path.join(escrow, 'manifest.yaml'), stringifyYaml({
+      version: 1, transactionId: manifest.transactionId, outcome: committed ? 'committed' : 'rolled-back',
+      cleanupPolicy: 'manual-only', reason: 'Displaced inodes may still receive author writes through previously opened handles.', retained,
+    }));
+  }
+}
+
 function assertManifest(value: unknown): JournalManifest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Archive journal is malformed');
   const manifest = value as Partial<JournalManifest>;
   if (manifest.version !== 1 || typeof manifest.transactionId !== 'string' || !Array.isArray(manifest.entries) || !Array.isArray(manifest.cleanupAfterCommit)) {
     throw new Error('Archive journal is malformed');
   }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(manifest.transactionId)) throw new Error('Archive journal transaction ID is invalid');
   for (const entry of manifest.entries) {
     if (!entry || typeof entry.target !== 'string'
       || ![null, 'string'].includes(entry.before === null ? null : typeof entry.before)
@@ -237,6 +274,7 @@ async function recoverJournal(paths: WorkspacePaths, directory: string, ownedTra
   for (const [index, entry] of manifest.entries.entries()) {
     if (!await installOwnedEntry(paths, directory, entry, index, committed ? 'commit' : 'rollback')) conflicts.push(entry.target);
   }
+  await retainDisplacedInodes(paths, directory, manifest, committed);
   for (const [index, entry] of manifest.entries.entries()) {
     const preserved = await readTarget(path.join(directory, 'recovery', String(index), 'displaced'));
     const installedBefore = await readTarget(path.join(directory, 'installation', String(index), 'displaced'));
@@ -270,7 +308,16 @@ export async function recoverPendingTransactions(paths: WorkspacePaths, ownedTra
   });
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory()) throw new Error(`Archive transaction entry must be a directory: ${entry.name}`);
-    await recoverJournal(paths, path.join(paths.transactions, entry.name), ownedTransactionId);
+    await withIndexLockMutation(paths, async () => {
+      const directory = path.join(paths.transactions, entry.name);
+      const pending = await fs.stat(directory).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      // Another completed recovery may have removed this journal since the
+      // initial listing. Never run two displacement passes concurrently.
+      if (pending) await recoverJournal(paths, directory, ownedTransactionId);
+    });
   }
   // Also covers interruption after lock publication but before the journal
   // was created, and after journal cleanup but before in-process finally.

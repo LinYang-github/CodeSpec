@@ -13,6 +13,10 @@ import type { WorkspacePaths } from '../../../src/core/codespec-workflow/paths.j
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
 import { acquireArchiveIndexLock, releaseArchiveIndexLock } from '../../../src/core/codespec-workflow/archive-index-lock.js';
+import { withChangeIndexLock } from '../../../src/core/codespec-workflow/change-index.js';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { parse, stringify } from 'yaml';
 
 const temporaryDirectories: string[] = [];
 
@@ -107,7 +111,7 @@ describe('archive transaction journal', () => {
     let edited = false;
     vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
       const handle = await originalOpen(...args);
-      if (!edited && String(args[0]) !== target) {
+      if (!edited && String(args[0]).startsWith(path.join(journal.directory, 'recovery'))) {
         edited = true;
         await fs.writeFile(target, 'author edit during rollback staging\n');
       }
@@ -123,6 +127,101 @@ describe('archive transaction journal', () => {
     await expect(recoverPendingTransactions(paths)).rejects.toThrow(/ARCHIVE CONFLICT/);
     expect(await fs.readFile(target, 'utf8')).toBe('author edit during rollback staging\n');
   });
+
+  it.each(['rolled-back', 'committed'])('retains the original open inode for writes after final recovery checks and journal cleanup (%s)', async (outcome) => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-open-handle-at-cleanup',
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    if (outcome === 'rolled-back') await fs.writeFile(target, 'after\n');
+    const author = await fs.open(target, 'r+');
+    const identity = await author.stat();
+    if (outcome === 'committed') { await installArchiveJournal(journal); await markArchiveJournalCommitted(journal); }
+    const originalRm = fs.rm;
+    let edited = false;
+    vi.spyOn(fs, 'rm').mockImplementation(async (...args) => {
+      if (String(args[0]) === journal.directory) {
+        edited = true;
+        await author.write('author write at cleanup\n', 0, 'utf8');
+        await author.truncate(Buffer.byteLength('author write at cleanup\n'));
+        await author.sync();
+      }
+      return originalRm(...args);
+    });
+    try {
+      await recoverPendingTransactions(paths);
+      expect(edited).toBe(true);
+      expect(await fs.readFile(target, 'utf8')).toBe(outcome === 'rolled-back' ? 'before\n' : 'after\n');
+      const escrow = path.join(paths.archive, '.recovery-escrow', journal.transactionId);
+      const phase = outcome === 'rolled-back' ? 'recovery' : 'installation';
+      const retained = path.join(escrow, phase, '0', 'displaced');
+      expect(await fs.readFile(retained, 'utf8').catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      })).toBe('author write at cleanup\n');
+      const savedIdentity = await fs.stat(retained);
+      expect([savedIdentity.dev, savedIdentity.ino]).toEqual([identity.dev, identity.ino]);
+      // A last-read/check delay is insufficient: the writer may resume even
+      // after recovery has returned and the ephemeral journal is gone.
+      await author.write('author write after recovery returned\n', 0, 'utf8');
+      await author.truncate(Buffer.byteLength('author write after recovery returned\n'));
+      await author.sync();
+      expect(await fs.readFile(retained, 'utf8')).toBe('author write after recovery returned\n');
+      expect(parse(await fs.readFile(path.join(escrow, 'manifest.yaml'), 'utf8'))).toMatchObject({
+        version: 1, transactionId: journal.transactionId, outcome, cleanupPolicy: 'manual-only',
+        retained: [{ phase, target: 'specs/MOD-001/spec.md', file: `${phase}/0/displaced` }],
+      });
+      await recoverPendingTransactions(paths);
+      expect(await fs.readFile(retained, 'utf8')).toBe('author write after recovery returned\n');
+      await expect(fs.access(journal.directory)).rejects.toThrow();
+    } finally { await author.close(); }
+  });
+
+  it('rejects an unsafe escrow transaction identity before recovering any bytes', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-invalid-escrow-identity', files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    await installArchiveJournal(journal);
+    const manifestPath = path.join(journal.directory, 'journal.yaml');
+    const manifest = parse(await fs.readFile(manifestPath, 'utf8'));
+    manifest.transactionId = '../../escaped-escrow';
+    await fs.writeFile(manifestPath, stringify(manifest));
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/journal.*invalid|malformed/i);
+    expect(await fs.readFile(target, 'utf8')).toBe('after\n');
+    await expect(fs.access(path.join(paths.codespecDir, 'escaped-escrow'))).rejects.toThrow();
+    await expect(fs.access(journal.directory)).resolves.toBeUndefined();
+  });
+
+  it('serializes simultaneous recovery of the same abandoned journal before either can displace files', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-parallel-recovery', files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    await fs.writeFile(target, 'after\n');
+    let reached!: () => void;
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => { reached = resolve; });
+    const resumed = new Promise<void>((resolve) => { resume = resolve; });
+    const originalRename = fs.rename;
+    let first = true;
+    vi.spyOn(fs, 'rename').mockImplementation(async (...args) => {
+      if (first && String(args[0]) === target) { first = false; reached(); await resumed; }
+      return originalRename(...args);
+    });
+    const firstRecovery = recoverPendingTransactions(paths).then(() => 'recovered', () => 'conflict');
+    try {
+      await paused;
+      const second = await recoverPendingTransactions(paths).then(() => 'recovered', () => 'busy');
+      resume();
+      expect(await firstRecovery).toBe('recovered');
+      expect(second).toBe('busy');
+      expect(await fs.readFile(target, 'utf8')).toBe('before\n');
+      expect(await fs.readFile(path.join(paths.archive, '.recovery-escrow', journal.transactionId, 'recovery', '0', 'displaced'), 'utf8')).toBe('after\n');
+      await expect(fs.access(journal.directory)).rejects.toThrow();
+    } finally { resume(); await firstRecovery; }
+  }, 10_000);
 
   it('preserves an author edit made while forward installation stages the new value', async () => {
     const { paths, target } = await setupTarget();
@@ -237,6 +336,7 @@ describe('archive transaction journal', () => {
     const originalOpen = fs.open;
     vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
       const handle = await originalOpen(...args);
+      if (!String(args[0]).startsWith(path.join(journal.directory, 'recovery'))) return handle;
       await handle.writeFile('partial stage');
       await handle.sync();
       await handle.close();
@@ -292,6 +392,52 @@ describe('archive transaction journal', () => {
     await expect(releaseArchiveIndexLock(paths, 'archive-old-index')).rejects.toThrow(/index lock ownership changed/);
     expect(await fs.readFile(lock, 'utf8')).toBe(replacement);
   });
+
+  it('serializes two stale recyclers with live reacquisition so a third workflow never enters the live lock', async () => {
+    const { paths } = await setupTarget();
+    await fs.mkdir(path.join(paths.archive, '.archive.lock'), { recursive: true });
+    await fs.mkdir(paths.changes, { recursive: true });
+    const child = spawn(process.execPath, ['-e', 'process.exit(0)']);
+    const deadPid = child.pid!;
+    await once(child, 'exit');
+    const lock = `${paths.changeIndex}.lock`;
+    await fs.writeFile(lock, JSON.stringify({ version: 1, kind: 'codespec-archive-index-lock', transactionId: 'archive-dead', pid: deadPid }));
+    let reached!: () => void;
+    let resume!: () => void;
+    const paused = new Promise<void>((resolve) => { reached = resolve; });
+    const resumed = new Promise<void>((resolve) => { resume = resolve; });
+    const originalRename = fs.rename;
+    let first = true;
+    let liveAcquired = false;
+    let thirdEntered = false;
+    vi.spyOn(fs, 'rename').mockImplementation(async (...args) => {
+      if (String(args[0]) !== lock || !first) return originalRename(...args);
+      first = false;
+      reached();
+      await resumed;
+      await originalRename(...args);
+      if (liveAcquired) {
+        await withChangeIndexLock(paths, async () => { thirdEntered = true; }).catch(() => undefined);
+      }
+    });
+    const slow = releaseArchiveIndexLock(paths).then(() => 'released', () => 'conflict');
+    try {
+      await paused;
+      const other = await releaseArchiveIndexLock(paths).then(() => 'released', () => 'busy');
+      if (other === 'released') {
+        await acquireArchiveIndexLock(paths, 'archive-live-reacquired');
+        liveAcquired = true;
+      }
+      resume();
+      await slow;
+      if (!liveAcquired) await acquireArchiveIndexLock(paths, 'archive-live-reacquired');
+      await releaseArchiveIndexLock(paths); // Retry observes the new live generation.
+      expect(thirdEntered).toBe(false);
+      expect(other).toBe('busy');
+      expect(JSON.parse(await fs.readFile(lock, 'utf8')).transactionId).toBe('archive-live-reacquired');
+      await releaseArchiveIndexLock(paths, 'archive-live-reacquired');
+    } finally { resume(); await slow; }
+  }, 10_000);
 
   it('finishes every target from staged bytes when recovery finds a durable commit marker', async () => {
     const { paths, target } = await setupTarget();

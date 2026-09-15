@@ -18,10 +18,77 @@ import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { createCurrentArchiveFixture, modification, requirement, writeCanonicalChange } from '../../helpers/current-archive.js';
 import { snapshotDirectory } from '../../helpers/fs-snapshot.js';
 import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
+import type { WorkspacePaths } from '../../../src/core/codespec-workflow/paths.js';
 
 // Keep real filesystem behavior while allowing a deterministic concurrent
 // write immediately after one read, before preflight captures its tree.
 vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof import('node:fs/promises')>() }));
+
+interface ExpectedEscrow {
+  transactionId: string;
+  retained: Array<{ phase: string; target: string; file: string; expectedChecksum: string; bytes: string }>;
+}
+
+async function expectedEscrowAtFailure(paths: WorkspacePaths): Promise<ExpectedEscrow> {
+  const pending = await fs.readdir(paths.transactions);
+  expect(pending).toHaveLength(1);
+  const manifest = parse(await fs.readFile(path.join(paths.transactions, pending[0], 'journal.yaml'), 'utf8'));
+  const retained: ExpectedEscrow['retained'] = [];
+  for (const [index, entry] of (manifest.entries as Array<{ target: string; before: string | null; after: string | null }>).entries()) {
+    const current = await fs.readFile(path.join(paths.codespecDir, entry.target), 'utf8').catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (entry.before === entry.after || current !== entry.after) continue;
+    for (const [phase, bytes] of [['installation', entry.before], ['recovery', entry.after]] as const) {
+      if (bytes !== null) retained.push({ phase, target: entry.target, file: `${phase}/${index}/displaced`, bytes,
+        expectedChecksum: `sha256:${createHash('sha256').update(bytes).digest('hex')}` });
+    }
+  }
+  return { transactionId: manifest.transactionId, retained };
+}
+
+/** Keep the complete old tree equality assertion, adding only the exact
+ * durable safety records that are now part of the approved rollback contract.
+ */
+async function expectRestoredWithSafetyRecords(paths: WorkspacePaths, before: Map<string, string>, escrow?: ExpectedEscrow): Promise<void> {
+  const expected = new Map(before);
+  const relative = (file: string) => path.relative(paths.codespecDir, file).split(path.sep).join('/');
+  const addFile = (file: string, content: string) => {
+    let directory = path.posix.dirname(file);
+    while (directory !== '.') { expected.set(`${directory}/`, ''); directory = path.posix.dirname(directory); }
+    expected.set(file, content);
+  };
+  const ledger = `${paths.changeIndex}.lock-ledger`;
+  const generations = escrow ? ['000000000001', '000000000002', '000000000003'] : ['000000000001', '000000000002'];
+  expect((await fs.readdir(ledger)).sort()).toEqual(generations.flatMap((generation) => [`${generation}.owner`, `${generation}.owner.released`]));
+  const tokens: string[] = [];
+  for (const generation of generations) {
+    const ownerPath = path.join(ledger, `${generation}.owner`);
+    const bytes = await fs.readFile(ownerPath, 'utf8');
+    const owner = JSON.parse(bytes);
+    expect(owner).toEqual({ version: 1, kind: 'codespec-index-lock-mutation', pid: process.pid, token: expect.stringMatching(/^[0-9a-f-]{36}$/u) });
+    tokens.push(owner.token);
+    expect(await fs.readFile(`${ownerPath}.released`, 'utf8')).toBe(bytes);
+    addFile(relative(ownerPath), bytes);
+    addFile(relative(`${ownerPath}.released`), bytes);
+  }
+  expect(new Set(tokens).size).toBe(generations.length);
+  if (escrow) {
+    const root = path.join(paths.archive, '.recovery-escrow');
+    expect(await fs.readdir(root)).toEqual([escrow.transactionId]);
+    const directory = path.join(root, escrow.transactionId);
+    const manifest = await fs.readFile(path.join(directory, 'manifest.yaml'), 'utf8');
+    expect(parse(manifest)).toEqual({
+      version: 1, transactionId: escrow.transactionId, outcome: 'rolled-back', cleanupPolicy: 'manual-only',
+      reason: 'Displaced inodes may still receive author writes through previously opened handles.',
+      retained: escrow.retained.map(({ bytes: _bytes, ...entry }) => entry),
+    });
+    addFile(relative(path.join(directory, 'manifest.yaml')), manifest);
+    for (const entry of escrow.retained) addFile(relative(path.join(directory, entry.file)), entry.bytes);
+  }
+  expect(snapshotDirectory(paths.codespecDir)).toEqual(expected);
+}
 
 describe('six-artifact canonical Requirement archive', () => {
   it.each(['after-index-lock', 'archived-change'])('recovers an interrupted child-process archive at %s and releases only its abandoned index lock before retry', async (boundary) => {
@@ -128,6 +195,13 @@ describe('six-artifact canonical Requirement archive', () => {
       expect(firstResult.archivedPath).toBe(path.join(fixture.paths.archivedChanges, fixture.changeId));
       const afterFirst = parseCurrentSpecification(await fs.readFile(currentPath, 'utf8'));
       expect(afterFirst.requirements[1]).toEqual(fixture.current.requirements[1]);
+      const escrowRoot = path.join(fixture.paths.archive, '.recovery-escrow');
+      const firstEscrow = path.join(escrowRoot, (await fs.readdir(escrowRoot))[0]);
+      const escrowManifest = parse(await fs.readFile(path.join(firstEscrow, 'manifest.yaml'), 'utf8'));
+      const savedCurrent = escrowManifest.retained.find((entry: { phase: string; target: string }) => entry.phase === 'installation' && entry.target === 'specs/MOD-002/spec.md');
+      const escrowFile = path.join(firstEscrow, savedCurrent.file);
+      const escrowAuthorBytes = 'Escrow author bytes must never become business inputs or be silently collected.\n';
+      await fs.writeFile(escrowFile, escrowAuthorBytes);
       const secondId = 'CHG-20260915-002';
       const second = await writeCanonicalChange(fixture, modification(afterFirst.requirements[0], requirement('MOD-002-REQ-001', ['A', 'B', 'C', 'E'])), secondId);
       expect(second.spec).not.toContain('MOD-002-REQ-002');
@@ -140,6 +214,8 @@ describe('six-artifact canonical Requirement archive', () => {
       expect(final.engineeringFiles[1]).toEqual(fixture.current.engineeringFiles[1]);
       expect(await fs.readFile(historic, 'utf8')).toBe(historicContent);
       expect(await fs.readFile(currentPath, 'utf8')).not.toContain('Archived prose');
+      expect(await fs.readFile(currentPath, 'utf8')).not.toContain('Escrow author bytes');
+      expect(await fs.readFile(escrowFile, 'utf8')).toBe(escrowAuthorBytes);
       expect(parse(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([]);
       for (const artifacts of [first, second]) {
         const archivedDir = path.join(fixture.paths.archivedChanges, artifacts.changeId);
@@ -182,15 +258,18 @@ describe('six-artifact canonical Requirement archive', () => {
       const workspace = await loadWorkspace(fixture.codespecDir);
       const before = snapshotDirectory(fixture.codespecDir);
       let sawMergedCurrent = false;
+      let expectedEscrow: ExpectedEscrow | undefined;
       __setArchiveTestHooksForTests({ beforeCommitStep: async (currentStep) => {
         if (currentStep === step) {
           sawMergedCurrent = (await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8')).includes('得到 C');
+          expectedEscrow = await expectedEscrowAtFailure(fixture.paths);
           throw new Error('injected canonical installation failure');
         }
       } });
       await expect(archiveChange(workspace, fixture.changeId)).rejects.toThrow(/injected canonical installation failure.*rolled back/);
       expect(sawMergedCurrent).toBe(true);
-      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+      expect(expectedEscrow).toBeDefined();
+      await expectRestoredWithSafetyRecords(fixture.paths, before, expectedEscrow);
     } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
   });
 
@@ -205,7 +284,7 @@ describe('six-artifact canonical Requirement archive', () => {
       await fs.writeFile(file, edited);
       const before = snapshotDirectory(fixture.codespecDir);
       await expect(commitArchive(prepared)).rejects.toThrow(/ARCHIVE CONFLICT|预检后.*变化/);
-      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+      await expectRestoredWithSafetyRecords(fixture.paths, before);
     } finally { fixture.cleanup(); }
   });
 

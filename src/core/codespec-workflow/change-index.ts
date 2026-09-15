@@ -5,19 +5,20 @@ import { parse as parseYaml } from 'yaml';
 import { parseChangeIndexEntry } from './schemas.js';
 import type { ChangeIndexEntry } from './types.js';
 import type { WorkspacePaths } from './paths.js';
+import { withIndexLockMutation } from './index-lock-gate.js';
 
 export async function withChangeIndexLock<T>(paths: WorkspacePaths, work: () => Promise<T>): Promise<T> {
   const lock = `${paths.changeIndex}.lock`;
   await fs.mkdir(path.dirname(lock), { recursive: true });
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    try { await fs.mkdir(lock); break; }
+    try { await withIndexLockMutation(paths, () => fs.mkdir(lock)); break; }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       await new Promise((resolve) => setTimeout(resolve, 10));
       if (attempt === 99) throw new Error('Change 索引正忙');
     }
   }
-  try { return await work(); } finally { await fs.rm(lock, { recursive: true, force: true }); }
+  try { return await work(); } finally { await withIndexLockMutation(paths, () => fs.rm(lock, { recursive: true, force: true })); }
 }
 
 export interface ChangeIndex {

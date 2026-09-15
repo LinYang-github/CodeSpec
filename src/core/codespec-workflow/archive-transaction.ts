@@ -404,7 +404,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
   const archivedPath = path.join(plan.workspace.paths.archivedChanges, plan.changeId);
   const backup = path.join(plan.workspace.paths.archive, `${token}-backup`);
   const lock = path.join(plan.workspace.paths.archive, '.archive.lock');
-  const indexLock = `${plan.workspace.paths.changeIndex}.lock`;
+  const transactionId = `archive-${plan.changeId}-legacy-${process.pid}-${Date.now()}`;
   const destinations = [
     ...[...specs.keys()].map((module) => path.join(plan.workspace.paths.currentSpecs, module)),
     archivedPath, plan.workspace.paths.changeIndex, plan.artifacts.changeDir,
@@ -418,7 +418,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
   let ownsIndexLock = false;
   try {
     await acquireArchiveLock(lock); ownsLock = true;
-    try { await fs.mkdir(indexLock); ownsIndexLock = true; } catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change 索引正忙'); throw error; }
+    await acquireArchiveIndexLock(plan.workspace.paths, transactionId); ownsIndexLock = true;
     const latestMetadata = await fs.readFile(path.join(plan.workspace.codespecDir, plan.artifacts.metadata.artifacts.metadata), 'utf8');
     const latestIndex = await fs.readFile(plan.workspace.paths.changeIndex, 'utf8');
     const latestCurrent = new Map<string, string>();
@@ -518,8 +518,8 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     throw new Error(`${error instanceof Error ? error.message : String(error)}${suffix}`);
   } finally {
     if (rollbackComplete || committed) { await fs.rm(stage, { recursive: true, force: true }).catch(() => undefined); await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined); }
-    if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined);
-    if (ownsIndexLock) await fs.rm(indexLock, { recursive: true, force: true }).catch(() => undefined);
+    try { if (ownsIndexLock) await releaseArchiveIndexLock(plan.workspace.paths, transactionId); }
+    finally { if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined); }
   }
 }
 
