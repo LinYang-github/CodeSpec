@@ -23,6 +23,23 @@ import {
 } from '../../helpers/codespec-workflow.js';
 
 describe('codespec workflow state machine', () => {
+  it('keeps proposal-based ANALYZE validation for an active spec-driven five-artifact Change', async () => {
+    const fixture = await createWorkflowFixture({ configOverrides: { schema: 'spec-driven' } });
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture, {
+      proposal: '# Proposal\n\n## Summary\n\nClarify payment feedback.\n\n## Goals\n\nMake failures understandable.\n\n## Scope\n\nOrder payment feedback.\n',
+      metadata: {
+        impact: { summary: 'Clarify payment feedback.' },
+        modules: { candidates: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'orders own payment feedback' }] },
+        gates: { analyze: { required: true, satisfied: true } },
+      },
+    });
+    const workspace = await loadWorkspace(fixture.codespecDir);
+    const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) => m.loadChangeArtifacts(workspace.paths, fixture.changeId));
+
+    expect(await validateExitGate(workspace, artifacts)).toMatchObject({ ok: true, errors: [] });
+  });
+
   it('computes ANALYZE completion from analysis content instead of a satisfied metadata flag', async () => {
     const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
     const analysisPath = path.join(fixture.paths.changes, fixture.changeId, 'analysis.yaml');

@@ -89,7 +89,7 @@ export async function validateAnalysisAgainstWorkspace(
   artifacts: ChangeArtifacts,
 ): Promise<string[]> {
   if (artifacts.analysis === null) {
-    return isActiveChange(workspace, artifacts)
+    return workspace.config.schema === 'code-spec' && isActiveChange(workspace, artifacts)
       ? ['analysis.yaml: active five-artifact Change must be migrated before ANALYZE can complete']
       : [];
   }
