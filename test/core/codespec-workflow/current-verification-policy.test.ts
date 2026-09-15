@@ -5,7 +5,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { validateCurrentVerificationPlan } from '../../../src/core/codespec-workflow/current-verification-policy.js';
 import { parseCurrentTasks, parseCurrentVerification } from '../../../src/core/codespec-workflow/current-change-yaml.js';
-import { appendLatestVerificationSummary, recordFreshVerification } from '../../../src/core/codespec-workflow/verification.js';
+import { appendLatestVerificationSummary, recordFreshVerification, verificationArtifactIdentity } from '../../../src/core/codespec-workflow/verification.js';
 import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/loaders.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
@@ -100,8 +100,10 @@ describe('current verification policy', () => {
       await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata));
       await fs.writeFile(path.join(changeDir, 'tasks.yaml'), stringifyYaml({
         version: 1,
+        changeRevision: 1,
         tasks: [{
           id: `${fixture.changeId}-TASK-01`, title: '新增用户', status: 'DONE',
+          acceptanceCriteria: ['AC-001'],
           requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'],
           testCases: ['MOD-002-REQ-001-SCN-001-TC-UI-01'], plannedFiles: ['e2e/users.spec.ts'],
           verificationPlan: {
@@ -116,6 +118,7 @@ describe('current verification policy', () => {
         changeRevision: 1,
         testCases: [{
           testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', result: 'PASS', testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
+          acceptanceCriteria: ['AC-001'],
           command: 'pnpm playwright test e2e/users.spec.ts', profile: 'test', services: ['users'], browser: 'chromium', exitCode: 0,
           gitRevision: '9ec4bf1', treeFingerprint: `sha256:${'0'.repeat(64)}`, executedAt: '2026-09-07T10:30:00+08:00',
           summary: '新用户出现在用户列表', cleanupSucceeded: true,
@@ -132,6 +135,13 @@ describe('current verification policy', () => {
       }));
 
       const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
+      const tasks = parseYaml(artifacts.tasks); const evidence = parseYaml(artifacts.verification);
+      tasks.tasks = [1, 2, 3].map((index) => {
+        const scenario = `MOD-002-REQ-001-SCN-00${index}`; const testCase = `${scenario}-TC-UI-01`;
+        return { ...tasks.tasks[0], id: `${fixture.changeId}-TASK-0${index}`, scenarios: [scenario], testCases: [testCase], verificationPlan: { ...tasks.tasks[0].verificationPlan, testCase } };
+      });
+      artifacts.tasks = stringifyYaml(tasks);
+      artifacts.verification = stringifyYaml({ ...evidence, artifactIdentity: verificationArtifactIdentity(artifacts), testCases: tasks.tasks.map((task: { testCases: string[] }) => ({ ...evidence.testCases[0], testCase: task.testCases[0] })) });
       expect((await validateExitGate(fixture.workspace, artifacts)).errors).toEqual([]);
     } finally {
       fixture.cleanup();

@@ -7,12 +7,32 @@ import {
   __setVerificationTestHooksForTests,
   parseVerificationDocument,
   recordFreshVerification,
+  renderVerificationMarkdown,
+  validateCurrentVerificationArtifacts,
 } from '../../../src/core/codespec-workflow/verification.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../../helpers/current-archive.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/loaders.js';
 import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 
 const passCommand = `node -e "process.stdout.write('ok')"`;
+
+it('records canonical AC evidence and renders its acceptance column', async () => {
+  const fixture = await createCurrentArchiveFixture();
+  try {
+    const artifacts = await writeCanonicalChange(fixture, modification());
+    const tasks = parseYaml(artifacts.tasks);
+    const evidence = await recordFreshVerification(fixture.workspace, fixture.changeId, tasks.tasks.flatMap((task: { verificationPlan: Array<{ testCase: string; command: string }> }) => task.verificationPlan));
+    expect(evidence.trace_rows).toHaveLength(3);
+    expect(evidence.trace_rows?.every((row) => row.acceptance_id === 'AC-001')).toBe(true);
+    expect(renderVerificationMarkdown(evidence)).toContain('| AC | Requirement |');
+    expect(renderVerificationMarkdown(evidence)).toContain('| `AC-001` | `MOD-002-REQ-001` |');
+    const updated = await loadChangeArtifacts(fixture.paths, fixture.changeId);
+    expect(await validateCurrentVerificationArtifacts(fixture.workspace, updated)).toEqual([]);
+    updated.design += '\n新的行为';
+    expect((await validateCurrentVerificationArtifacts(fixture.workspace, updated)).join('\n')).toMatch(/identity.*stale/);
+  } finally { fixture.cleanup(); }
+});
 
 async function setupVerifiableChange(
   fixture: Awaited<ReturnType<typeof createWorkflowFixture>>,

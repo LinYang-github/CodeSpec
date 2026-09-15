@@ -11,9 +11,10 @@ import { loadChangeArtifacts } from './loaders.js';
 import { parseDeltaSpec } from './delta-parser.js';
 import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from './archive-impact.js';
-import { validateTraceRows, type TraceRow } from './traceability.js';
+import { validateTraceRows, validateChangeTraceability, acceptanceCriteriaForTest, type TraceRow } from './traceability.js';
 import { parseConfiguration } from './current-spec-yaml.js';
-import { parseCurrentTasks, parseCurrentVerification, type CurrentVerification } from './current-change-yaml.js';
+import { parseCurrentTasks, parseCurrentVerification, projectCurrentSpecForPlanApproval, type CurrentVerification } from './current-change-yaml.js';
+import { parseAnalysisDocument, projectAnalysisForApproval } from './analysis.js';
 import { validateCurrentVerificationPlan } from './current-verification-policy.js';
 import { metadataForPersistence } from './metadata-persistence.js';
 import {
@@ -68,22 +69,49 @@ let hooks: VerificationHooks | null = null;
 export function __setVerificationTestHooksForTests(value: VerificationHooks | null): void { hooks = value; }
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export const verificationArtifactIdentity = (artifacts: Pick<ChangeArtifacts, 'proposal' | 'design' | 'spec' | 'tasks'>): string =>
-  hash({ proposal: artifacts.proposal, design: artifacts.design, spec: artifacts.spec, tasks: artifacts.tasks });
+export function verificationArtifactIdentity(artifacts: Pick<ChangeArtifacts, 'proposal' | 'design' | 'spec' | 'tasks'> & Partial<ChangeArtifacts>): string {
+  if (!artifacts.metadata?.artifacts.proposal && artifacts.analysis) {
+    const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+    return hash({ analysis: projectAnalysisForApproval(parseAnalysisDocument(parseYaml(artifacts.analysis))),
+      revision: artifacts.metadata?.change.revision,
+      design: artifacts.design.replace(/\r\n/gu, '\n').trimEnd(), spec: projectCurrentSpecForPlanApproval(artifacts.spec),
+      tasks: { ...tasks, tasks: tasks.tasks.map(({ status: _status, ...task }) => task) },
+    });
+  }
+  return hash({ proposal: artifacts.proposal, design: artifacts.design, spec: artifacts.spec, tasks: artifacts.tasks });
+}
+
+/** Shared semantic evidence gate for canonical VERIFY and archive consumers. */
+function validateCurrentVerificationContent(artifacts: ChangeArtifacts, warnings?: string[]): string[] {
+  const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+  const verification = parseCurrentVerification(parseYaml(artifacts.verification));
+  const errors: string[] = [];
+  let optionalEvidence: Set<string> | undefined;
+  if (artifacts.metadata.artifacts.analysis) {
+    const trace = validateChangeTraceability(artifacts, true);
+    errors.push(...trace.issues); warnings?.push(...trace.warnings ?? []);
+    if (verification.artifactIdentity !== verificationArtifactIdentity(artifacts)) errors.push('Verification artifact identity is stale; run fresh verification');
+    const analysis = parseAnalysisDocument(parseYaml(artifacts.analysis!));
+    const mustRequirements = new Set<string>(analysis.acceptanceCriteria.filter((ac) => ac.priority === 'MUST').flatMap((ac) => ac.requirements));
+    optionalEvidence = new Set(tasks.tasks.flatMap((task) => task.testCases).filter((id) => !mustRequirements.has(id.split('-SCN-')[0])));
+  }
+  errors.push(...validateCurrentVerificationPlan(tasks, verification, {
+    commit: artifacts.metadata.baseline.commit,
+    working_tree_fingerprint: artifacts.metadata.baseline.working_tree_fingerprint,
+    revision: artifacts.metadata.change.revision,
+  }, { optionalEvidence }));
+  return errors;
+}
 
 /** Validates the v1 execution record, its approved task plan, and runtime configuration snapshot. */
 export async function validateCurrentVerificationArtifacts(
   workspace: WorkspaceContext,
   artifacts: ChangeArtifacts,
+  warnings?: string[],
 ): Promise<string[]> {
   try {
     const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
-    const verification = parseCurrentVerification(parseYaml(artifacts.verification));
-    const errors = validateCurrentVerificationPlan(tasks, verification, {
-      commit: artifacts.metadata.baseline.commit,
-      working_tree_fingerprint: artifacts.metadata.baseline.working_tree_fingerprint,
-      revision: artifacts.metadata.change.revision,
-    });
+    const errors = validateCurrentVerificationContent(artifacts, warnings);
     try {
       const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
       for (const task of tasks.tasks) {
@@ -131,19 +159,20 @@ const verificationKindSchema = z.enum([
   'archive-regression', 'security', 'performance', 'migration',
 ]);
 const traceRowSchema = z.object({
+  acceptance_id: z.string().regex(/^AC-\d{3}$/u).optional(),
   requirement_id: z.string().regex(/^MOD-\d{3}-REQ-\d{3}$/u),
-  scenario_id: z.string().regex(/^SCN-\d{3}$/u),
+  scenario_id: z.string().regex(/^(?:MOD-\d{3}-REQ-\d{3}-)?SCN-\d{3}$/u),
   task_id: z.string().trim().min(1),
   test_id: z.string().trim().min(1),
   evidence_id: z.string().trim().min(1),
-  result: z.enum(['PASS', 'FAIL']),
+  result: z.enum(['PASS', 'FAIL', 'BLOCKED']),
   code_reference: z.string().trim().min(1).optional(),
 }).strict();
 const evidenceSchema = z.object({
   schema_version: z.literal(1), change_id: z.string().regex(/^CHG-\d{8}-\d{3}$/u),
   verified_at: z.string().datetime(), revision: z.number().int().positive(), status: z.enum(['PASS', 'FAIL']),
   requirement_ids: z.array(z.string().regex(/^MOD-\d{3}-REQ-\d{3}$/u)),
-  scenario_ids: z.array(z.string().regex(/^SCN-\d{3}$/u)),
+  scenario_ids: z.array(z.string().regex(/^(?:MOD-\d{3}-REQ-\d{3}-)?SCN-\d{3}$/u)),
   baseline_identity: z.string().regex(/^[a-f0-9]{64}$/u),
   receipt: z.string().regex(/^[a-f0-9]{64}$/u),
   artifact_identity: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
@@ -161,6 +190,7 @@ const evidenceSchema = z.object({
 export function validateVerificationEvidence(artifacts: ChangeArtifacts): string[] {
   const errors: string[] = [];
   try {
+    if (!artifacts.metadata.artifacts.proposal) return validateCurrentVerificationContent(artifacts);
     const evidence = parseVerificationDocument(artifacts.verification);
     const metadata = artifacts.metadata;
     if (evidence.change_id !== metadata.change.id || evidence.revision !== metadata.change.revision ||
@@ -218,8 +248,8 @@ export function renderVerificationMarkdown(evidence: VerificationEvidence): stri
     ? evidence.commands.map((command) => `| \`${markdownCell(markdownCode(command.command))}\` | ${command.kind} | ${command.exit_code} | ${markdownCell(command.output_summary) || '-'} | ${command.started_at} → ${command.finished_at} |`).join('\n')
     : '| - | - | - | - | - |';
   const traceRows = evidence.trace_rows?.length
-    ? evidence.trace_rows.map((row) => `| \`${markdownCell(row.requirement_id)}\` | \`${markdownCell(row.scenario_id)}\` | \`${markdownCell(row.task_id)}\` | \`${markdownCell(row.test_id)}\` | \`${markdownCell(row.evidence_id)}\` | ${row.result} | ${row.code_reference ? `\`${markdownCell(row.code_reference)}\`` : '-'} |`).join('\n')
-    : '| - | - | - | - | - | - |';
+    ? evidence.trace_rows.map((row) => `| ${row.acceptance_id ? `\`${markdownCell(row.acceptance_id)}\`` : '-'} | \`${markdownCell(row.requirement_id)}\` | \`${markdownCell(row.scenario_id)}\` | \`${markdownCell(row.task_id)}\` | \`${markdownCell(row.test_id)}\` | \`${markdownCell(row.evidence_id)}\` | ${row.result} | ${row.code_reference ? `\`${markdownCell(row.code_reference)}\`` : '-'} |`).join('\n')
+    : '| - | - | - | - | - | - | - | - |';
   const allCommandsPassed = evidence.commands.length > 0 && evidence.commands.every((command) => command.exit_code === 0);
   const inapplicable = Object.entries(evidence.not_applicable ?? {});
   const passed = evidence.status === 'PASS';
@@ -259,8 +289,8 @@ export function renderVerificationMarkdown(evidence: VerificationEvidence): stri
     '',
     '## 追踪矩阵',
     '',
-    '| Requirement | Scenario | Task | Test | Evidence | Result | Code reference |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| AC | Requirement | Scenario | Task | Test | Evidence | Result | Code reference |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
     traceRows,
     ...(inapplicable.length ? [
       '', '## 不适用的验证类别', '',
@@ -390,7 +420,12 @@ async function recordFreshCurrentVerification(
 ): Promise<VerificationEvidence> {
   const metadata = structuredClone(artifacts.metadata);
   const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
-  const plans = tasks.tasks.flatMap((task) => task.verificationPlan);
+  const artifactIdentity = verificationArtifactIdentity(artifacts);
+  if (metadata.artifacts.analysis) {
+    const issues = validateChangeTraceability(artifacts).issues;
+    if (issues.length) throw new Error(issues.join('; '));
+  }
+  const plans = [...new Map(tasks.tasks.flatMap((task) => task.verificationPlan).map((plan) => [plan.testCase, plan])).values()];
   if (!plans.length) throw new Error('当前 Change 没有可执行的 verificationPlan。');
 
   const supplied = new Map<string, VerificationCommand>();
@@ -411,6 +446,7 @@ async function recordFreshCurrentVerification(
     const result = await runVerificationCommand(command.command, path.dirname(workspace.codespecDir));
     const record = {
       testCase: plan.testCase,
+      ...(metadata.artifacts.analysis ? { acceptanceCriteria: acceptanceCriteriaForTest(tasks, parseAnalysisDocument(parseYaml(artifacts.analysis!)), plan.testCase) } : {}),
       result: result.status === 0 ? 'PASS' : 'FAIL',
       testFile: command.testFile ?? tasks.tasks.find((task) => task.verificationPlan.some((candidate) => candidate.testCase === plan.testCase))?.plannedFiles[0] ?? 'unknown',
       testId: command.testId ?? plan.testCase,
@@ -429,8 +465,12 @@ async function recordFreshCurrentVerification(
     if (result.status !== 0) failed = true;
   }
 
-  const parsedVerification = parseCurrentVerification({ version: 1, testCases: records });
-  const nextVerification = stringifyYaml({ version: 1, changeRevision: metadata.change.revision, testCases: parsedVerification.testCases });
+  const latestArtifacts = await loadChangeArtifacts(workspace.paths, artifacts.changeId);
+  if (verificationArtifactIdentity(latestArtifacts) !== artifactIdentity || JSON.stringify(latestArtifacts.metadata) !== JSON.stringify(artifacts.metadata) || latestArtifacts.verification !== artifacts.verification) {
+    throw new Error('验证期间 Change 产物或 revision/baseline 发生变化，请重新验证');
+  }
+  const parsedVerification = parseCurrentVerification({ version: 1, changeRevision: metadata.change.revision, ...(metadata.artifacts.analysis ? { artifactIdentity } : {}), testCases: records });
+  const nextVerification = stringifyYaml(parsedVerification);
   const errors = await validateCurrentVerificationArtifacts(workspace, { ...artifacts, verification: nextVerification });
   if (errors.length) throw new Error(`当前规格验证未通过：${errors.join('; ')}`);
 
@@ -470,6 +510,7 @@ async function recordFreshCurrentVerification(
     scenario_ids: [...new Set(tasks.tasks.flatMap((task) => task.scenarios))].sort(),
     baseline_identity: baselineFingerprint,
     receipt: hash(parsedVerification),
+    ...(metadata.artifacts.analysis ? { artifact_identity: artifactIdentity, trace_rows: validateChangeTraceability({ ...artifacts, verification: nextVerification }, true).traceRows } : {}),
     commands: parsedVerification.testCases.map((record) => ({
       command: record.command,
       kind: 'requirements' as const,

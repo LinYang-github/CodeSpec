@@ -160,6 +160,7 @@ describe('six-artifact canonical Requirement archive', () => {
       const command = `node -e "console.log('fresh UI run')"`;
       artifacts.tasks = stringify({ version: 1, changeRevision: 1, tasks: [{
         id: `${fixture.changeId}-TASK-01`, title: 'UI 验证', status: 'DONE',
+        acceptanceCriteria: ['AC-001'],
         requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'], testCases: [testCase], plannedFiles: ['src/one.ts'],
         verificationPlan: [{ testCase, runner: 'node', command, startup: 'node -e "setInterval(() => {}, 1000)"', browser: 'chromium', profile: 'test', services: [], prepare: 'node -e "process.exit(0)"', cleanup: 'node -e "process.exit(0)"' }],
       }], moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] } });
@@ -167,6 +168,12 @@ describe('six-artifact canonical Requirement archive', () => {
         testCase, result: 'PASS', testFile: 'src/one.ts', testId: testCase, command, profile: 'test', services: [], browser: 'chromium', exitCode: 0,
         gitRevision: '0000000', treeFingerprint: artifacts.metadata.baseline.working_tree_fingerprint, executedAt: '2026-09-15T00:00:00.000Z', summary: 'old execution', cleanupSucceeded: true,
       }] });
+      const uiTasks = parse(artifacts.tasks);
+      uiTasks.tasks = [1, 2, 3].map((index) => {
+        const scenario = `MOD-002-REQ-001-SCN-00${index}`; const id = `${scenario}-TC-UI-01`;
+        return { ...uiTasks.tasks[0], id: `${fixture.changeId}-TASK-0${index}`, scenarios: [scenario], testCases: [id], verificationPlan: [{ ...uiTasks.tasks[0].verificationPlan[0], testCase: id }] };
+      });
+      artifacts.tasks = stringify(uiTasks);
       artifacts.metadata = approveStage(artifacts, 'plan');
       await fs.writeFile(fixture.paths.configuration, stringify({ version: 1, profiles: [{ id: 'test', services: [] }] }));
       await fs.writeFile(path.join(artifacts.changeDir, 'tasks.yaml'), artifacts.tasks);
@@ -375,6 +382,8 @@ describe('six-artifact canonical Requirement archive', () => {
       tasks.moduleRegistrations.upsert = [{ id: 'MOD-003', name: '通知' }];
       artifacts.tasks = stringify(tasks);
       artifacts.metadata = approveStage(artifacts, 'plan');
+      artifacts.verification = stringify({ ...parse(artifacts.verification), artifactIdentity: verificationArtifactIdentity(artifacts) });
+      await fs.writeFile(path.join(artifacts.changeDir, 'verification.yaml'), artifacts.verification);
       await fs.writeFile(path.join(artifacts.changeDir, 'tasks.yaml'), artifacts.tasks);
       await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
       await archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId);

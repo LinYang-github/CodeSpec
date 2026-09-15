@@ -60,7 +60,7 @@ function validateSddLevel(artifacts: ChangeArtifacts): string[] {
 }
 
 async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtifacts, state: ChangeStatus): Promise<GateResult> {
-  const m = artifacts.metadata; const errors: string[] = [];
+  const m = artifacts.metadata; const errors: string[] = []; const warnings: string[] = [];
   const isCurrentChange = !m.artifacts?.proposal;
   if (!isCurrentChange) errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
@@ -103,7 +103,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
     if (isCurrentChange
       ? currentTasks?.tasks.some((task) => !task.title.trim())
       : Object.values(m.tasks.items).some((item) => !item.title?.trim() || item.status === 'BLOCKED')) errors.push('任务图包含无效或被阻塞的任务');
-    if (!isCurrentChange) {
+    if (!isCurrentChange || m.artifacts.analysis) {
       try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
     }
   }
@@ -113,7 +113,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   }
   if (state === 'VERIFY') {
     if (m.gates.verify.required && !m.gates.verify.satisfied) errors.push('VERIFY 门禁尚未满足');
-    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts));
+    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
     else {
       if (!m.verification.requirements_verified) errors.push('缺少 Requirement 验证证据');
       if (!m.verification.tests_passed) errors.push('缺少测试验证证据');
@@ -126,7 +126,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   if (state === 'ARCHIVE') {
     if (m.gates.archive.required && !m.gates.archive.satisfied) errors.push('ARCHIVE 门禁尚未满足');
     if (m.archive.conflict) errors.push('archive conflict 必须为 false');
-    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts));
+    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
     else {
       if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) errors.push('必须提供最新的 Requirement、测试、构建和 lint 证据');
       try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
@@ -143,7 +143,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
     }
     catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
   }
-  return result(errors);
+  return { ok: !errors.length, errors, warnings };
 }
 
 export async function validateExitGate(workspace: WorkspaceContext, artifacts: ChangeArtifacts, target?: ChangeStatus): Promise<GateResult> {
@@ -164,5 +164,5 @@ export async function validateEntryGate(workspace: WorkspaceContext, artifacts: 
   // preceding state's exit gate, so validating them here would make entry
   // circular (tasks/evidence are produced after entry).
   const entering = target === 'PLAN' ? await validateState(workspace, artifacts, target) : result([]);
-  return result([...current.errors, ...entering.errors]);
+  return { ...result([...current.errors, ...entering.errors]), warnings: [...current.warnings, ...entering.warnings] };
 }

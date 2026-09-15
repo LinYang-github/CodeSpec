@@ -7,6 +7,9 @@ import type { ChangeArtifacts } from './artifacts.js';
 import type { WorkspaceContext } from './loaders.js';
 import { parseConfiguration } from './current-spec-yaml.js';
 import { parseCurrentTasks, parseCurrentVerification, type CurrentTasks, type CurrentVerification } from './current-change-yaml.js';
+import { verificationArtifactIdentity } from './verification.js';
+import { parseAnalysisDocument } from './analysis.js';
+import { acceptanceCriteriaForTest } from './traceability.js';
 
 const READY_TIMEOUT_MS = 30_000;
 const READY_POLL_MS = 250;
@@ -174,6 +177,7 @@ export async function runUiArchiveGate(
     const executedAt = new Date().toISOString();
     records.push({
       testCase: plan.testCase,
+      ...(artifacts.metadata.artifacts.analysis ? { acceptanceCriteria: acceptanceCriteriaForTest(tasks, parseAnalysisDocument(parseYaml(artifacts.analysis!)), plan.testCase) } : {}),
       result: failed ? 'FAIL' : 'PASS',
       testFile: tasks.tasks.find((task) => task.verificationPlan.some((candidate) => candidate.testCase === plan.testCase))?.plannedFiles[0] ?? 'unknown',
       testId: plan.testCase,
@@ -195,6 +199,7 @@ export async function runUiArchiveGate(
   }
 
   if (firstFailure) throw firstFailure;
-  const verification = parseCurrentVerification({ version: 1, changeRevision: artifacts.metadata.change.revision, testCases: records });
+  const verification = parseCurrentVerification({ version: 1, changeRevision: artifacts.metadata.change.revision,
+    ...(artifacts.metadata.artifacts.analysis ? { artifactIdentity: verificationArtifactIdentity(artifacts) } : {}), testCases: records });
   return { passed: true, verification, outputSummary: output.join('\n').slice(0, 4000) };
 }

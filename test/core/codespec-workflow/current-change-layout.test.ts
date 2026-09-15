@@ -17,6 +17,6 @@ describe('current Change artifact layout', () => {
       verification: '/workspace/codespec/changes/CHG-20260907-001/verification.yaml',
     });
     expect(renderInitialCurrentTasks()).toContain('moduleRegistrations:');
-    expect(renderInitialCurrentVerification()).toBe('version: 1\ntestCases: []\n');
+    expect(renderInitialCurrentVerification()).toBe('version: 1\nchangeRevision: 1\ntestCases: []\n');
   });
 });

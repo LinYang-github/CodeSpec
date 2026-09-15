@@ -23,6 +23,7 @@ export function getCurrentChangeArtifactPaths(changeDirectory: string): CurrentC
 export function renderInitialCurrentTasks(): string {
   return [
     'version: 1',
+    'changeRevision: 1',
     'tasks: []',
     'moduleDeltas: []',
     'moduleRegistrations:',
@@ -33,5 +34,5 @@ export function renderInitialCurrentTasks(): string {
 }
 
 export function renderInitialCurrentVerification(): string {
-  return 'version: 1\ntestCases: []\n';
+  return 'version: 1\nchangeRevision: 1\ntestCases: []\n';
 }

@@ -9,13 +9,18 @@ import type { ChangeArtifacts } from '../../src/core/codespec-workflow/artifacts
 import { parseCurrentSpecDelta, renderCurrentSpecDelta, type CurrentSpecDeltaDocument } from '../../src/core/codespec-workflow/current-spec-delta.js';
 import { renderCurrentSpecification, type CurrentSpecRequirement, type CurrentSpecification } from '../../src/core/codespec-workflow/current-spec-model.js';
 import { createWorkflowFixture, type WorkflowFixture } from './codespec-workflow.js';
+import { verificationArtifactIdentity } from '../../src/core/codespec-workflow/verification.js';
 
 export function requirement(id = 'MOD-002-REQ-001', states = ['A', 'B']): CurrentSpecRequirement {
   return {
     id, title: `支持 ${states.join('+')}`,
     scenarios: states.map((state, index) => ({
       id: `${id}-SCN-${String(index + 1).padStart(3, '0')}`, title: state,
-      given: ['就绪'], when: [`执行 ${state}`], then: [`得到 ${state}`], error: ['失败时提示重试'], testCases: [],
+      given: ['就绪'], when: [`执行 ${state}`], then: [`得到 ${state}`], error: ['失败时提示重试'], testCases: [{
+        id: `${id}-SCN-${String(index + 1).padStart(3, '0')}-TC-UI-01`, title: `验证 ${state}`, type: 'UI',
+        automationTest: id === 'MOD-002-REQ-002' ? 'src/two.ts' : 'src/one.ts', testId: `state-${index}`, latestVerification: '待验证',
+        steps: [{ number: '1', action: `执行 ${state}`, expected: `得到 ${state}` }],
+      }],
     })),
   };
 }
@@ -25,8 +30,8 @@ export function currentSpecification(): CurrentSpecification {
     title: '当前用户管理', module: 'MOD-002', version: '1',
     requirements: [requirement(), requirement('MOD-002-REQ-002', ['D'])],
     engineeringFiles: [
-      { path: 'src/one.ts', role: '原始作用', references: ['MOD-002-REQ-001'] },
-      { path: 'src/two.ts', role: '无关实现', references: ['MOD-002-REQ-002'] },
+      { path: 'src/one.ts', role: '原始作用', references: ['MOD-002-REQ-001', ...requirement().scenarios.flatMap((scenario) => scenario.testCases.map((test) => test.id))] },
+      { path: 'src/two.ts', role: '无关实现', references: ['MOD-002-REQ-002', ...requirement('MOD-002-REQ-002', ['D']).scenarios.flatMap((scenario) => scenario.testCases.map((test) => test.id))] },
     ],
   };
 }
@@ -35,11 +40,19 @@ export function modification(current = requirement(), next = requirement('MOD-00
   return {
     title: '只改变一个需求', module: 'MOD-002', version: 1,
     requirements: [{ action: 'MODIFIED', module: 'MOD-002', id: current.id, previous: current, next, reason: '本次请求' }],
-    engineeringFiles: [{ path: 'src/one.ts', module: 'MOD-002', change: '修改', role: '本次实现', references: [current.id] }],
+    engineeringFiles: [{ path: 'src/one.ts', module: 'MOD-002', change: '修改', role: '本次实现', references: [current.id, ...next.scenarios.flatMap((scenario) => scenario.testCases.map((test) => test.id))] }],
   };
 }
 
 export async function writeCanonicalChange(fixture: WorkflowFixture, delta: CurrentSpecDeltaDocument, changeId = fixture.changeId): Promise<ChangeArtifacts> {
+  for (const entry of delta.requirements) for (const scenario of entry.next?.scenarios ?? []) for (const test of scenario.testCases) {
+    let file = delta.engineeringFiles.find((candidate) => candidate.path === test.automationTest);
+    if (!file) {
+      file = { path: test.automationTest, module: entry.module, change: '新增', role: '验收测试', references: [entry.id] };
+      delta.engineeringFiles.push(file);
+    }
+    if (!file.references.includes(test.id)) file.references.push(test.id);
+  }
   const changeDir = path.join(fixture.paths.changes, changeId);
   await fs.mkdir(changeDir, { recursive: true });
   let metadata = fixture.metadataAt('ARCHIVE');
@@ -64,6 +77,17 @@ export async function writeCanonicalChange(fixture: WorkflowFixture, delta: Curr
     tasks: stringify({ version: 1, changeRevision: 1, tasks: [], moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] } }),
     verification: stringify({ version: 1, changeRevision: 1, testCases: [] }),
   };
+  const tasks = delta.requirements.flatMap((entry) => (entry.next ?? entry.previous!).scenarios.map((scenario) => ({
+    id: '', title: `实现 ${scenario.title}`, status: 'DONE', acceptanceCriteria: ['AC-001'], requirements: [entry.id], scenarios: [scenario.id], testCases: scenario.testCases.map((test) => test.id), plannedFiles: ['src/one.ts'],
+    verificationPlan: scenario.testCases.map((test) => ({ testCase: test.id, runner: 'node', command: 'node -e "process.exit(0)"', profile: 'test', services: [], prepare: 'none', cleanup: 'none' })),
+  }))).map((task, index) => ({ ...task, id: `${changeId}-TASK-${String(index + 1).padStart(2, '0')}` }));
+  artifacts.tasks = stringify({ version: 1, changeRevision: 1, tasks, moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] } });
+  artifacts.verification = stringify({ version: 1, changeRevision: 1, artifactIdentity: verificationArtifactIdentity(artifacts), testCases: tasks.flatMap((task) => task.verificationPlan.map((plan) => ({
+    testCase: plan.testCase, acceptanceCriteria: ['AC-001'], result: 'PASS', testFile: 'src/one.ts', testId: plan.testCase,
+    command: plan.command, profile: 'test', services: [], browser: 'not-applicable', exitCode: 0, gitRevision: metadata.baseline.commit ?? '0000000', treeFingerprint: metadata.baseline.working_tree_fingerprint,
+    executedAt: '2026-09-15T00:00:00Z', summary: '通过', cleanupSucceeded: true,
+  }))) });
+  await fs.writeFile(fixture.paths.configuration, stringify({ version: 1, profiles: [{ id: 'test', services: [] }] }));
   // Parse the fixture at its public artifact boundary before issuing receipts.
   parseCurrentSpecDelta(artifacts.spec);
   for (const stage of ['analyze', 'design', 'plan'] as const) {

@@ -254,7 +254,8 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
       designApproved: m.approvals?.design.status === 'approved' && m.approvals.design.revision === m.change.revision,
       planApproved: m.approvals?.plan.status === 'approved' && m.approvals.plan.revision === m.change.revision,
       taskStatuses: tasks.tasks.map((task) => task.status),
-      verificationErrors: validateCurrentVerificationPlan(tasks, verification, {
+      // Six-artifact evidence is validated once by the shared AC-aware preflight below.
+      verificationErrors: m.artifacts.analysis ? [] : validateCurrentVerificationPlan(tasks, verification, {
         commit: m.baseline.commit,
         working_tree_fingerprint: m.baseline.working_tree_fingerprint,
         revision: m.change.revision,

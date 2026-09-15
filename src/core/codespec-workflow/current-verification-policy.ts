@@ -9,8 +9,10 @@ export function validateCurrentVerificationPlan(
   tasks: CurrentTasks,
   verification: CurrentVerification,
   baseline?: { commit: string | null; working_tree_fingerprint: string; revision?: number },
+  options: { optionalEvidence?: ReadonlySet<string> } = {},
 ): string[] {
-  const errors = validateCurrentVerificationTraceability(tasks, verification);
+  const requiredTasks = options.optionalEvidence ? { ...tasks, tasks: tasks.tasks.map((task) => ({ ...task, verificationPlan: task.verificationPlan.filter((plan) => !options.optionalEvidence!.has(plan.testCase) || verification.testCases.some((record) => record.testCase === plan.testCase)) })) } : tasks;
+  const errors = validateCurrentVerificationTraceability(requiredTasks, verification);
   if (baseline?.revision !== undefined && tasks.tasks.length > 0 && verification.changeRevision !== baseline.revision) {
     errors.push(`Verification Change revision differs (expected ${baseline.revision})`);
   }
@@ -19,7 +21,7 @@ export function validateCurrentVerificationPlan(
     for (const plan of task.verificationPlan) {
       const record = executed.get(plan.testCase);
       if (!record) {
-        errors.push(`Missing verification record for ${plan.testCase}`);
+        if (!options.optionalEvidence?.has(plan.testCase)) errors.push(`Missing verification record for ${plan.testCase}`);
         continue;
       }
       if (record.command !== plan.command) errors.push(`Verification command differs for ${plan.testCase}`);

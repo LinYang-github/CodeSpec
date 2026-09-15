@@ -10,6 +10,7 @@ const requirementId = z.string().regex(/^MOD-\d{3}-REQ-\d{3}$/u);
 const scenarioId = z.string().regex(/^MOD-\d{3}-REQ-\d{3}-SCN-\d{3}$/u);
 const testCaseId = z.string().regex(/^MOD-\d{3}-REQ-\d{3}-SCN-\d{3}-TC-[A-Z]+-\d{2}$/u);
 const nonEmpty = z.string().min(1);
+const acceptanceIds = z.array(z.string().regex(/^AC-\d{3}$/u)).min(1).refine((ids) => new Set(ids).size === ids.length, 'duplicate acceptance criterion ID');
 const repositoryRelativePath = nonEmpty.refine(
   (value) => !value.includes('\0') && !value.includes('\\') && !value.startsWith('/') && !/^[A-Za-z]:[\\/]/u.test(value) &&
     !value.split(/[\\/]+/u).includes('..'),
@@ -32,6 +33,7 @@ const taskSchema = z.object({
   id: z.string().regex(/^CHG-\d{8}-\d{3}-TASK-\d{2,3}$/u),
   title: nonEmpty,
   status: z.enum(['PENDING', 'IN_PROGRESS', 'DONE']),
+  acceptanceCriteria: acceptanceIds.optional(),
   module: moduleId.optional(),
   requirements: z.array(requirementId).min(1),
   scenarios: z.array(scenarioId).min(1),
@@ -101,6 +103,10 @@ const currentTasksSchema = z.object({
   };
 
   addUnique(document.tasks.map((task) => task.id), ['tasks'], 'task ID');
+  for (const [index, task] of document.tasks.entries()) {
+    for (const field of ['requirements', 'scenarios', 'testCases'] as const) addUnique(task[field], ['tasks', index, field], field);
+    addUnique(task.verificationPlan.map((plan) => plan.testCase), ['tasks', index, 'verificationPlan'], 'verification plan test ID');
+  }
 
   const relationIds: string[] = [];
   const configurationKeys: string[] = [];
@@ -125,9 +131,10 @@ const currentTasksSchema = z.object({
 });
 
 const verificationCaseSchema = z.object({
+  acceptanceCriteria: acceptanceIds.optional(),
   testCase: testCaseId.optional(),
   id: testCaseId.optional(),
-  result: z.enum(['PASS', 'FAIL', 'SKIPPED']).default('PASS'),
+  result: z.enum(['PASS', 'FAIL', 'BLOCKED', 'SKIPPED']).default('PASS'),
   testFile: nonEmpty,
   testId: nonEmpty,
   command: nonEmpty,
@@ -161,8 +168,15 @@ const verificationCaseSchema = z.object({
 const currentVerificationSchema = z.object({
   version: z.literal(1),
   changeRevision: z.number().int().positive().optional(),
+  artifactIdentity: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   testCases: z.array(verificationCaseSchema),
-}).strict();
+}).strict().superRefine((document, context) => {
+  const ids = new Set<string>();
+  for (const [index, record] of document.testCases.entries()) {
+    if (ids.has(record.testCase)) context.addIssue({ code: 'custom', path: ['testCases', index], message: 'duplicate verification test case ID' });
+    ids.add(record.testCase);
+  }
+});
 
 export type CurrentTasks = z.infer<typeof currentTasksSchema>;
 export type CurrentVerification = z.infer<typeof currentVerificationSchema>;

@@ -12,6 +12,13 @@ import {
 } from '../../helpers/codespec-workflow.js';
 
 describe('traceability', () => {
+  it('rejects duplicate and unknown evidence rows while retaining historical rows without AC', () => {
+    const row = { requirement_id: 'MOD-002-REQ-001', scenario_id: 'SCN-001', task_id: 'SP-1', test_id: 'test/a.test.ts', evidence_id: 'E-1', result: 'PASS' as const };
+    const requirements = [{ requirementId: row.requirement_id, scenarioIds: ['SCN-001'] }];
+    expect(validateTraceRows([row], requirements)).toEqual([]);
+    expect(validateTraceRows([row, row], requirements).join('\n')).toMatch(/duplicate/i);
+    expect(validateTraceRows([row, { ...row, scenario_id: 'SCN-099' }], requirements).join('\n')).toMatch(/unknown/i);
+  });
   it('traces relation requirements and scenarios through the current specification graph', () => {
     const relation = {
       id: 'REL-CHG-20260907-001-01',

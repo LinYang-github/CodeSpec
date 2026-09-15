@@ -32,6 +32,14 @@ const tasks = {
 };
 
 describe('current Change YAML contracts', () => {
+  it('accepts AC references and rejects duplicate trace references', () => {
+    const canonical = { ...tasks, changeRevision: 1, tasks: [{ ...tasks.tasks[0], acceptanceCriteria: ['AC-001'] }] };
+    expect(parseCurrentTasks(canonical).tasks[0].acceptanceCriteria).toEqual(['AC-001']);
+    for (const field of ['acceptanceCriteria', 'requirements', 'scenarios', 'testCases'] as const) {
+      const task = canonical.tasks[0];
+      expect(() => parseCurrentTasks({ ...canonical, tasks: [{ ...task, [field]: [task[field][0], task[field][0]] }] })).toThrow(/duplicate/i);
+    }
+  });
   it('exposes tasks.yaml through the document contract alias', () => {
     expect(parseTasksDocument(tasks)).toEqual(parseCurrentTasks(tasks));
   });
