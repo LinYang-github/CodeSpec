@@ -17,6 +17,7 @@ import { withChangeIndexLock } from '../../../src/core/codespec-workflow/change-
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { parse, stringify } from 'yaml';
+import { ensureCliBuilt } from '../../helpers/run-cli.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -53,6 +54,74 @@ describe('archive transaction journal', () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     await Promise.all(temporaryDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
+  });
+
+  it.each([false, true])('recovers a journal published after its empty snapshot before releasing the dead owner (committed=%s)', async (committed) => {
+    const { paths, target } = await setupTarget();
+    await ensureCliBuilt();
+    await fs.mkdir(paths.changes, { recursive: true });
+    await fs.mkdir(paths.transactions, { recursive: true });
+    const transactionId = `migrate-snapshot-race-${committed ? 'committed' : 'pending'}`;
+    const directory = path.join(paths.transactions, transactionId);
+    const lock = `${paths.changeIndex}.lock`;
+    const child = spawn(process.execPath, ['--input-type=module', '-e', `
+      import { acquireTransactionIndexLock } from ${JSON.stringify(new URL('../../../dist/core/codespec-workflow/archive-index-lock.js', import.meta.url).href)};
+      import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted } from ${JSON.stringify(new URL('../../../dist/core/codespec-workflow/transaction-journal.js', import.meta.url).href)};
+      const paths = ${JSON.stringify(paths)};
+      await acquireTransactionIndexLock(paths, ${JSON.stringify(transactionId)});
+      process.send('locked');
+      await new Promise((resolve) => process.once('message', resolve));
+      const journal = await createArchiveJournal({ paths, transactionId: ${JSON.stringify(transactionId)}, ownerPid: process.pid,
+        files: [{ target: ${JSON.stringify(target)}, before: 'before\\n', after: 'after\\n' }],
+      });
+      await installArchiveJournal(journal);
+      if (${committed}) await markArchiveJournalCommitted(journal);
+      process.exit(77);
+    `], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    let stderr = '';
+    child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+    const exited = once(child, 'exit');
+    const timeout = setTimeout(() => child.kill('SIGKILL'), 10_000);
+    try {
+      const locked = await Promise.race([once(child, 'message'), exited.then(() => { throw new Error(`Child exited before owner publication: ${stderr}`); })]);
+      expect(locked[0]).toBe('locked');
+      // Take the old empty snapshot first, then deliberately allow the real
+      // owner to publish and install its journal before returning that snapshot.
+      const readdir = fs.readdir;
+      let snapshotTaken = false;
+      vi.spyOn(fs, 'readdir').mockImplementation(async (...args) => {
+        const entries = await readdir(...args);
+        if (String(args[0]) === paths.transactions && !snapshotTaken) {
+          snapshotTaken = true;
+          expect(entries).toEqual([]);
+          child.send('publish-and-crash');
+          expect((await exited)[0], stderr).toBe(77);
+          expect(await fs.readFile(target, 'utf8')).toBe('after\n');
+          await expect(fs.access(directory)).resolves.toBeUndefined();
+        }
+        return entries;
+      });
+      // Observe the actual release syscall. The journal must already be
+      // reconciled before the index lock is removed, even within its gate.
+      const rename = fs.rename;
+      let releasedAfterRecovery = false;
+      vi.spyOn(fs, 'rename').mockImplementation(async (...args) => {
+        if (String(args[0]) === lock) {
+          expect(await fs.readFile(target, 'utf8')).toBe(committed ? 'after\n' : 'before\n');
+          await expect(fs.access(directory)).rejects.toThrow();
+          releasedAfterRecovery = true;
+        }
+        return rename(...args);
+      });
+      await recoverPendingTransactions(paths);
+      expect(releasedAfterRecovery).toBe(true);
+      await expect(fs.access(directory)).rejects.toThrow();
+      await expect(fs.access(lock)).rejects.toThrow();
+      await withChangeIndexLock(paths, async () => {
+        expect(await fs.readFile(target, 'utf8')).toBe(committed ? 'after\n' : 'before\n');
+        await expect(fs.access(directory)).rejects.toThrow();
+      });
+    } finally { clearTimeout(timeout); if (child.exitCode === null) child.kill('SIGKILL'); await exited; }
   });
 
   it('restores every target to its pre-archive bytes when recovery finds no commit marker', async () => {

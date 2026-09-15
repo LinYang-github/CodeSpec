@@ -71,8 +71,14 @@ export const acquireArchiveIndexLock = acquireTransactionIndexLock;
 
 /** Release our exact lock, or a recognized archive lock whose owner died.
  * Preserve anything that replaced the inspected lock instead of deleting it.
+ * beforeRelease runs under the generation gate, after fresh owner validation.
+ * It must not acquire that gate recursively.
  */
-export async function releaseTransactionIndexLock(paths: WorkspacePaths, ownedTransactionId?: string): Promise<void> {
+export async function releaseTransactionIndexLock(
+  paths: WorkspacePaths,
+  ownedTransactionId?: string,
+  beforeRelease?: (transactionId: string) => Promise<void>,
+): Promise<void> {
   const lock = `${paths.changeIndex}.lock`;
   const releasable = (value: Awaited<ReturnType<typeof readOwner>>) => value !== null && (ownedTransactionId === undefined
     ? !processAlive(value.owner.pid)
@@ -83,6 +89,7 @@ export async function releaseTransactionIndexLock(paths: WorkspacePaths, ownedTr
   return withIndexLockMutation(paths, async () => {
     const existing = await readOwner(lock);
     if (!existing || !releasable(existing)) return;
+    await beforeRelease?.(existing.owner.transactionId);
 
     const displaced = `${lock}.recovery-${randomUUID()}`;
     try { await fs.rename(lock, displaced); }

@@ -319,7 +319,17 @@ export async function recoverPendingTransactions(paths: WorkspacePaths, ownedTra
       if (pending) await recoverJournal(paths, directory, ownedTransactionId);
     });
   }
-  // Also covers interruption after lock publication but before the journal
-  // was created, and after journal cleanup but before in-process finally.
-  await releaseArchiveIndexLock(paths);
+  // The initial directory snapshot may predate the owner's journal. Once
+  // that owner is proven dead under the generation gate, its journal set
+  // cannot grow. Recheck its exact transaction before releasing the index
+  // to another writer. Call the ungated recovery primitive here so recovery
+  // and release share one gate without recursively acquiring it.
+  await releaseArchiveIndexLock(paths, undefined, async (transactionId) => {
+    const directory = path.join(paths.transactions, transactionId);
+    const pending = await fs.stat(directory).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    if (pending) await recoverJournal(paths, directory, ownedTransactionId);
+  });
 }
