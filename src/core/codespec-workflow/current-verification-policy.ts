@@ -1,4 +1,5 @@
 import type { CurrentTasks, CurrentVerification } from './current-change-yaml.js';
+import { mergeCurrentVerificationPlans } from './current-change-yaml.js';
 import { validateCurrentVerificationTraceability } from './traceability.js';
 
 function sameValues(left: string[], right: string[]): boolean {
@@ -13,6 +14,8 @@ export function validateCurrentVerificationPlan(
 ): string[] {
   const requiredTasks = options.optionalEvidence ? { ...tasks, tasks: tasks.tasks.map((task) => ({ ...task, verificationPlan: task.verificationPlan.filter((plan) => !options.optionalEvidence!.has(plan.testCase) || verification.testCases.some((record) => record.testCase === plan.testCase)) })) } : tasks;
   const errors = validateCurrentVerificationTraceability(requiredTasks, verification);
+  try { mergeCurrentVerificationPlans(tasks); }
+  catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
   if (baseline?.revision !== undefined && tasks.tasks.length > 0 && verification.changeRevision !== baseline.revision) {
     errors.push(`Verification Change revision differs (expected ${baseline.revision})`);
   }

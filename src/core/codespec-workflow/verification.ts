@@ -13,7 +13,7 @@ import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from './archive-impact.js';
 import { validateTraceRows, validateChangeTraceability, acceptanceCriteriaForTest, type TraceRow } from './traceability.js';
 import { parseConfiguration } from './current-spec-yaml.js';
-import { parseCurrentTasks, parseCurrentVerification, projectCurrentSpecForPlanApproval, type CurrentVerification } from './current-change-yaml.js';
+import { parseCurrentTasks, parseCurrentVerification, mergeCurrentVerificationPlans, projectCurrentSpecForPlanApproval, type CurrentVerification } from './current-change-yaml.js';
 import { parseAnalysisDocument, projectAnalysisForApproval } from './analysis.js';
 import { validateCurrentVerificationPlan } from './current-verification-policy.js';
 import { metadataForPersistence } from './metadata-persistence.js';
@@ -425,7 +425,7 @@ async function recordFreshCurrentVerification(
     const issues = validateChangeTraceability(artifacts).issues;
     if (issues.length) throw new Error(issues.join('; '));
   }
-  const plans = [...new Map(tasks.tasks.flatMap((task) => task.verificationPlan).map((plan) => [plan.testCase, plan])).values()];
+  const plans = mergeCurrentVerificationPlans(tasks);
   if (!plans.length) throw new Error('当前 Change 没有可执行的 verificationPlan。');
 
   const supplied = new Map<string, VerificationCommand>();

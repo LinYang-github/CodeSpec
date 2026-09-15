@@ -6,7 +6,7 @@ import { parse as parseYaml } from 'yaml';
 import type { ChangeArtifacts } from './artifacts.js';
 import type { WorkspaceContext } from './loaders.js';
 import { parseConfiguration } from './current-spec-yaml.js';
-import { parseCurrentTasks, parseCurrentVerification, type CurrentTasks, type CurrentVerification } from './current-change-yaml.js';
+import { parseCurrentTasks, parseCurrentVerification, mergeCurrentVerificationPlans, type CurrentTasks, type CurrentVerification } from './current-change-yaml.js';
 import { verificationArtifactIdentity } from './verification.js';
 import { parseAnalysisDocument } from './analysis.js';
 import { acceptanceCriteriaForTest } from './traceability.js';
@@ -121,7 +121,7 @@ async function waitForConfiguredServices(workspace: WorkspaceContext, tasks: Cur
 }
 
 function requireUiPlans(tasks: CurrentTasks): CurrentTasks['tasks'][number]['verificationPlan'] {
-  const plans = tasks.tasks.flatMap((task) => task.verificationPlan);
+  const plans = mergeCurrentVerificationPlans(tasks);
   if (!plans.length) throw new Error('UI Change 没有 verificationPlan。');
   for (const plan of plans) {
     if (!plan.startup) throw new Error(`UI 验证计划缺少 startup：${plan.testCase}`);

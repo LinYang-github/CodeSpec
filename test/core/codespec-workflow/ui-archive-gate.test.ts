@@ -1,10 +1,34 @@
 import { describe, expect, it, vi } from 'vitest';
-import { stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import * as fs from 'node:fs/promises';
+import path from 'node:path';
 
 import { runUiArchiveGate } from '../../../src/core/codespec-workflow/ui-archive-gate.js';
 import type { ChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
 import type { WorkspaceContext } from '../../../src/core/codespec-workflow/loaders.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../../helpers/current-archive.js';
+import { recordFreshVerification } from '../../../src/core/codespec-workflow/verification.js';
+import { validateChangeTraceability } from '../../../src/core/codespec-workflow/traceability.js';
+
+async function sharedPlansFixture(conflicting = false) {
+  const fixture = await createCurrentArchiveFixture();
+  const artifacts = await writeCanonicalChange(fixture, modification());
+  artifacts.metadata.impact.affected_areas = ['ui'];
+  const analysis = parseYaml(artifacts.analysis!);
+  analysis.acceptanceCriteria.push({ ...analysis.acceptanceCriteria[0], id: 'AC-002' });
+  artifacts.analysis = stringifyYaml(analysis);
+  const tasks = parseYaml(artifacts.tasks);
+  for (const task of tasks.tasks) Object.assign(task.verificationPlan[0], {
+    startup: 'start', browser: 'chromium', command: `node -e "require('node:fs').appendFileSync('executions.txt', 'x')"`,
+  });
+  const duplicates = tasks.tasks.map((task: Record<string, unknown>, index: number) => ({ ...structuredClone(task), id: `${fixture.changeId}-TASK-0${index + 4}`, acceptanceCriteria: ['AC-002'] }));
+  tasks.tasks.push(...duplicates);
+  if (conflicting) tasks.tasks[3].verificationPlan[0].prepare = 'different preparation';
+  artifacts.tasks = stringifyYaml(tasks);
+  for (const key of ['metadata', 'analysis', 'tasks'] as const) await fs.writeFile(path.join(artifacts.changeDir, `${key}.yaml`), key === 'metadata' ? stringifyYaml(artifacts.metadata) : artifacts[key]!);
+  return { fixture, artifacts, tasks };
+}
 
 function artifactsFor(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, tasks: unknown): ChangeArtifacts {
   const metadata = fixture.metadataAt('ARCHIVE');
@@ -56,6 +80,44 @@ function workspaceFor(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>
 }
 
 describe('UI archive gate', () => {
+  it.each(['UI', 'ordinary'])('executes consistent shared test plans once and preserves both AC/task chains: %s', async (runner) => {
+    const { fixture, artifacts, tasks } = await sharedPlansFixture();
+    try {
+      expect(validateChangeTraceability(artifacts).issues).toEqual([]);
+      if (runner === 'UI') {
+        const executed: string[] = [];
+        const gate = await runUiArchiveGate(fixture.workspace, artifacts, {
+          runCommand: async (command) => { executed.push(command); return { status: 0, output: 'ok' }; },
+          startServer: async () => ({ stop: async () => {} }), waitForReady: async () => {},
+        });
+        expect(executed.filter((command) => command.includes('appendFileSync'))).toHaveLength(3);
+        expect(gate.verification.testCases).toHaveLength(3);
+        expect(gate.verification.testCases.every((record) => record.acceptanceCriteria?.join(',') === 'AC-001,AC-002')).toBe(true);
+        const trace = validateChangeTraceability({ ...artifacts, verification: stringifyYaml(gate.verification) }, true);
+        expect(trace.issues).toEqual([]);
+        expect(new Set(trace.traceRows?.map((row) => row.task_id)).size).toBe(6);
+      } else {
+        const evidence = await recordFreshVerification(fixture.workspace, fixture.changeId, tasks.tasks.slice(0, 3).flatMap((task: { verificationPlan: Array<{ testCase: string; command: string }> }) => task.verificationPlan));
+        expect(await fs.readFile(path.join(fixture.tempDir, 'executions.txt'), 'utf8')).toBe('xxx');
+        expect(new Set(evidence.trace_rows?.map((row) => row.task_id)).size).toBe(6);
+        expect(new Set(evidence.trace_rows?.map((row) => row.acceptance_id))).toEqual(new Set(['AC-001', 'AC-002']));
+      }
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(['UI', 'ordinary'])('rejects conflicting shared definitions before executing any command: %s', async (runner) => {
+    const { fixture, artifacts, tasks } = await sharedPlansFixture(true);
+    const executed: string[] = [];
+    try {
+      const promise = runner === 'UI' ? runUiArchiveGate(fixture.workspace, artifacts, {
+        runCommand: async (command) => { executed.push(command); return { status: 0, output: 'ok' }; },
+        startServer: async () => ({ stop: async () => {} }), waitForReady: async () => {},
+      }) : recordFreshVerification(fixture.workspace, fixture.changeId, tasks.tasks.slice(0, 3).flatMap((task: { verificationPlan: Array<{ testCase: string; command: string }> }) => task.verificationPlan));
+      await expect(promise).rejects.toThrow(/conflicting verification plan.*MOD-002-REQ-001-SCN-001-TC-UI-01/i);
+      expect(executed).toEqual([]);
+      await expect(fs.access(path.join(fixture.tempDir, 'executions.txt'))).rejects.toThrow();
+    } finally { fixture.cleanup(); }
+  });
   it('runs prepare, startup, readiness, browser E2E, and cleanup in order', async () => {
     const fixture = await createWorkflowFixture();
     try {

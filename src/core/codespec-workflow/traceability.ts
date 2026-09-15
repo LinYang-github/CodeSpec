@@ -6,7 +6,7 @@ import type { CurrentSpecGraph } from './current-spec-graph.js';
 import { parseCurrentSpecification, type CurrentSpecification } from './current-spec-model.js';
 import type { WorkspacePaths } from './paths.js';
 import type { CurrentTasks, CurrentVerification } from './current-change-yaml.js';
-import { parseCurrentTasks, parseCurrentVerification } from './current-change-yaml.js';
+import { parseCurrentTasks, parseCurrentVerification, mergeCurrentVerificationPlans } from './current-change-yaml.js';
 import { parse as parseYaml } from 'yaml';
 import { parseAnalysisDocument } from './analysis.js';
 import type { AnalysisDocument } from './analysis.js';
@@ -94,6 +94,8 @@ function validateAcceptanceTraceability(artifacts: ChangeArtifacts, requireEvide
   const analysis = parseAnalysisDocument(parseYaml(artifacts.analysis ?? ''));
   const delta = parseCurrentSpecDelta(artifacts.spec);
   const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+  try { mergeCurrentVerificationPlans(tasks); }
+  catch (error) { issues.push(error instanceof Error ? error.message : String(error)); }
   const verification = requireEvidence ? parseCurrentVerification(parseYaml(artifacts.verification)) : undefined;
   const revision = artifacts.metadata.change.revision;
   if (analysis.change !== artifacts.changeId || analysis.revision !== revision) issues.push('analysis Change revision differs');

@@ -5,6 +5,7 @@ import {
   parseTasksDocument,
   parseCurrentTasks,
   parseCurrentVerification,
+  mergeCurrentVerificationPlans,
 } from '../../../src/core/codespec-workflow/current-change-yaml.js';
 
 const tasks = {
@@ -32,6 +33,20 @@ const tasks = {
 };
 
 describe('current Change YAML contracts', () => {
+  it('merges shared plans with reordered services without mutating task definitions', () => {
+    const first = { ...tasks.tasks[0], verificationPlan: { ...tasks.tasks[0].verificationPlan, services: ['users', 'auth'] } };
+    const second = { ...first, id: 'CHG-20260907-001-TASK-02', verificationPlan: { ...first.verificationPlan, services: ['auth', 'users'] } };
+    const parsed = parseCurrentTasks({ ...tasks, tasks: [first, second] });
+    const merged = mergeCurrentVerificationPlans(parsed);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].services).toEqual(['auth', 'users']);
+    expect(parsed.tasks[0].verificationPlan[0].services).toEqual(['users', 'auth']);
+  });
+
+  it.each(['runner', 'command', 'startup', 'profile', 'services', 'browser', 'prepare', 'cleanup'])('rejects conflicting shared plan field %s', (field) => {
+    const second = { ...tasks.tasks[0], id: 'CHG-20260907-001-TASK-02', verificationPlan: { ...tasks.tasks[0].verificationPlan, [field]: field === 'services' ? ['different-service'] : 'different-definition' } };
+    expect(() => mergeCurrentVerificationPlans(parseCurrentTasks({ ...tasks, tasks: [tasks.tasks[0], second] }))).toThrow(/Conflicting verification plan.*MOD-002-REQ-001-SCN-001-TC-UI-01/);
+  });
   it('accepts AC references and rejects duplicate trace references', () => {
     const canonical = { ...tasks, changeRevision: 1, tasks: [{ ...tasks.tasks[0], acceptanceCriteria: ['AC-001'] }] };
     expect(parseCurrentTasks(canonical).tasks[0].acceptanceCriteria).toEqual(['AC-001']);

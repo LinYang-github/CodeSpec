@@ -181,6 +181,23 @@ const currentVerificationSchema = z.object({
 export type CurrentTasks = z.infer<typeof currentTasksSchema>;
 export type CurrentVerification = z.infer<typeof currentVerificationSchema>;
 
+/** Normalize one executable plan per Test Case while retaining the original task graph for traceability. */
+export function mergeCurrentVerificationPlans(tasks: CurrentTasks): CurrentTasks['tasks'][number]['verificationPlan'] {
+  const merged = new Map<string, z.infer<typeof verificationPlanSchema>>();
+  for (const task of tasks.tasks) {
+    for (const definition of task.verificationPlan) {
+      const plan = verificationPlanSchema.parse(definition);
+      plan.services = [...plan.services].sort();
+      const previous = merged.get(plan.testCase);
+      if (previous && JSON.stringify(previous) !== JSON.stringify(plan)) {
+        throw new Error(`Conflicting verification plan for ${plan.testCase}: all shared definitions must agree`);
+      }
+      if (!previous) merged.set(plan.testCase, plan);
+    }
+  }
+  return [...merged.values()];
+}
+
 export function parseCurrentTasks(value: unknown): CurrentTasks {
   return currentTasksSchema.parse(value);
 }
