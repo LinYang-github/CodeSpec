@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseChangeMetadata } from './schemas.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 import type { BusinessModuleId, ChangeId, ChangeMetadata } from './types.js';
 
 export interface RequirementWorkspace { paths: { currentSpecs: string; changes: string } }
@@ -74,7 +75,7 @@ async function allocate(workspace: RequirementWorkspace, targetId: ChangeId | un
       target.requirements.added.push(...ids.map((id) => ({ id: id as `${BusinessModuleId}-REQ-${string}`, module: moduleId })));
       const metadataPath = path.join(workspace.paths.changes, target.change.id, 'metadata.yaml');
       const temporary = `${metadataPath}.${process.pid}.tmp`;
-      await fs.writeFile(temporary, stringifyYaml(target));
+      await fs.writeFile(temporary, stringifyYaml(metadataForPersistence(target)));
       await fs.rename(temporary, metadataPath);
     }
     return ids;

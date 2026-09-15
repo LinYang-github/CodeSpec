@@ -98,8 +98,9 @@ describe('traceability', () => {
       for (const changeId of [fixture.changeId, second.changeId]) {
         const metadata = parseYaml(
           await fs.readFile(path.join(fixture.paths.changes, changeId, 'metadata.yaml'), 'utf8')
-        ) as { requirements: { added: Array<{ id: string }> } };
+        ) as { requirements: { added: Array<{ id: string }> }; approvals: Record<string, unknown> };
         expect(metadata.requirements.added).toHaveLength(1);
+        expect(metadata.approvals).not.toHaveProperty('analyze');
       }
       await expect(fs.access(path.join(fixture.paths.changes, 'reservations.txt'))).rejects.toMatchObject({
         code: 'ENOENT',
