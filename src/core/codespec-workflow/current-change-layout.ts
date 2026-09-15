@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 export interface CurrentChangeArtifactPaths {
+  analysis: string;
   metadata: string;
   design: string;
   spec: string;
@@ -10,6 +11,7 @@ export interface CurrentChangeArtifactPaths {
 
 export function getCurrentChangeArtifactPaths(changeDirectory: string): CurrentChangeArtifactPaths {
   return {
+    analysis: path.join(changeDirectory, 'analysis.yaml'),
     metadata: path.join(changeDirectory, 'metadata.yaml'),
     design: path.join(changeDirectory, 'design.md'),
     spec: path.join(changeDirectory, 'spec.md'),

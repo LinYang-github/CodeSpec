@@ -7,8 +7,9 @@ import {
 } from '../../../src/core/codespec-workflow/current-change-layout.js';
 
 describe('current Change artifact layout', () => {
-  it('defines only the five active Change artifacts', () => {
+  it('defines all six active Change artifacts', () => {
     expect(getCurrentChangeArtifactPaths('/workspace/codespec/changes/CHG-20260907-001')).toEqual({
+      analysis: '/workspace/codespec/changes/CHG-20260907-001/analysis.yaml',
       metadata: '/workspace/codespec/changes/CHG-20260907-001/metadata.yaml',
       design: '/workspace/codespec/changes/CHG-20260907-001/design.md',
       spec: '/workspace/codespec/changes/CHG-20260907-001/spec.md',

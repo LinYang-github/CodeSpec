@@ -128,6 +128,20 @@ describe('codespec workflow contracts', () => {
     expect(metadata.impact.affected_areas).toEqual(['auth/login']);
   });
 
+  it('preserves missing analysis paths for historical five-artifact metadata', () => {
+    const historical = parseChangeMetadata(validMetadata());
+    const sixArtifact = parseChangeMetadata({
+      ...validMetadata(),
+      artifacts: {
+        ...validMetadata().artifacts,
+        analysis: 'changes/CHG-20260901-001/analysis.yaml',
+      },
+    });
+
+    expect(historical.artifacts.analysis).toBeUndefined();
+    expect(sixArtifact.artifacts.analysis).toBe('changes/CHG-20260901-001/analysis.yaml');
+  });
+
   it('accepts the canonical workspace config and resolves configured paths', async () => {
     const fixture = await createWorkflowFixture();
     const { paths, workspace } = fixture;

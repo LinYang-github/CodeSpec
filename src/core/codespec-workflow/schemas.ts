@@ -282,6 +282,7 @@ const changeMetadataSchema = z
       .strict(),
     artifacts: z
       .object({
+        analysis: relativePathString.optional(),
         metadata: relativePathString,
         proposal: relativePathString.optional(),
         design: relativePathString.optional(),

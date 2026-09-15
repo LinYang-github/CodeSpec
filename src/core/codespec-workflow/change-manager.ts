@@ -8,6 +8,7 @@ import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
 import { resolveChange, type ChangeSelector } from './change-resolver.js';
 import type { ChangeId, ChangeMetadata, ChangeMode, ChangeStatus, SddLevel } from './types.js';
 import { createPendingApprovals } from './approvals.js';
+import { renderInitialAnalysis } from './analysis.js';
 import { getCurrentChangeArtifactPaths, renderInitialCurrentTasks, renderInitialCurrentVerification } from './current-change-layout.js';
 import { captureRepositoryBaseline } from './baseline.js';
 
@@ -133,6 +134,7 @@ async function buildMetadata(
       removed: [],
     },
     artifacts: {
+      analysis: buildArtifactPath(workspace.codespecDir, artifacts.analysis),
       metadata: buildArtifactPath(workspace.codespecDir, artifacts.metadata),
       design: buildArtifactPath(workspace.codespecDir, artifacts.design),
       spec: buildArtifactPath(workspace.codespecDir, artifacts.spec),
@@ -251,6 +253,11 @@ ${metadata.change.sdd_level === 3
   try {
     await fs.mkdir(stagingDir, { recursive: false });
     await Promise.all([
+      fs.writeFile(path.join(stagingDir, 'analysis.yaml'), renderInitialAnalysis({
+        changeId,
+        revision: metadata.change.revision,
+        problem: input.summary.trim() || input.title,
+      })),
       fs.writeFile(path.join(stagingDir, 'metadata.yaml'), stringifyYaml(metadata)),
       fs.writeFile(path.join(stagingDir, 'design.md'), design),
       fs.writeFile(path.join(stagingDir, 'spec.md'), metadata.change.sdd_level === 1 ? levelOneSpec : '# Spec\n'),

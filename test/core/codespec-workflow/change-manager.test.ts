@@ -5,6 +5,7 @@ import { parse as parseYaml } from 'yaml';
 
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
+import { parseAnalysisDocument } from '../../../src/core/codespec-workflow/analysis.js';
 import {
   __setChangeManagerTestHooksForTests,
   allocateChangeId,
@@ -51,7 +52,7 @@ describe('codespec workflow change management', () => {
     await expect(allocateChangeId(fixture.paths, '20260901')).resolves.toBe('CHG-20260901-003');
   });
 
-  it('creates a canonical Change with metadata, artifacts, and navigation index entry', async () => {
+  it('atomically creates exactly six declared canonical artifacts with a draft analysis', async () => {
     vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'));
     afterEach(() => vi.useRealTimers());
     const { fixture, workspace } = await loadCanonicalWorkspace();
@@ -67,14 +68,35 @@ describe('codespec workflow change management', () => {
       isDirectory: expect.any(Function),
     });
 
+    const changeDir = path.join(fixture.paths.changes, created.changeId);
     const metadata = parseYaml(
       await fs.readFile(path.join(fixture.paths.changes, created.changeId, 'metadata.yaml'), 'utf8')
-    ) as { change: { status: string; title: string }; baseline: { commit: string | null; working_tree_fingerprint: string } };
+    ) as {
+      change: { status: string; title: string; revision: number };
+      baseline: { commit: string | null; working_tree_fingerprint: string };
+      artifacts: { analysis?: string };
+    };
     expect(metadata.change.status).toBe('ANALYZE');
     expect(metadata.change.title).toBe('Continue orders');
+    expect(metadata.artifacts.analysis).toMatch(/analysis\.yaml$/);
     expect(metadata.baseline.commit).toSatisfy((value: unknown) => value === null || (typeof value === 'string' && /^[0-9a-f]{7,64}$/u.test(value)));
     expect(metadata.baseline.working_tree_fingerprint).toMatch(/^sha256:[a-f0-9]{64}$/u);
+    expect((await fs.readdir(changeDir)).sort()).toEqual([
+      'analysis.yaml',
+      'design.md',
+      'metadata.yaml',
+      'spec.md',
+      'tasks.yaml',
+      'verification.yaml',
+    ]);
+    const analysis = parseAnalysisDocument(parseYaml(await fs.readFile(path.join(changeDir, 'analysis.yaml'), 'utf8')));
+    expect(analysis).toMatchObject({
+      change: created.changeId,
+      revision: metadata.change.revision,
+      problem: 'Resume order flow in the canonical workflow',
+    });
     await expect(loadChangeArtifacts(fixture.paths, created.changeId)).resolves.toMatchObject({
+      analysis: expect.any(String),
       proposal: '',
       tasks: expect.stringContaining('moduleRegistrations:'),
       verification: expect.stringContaining('testCases: []'),
@@ -92,7 +114,7 @@ describe('codespec workflow change management', () => {
     });
   });
 
-  it('creates the five current Change artifacts for every SDD level', async () => {
+  it('creates the six current Change artifacts for every SDD level', async () => {
     const { fixture, workspace } = await loadCanonicalWorkspace();
 
     const created = await createCanonicalChange(workspace, {
@@ -105,13 +127,15 @@ describe('codespec workflow change management', () => {
     const changeDir = path.join(fixture.paths.changes, created.changeId);
     const metadata = parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf8')) as {
       change: { sdd_level: number };
-      artifacts: { proposal?: string; design?: string; tasks: string; verification: string };
+      artifacts: { analysis?: string; proposal?: string; design?: string; tasks: string; verification: string };
     };
     expect(metadata.change.sdd_level).toBe(1);
+    expect(metadata.artifacts.analysis).toMatch(/analysis\.yaml$/);
     expect(metadata.artifacts.proposal).toBeUndefined();
     expect(metadata.artifacts.tasks).toMatch(/tasks\.yaml$/);
     expect(metadata.artifacts.verification).toMatch(/verification\.yaml$/);
     await expect(fs.readFile(path.join(changeDir, 'design.md'), 'utf8')).resolves.toBeTruthy();
+    await expect(fs.readFile(path.join(changeDir, 'analysis.yaml'), 'utf8')).resolves.toContain('problem: A focused Level 1 change');
     await expect(fs.readFile(path.join(changeDir, 'tasks.yaml'), 'utf8')).resolves.toContain('moduleRegistrations:');
     await expect(fs.readFile(path.join(changeDir, 'verification.yaml'), 'utf8')).resolves.toContain('testCases: []');
     await expect(fs.stat(path.join(changeDir, 'proposal.md'))).rejects.toMatchObject({ code: 'ENOENT' });

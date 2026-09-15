@@ -186,6 +186,8 @@ export interface ChangeMetadata {
     removed: RequirementRef[];
   };
   artifacts: {
+    /** Optional only so historical five-artifact Changes remain readable. */
+    analysis?: string;
     metadata: string;
     proposal?: string;
     design?: string;

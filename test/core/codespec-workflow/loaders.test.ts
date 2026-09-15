@@ -1,6 +1,7 @@
 import path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { afterEach, describe, expect, it } from 'vitest';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import {
   loadBusinessRegistry,
@@ -11,6 +12,7 @@ import { EmptyBusinessRegistryError } from '../../../src/core/codespec-workflow/
 import { loadCurrentSpecGraph } from '../../../src/core/codespec-workflow/business-registry.js';
 import { parseWorkspaceConfig } from '../../../src/core/codespec-workflow/schemas.js';
 import { listActiveChanges } from '../../../src/core/codespec-workflow/change-resolver.js';
+import { createCanonicalChange } from '../../../src/core/codespec-workflow/change-manager.js';
 import {
   createWorkflowFixture,
   writeBusinessFile,
@@ -251,11 +253,55 @@ describe('codespec workflow loaders', () => {
     const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
 
     expect(artifacts.metadata.change.id).toBe(fixture.changeId);
+    expect(artifacts.analysis).toBeNull();
     expect(artifacts.proposal).toContain('# Proposal');
     expect(artifacts.design).toContain('# Design');
     expect(artifacts.spec).toContain('# Spec');
     expect(artifacts.tasks).toContain('# Tasks');
     expect(artifacts.verification).toContain('# Verification');
+  });
+
+  it('loads a non-empty analysis from a newly scaffolded six-artifact Change', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    const workspace = await loadWorkspace(fixture.codespecDir);
+    const created = await createCanonicalChange(workspace, {
+      title: 'Clarify payment recovery',
+      summary: 'Recover a declined payment without losing the order',
+      mode: 'feature',
+    });
+
+    const artifacts = await loadChangeArtifacts(fixture.paths, created.changeId);
+
+    expect(artifacts.analysis).toContain('problem: Recover a declined payment without losing the order');
+  });
+
+  it('loads historical archived five-artifact Changes without rewriting metadata', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture);
+    const activeDir = path.join(fixture.paths.changes, fixture.changeId);
+    const archivedDir = path.join(fixture.paths.archivedChanges, fixture.changeId);
+    const before = await fs.readFile(path.join(activeDir, 'metadata.yaml'), 'utf8');
+    await fs.rename(activeDir, archivedDir);
+
+    const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
+
+    expect(artifacts.changeDir).toBe(archivedDir);
+    expect(artifacts.analysis).toBeNull();
+    await expect(fs.readFile(path.join(archivedDir, 'metadata.yaml'), 'utf8')).resolves.toBe(before);
+  });
+
+  it('does not downgrade a declared but missing analysis artifact to null', async () => {
+    const fixture = await createWorkflowFixture();
+    afterEach(fixture.cleanup);
+    await writeChangeArtifacts(fixture);
+    const metadataPath = path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml');
+    const metadata = parseYaml(await fs.readFile(metadataPath, 'utf8')) as { artifacts: Record<string, string> };
+    metadata.artifacts.analysis = path.join('changes', fixture.changeId, 'analysis.yaml');
+    await fs.writeFile(metadataPath, stringifyYaml(metadata));
+
+    await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('uses codespec/specs for Current Specification in newly generated workspaces', async () => {
