@@ -194,6 +194,9 @@ const approvalRecordSchema = z
 const approvalsSchema = z
   .object({
     schema_version: z.literal(1),
+    // Historical two-stage receipt sets remain readable. The transform below
+    // supplies the non-persisted pending analyze receipt until migration.
+    analyze: approvalRecordSchema.optional(),
     design: approvalRecordSchema,
     plan: approvalRecordSchema,
   })
@@ -331,7 +334,7 @@ const changeMetadataSchema = z
     if (metadata.change.sdd_level > 1 && !hasDesign) {
       context.addIssue({ code: 'custom', path: ['artifacts', 'design'], message: 'Level 2 and Level 3 require design.md' });
     }
-    for (const stage of ['design', 'plan'] as const) {
+    for (const stage of ['analyze', 'design', 'plan'] as const) {
       const approval = metadata.approvals?.[stage];
       if (approval && approval.revision !== metadata.change.revision) {
         context.addIssue({ code: 'custom', path: ['approvals', stage, 'revision'], message: 'approval revision must match change.revision' });
@@ -340,7 +343,12 @@ const changeMetadataSchema = z
   })
   .transform((metadata): ChangeMetadata => ({
     ...metadata,
-    approvals: metadata.approvals ?? createPendingApprovals(metadata.change.revision),
+    approvals: metadata.approvals
+      ? {
+        ...metadata.approvals,
+        analyze: metadata.approvals.analyze ?? createPendingApprovals(metadata.change.revision).analyze,
+      }
+      : createPendingApprovals(metadata.change.revision),
   }));
 
 const changeIndexEntrySchema = z

@@ -833,15 +833,15 @@ program
 
 program
   .command('approve')
-  .description('在阶段门禁通过后记录用户对设计或计划的确认')
+  .description('在阶段门禁通过后记录用户对分析、设计或计划的确认')
   .requiredOption('--change <id>', 'Canonical Change ID')
-  .requiredOption('--stage <stage>', '要确认的阶段：design 或 plan')
+  .requiredOption('--stage <stage>', '要确认的阶段：analyze、design 或 plan')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
   .action(async (options: { change: string; stage: string; store?: string; storePath?: string }) => {
     try {
-      if (options.stage !== 'design' && options.stage !== 'plan') {
-        throw new Error('--stage 只能是 design 或 plan');
+      if (options.stage !== 'analyze' && options.stage !== 'design' && options.stage !== 'plan') {
+        throw new Error('--stage 只能是 analyze、design 或 plan');
       }
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;

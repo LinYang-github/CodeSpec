@@ -5,7 +5,7 @@ export type ScenarioId = `SCN-${string}`;
 export type ModuleOutcome = 'OWNED' | 'DEPENDENCY' | 'IRRELEVANT';
 export type ChangeMode = 'feature' | 'bugfix' | 'refactor';
 export type SddLevel = 1 | 2 | 3;
-export type ApprovalStage = 'design' | 'plan';
+export type ApprovalStage = 'analyze' | 'design' | 'plan';
 export type ApprovalStatus = 'pending' | 'approved' | 'revoked';
 export type ChangeStatus =
   | 'ANALYZE'
@@ -160,6 +160,7 @@ export interface ChangeMetadata {
   };
   approvals: {
     schema_version: 1;
+    analyze: ApprovalRecord;
     design: ApprovalRecord;
     plan: ApprovalRecord;
   };

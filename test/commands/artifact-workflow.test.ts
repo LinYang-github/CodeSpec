@@ -41,6 +41,13 @@ describe('artifact-workflow CLI commands', () => {
     return str.replace(/\\/g, '/');
   }
 
+  it('rejects unknown approval stages before loading a Change', async () => {
+    const result = await runCLI(['approve', '--change', 'CHG-20260901-001', '--stage', 'review'], { cwd: tempDir });
+
+    expect(result.exitCode).toBe(1);
+    expect(getOutput(result)).toMatch(/analyze.*design.*plan/i);
+  });
+
   /**
    * Creates a test change with the specified artifacts completed.
    * Note: An "active" change requires at least a proposal.md file to be detected.

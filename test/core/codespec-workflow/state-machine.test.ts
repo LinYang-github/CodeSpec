@@ -63,6 +63,35 @@ describe('codespec workflow state machine', () => {
     expect((await validateExitGate(workspace, artifacts)).errors.join('\n')).toMatch(/scope\.in|openQuestions\[0\].status/i);
   });
 
+  it('requires an analyze receipt before a canonical Change may enter DESIGN', async () => {
+    const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
+    const changeDir = path.join(fixture.paths.changes, fixture.changeId);
+    await writeChangeArtifacts(fixture, {
+      metadata: {
+        artifacts: {
+          analysis: path.join('changes', fixture.changeId, 'analysis.yaml'),
+          proposal: undefined,
+          tasks: path.join('changes', fixture.changeId, 'tasks.yaml'),
+          verification: path.join('changes', fixture.changeId, 'verification.yaml'),
+        },
+      } as never,
+    });
+    await fs.writeFile(path.join(changeDir, 'analysis.yaml'), stringifyYaml({
+      version: 1, change: fixture.changeId, revision: 1, problem: 'Clarify payment feedback',
+      goals: [], nonGoals: [], scope: { in: [], out: [] }, actors: [], constraints: [], assumptions: [],
+      openQuestions: [], acceptanceCriteria: [], modules: [], requirements: [],
+    }));
+    await fs.writeFile(path.join(changeDir, 'tasks.yaml'), 'version: 1\ntasks: []\nmoduleDeltas: []\nmoduleRegistrations: { upsert: [], retire: [] }\n');
+    await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\ntestCases: []\n');
+    const workspace = await loadWorkspace(fixture.codespecDir);
+    const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) =>
+      m.loadChangeArtifacts(workspace.paths, fixture.changeId)
+    );
+
+    await expect(transitionChange(workspace, artifacts, 'DESIGN', 'analysis complete'))
+      .rejects.toThrow(/分析尚未获得用户确认/i);
+  });
+
   it('allows VERIFY to return to IMPLEMENT for an implementation failure', () => {
     expect(canTransition('VERIFY', 'IMPLEMENT')).toBe(true);
   });

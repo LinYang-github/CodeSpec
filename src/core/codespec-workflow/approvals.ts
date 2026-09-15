@@ -5,11 +5,12 @@ import { stringify as stringifyYaml } from 'yaml';
 import { parse as parseYaml } from 'yaml';
 
 import type { ChangeArtifacts } from './artifacts.js';
+import { parseAnalysisDocument, projectAnalysisForApproval } from './analysis.js';
 import { withChangeIndexLock } from './change-index.js';
 import { validateExitGate } from './gates.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ApprovalRecord, ApprovalStage, ChangeMetadata, ChangeStatus } from './types.js';
-import { hashTaskApprovalContent, parseCurrentTasks, projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from './current-change-yaml.js';
+import { parseCurrentTasks, projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from './current-change-yaml.js';
 
 export interface ChangeContent {
   design: string;
@@ -26,7 +27,7 @@ export interface ApprovalImpact {
 
 export function createPendingApprovals(revision: number): ChangeMetadata['approvals'] {
   const pending = (): ApprovalRecord => ({ status: 'pending', revision, content_hash: '', approved_at: null });
-  return { schema_version: 1, design: pending(), plan: pending() };
+  return { schema_version: 1, analyze: pending(), design: pending(), plan: pending() };
 }
 
 function normalizeContent(content: string): string {
@@ -67,21 +68,40 @@ export function classifyArtifactChange(before: ChangeContent, after: ChangeConte
   return { designChanged, planChanged, locatorOnly: anyArtifactChanged && !designChanged && !planChanged };
 }
 
-function hashPayload(stage: ApprovalStage, artifacts: ChangeArtifacts): string {
-  const metadata = artifacts.metadata;
-  if (!metadata.artifacts.proposal) {
-    if (stage === 'plan') {
-      return hashTaskApprovalContent({
-        design: artifacts.design,
-        spec: artifacts.spec,
-        tasks: parseCurrentTasks(parseYaml(artifacts.tasks)),
-      });
-    }
-    return createHash('sha256').update(JSON.stringify({
+function analysisApprovalPayload(artifacts: ChangeArtifacts): unknown {
+  if (artifacts.analysis === null) throw new Error('分析审批需要 analysis.yaml。');
+  return projectAnalysisForApproval(parseAnalysisDocument(parseYaml(artifacts.analysis)));
+}
+
+function canonicalApprovalPayload(stage: ApprovalStage, artifacts: ChangeArtifacts): unknown {
+  const analysis = analysisApprovalPayload(artifacts);
+  if (stage === 'analyze') return analysis;
+  if (stage === 'design') {
+    return {
+      analysis,
       design: normalizeContent(artifacts.design),
       spec: projectCurrentSpecForDesignApproval(artifacts.spec),
-    })).digest('hex');
+    };
   }
+  const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+  return {
+    analysis,
+    design: normalizeContent(artifacts.design),
+    spec: projectCurrentSpecForPlanApproval(artifacts.spec),
+    tasks: {
+      ...tasks,
+      tasks: tasks.tasks.map(({ status: _status, ...task }) => task),
+    },
+  };
+}
+
+/** Returns the semantic receipt hash for the requested approval stage. */
+export function approvalContentHash(stage: ApprovalStage, artifacts: ChangeArtifacts): string {
+  const metadata = artifacts.metadata;
+  if (!metadata.artifacts.proposal) {
+    return createHash('sha256').update(JSON.stringify(canonicalApprovalPayload(stage, artifacts))).digest('hex');
+  }
+  if (stage === 'analyze') throw new Error('仅六产物 canonical Change 支持分析审批。');
   const payload = stage === 'design'
     ? {
       proposal: normalizeContent(artifacts.proposal), design: normalizeContent(artifacts.design), spec: normalizeContent(artifacts.spec),
@@ -94,24 +114,25 @@ function hashPayload(stage: ApprovalStage, artifacts: ChangeArtifacts): string {
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
-function stageForTarget(target: ChangeStatus): ApprovalStage | null {
+function stageForTarget(artifacts: ChangeArtifacts, target: ChangeStatus): ApprovalStage | null {
+  if (target === 'DESIGN') return artifacts.metadata.artifacts.proposal ? null : 'analyze';
   if (target === 'PLAN') return 'design';
   if (target === 'IMPLEMENT') return 'plan';
   return null;
 }
 
 function stageLabel(stage: ApprovalStage): string {
-  return stage === 'design' ? '设计' : '计划';
+  return stage === 'analyze' ? '分析' : stage === 'design' ? '设计' : '计划';
 }
 
 export function assertTransitionApproval(artifacts: ChangeArtifacts, target: ChangeStatus): void {
-  const stage = stageForTarget(target);
+  const stage = stageForTarget(artifacts, target);
   if (!stage) return;
   const approval = artifacts.metadata.approvals?.[stage];
   const label = stageLabel(stage);
   if (!approval || approval.status !== 'approved') throw new Error(`${label}尚未获得用户确认；请展示${label}并等待独立确认。`);
   if (approval.revision !== artifacts.metadata.change.revision) throw new Error(`${label}确认已因 Change revision 变化而失效；请重新确认。`);
-  if (approval.content_hash !== hashPayload(stage, artifacts)) throw new Error(`${label}内容已变更，原确认已失效；请重新确认。`);
+  if (approval.content_hash !== approvalContentHash(stage, artifacts)) throw new Error(`${label}内容已变更，原确认已失效；请重新确认。`);
 }
 
 export function approveStage(
@@ -123,7 +144,7 @@ export function approveStage(
   const approval = {
     status: 'approved' as const,
     revision: current.change.revision,
-    content_hash: hashPayload(stage, artifacts),
+    content_hash: approvalContentHash(stage, artifacts),
     approved_at: approvedAt,
   };
   return { ...current, approvals: { ...current.approvals, [stage]: approval } };
@@ -134,7 +155,7 @@ export async function approveChangeStage(
   artifacts: ChangeArtifacts,
   stage: ApprovalStage
 ): Promise<ChangeMetadata> {
-  const expectedStatus = stage === 'design' ? 'DESIGN' : 'PLAN';
+  const expectedStatus = stage === 'analyze' ? 'ANALYZE' : stage === 'design' ? 'DESIGN' : 'PLAN';
   if (artifacts.metadata.change.status !== expectedStatus) {
     throw new Error(`只能在 ${expectedStatus} 状态确认${stageLabel(stage)}。`);
   }
@@ -161,5 +182,5 @@ export function revokeApprovals(metadata: ChangeMetadata): ChangeMetadata {
   const revoked = (): ApprovalRecord => ({
     status: 'revoked', revision: metadata.change.revision, content_hash: '', approved_at: null,
   });
-  return { ...metadata, approvals: { schema_version: 1, design: revoked(), plan: revoked() } };
+  return { ...metadata, approvals: { schema_version: 1, analyze: revoked(), design: revoked(), plan: revoked() } };
 }
