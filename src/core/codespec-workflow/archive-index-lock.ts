@@ -27,7 +27,7 @@ async function readOwner(file: string): Promise<{ owner: ArchiveIndexOwner; byte
   let owner: ArchiveIndexOwner;
   try { owner = JSON.parse(bytes) as ArchiveIndexOwner; } catch { return null; }
   if (owner?.version !== 1 || owner.kind !== 'codespec-archive-index-lock'
-    || !/^archive-[A-Za-z0-9._-]+$/u.test(owner.transactionId)
+    || !/^(?:archive|migrate)-[A-Za-z0-9._-]+$/u.test(owner.transactionId)
     || !Number.isSafeInteger(owner.pid) || owner.pid <= 0) return null;
   return { owner, bytes };
 }
@@ -41,10 +41,18 @@ function processAlive(pid: number): boolean {
  * a crash window which leaves an ownerless, permanently busy index lock.
  * A file lock still excludes existing callers that acquire with mkdir.
  */
-export async function acquireArchiveIndexLock(paths: WorkspacePaths, transactionId: string): Promise<void> {
+export async function acquireTransactionIndexLock(paths: WorkspacePaths, transactionId: string): Promise<void> {
+  if (!/^(?:archive|migrate)-[A-Za-z0-9._-]+$/u.test(transactionId)) throw new Error('Index lock transaction ID is invalid');
   return withIndexLockMutation(paths, async () => {
     const owner: ArchiveIndexOwner = { version: 1, kind: 'codespec-archive-index-lock', transactionId, pid: process.pid };
-    const staged = path.join(paths.archive, '.archive.lock', 'index-owner.json');
+    // Archive already owns its outer lock directory. Migration only needs
+    // the index lock; its unique stage lives in the durable generation ledger.
+    // A crash before publication leaves no lock, and after publication the
+    // complete owner record is recoverable even before a journal exists.
+    const migration = transactionId.startsWith('migrate-');
+    const staged = migration
+      ? path.join(`${paths.changeIndex}.lock-ledger`, `.migration-owner-${randomUUID()}`)
+      : path.join(paths.archive, '.archive.lock', 'index-owner.json');
     const handle = await fs.open(staged, 'wx');
     try { await handle.writeFile(JSON.stringify(owner), 'utf8'); await handle.sync(); }
     finally { await handle.close(); }
@@ -52,14 +60,19 @@ export async function acquireArchiveIndexLock(paths: WorkspacePaths, transaction
     catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change 索引正忙');
       throw error;
+    } finally {
+      if (migration) await fs.unlink(staged);
     }
   });
 }
 
+// Preserve the established archive API and its staging/locking behavior.
+export const acquireArchiveIndexLock = acquireTransactionIndexLock;
+
 /** Release our exact lock, or a recognized archive lock whose owner died.
  * Preserve anything that replaced the inspected lock instead of deleting it.
  */
-export async function releaseArchiveIndexLock(paths: WorkspacePaths, ownedTransactionId?: string): Promise<void> {
+export async function releaseTransactionIndexLock(paths: WorkspacePaths, ownedTransactionId?: string): Promise<void> {
   const lock = `${paths.changeIndex}.lock`;
   const releasable = (value: Awaited<ReturnType<typeof readOwner>>) => value !== null && (ownedTransactionId === undefined
     ? !processAlive(value.owner.pid)
@@ -91,3 +104,5 @@ export async function releaseArchiveIndexLock(paths: WorkspacePaths, ownedTransa
     await fs.unlink(displaced);
   }, { waitForAvailability: ownedTransactionId !== undefined });
 }
+
+export const releaseArchiveIndexLock = releaseTransactionIndexLock;

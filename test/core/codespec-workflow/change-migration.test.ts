@@ -1,5 +1,7 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { loadWorkspace, loadChangeArtifacts } from '../../../src/core/codespec-workflow/loaders.js';
@@ -7,6 +9,8 @@ import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 import { renderInitialAnalysis } from '../../../src/core/codespec-workflow/analysis.js';
 import { migrateActiveChangeAnalysis as migrate } from '../../../src/core/codespec-workflow/change-migration.js';
 import { createMigrationFixture, snapshotFiles } from '../../helpers/change-migration.js';
+import { ensureCliBuilt } from '../../helpers/run-cli.js';
+import { withChangeIndexLock } from '../../../src/core/codespec-workflow/change-index.js';
 
 vi.mock('node:fs/promises', async (original) => ({ ...await original<typeof fs>() }));
 afterEach(() => vi.restoreAllMocks());
@@ -18,6 +22,79 @@ async function prepared() {
 }
 
 describe('active Change analysis migration', () => {
+  it.each(['before-journal', 'analysis-published', 'committed'])('recovers an actual child-process crash at %s and permits the next index writer', async (boundary) => {
+    const f = await prepared();
+    await ensureCliBuilt();
+    const before = await snapshotFiles(f.dir);
+    const indexBefore = await fs.readFile(f.paths.changeIndex, 'utf8');
+    const indexLock = `${f.paths.changeIndex}.lock`;
+    const child = spawn(process.execPath, ['--input-type=module', '-e', `
+      import fs from 'node:fs/promises';
+      import path from 'node:path';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { migrateActiveChangeAnalysis } from ${JSON.stringify(new URL('../../../dist/core/codespec-workflow/change-migration.js', import.meta.url).href)};
+      import { loadWorkspace } from ${JSON.stringify(new URL('../../../dist/core/codespec-workflow/loaders.js', import.meta.url).href)};
+      const boundary = ${JSON.stringify(boundary)};
+      const crash = async () => {
+        process.send('paused');
+        await new Promise((resolve) => process.once('message', resolve));
+        process.exit(77);
+      };
+      for (const method of ['mkdir', 'link']) {
+        const actual = fs[method];
+        fs[method] = async (...args) => {
+          const result = await actual(...args);
+          const target = String(args[method === 'link' ? 1 : 0]);
+          if (boundary === 'before-journal' && target === ${JSON.stringify(indexLock)}) await crash();
+          if (boundary === 'analysis-published' && target === ${JSON.stringify(f.file('analysis.yaml'))}) await crash();
+          return result;
+        };
+      }
+      const actualOpen = fs.open;
+      fs.open = async (...args) => {
+        const handle = await actualOpen(...args);
+        if (boundary === 'committed' && path.basename(String(args[0])) === 'COMMITTED') {
+          const actualSync = handle.sync.bind(handle);
+          handle.sync = async () => { await actualSync(); await crash(); };
+        }
+        return handle;
+      };
+      syncBuiltinESMExports();
+      await migrateActiveChangeAnalysis(await loadWorkspace(${JSON.stringify(f.codespecDir)}), ${JSON.stringify(f.changeId)});
+    `], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    let stderr = '';
+    child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+    const timeout = setTimeout(() => child.kill('SIGKILL'), 10_000);
+    try {
+      const exited = once(child, 'exit');
+      const paused = await Promise.race([once(child, 'message'), exited.then(() => { throw new Error(`Child exited before crash boundary: ${stderr}`); })]);
+      expect(paused[0]).toBe('paused');
+      if (boundary === 'before-journal') await expect(loadWorkspace(f.codespecDir)).resolves.toBeDefined();
+      else await expect(loadWorkspace(f.codespecDir)).rejects.toThrow(/transaction is active/);
+      await expect(fs.access(indexLock)).resolves.toBeUndefined();
+      child.send('exit');
+      expect((await exited)[0], stderr).toBe(77);
+      const recovered = await loadWorkspace(f.codespecDir);
+      await expect(fs.access(indexLock)).rejects.toThrow();
+      expect(await fs.readdir(f.paths.transactions).catch(() => [])).toEqual([]);
+      // A different workflow can acquire and release the recovered index.
+      await expect(withChangeIndexLock(f.paths, async () => 'index-writer-succeeded')).resolves.toBe('index-writer-succeeded');
+      if (boundary !== 'committed') {
+        expect(await snapshotFiles(f.dir)).toEqual(before);
+        expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(indexBefore);
+        await expect(migrate(recovered, f.changeId)).resolves.toMatchObject({ route: 'ANALYZE' });
+      } else {
+        expect((await loadChangeArtifacts(f.paths, f.changeId)).metadata.change).toMatchObject({ revision: 2, status: 'ANALYZE' });
+        expect(recovered.index.byId.get(f.changeId)?.status).toBe('ANALYZE');
+        expect((await fs.readdir(f.dir)).length).toBe(6);
+        // Repeating a committed migration is safely rejected as already six,
+        // not blocked by a stale lock, without incrementing revision again.
+        await expect(migrate(recovered, f.changeId)).rejects.toThrow(/exactly five/);
+      }
+      await expect(fs.access(indexLock)).rejects.toThrow();
+    } finally { clearTimeout(timeout); if (child.exitCode === null) child.kill('SIGKILL'); }
+  });
+
   it('copies only explicit facts, preserves whole-module spec and stale tasks, and invalidates all authority', async () => {
     const f = await prepared();
     const before = await snapshotFiles(f.dir);

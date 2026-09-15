@@ -6,7 +6,8 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseAnalysisDocument, renderInitialAnalysis } from './analysis.js';
 import { revokeApprovals } from './approvals.js';
 import { loadChangeArtifacts, type ChangeArtifacts } from './artifacts.js';
-import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
+import { loadChangeIndex } from './change-index.js';
+import { acquireTransactionIndexLock, releaseTransactionIndexLock } from './archive-index-lock.js';
 import type { WorkspaceContext } from './loaders.js';
 import { parseChangeMetadata } from './schemas.js';
 import { incrementRevision } from './state-machine.js';
@@ -46,7 +47,9 @@ async function loadEligibleChange(workspace: WorkspaceContext, changeId: string)
 export async function migrateActiveChangeAnalysis(workspace: WorkspaceContext, changeId: string): Promise<ChangeMigrationResult> {
   // Reject unsupported input without acquiring a write lock or creating a journal.
   await loadEligibleChange(workspace, changeId);
-  return withChangeIndexLock(workspace.paths, async () => {
+  const transactionId = `migrate-${changeId}-${randomUUID()}`;
+  try {
+    await acquireTransactionIndexLock(workspace.paths, transactionId);
     const artifacts = await loadEligibleChange(workspace, changeId);
     const metadata = artifacts.metadata;
     const file = (name: string) => path.join(artifacts.changeDir, name);
@@ -103,7 +106,7 @@ export async function migrateActiveChangeAnalysis(workspace: WorkspaceContext, c
       // Shared journal owns displacement, no-clobber publication, rollback,
       // crash recovery and manual-only escrow for preexisting open handles.
       journal = await createArchiveJournal({
-        paths: workspace.paths, transactionId: `migrate-${changeId}-${randomUUID()}`, ownerPid: process.pid,
+        paths: workspace.paths, transactionId, ownerPid: process.pid,
         files: [...writes].map(([target, after]) => ({ target, before: originals.get(target)!, after })),
       });
       await installArchiveJournal(journal, checkReadOnlyInputs);
@@ -120,5 +123,7 @@ export async function migrateActiveChangeAnalysis(workspace: WorkspaceContext, c
       throw error;
     }
     return { changeId, fromArtifacts: 5, toArtifacts: 6, route: 'ANALYZE', unresolvedQuestionId: 'Q-MIGRATION-001', message: CHANGE_MIGRATION_GUIDANCE };
-  });
+  } finally {
+    await releaseTransactionIndexLock(workspace.paths, transactionId);
+  }
 }
