@@ -17,7 +17,10 @@ function isAlive(pid: number): boolean {
  * A dead owner can be followed by N+1 without deleting N. Release is another
  * immutable link to N's owner record. Records are intentionally not GC'd.
  */
-export async function withIndexLockMutation<T>(paths: WorkspacePaths, work: () => Promise<T>): Promise<T> {
+export async function withIndexLockMutation<T>(paths: WorkspacePaths, work: () => Promise<T>, options: { waitForAvailability?: boolean } = {}): Promise<T> {
+  // Acquisition may report busy, but a caller already responsible for a
+  // held lock must not abandon its release because another mutation is slow.
+  const waitForAvailability = options.waitForAvailability ?? false;
   const ledger = `${paths.changeIndex}.lock-ledger`;
   await fs.mkdir(ledger, { recursive: true });
   const candidate = path.join(ledger, `.candidate-${randomUUID()}`);
@@ -26,7 +29,7 @@ export async function withIndexLockMutation<T>(paths: WorkspacePaths, work: () =
   try { await handle.writeFile(JSON.stringify(owner), 'utf8'); await handle.sync(); }
   finally { await handle.close(); }
   try {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
+    for (let attempt = 0; waitForAvailability || attempt < 100; attempt += 1) {
       const records = (await fs.readdir(ledger)).filter((name) => /^\d{12,}\.owner$/u.test(name));
       const latest = records.reduce((maximum, name) => Math.max(maximum, Number(name.slice(0, -6))), 0);
       if (!Number.isSafeInteger(latest) || latest >= Number.MAX_SAFE_INTEGER) throw new Error('Index lock generation ledger is invalid');

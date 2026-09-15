@@ -89,5 +89,5 @@ export async function releaseArchiveIndexLock(paths: WorkspacePaths, ownedTransa
       throw new Error(`ARCHIVE CONFLICT: index lock ownership changed; ${restored ? 'replacement owner restored' : `recovery owner preserved at ${displaced}`}`);
     }
     await fs.unlink(displaced);
-  });
+  }, { waitForAvailability: ownedTransactionId !== undefined });
 }

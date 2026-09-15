@@ -18,7 +18,10 @@ export async function withChangeIndexLock<T>(paths: WorkspacePaths, work: () => 
       if (attempt === 99) throw new Error('Change 索引正忙');
     }
   }
-  try { return await work(); } finally { await withIndexLockMutation(paths, () => fs.rm(lock, { recursive: true, force: true })); }
+  try { return await work(); }
+  finally {
+    await withIndexLockMutation(paths, () => fs.rm(lock, { recursive: true, force: true }), { waitForAvailability: true });
+  }
 }
 
 export interface ChangeIndex {
