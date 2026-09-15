@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createArchiveJournal,
@@ -12,8 +12,13 @@ import {
 import type { WorkspacePaths } from '../../../src/core/codespec-workflow/paths.js';
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
+import { acquireArchiveIndexLock, releaseArchiveIndexLock } from '../../../src/core/codespec-workflow/archive-index-lock.js';
 
 const temporaryDirectories: string[] = [];
+
+// Interleave real author writes with real filesystem operations. No disk
+// operation is replaced with an in-memory success/failure result.
+vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof import('node:fs/promises')>() }));
 
 function pathsFor(root: string): WorkspacePaths {
   const codespecDir = path.join(root, 'codespec');
@@ -42,6 +47,7 @@ async function setupTarget(): Promise<{ paths: WorkspacePaths; target: string }>
 
 describe('archive transaction journal', () => {
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(temporaryDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
   });
 
@@ -88,6 +94,203 @@ describe('archive transaction journal', () => {
     expect(await fs.readFile(target, 'utf8')).toBe('after\n');
     await recoverPendingTransactions(paths, journal.transactionId);
     expect(await fs.readFile(target, 'utf8')).toBe('before\n');
+  });
+
+  it('preserves an author edit made while rollback stages the restored value', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-recovery-stage-race',
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    await installArchiveJournal(journal);
+    const originalOpen = fs.open;
+    let edited = false;
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await originalOpen(...args);
+      if (!edited && String(args[0]) !== target) {
+        edited = true;
+        await fs.writeFile(target, 'author edit during rollback staging\n');
+      }
+      return handle;
+    });
+
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/ARCHIVE CONFLICT.*recovery journal preserved/);
+
+    expect(edited).toBe(true);
+    expect(await fs.readFile(target, 'utf8')).toBe('author edit during rollback staging\n');
+    await expect(fs.access(journal.directory)).resolves.toBeUndefined();
+    // Retrying must not silently discard the displaced author bytes either.
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/ARCHIVE CONFLICT/);
+    expect(await fs.readFile(target, 'utf8')).toBe('author edit during rollback staging\n');
+  });
+
+  it('preserves an author edit made while forward installation stages the new value', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-forward-stage-race',
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    const originalOpen = fs.open;
+    let edited = false;
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await originalOpen(...args);
+      if (!edited && String(args[0]) !== target) {
+        edited = true;
+        await fs.writeFile(target, 'author edit during forward staging\n');
+      }
+      return handle;
+    });
+
+    await expect(installArchiveJournal(journal)).rejects.toThrow(/ARCHIVE CONFLICT/);
+
+    expect(edited).toBe(true);
+    expect(await fs.readFile(target, 'utf8')).toBe('author edit during forward staging\n');
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/ARCHIVE CONFLICT/);
+    expect(await fs.readFile(target, 'utf8')).toBe('author edit during forward staging\n');
+    await expect(fs.access(journal.directory)).resolves.toBeUndefined();
+  });
+
+  it('does not clobber an author file created at the final rollback installation boundary', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-recovery-install-race',
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    await installArchiveJournal(journal);
+    const originalRename = fs.rename;
+    const originalLink = fs.link;
+    let edited = false;
+    const editAtInstall = async (destination: unknown) => {
+      if (!edited && String(destination) === target) {
+        edited = true;
+        await fs.writeFile(target, 'author file at install boundary\n');
+      }
+    };
+    vi.spyOn(fs, 'rename').mockImplementation(async (...args) => { await editAtInstall(args[1]); return originalRename(...args); });
+    vi.spyOn(fs, 'link').mockImplementation(async (...args) => { await editAtInstall(args[1]); return originalLink(...args); });
+
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/ARCHIVE CONFLICT.*recovery journal preserved/);
+
+    expect(edited).toBe(true);
+    expect(await fs.readFile(target, 'utf8')).toBe('author file at install boundary\n');
+    await expect(fs.access(journal.directory)).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ['recovery', 'displacement'], ['recovery', 'installation'],
+    ['forward installation', 'displacement'], ['forward installation', 'installation'],
+  ])('replays %s interrupted immediately after %s without losing the saved inode', async (phase, boundary) => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: `archive-recovery-interrupted-${boundary}`,
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    if (phase === 'recovery') await installArchiveJournal(journal);
+    const originalRename = fs.rename;
+    const originalLink = fs.link;
+    if (boundary === 'displacement') {
+      vi.spyOn(fs, 'rename').mockImplementation(async (...args) => {
+        await originalRename(...args);
+        if (String(args[0]) === target) throw new Error('interrupted after displacement');
+      });
+    } else {
+      vi.spyOn(fs, 'link').mockImplementation(async (...args) => {
+        await originalLink(...args);
+        if (String(args[1]) === target) throw new Error('interrupted after installation');
+      });
+    }
+
+    await expect(phase === 'recovery' ? recoverPendingTransactions(paths) : installArchiveJournal(journal)).rejects.toThrow(`interrupted after ${boundary}`);
+    expect(await fs.readFile(path.join(journal.directory, phase === 'recovery' ? 'recovery' : 'installation', '0', 'displaced'), 'utf8')).toBe(phase === 'recovery' ? 'after\n' : 'before\n');
+    vi.restoreAllMocks();
+    await recoverPendingTransactions(paths);
+    expect(await fs.readFile(target, 'utf8')).toBe('before\n');
+    await expect(fs.access(journal.directory)).rejects.toThrow();
+  });
+
+  it('preserves an author replacement while rollback removes a transaction-created file', async () => {
+    const { paths, target } = await setupTarget();
+    await fs.unlink(target);
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-recovery-delete-race',
+      files: [{ target, before: null, after: 'after\n' }],
+    });
+    await installArchiveJournal(journal);
+    const originalRename = fs.rename;
+    vi.spyOn(fs, 'rename').mockImplementation(async (...args) => {
+      await originalRename(...args);
+      if (String(args[0]) === target) await fs.writeFile(target, 'author replacement during rollback deletion\n');
+    });
+
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/ARCHIVE CONFLICT/);
+    expect(await fs.readFile(target, 'utf8')).toBe('author replacement during rollback deletion\n');
+    await expect(fs.access(journal.directory)).resolves.toBeUndefined();
+  });
+
+  it('retries recovery after interruption leaves an incomplete private stage file', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-partial-recovery-stage',
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    await installArchiveJournal(journal);
+    const originalOpen = fs.open;
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      const handle = await originalOpen(...args);
+      await handle.writeFile('partial stage');
+      await handle.sync();
+      await handle.close();
+      throw new Error('interrupted while staging');
+    });
+
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow('interrupted while staging');
+    vi.restoreAllMocks();
+    await expect(recoverPendingTransactions(paths)).resolves.toBeUndefined();
+    expect(await fs.readFile(target, 'utf8')).toBe('before\n');
+    await expect(fs.access(journal.directory)).rejects.toThrow();
+  });
+
+  it('preserves a live archive index owner even when there is no pending journal', async () => {
+    const { paths } = await setupTarget();
+    await fs.mkdir(path.join(paths.archive, '.archive.lock'), { recursive: true });
+    await fs.mkdir(paths.changes, { recursive: true });
+    await acquireArchiveIndexLock(paths, 'archive-live-index');
+    const lock = `${paths.changeIndex}.lock`;
+    const owner = await fs.readFile(lock, 'utf8');
+
+    await recoverPendingTransactions(paths);
+    await releaseArchiveIndexLock(paths, 'archive-not-the-owner');
+    expect(await fs.readFile(lock, 'utf8')).toBe(owner);
+    await releaseArchiveIndexLock(paths, 'archive-live-index');
+    await expect(fs.access(lock)).rejects.toThrow();
+  });
+
+  it.each(['directory', 'unrecognized file'])('never reclaims an index lock owned by a different workflow (%s)', async (kind) => {
+    const { paths } = await setupTarget();
+    await fs.mkdir(paths.changes, { recursive: true });
+    const lock = `${paths.changeIndex}.lock`;
+    if (kind === 'directory') await fs.mkdir(lock);
+    else await fs.writeFile(lock, 'another workflow owns this lock\n');
+
+    await recoverPendingTransactions(paths);
+    await expect(fs.access(lock)).resolves.toBeUndefined();
+  });
+
+  it('preserves a replacement live owner that appears during index lock release', async () => {
+    const { paths } = await setupTarget();
+    await fs.mkdir(path.join(paths.archive, '.archive.lock'), { recursive: true });
+    await fs.mkdir(paths.changes, { recursive: true });
+    await acquireArchiveIndexLock(paths, 'archive-old-index');
+    const lock = `${paths.changeIndex}.lock`;
+    const replacement = JSON.stringify({ ...JSON.parse(await fs.readFile(lock, 'utf8')), transactionId: 'archive-new-live-owner' });
+    const originalRename = fs.rename;
+    vi.spyOn(fs, 'rename').mockImplementation(async (...args) => {
+      if (String(args[0]) === lock) await fs.writeFile(lock, replacement);
+      return originalRename(...args);
+    });
+
+    await expect(releaseArchiveIndexLock(paths, 'archive-old-index')).rejects.toThrow(/index lock ownership changed/);
+    expect(await fs.readFile(lock, 'utf8')).toBe(replacement);
   });
 
   it('finishes every target from staged bytes when recovery finds a durable commit marker', async () => {

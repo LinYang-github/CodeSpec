@@ -3,13 +3,15 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse, stringify } from 'yaml';
 import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { archiveChange, preflightArchive, prepareArchive, commitArchive, __setArchiveTestHooksForTests } from '../../../src/core/codespec-workflow/archive-transaction.js';
 import { recordFreshVerification, renderVerificationMarkdown, verificationArtifactIdentity } from '../../../src/core/codespec-workflow/verification.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
 import type { ChangeMetadata } from '../../../src/core/codespec-workflow/types.js';
 import { parseCurrentSpec } from '../../../src/core/codespec-workflow/current-spec-parser.js';
 import type { ArchiveImpact } from '../../../src/core/codespec-workflow/archive-impact.js';
-import { runCLI } from '../../helpers/run-cli.js';
+import { ensureCliBuilt, runCLI } from '../../helpers/run-cli.js';
 import { createArchiveJournal } from '../../../src/core/codespec-workflow/transaction-journal.js';
 import { parseCurrentSpecification, renderCurrentSpecification } from '../../../src/core/codespec-workflow/current-spec-model.js';
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
@@ -22,6 +24,66 @@ import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
 vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof import('node:fs/promises')>() }));
 
 describe('six-artifact canonical Requirement archive', () => {
+  it.each(['after-index-lock', 'archived-change'])('recovers an interrupted child-process archive at %s and releases only its abandoned index lock before retry', async (boundary) => {
+    const fixture = await createCurrentArchiveFixture();
+    await ensureCliBuilt();
+    const child = spawn(process.execPath, ['--input-type=module', '-e', `
+      import fs from 'node:fs/promises';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { archiveChange, __setArchiveTestHooksForTests } from ${JSON.stringify(new URL('../../../dist/core/codespec-workflow/archive-transaction.js', import.meta.url).href)};
+      import { loadWorkspace } from ${JSON.stringify(new URL('../../../dist/core/codespec-workflow/loaders.js', import.meta.url).href)};
+      const pause = async () => {
+        process.send('archive-paused');
+        await new Promise(() => { setInterval(() => {}, 1000); });
+      };
+      const actualLink = fs.link;
+      fs.link = async (...args) => {
+        await actualLink(...args);
+        if (${JSON.stringify(boundary)} === 'after-index-lock' && args[1] === ${JSON.stringify(`${fixture.paths.changeIndex}.lock`)}) await pause();
+      };
+      syncBuiltinESMExports();
+      __setArchiveTestHooksForTests({ beforeCommitStep: async (step) => {
+        if (step === ${JSON.stringify(boundary)}) await pause();
+      } });
+      process.on('message', async () => {
+        await archiveChange(await loadWorkspace(${JSON.stringify(fixture.codespecDir)}), ${JSON.stringify(fixture.changeId)});
+      });
+    `], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+    const exited = once(child, 'exit');
+    let stderr = '';
+    child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+    try {
+      await writeCanonicalChange(fixture, modification());
+      const paused = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error(`Child archive did not pause: ${stderr}`)), 10_000);
+        child.once('message', (message) => { clearTimeout(timeout); message === 'archive-paused' ? resolve() : reject(new Error(String(message))); });
+        child.once('error', (error) => { clearTimeout(timeout); reject(error); });
+        child.once('exit', () => { clearTimeout(timeout); reject(new Error(`Child archive exited before pause: ${stderr}`)); });
+      });
+      child.send('start');
+      await paused;
+      const indexLock = `${fixture.paths.changeIndex}.lock`;
+      await expect(fs.access(indexLock)).resolves.toBeUndefined();
+      if (boundary === 'archived-change') await expect(loadWorkspace(fixture.codespecDir)).rejects.toThrow(/transaction is active/);
+      else await expect(loadWorkspace(fixture.codespecDir)).resolves.toBeDefined();
+      await expect(fs.access(indexLock)).resolves.toBeUndefined();
+
+      child.kill('SIGKILL');
+      await exited;
+      const recovered = await loadWorkspace(fixture.codespecDir);
+      await expect(fs.access(indexLock)).rejects.toThrow();
+      const current = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      expect(parseCurrentSpecification(await fs.readFile(current, 'utf8')).requirements).toEqual(fixture.current.requirements);
+      await expect(archiveChange(recovered, fixture.changeId)).resolves.toMatchObject({ changeId: fixture.changeId });
+      await expect(fs.access(indexLock)).rejects.toThrow();
+      expect(await fs.readdir(fixture.paths.transactions)).toEqual([]);
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      await exited;
+      fixture.cleanup();
+    }
+  }, 20_000);
+
   it('archives the fresh UI execution record and summary produced at archive time', async () => {
     const fixture = await createCurrentArchiveFixture();
     try {

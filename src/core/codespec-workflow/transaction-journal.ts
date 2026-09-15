@@ -1,9 +1,10 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import type { WorkspacePaths } from './paths.js';
+import { releaseArchiveIndexLock } from './archive-index-lock.js';
 
 interface JournalEntry {
   target: string;
@@ -70,9 +71,9 @@ async function removeEmptyDirectory(directory: string): Promise<void> {
   });
 }
 
-async function writeDurable(file: string, value: string): Promise<void> {
+async function writeDurable(file: string, value: string, flags = 'w'): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
-  const handle = await fs.open(file, 'w');
+  const handle = await fs.open(file, flags);
   try {
     await handle.writeFile(value, 'utf8');
     await handle.sync();
@@ -81,15 +82,66 @@ async function writeDurable(file: string, value: string): Promise<void> {
   }
 }
 
-async function installValue(target: string, value: string | null): Promise<void> {
-  if (value === null) {
-    await fs.rm(target, { force: true });
-    return;
+async function linkWithoutReplacing(source: string, target: string): Promise<boolean> {
+  try { await fs.link(source, target); return true; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
+/** Preserve the displaced inode until the entire recovery has succeeded.
+ * A check followed by rename-over-target is not an ownership check: an
+ * author can write during staging. Rename the old target out of the way,
+ * inspect those actual bytes, and publish the staged inode without clobbering
+ * any file created in the meantime. Both files survive interrupted recovery.
+ */
+async function installOwnedEntry(paths: WorkspacePaths, directory: string, entry: JournalEntry, index: number, mode: 'install' | 'rollback' | 'commit'): Promise<boolean> {
+  const target = resolveTarget(paths, entry.target);
+  const desired = mode === 'rollback' ? entry.before : entry.after;
+  const recovery = path.join(directory, mode === 'install' ? 'installation' : 'recovery', String(index));
+  const displaced = path.join(recovery, 'displaced');
+  const staged = path.join(recovery, `desired-${randomUUID()}`);
+  let preserved = await readTarget(displaced);
+  const current = await readTarget(target);
+  const owned = (value: string | null) => value === entry.before || (mode !== 'install' && value === entry.after);
+  const installedBefore = mode === 'install' ? null : await readTarget(path.join(directory, 'installation', String(index), 'displaced'));
+
+  if (installedBefore !== null && installedBefore !== entry.before) {
+    if (current === null) await linkWithoutReplacing(path.join(directory, 'installation', String(index), 'displaced'), target);
+    return false;
+  }
+
+  if (preserved !== null && !owned(preserved)) {
+    // This may be a retry after a crash between displacement and restoration.
+    if (current === null) await linkWithoutReplacing(displaced, target);
+    return false;
+  }
+  if (current === desired) return true;
+  // Forward installation can itself have been interrupted after displacement
+  // and before publishing the after-value. That absence is journal-owned.
+  const interruptedInstallation = current === null && installedBefore !== null;
+  if (preserved === null ? !owned(current) && !interruptedInstallation : current !== null) return false;
+
+  await fs.mkdir(recovery, { recursive: true });
+  if (desired !== null) {
+    // Use a new inode on each attempt. An earlier stage can be partial after
+    // interruption, or already linked into the workspace and edited there.
+    await writeDurable(staged, desired, 'wx');
+  }
+  if (preserved === null && current !== null) {
+    await fs.rename(target, displaced).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'ENOENT') throw error;
+    });
+    preserved = await readTarget(displaced);
+    if (preserved !== current) {
+      if (preserved !== null) await linkWithoutReplacing(displaced, target);
+      return false;
+    }
   }
   await fs.mkdir(path.dirname(target), { recursive: true });
-  const temporary = `${target}.codespec-transaction-${process.pid}`;
-  await writeDurable(temporary, value);
-  await fs.rename(temporary, target);
+  if (desired !== null && !await linkWithoutReplacing(staged, target)) return false;
+  return await readTarget(target) === desired && (preserved === null || await readTarget(displaced) === preserved);
 }
 
 function assertManifest(value: unknown): JournalManifest {
@@ -156,11 +208,13 @@ export async function installArchiveJournal(journal: ArchiveJournal, beforeInsta
       throw new Error(`ARCHIVE CONFLICT: ${entry.target} changed before installation`);
     }
   }
-  for (const entry of journal.manifest.entries) {
+  for (const [index, entry] of journal.manifest.entries.entries()) {
     const target = resolveTarget(journal.paths, entry.target);
     await beforeInstall?.(target);
     if (await readTarget(target) !== entry.before) throw new Error(`ARCHIVE CONFLICT: ${entry.target} changed before installation`);
-    if (entry.before !== entry.after) await installValue(target, entry.after);
+    if (entry.before !== entry.after && !await installOwnedEntry(journal.paths, journal.directory, entry, index, 'install')) {
+      throw new Error(`ARCHIVE CONFLICT: ${entry.target} changed during installation; recovery journal preserved`);
+    }
   }
   for (const entry of journal.manifest.entries) {
     if (await readTarget(resolveTarget(journal.paths, entry.target)) !== entry.after) {
@@ -180,15 +234,17 @@ async function recoverJournal(paths: WorkspacePaths, directory: string, ownedTra
   }
   const committed = await fs.access(path.join(directory, 'COMMITTED')).then(() => true).catch(() => false);
   const conflicts: string[] = [];
-  for (const entry of manifest.entries) {
-    const target = resolveTarget(paths, entry.target);
-    const current = await readTarget(target);
-    if (current !== entry.before && current !== entry.after) {
-      conflicts.push(entry.target);
-      continue;
+  for (const [index, entry] of manifest.entries.entries()) {
+    if (!await installOwnedEntry(paths, directory, entry, index, committed ? 'commit' : 'rollback')) conflicts.push(entry.target);
+  }
+  for (const [index, entry] of manifest.entries.entries()) {
+    const preserved = await readTarget(path.join(directory, 'recovery', String(index), 'displaced'));
+    const installedBefore = await readTarget(path.join(directory, 'installation', String(index), 'displaced'));
+    if (await readTarget(resolveTarget(paths, entry.target)) !== (committed ? entry.after : entry.before)
+      || (preserved !== null && preserved !== entry.before && preserved !== entry.after)
+      || (installedBefore !== null && installedBefore !== entry.before)) {
+      if (!conflicts.includes(entry.target)) conflicts.push(entry.target);
     }
-    const desired = committed ? entry.after : entry.before;
-    if (current !== desired) await installValue(target, desired);
   }
   if (conflicts.length) {
     if (ownsJournal) {
@@ -216,4 +272,7 @@ export async function recoverPendingTransactions(paths: WorkspacePaths, ownedTra
     if (!entry.isDirectory()) throw new Error(`Archive transaction entry must be a directory: ${entry.name}`);
     await recoverJournal(paths, path.join(paths.transactions, entry.name), ownedTransactionId);
   }
+  // Also covers interruption after lock publication but before the journal
+  // was created, and after journal cleanup but before in-process finally.
+  await releaseArchiveIndexLock(paths);
 }

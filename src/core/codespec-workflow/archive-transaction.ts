@@ -17,6 +17,7 @@ import { parseCurrentTasks, parseCurrentVerification } from './current-change-ya
 import { validateCurrentVerificationPlan } from './current-verification-policy.js';
 import { readCurrentDeltaBaseline, validateCurrentArchivePreflight } from './current-archive-preflight.js';
 import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
+import { acquireArchiveIndexLock, releaseArchiveIndexLock } from './archive-index-lock.js';
 import { mergeCurrentModuleDeltas } from './current-archive-merge.js';
 import { buildArchiveProjection, currentSpecDeltaBaseline, projectCurrentSpecDelta, type ArchiveProjection } from './archive-projection.js';
 import { validateCurrentSpecDeltaAgainstCurrent, type CurrentSpecDeltaDocument } from './current-spec-delta.js';
@@ -528,15 +529,14 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
   if (!projection || !delta) throw new Error('Canonical archive projection is missing');
   const archivedPath = path.join(workspace.paths.archivedChanges, plan.changeId);
   const lock = path.join(workspace.paths.archive, '.archive.lock');
-  const indexLock = `${workspace.paths.changeIndex}.lock`;
+  const transactionId = `archive-${plan.changeId}-${process.pid}-${Date.now()}`;
   let ownsLock = false;
   let ownsIndexLock = false;
   let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
   let committed = false;
   try {
     await acquireArchiveLock(lock); ownsLock = true;
-    try { await fs.mkdir(indexLock); ownsIndexLock = true; }
-    catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change 索引正忙'); throw error; }
+    await acquireArchiveIndexLock(workspace.paths, transactionId); ownsIndexLock = true;
     // Re-read Current under the archive lock; Previous is never validated
     // against an archived Change or a previously prepared projection.
     const live = await readCurrentDeltaBaseline(workspace, delta.module);
@@ -604,7 +604,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     await checkTreeSnapshots(plan.snapshot.trees);
     if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error('ARCHIVE CONFLICT: Change index changed after preflight');
     journal = await createArchiveJournal({
-      paths: workspace.paths, transactionId: `archive-${plan.changeId}-${process.pid}-${Date.now()}`, files,
+      paths: workspace.paths, transactionId, files,
       cleanupEmptyAfterCommit: [artifacts.changeDir], ownerPid: process.pid,
     });
     await installArchiveJournal(journal, async (target) => { await archiveTestHooks?.beforeCommitStep?.(steps.get(target) ?? 'active-change'); });
@@ -621,8 +621,8 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     }
     throw new Error(`${error instanceof Error ? error.message : String(error)} (transaction rolled back)`);
   } finally {
-    if (ownsIndexLock) await fs.rm(indexLock, { recursive: true, force: true }).catch(() => undefined);
-    if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined);
+    try { if (ownsIndexLock) await releaseArchiveIndexLock(workspace.paths, transactionId); }
+    finally { if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined); }
   }
 }
 
