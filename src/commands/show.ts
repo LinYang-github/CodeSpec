@@ -14,6 +14,9 @@ import { nearestMatches } from '../utils/match.js';
 import { tryLoadCanonicalWorkspace } from './workflow/shared.js';
 import { loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
 import { formatStatusLabel } from '../ui/user-facing-messages.js';
+import * as fs from 'node:fs/promises';
+import path from 'node:path';
+import { findCurrentRequirement, parseCurrentSpecification, renderRequirementSnapshot } from '../core/codespec-workflow/current-spec-model.js';
 
 type ItemType = 'change' | 'spec';
 
@@ -87,7 +90,27 @@ export class ShowCommand {
       process.exitCode = 1;
       return;
     }
-    if (typeOverride === 'spec' || !/^CHG-\d{8}-\d{3}$/u.test(selected)) {
+    if (typeOverride === 'spec' || (typeOverride !== 'change' && /^MOD-\d{3}$/u.test(selected))) {
+      try {
+        if (!/^MOD-\d{3}$/u.test(selected)) throw new Error(`Current Spec requires a stable module ID (MOD-NNN): ${selected}`);
+        if (options.requirement !== undefined && (!/^MOD-\d{3}-REQ-\d{3}$/u.test(options.requirement) || !options.requirement.startsWith(`${selected}-REQ-`))) {
+          throw new Error(`Requirement 必须使用属于 ${selected} 的稳定 ID，不能使用数字索引：${options.requirement}`);
+        }
+        const content = await fs.readFile(path.join(workspace.paths.currentSpecs, selected, 'spec.md'), 'utf8');
+        const current = parseCurrentSpecification(content);
+        if (current.module !== selected) throw new Error(`Current module ${current.module} does not match ${selected}`);
+        const requirement = options.requirement === undefined ? undefined : findCurrentRequirement(current, options.requirement);
+        if (options.requirement !== undefined && !requirement) throw new Error(`Current 中不存在 Requirement：${options.requirement}`);
+        console.log(options.json ? JSON.stringify(requirement ?? current, null, 2) : requirement ? renderRequirementSnapshot(requirement).trimEnd() : content.trimEnd());
+      } catch (error) {
+        const message = (error as NodeJS.ErrnoException).code === 'ENOENT' ? `Current Spec 不存在：${selected}` : error instanceof Error ? error.message : String(error);
+        if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'current_spec_unavailable', message }] }, null, 2));
+        else console.error(message);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    if (!/^CHG-\d{8}-\d{3}$/u.test(selected)) {
       const message = `canonical code-spec show 要求 Change ID 匹配 CHG-YYYYMMDD-NNN；'${selected}' 不受支持。`;
       if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'legacy_change_unsupported', message }] }, null, 2));
       else console.error(message);

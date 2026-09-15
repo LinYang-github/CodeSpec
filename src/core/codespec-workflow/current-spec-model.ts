@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 export interface CurrentSpecTestCase {
   id: string;
@@ -194,6 +195,7 @@ function readCodeList(value: string, label: string): string[] {
 }
 
 export function parseCurrentSpecification(content: string): CurrentSpecification {
+  content = content.replace(/\r\n?/gu, '\n');
   const tokens = markdown.parse(content, {});
   const title = headingContent(tokens, 0, 'h1');
   if (!title) throw new Error('Current specification must start with an H1 module title');
@@ -204,26 +206,18 @@ export function parseCurrentSpecification(content: string): CurrentSpecification
   if (rawVersion !== 'legacy' && rawVersion !== '1') throw new Error('规格版本 must be legacy or 1');
 
   const requirements: CurrentSpecRequirement[] = [];
-  const scenarios = new Map<string, CurrentSpecScenario>();
   let engineeringFiles: CurrentSpecEngineeringFile[] = [];
-  let activeRequirement: CurrentSpecRequirement | undefined;
-  let inTestCases = false;
 
   for (let index = 0; index < tokens.length; index += 1) {
     const requirementHeading = headingContent(tokens, index, 'h2');
     if (requirementHeading) {
-      const parsed = splitIdentifierAndTitle(requirementHeading, '：', 'requirement');
-      activeRequirement = { ...parsed, scenarios: [] };
-      requirements.push(activeRequirement);
-      inTestCases = false;
+      let end = index + 3;
+      while (end < tokens.length && !headingContent(tokens, end, 'h2') && headingContent(tokens, end, 'h3') !== '当前模块工程文件') end += 1;
+      requirements.push(parseRequirementSnapshot(content.split('\n').slice(tokens[index]!.map![0], tokens[end]?.map?.[0]).join('\n')));
+      index = end - 1;
       continue;
     }
     const h3 = headingContent(tokens, index, 'h3');
-    if (h3 === '测试用例') {
-      if (!activeRequirement) throw new Error('测试用例 must belong to a requirement');
-      inTestCases = true;
-      continue;
-    }
     if (h3 === '当前模块工程文件') {
       const rows = tableAfter(tokens, index);
       const headers = rows[0] ?? [];
@@ -260,50 +254,98 @@ export function parseCurrentSpecification(content: string): CurrentSpecification
       });
       continue;
     }
-    const h4 = headingContent(tokens, index, 'h4');
-    if (!h4 || !activeRequirement) continue;
+  }
 
-    if (!inTestCases && h4.startsWith('Scenario: ')) {
-      const parsed = splitIdentifierAndTitle(h4.slice('Scenario: '.length), ' ', 'scenario');
-      const scenario: CurrentSpecScenario = {
-        ...parsed,
-        ...readScenarioSteps(listItemsAfter(tokens, index), parsed.id),
-        testCases: [],
-      };
-      activeRequirement.scenarios.push(scenario);
-      scenarios.set(scenario.id, scenario);
+  return { title, module, version: rawVersion, requirements, engineeringFiles };
+}
+
+export function findCurrentRequirement(specification: CurrentSpecification, requirementId: string): CurrentSpecRequirement | undefined {
+  return specification.requirements.find((requirement) => requirement.id === requirementId);
+}
+
+/** Consume exactly one top-level Markdown block, so stray prose cannot disappear. */
+function consumeBlock(tokens: Token[], index: number, type: string): number {
+  if (tokens[index]?.type !== `${type}_open`) throw new Error(`Requirement snapshot requires ${type}`);
+  const level = tokens[index]!.level;
+  let end = index + 1;
+  while (end < tokens.length && !(tokens[end]?.type === `${type}_close` && tokens[end]?.level === level)) end += 1;
+  if (end === tokens.length) throw new Error(`Unclosed ${type} in Requirement snapshot`);
+  if (type === 'bullet_list') {
+    const itemTypes = ['list_item_open', 'paragraph_open', 'inline', 'paragraph_close', 'list_item_close'];
+    const itemLevels = [1, 2, 3, 2, 1];
+    if ((end - index - 1) % itemTypes.length !== 0 || tokens.slice(index + 1, end).some((token, offset) =>
+      token.type !== itemTypes[offset % itemTypes.length] || token.level !== level + itemLevels[offset % itemLevels.length]!
+    )) throw new Error('Unconsumed nested content in Requirement snapshot list');
+  }
+  return end + 1;
+}
+
+/** A snapshot owns exactly one Requirement, its Scenarios and their test cases. */
+export function parseRequirementSnapshot(content: string, headingLevel: 2 | 3 = 2): CurrentSpecRequirement {
+  const tokens = markdown.parse(content, {});
+  const heading = headingContent(tokens, 0, `h${headingLevel}`);
+  if (!heading) throw new Error(`Requirement snapshot must start with one H${headingLevel} Requirement`);
+  const parsed = splitIdentifierAndTitle(heading, '：', 'Requirement snapshot');
+  if (!/^MOD-\d{3}-REQ-\d{3}$/u.test(parsed.id)) throw new Error(`Invalid Requirement snapshot ID: ${parsed.id}`);
+  const requirement: CurrentSpecRequirement = { ...parsed, scenarios: [] };
+  const scenarios = new Map<string, CurrentSpecScenario>();
+  const known = new Set([parsed.id]);
+  let inTests = false;
+  let index = 3;
+  while (index < tokens.length) {
+    if (headingContent(tokens, index, `h${headingLevel + 1}`) === '测试用例') {
+      if (inTests) throw new Error('Duplicate 测试用例 section in Requirement snapshot');
+      inTests = true;
+      index += 3;
       continue;
     }
-    if (!inTestCases) continue;
-
-    const parsed = splitIdentifierAndTitle(h4, '：', 'test case');
-    const scenarioSeparator = parsed.id.lastIndexOf('-TC-');
-    if (scenarioSeparator <= 0) throw new Error(`Test case ${parsed.id} has no scenario identifier`);
-    const scenario = scenarios.get(parsed.id.slice(0, scenarioSeparator));
-    if (!scenario) throw new Error(`Test case ${parsed.id} must follow its Scenario`);
+    const title = headingContent(tokens, index, `h${headingLevel + 2}`);
+    if (!title) throw new Error('Unconsumed content in Requirement snapshot; only one Requirement is allowed');
+    if (!inTests) {
+      if (!title.startsWith('Scenario: ')) throw new Error('Requirement snapshot requires a Scenario heading');
+      const scenario = splitIdentifierAndTitle(title.slice('Scenario: '.length), ' ', 'Scenario');
+      if (!new RegExp(`^${requirement.id}-SCN-\\d{3}$`, 'u').test(scenario.id)) throw new Error(`Scenario ${scenario.id} must use a full stable ID belonging to ${requirement.id}`);
+      if (known.has(scenario.id)) throw new Error(`Duplicate Scenario ID: ${scenario.id}`);
+      known.add(scenario.id);
+      const value = { ...scenario, ...readScenarioSteps(listItemsAfter(tokens, index), scenario.id), testCases: [] };
+      requirement.scenarios.push(value);
+      scenarios.set(scenario.id, value);
+      index = consumeBlock(tokens, index + 3, 'bullet_list');
+      continue;
+    }
+    const testCase = splitIdentifierAndTitle(title, '：', 'test case');
+    const scenario = scenarios.get(testCase.id.slice(0, testCase.id.lastIndexOf('-TC-')));
+    if (!scenario || !new RegExp(`^${scenario.id}-TC-[A-Z]+-\\d{2}$`, 'u').test(testCase.id)) throw new Error(`Test case ${testCase.id} must belong to a Scenario in this Requirement snapshot`);
+    if (known.has(testCase.id)) throw new Error(`Duplicate test case ID: ${testCase.id}`);
+    known.add(testCase.id);
     const fields = fieldMap(listItemsAfter(tokens, index));
+    const allowed = ['类型', '自动化测试', '测试标识', '最近验证', '工程定位', '验证来源', '执行命令', '验证环境', '验证时间', '验证摘要'];
+    for (const key of fields.keys()) if (!allowed.includes(key)) throw new Error(`Unconsumed test case field: ${key}`);
     const steps = requireTableRows(tokens, index, ['步骤', '用户操作', '预期结果'])
       .map(([number, action, expected]) => ({ number: number!, action: action!, expected: expected! }));
-    const optional = {
+    scenario.testCases.push({
+      ...testCase,
+      type: requireField(fields, '类型'),
+      automationTest: readCodeValue(requireField(fields, '自动化测试'), '自动化测试'),
+      testId: readCodeValue(requireField(fields, '测试标识'), '测试标识'),
+      latestVerification: requireField(fields, '最近验证'),
       ...(fields.has('工程定位') ? { engineeringLocations: readCodeList(fields.get('工程定位')!, '工程定位') } : {}),
       ...(fields.has('验证来源') ? { verificationSource: requireField(fields, '验证来源') } : {}),
       ...(fields.has('执行命令') ? { executionCommand: readCodeValue(requireField(fields, '执行命令'), '执行命令') } : {}),
       ...(fields.has('验证环境') ? { verificationEnvironment: requireField(fields, '验证环境') } : {}),
       ...(fields.has('验证时间') ? { verificationTime: requireField(fields, '验证时间') } : {}),
       ...(fields.has('验证摘要') ? { verificationSummary: requireField(fields, '验证摘要') } : {}),
-    };
-    scenario.testCases.push({
-      ...parsed,
-      type: requireField(fields, '类型'),
-      automationTest: readCodeValue(requireField(fields, '自动化测试'), '自动化测试'),
-      testId: readCodeValue(requireField(fields, '测试标识'), '测试标识'),
-      latestVerification: requireField(fields, '最近验证'),
-      ...optional,
       steps,
     });
+    index = consumeBlock(tokens, consumeBlock(tokens, index + 3, 'bullet_list'), 'table');
   }
+  return requirement;
+}
 
-  return { title, module, version: rawVersion, requirements, engineeringFiles };
+/** Full state, including evidence and locators. Approval projections are narrower. */
+export function hashRequirementSnapshot(requirement: CurrentSpecRequirement): string {
+  const normalized = parseRequirementSnapshot(renderRequirementSnapshot(requirement));
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
 
 export function renderCurrentSpecification(specification: CurrentSpecification): string {
@@ -314,29 +356,7 @@ export function renderCurrentSpecification(specification: CurrentSpecification):
     `- **规格版本：** ${specification.version}`,
   ];
   for (const requirement of specification.requirements) {
-    lines.push('', `## ${requirement.id}：${requirement.title}`);
-    for (const scenario of requirement.scenarios) {
-      lines.push('', `#### Scenario: ${scenario.id} ${scenario.title}`);
-      for (const value of scenario.given) lines.push(`- GIVEN ${value}`);
-      for (const value of scenario.when) lines.push(`- WHEN ${value}`);
-      for (const value of scenario.then) lines.push(`- THEN ${value}`);
-      for (const value of scenario.error) lines.push(`- ERROR ${value}`);
-    }
-    lines.push('', '### 测试用例');
-    for (const scenario of requirement.scenarios) {
-      for (const testCase of scenario.testCases) {
-        lines.push('', `#### ${testCase.id}：${testCase.title}`, '', `- **类型：** ${testCase.type}`,
-          `- **自动化测试：** \`${testCase.automationTest}\``, `- **测试标识：** \`${testCase.testId}\``,
-          ...(testCase.engineeringLocations?.length ? [`- **工程定位：** ${testCase.engineeringLocations.map((value) => `\`${value}\``).join('；')}`] : []),
-          ...(testCase.verificationSource ? [`- **验证来源：** ${testCase.verificationSource}`] : []),
-          ...(testCase.executionCommand ? [`- **执行命令：** \`${testCase.executionCommand}\``] : []),
-          ...(testCase.verificationEnvironment ? [`- **验证环境：** ${testCase.verificationEnvironment}`] : []),
-          ...(testCase.verificationTime ? [`- **验证时间：** ${testCase.verificationTime}`] : []),
-          ...(testCase.verificationSummary ? [`- **验证摘要：** ${testCase.verificationSummary}`] : []),
-          `- **最近验证：** ${testCase.latestVerification}`, '', '| 步骤 | 用户操作 | 预期结果 |', '| --- | --- | --- |');
-        for (const step of testCase.steps) lines.push(`| ${step.number} | ${step.action} | ${step.expected} |`);
-      }
-    }
+    lines.push('', renderRequirementSnapshot(requirement).trimEnd());
   }
   const hasActivity = specification.engineeringFiles.some((file) => file.module || file.change);
   lines.push('', '### 当前模块工程文件', '');
@@ -350,6 +370,34 @@ export function renderCurrentSpecification(specification: CurrentSpecification):
       lines.push(`| \`${file.path}\` | ${file.module ?? specification.module} | ${file.change ?? '修改'} | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
     } else {
       lines.push(`| \`${file.path}\` | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
+    }
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+export function renderRequirementSnapshot(requirement: CurrentSpecRequirement, headingLevel: 2 | 3 = 2): string {
+  const heading = '#'.repeat(headingLevel);
+  const lines = [`${heading} ${requirement.id}：${requirement.title}`];
+  for (const scenario of requirement.scenarios) {
+    lines.push('', `${heading}## Scenario: ${scenario.id} ${scenario.title}`);
+    for (const value of scenario.given) lines.push(`- GIVEN ${value}`);
+    for (const value of scenario.when) lines.push(`- WHEN ${value}`);
+    for (const value of scenario.then) lines.push(`- THEN ${value}`);
+    for (const value of scenario.error) lines.push(`- ERROR ${value}`);
+  }
+  lines.push('', `${heading}# 测试用例`);
+  for (const scenario of requirement.scenarios) {
+    for (const testCase of scenario.testCases) {
+      lines.push('', `${heading}## ${testCase.id}：${testCase.title}`, '', `- **类型：** ${testCase.type}`,
+        `- **自动化测试：** \`${testCase.automationTest}\``, `- **测试标识：** \`${testCase.testId}\``,
+        ...(testCase.engineeringLocations?.length ? [`- **工程定位：** ${testCase.engineeringLocations.map((value) => `\`${value}\``).join('；')}`] : []),
+        ...(testCase.verificationSource ? [`- **验证来源：** ${testCase.verificationSource}`] : []),
+        ...(testCase.executionCommand ? [`- **执行命令：** \`${testCase.executionCommand}\``] : []),
+        ...(testCase.verificationEnvironment ? [`- **验证环境：** ${testCase.verificationEnvironment}`] : []),
+        ...(testCase.verificationTime ? [`- **验证时间：** ${testCase.verificationTime}`] : []),
+        ...(testCase.verificationSummary ? [`- **验证摘要：** ${testCase.verificationSummary}`] : []),
+        `- **最近验证：** ${testCase.latestVerification}`, '', '| 步骤 | 用户操作 | 预期结果 |', '| --- | --- | --- |');
+      for (const step of testCase.steps) lines.push(`| ${step.number} | ${step.action} | ${step.expected} |`);
     }
   }
   return `${lines.join('\n')}\n`;

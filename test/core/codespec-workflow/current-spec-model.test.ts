@@ -1,6 +1,57 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseCurrentSpecification, renderCurrentSpecification, validateCurrentDesignOwnership, validateCurrentSpecification, validateCurrentSpecificationTraceability } from '../../../src/core/codespec-workflow/current-spec-model.js';
+import * as snapshots from '../../../src/core/codespec-workflow/current-spec-model.js';
+import { currentMarkdown, requirementMarkdown, h3Snapshot } from '../../helpers/rich-requirement.js';
+
+describe('shared rich Requirement snapshots', () => {
+  it.each([2, 3] as const)('round-trips exactly one Requirement at H%s, including tests, errors and evidence', (level) => {
+    const current = parseCurrentSpecification(currentMarkdown);
+    const requirement = snapshots.findCurrentRequirement(current, 'MOD-002-REQ-006')!;
+    const rendered = snapshots.renderRequirementSnapshot(requirement, level);
+    expect(rendered).not.toContain('REQ-007');
+    expect(rendered).not.toContain('当前模块工程文件');
+    expect(snapshots.parseRequirementSnapshot(rendered, level)).toEqual(requirement);
+    expect(snapshots.parseRequirementSnapshot(level === 2 ? requirementMarkdown : h3Snapshot(), level)).toEqual(requirement);
+    expect(requirement.scenarios[0]).toMatchObject({ error: ['重复用户时拒绝创建'], testCases: [{
+      engineeringLocations: ['/users', 'src/users.ts'], verificationSource: 'verification.yaml',
+      executionCommand: 'pnpm test', verificationEnvironment: 'test', verificationTime: '2026-09-15T00:00:00Z',
+      verificationSummary: '列表显示新用户', steps: [{ number: '1', action: '点击新增用户', expected: '打开表单' }, { number: '2', action: '提交有效信息', expected: '用户出现在列表' }],
+    }] });
+    expect(snapshots.findCurrentRequirement(current, '6')).toBeUndefined();
+    expect(snapshots.findCurrentRequirement(current, 'MOD-002-REQ-999')).toBeUndefined();
+  });
+
+  it('hashes semantic state independently of line endings, blank lines, heading depth and table padding', () => {
+    const baseline = snapshots.parseRequirementSnapshot(requirementMarkdown);
+    const reformatted = snapshots.parseRequirementSnapshot(h3Snapshot().replaceAll(' | ', '  |  ').replaceAll('\n', '\r\n'), 3);
+    expect(snapshots.hashRequirementSnapshot(reformatted)).toBe(snapshots.hashRequirementSnapshot(baseline));
+    const changed = structuredClone(baseline);
+    changed.scenarios[0]!.testCases[0]!.steps[0]!.expected = '直接创建用户';
+    expect(snapshots.hashRequirementSnapshot(changed)).not.toBe(snapshots.hashRequirementSnapshot(baseline));
+    const evidence = structuredClone(baseline);
+    evidence.scenarios[0]!.testCases[0]!.verificationSummary = '不同证据';
+    expect(snapshots.hashRequirementSnapshot(evidence)).not.toBe(snapshots.hashRequirementSnapshot(baseline));
+  });
+
+  it.each([
+    currentMarkdown,
+    requirementMarkdown + requirementMarkdown.replaceAll('REQ-006', 'REQ-008'),
+    requirementMarkdown.replace('MOD-002-REQ-006-SCN-001 有效提交', 'SCN-001 有效提交'),
+    requirementMarkdown.replaceAll('MOD-002-REQ-006-SCN-001-TC', 'MOD-002-REQ-007-SCN-001-TC'),
+    requirementMarkdown.replace('- ERROR 重复用户时拒绝创建', ''),
+    requirementMarkdown + '\n不应丢弃的游离正文\n',
+  ])('rejects whole Specs, extra Requirements, short IDs, foreign tests and unconsumed content', (source) => {
+    expect(() => snapshots.parseRequirementSnapshot(source)).toThrow();
+  });
+
+  it.each([
+    requirementMarkdown.replace('- THEN 用户出现在列表', '- THEN 用户出现在列表\n  - 不得忽略的嵌套行为'),
+    requirementMarkdown.replace('- **类型：** UI', '- **类型：** UI\n\n  ```text\n  不得忽略的测试说明\n  ```'),
+  ])('rejects nested snapshot content that the rich model cannot preserve', (source) => {
+    expect(() => snapshots.parseRequirementSnapshot(source)).toThrow(/snapshot|unconsumed|nested/i);
+  });
+});
 
 describe('current specification Markdown model', () => {
   it('allows design IDs but rejects duplicated scenario bodies', () => {

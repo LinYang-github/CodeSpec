@@ -2,6 +2,60 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { execFileSync, spawnSync } from 'child_process';
+import { createWorkflowFixture } from '../helpers/codespec-workflow.js';
+import { currentMarkdown } from '../helpers/rich-requirement.js';
+
+describe('canonical Current Requirement show', () => {
+  let fixture: Awaited<ReturnType<typeof createWorkflowFixture>>;
+  const bin = path.join(process.cwd(), 'bin', 'codespec.js');
+  const run = (...args: string[]) => spawnSync('node', [bin, 'show', ...args], { cwd: fixture.tempDir, encoding: 'utf8' });
+  beforeEach(async () => {
+    fixture = await createWorkflowFixture();
+    await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
+    await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), currentMarkdown);
+  });
+  afterEach(() => fixture.cleanup());
+
+  it('prints only the exact Current Requirement with all scenarios and tests', () => {
+    const result = run('MOD-002', '--type', 'spec', '--requirement', 'MOD-002-REQ-006');
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toMatch(/^## MOD-002-REQ-006：新增用户/);
+    expect(result.stdout).toContain('MOD-002-REQ-006-SCN-001-TC-UI-01');
+    expect(result.stdout).toContain('重复用户时拒绝创建');
+    expect(result.stdout).not.toContain('REQ-007');
+    expect(result.stdout).not.toContain('当前模块工程文件');
+  });
+
+  it('returns a structured Requirement in JSON and preserves whole Current reads', () => {
+    const exact = run('MOD-002', '--type', 'spec', '--requirement', 'MOD-002-REQ-006', '--json');
+    expect(exact.status, exact.stderr).toBe(0);
+    expect(JSON.parse(exact.stdout)).toMatchObject({ id: 'MOD-002-REQ-006', title: '新增用户', scenarios: [{ id: 'MOD-002-REQ-006-SCN-001', testCases: [{ steps: [{ number: '1' }, { number: '2' }] }] }] });
+    const whole = run('MOD-002', '--type', 'spec');
+    expect(whole.status, whole.stderr).toBe(0);
+    expect(whole.stdout).toContain('REQ-007');
+    expect(whole.stdout).toContain('当前模块工程文件');
+    const json = run('MOD-002', '--type', 'spec', '--json');
+    expect(json.status, json.stderr).toBe(0);
+    expect(JSON.parse(json.stdout).requirements).toHaveLength(2);
+  });
+
+  it.each(['1', 'MOD-003-REQ-006', 'MOD-002-REQ-999'])('rejects index, module mismatch and unknown Requirement %s', (id) => {
+    const result = run('MOD-002', '--type', 'spec', '--requirement', id, '--json');
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toMatch(/Requirement|需求/);
+  });
+
+  it('never resolves a Requirement from archive when Current is absent', async () => {
+    await fs.rm(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'));
+    const archive = path.join(fixture.paths.archivedChanges, 'CHG-20260901-001');
+    await fs.mkdir(archive, { recursive: true });
+    await fs.writeFile(path.join(archive, 'spec.md'), currentMarkdown);
+    const result = run('MOD-002', '--type', 'spec', '--requirement', 'MOD-002-REQ-006', '--json');
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toMatch(/Current/);
+    expect(result.stdout).not.toContain('新增用户');
+  });
+});
 
 describe('top-level show command', () => {
   const projectRoot = process.cwd();
@@ -96,6 +150,12 @@ describe('top-level show command', () => {
     } finally {
       process.chdir(originalCwd);
     }
+  });
+
+  it('preserves one-based Requirement indexes for legacy spec-driven JSON reads', () => {
+    const result = spawnSync('node', [codespecBin, 'show', 'auth', '--type', 'spec', '--json', '--requirement', '1'], { cwd: testDir, encoding: 'utf8' });
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout).requirements).toHaveLength(1);
   });
 
   it('handles ambiguity and suggests --type', async () => {

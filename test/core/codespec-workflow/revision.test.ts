@@ -7,6 +7,7 @@ import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/artifac
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 import { createWorkflowFixture, writeChangeArtifacts } from '../../helpers/codespec-workflow.js';
+import { richDelta } from '../../helpers/rich-requirement.js';
 
 // Keep actual filesystem behavior; expose configurable methods solely for
 // one-shot I/O failure injection during transaction commits.
@@ -21,6 +22,8 @@ async function prepared(legacy = false) {
   const dir = path.join(fixture.paths.changes, fixture.changeId);
   const file = (name: string) => path.join(dir, name);
   if (!legacy) {
+    await fs.writeFile(file('spec.md'), richDelta('ADDED', spec.slice(spec.indexOf('## MOD-001')))
+      .replaceAll('MOD-002', 'MOD-001').replaceAll('REQ-006', 'REQ-001').replaceAll('e2e/users.spec.ts', 'e2e/order.ts'));
     const metadata = parseYaml(await fs.readFile(file('metadata.yaml'), 'utf8'));
     delete metadata.artifacts.proposal;
     metadata.artifacts.analysis = path.join('changes', fixture.changeId, 'analysis.yaml');
@@ -85,7 +88,7 @@ describe('semantic revision transaction', () => {
     expect(artifacts.metadata.gates.verify.satisfied).toBe(false);
     expect(artifacts.metadata.baseline.modules['MOD-001'].requirement_ids).toEqual(['MOD-001-REQ-001']);
     expect(artifacts.metadata.baseline.modules['MOD-001'].requirements).toEqual({
-      'MOD-001-REQ-001': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      'MOD-001-REQ-001': '32f1160ca43cbba82071e8b1179166961629d05cf963e2b5d7ce823e0dac76dd',
     });
     expect(parseYaml(artifacts.verification)).toEqual({ version: 1, testCases: [] });
     expect(parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes[0]).toMatchObject({ id: fixture.changeId, status: route });
@@ -195,6 +198,18 @@ describe('semantic revision transaction', () => {
     const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
     await expect(reviseChange(fixture.workspace, fixture.changeId, 'updated')).rejects.toThrow(/no semantic|语义/i);
     expect(await fs.readFile(fixture.file('metadata.yaml'), 'utf8')).toBe(before);
+  });
+
+  it.each([
+    ['| `e2e/order.ts` |', '| `e2e/new-order.ts` |'],
+    ['| 修改 |', '| 新增 |'],
+  ])('routes an explicit engineering-file delta edit to PLAN and preserves DESIGN approval', async (from, to) => {
+    const fixture = await prepared();
+    await fixture.edit('spec.md', from, to);
+    const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
+    expect(await reviseChange(fixture.workspace, fixture.changeId, 'update engineering file delta')).toMatchObject({ route: 'PLAN', invalidatedApprovals: ['plan'] });
+    const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
+    expect(() => assertTransitionApproval(artifacts, 'PLAN')).not.toThrow();
   });
 
   it.each(['writeFile', 'rename'] as const)('rolls back every artifact when any %s step fails', async (operation) => {

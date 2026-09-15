@@ -16,6 +16,7 @@ import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { parseChangeMetadata } from '../../../src/core/codespec-workflow/schemas.js';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { createWorkflowFixture, writeChangeArtifacts } from '../../helpers/codespec-workflow.js';
+import { richDelta } from '../../helpers/rich-requirement.js';
 
 function artifactsFor(
   status: 'ANALYZE' | 'DESIGN' | 'PLAN',
@@ -90,6 +91,7 @@ function canonicalArtifacts(
   analysis = analysisDocument(),
 ): ChangeArtifacts {
   const artifacts = artifactsFor(status, {
+    spec: richDelta().replaceAll('MOD-002', 'MOD-001').replaceAll('REQ-006', 'REQ-001'),
     tasks: [
       'version: 1',
       'tasks: []',
@@ -156,7 +158,7 @@ describe('workflow approvals', () => {
 
   it('invalidates design and plan payloads, but not analyze, when design or delta semantics change', () => {
     const original = canonicalArtifacts();
-    const changed = { ...canonicalArtifacts(), design: '# Design\n\nA different error-mapping strategy', spec: '## ADDED\n\nA different requirement delta' };
+    const changed = { ...canonicalArtifacts(), design: '# Design\n\nA different error-mapping strategy', spec: original.spec.replace('THEN 用户出现在列表', 'THEN 显示支付失败原因') };
 
     expect(approvalContentHash('analyze', changed)).toBe(approvalContentHash('analyze', original));
     expect(approvalContentHash('design', changed)).not.toBe(approvalContentHash('design', original));
@@ -280,16 +282,7 @@ describe('workflow approvals', () => {
   it('classifies semantic task-plan changes separately from locator-only changes', () => {
     const before = {
       design: '# 设计\n',
-      spec: [
-        '# 用户管理', '', '- **模块编号：** MOD-002', '- **规格版本：** 1', '',
-        '## MOD-002-REQ-001：新增用户', '',
-        '#### Scenario: MOD-002-REQ-001-SCN-001 提交新增用户',
-        '- GIVEN 已登录', '- WHEN 提交新增用户', '- THEN 用户出现在列表', '- ERROR 用户已存在', '',
-        '### 测试用例', '', '#### MOD-002-REQ-001-SCN-001-TC-UI-01：新增用户',
-        '- **类型：** UI', '- **自动化测试：** `e2e/users.spec.ts`', '- **测试标识：** `add-user`', '- **最近验证：** 待验证', '',
-        '| 步骤 | 用户操作 | 预期结果 |', '| --- | --- | --- |', '| 1 | 点击新增用户 | 打开表单 |', '',
-        '### 当前模块工程文件', '', '| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |', '| --- | --- | --- |', '| `src/pages/Users.tsx` | 用户页面 | `MOD-002-REQ-001-SCN-001-TC-UI-01` |', '',
-      ].join('\n'),
+      spec: richDelta().replaceAll('REQ-006', 'REQ-001'),
       tasks: [
         'version: 1', 'tasks:', '  - id: CHG-20260901-001-TASK-01', '    title: 新增用户页面', '    status: PENDING',
         '    requirements: [MOD-002-REQ-001]', '    scenarios: [MOD-002-REQ-001-SCN-001]', '    testCases: [MOD-002-REQ-001-SCN-001-TC-UI-01]',
@@ -330,15 +323,7 @@ describe('workflow approvals', () => {
   it('keeps a current-format task approval valid when only execution status changes', () => {
     const current = artifactsFor('PLAN', {
       design: '# 设计\n',
-      spec: [
-        '# 用户管理', '', '- **模块编号：** MOD-002', '- **规格版本：** 1', '',
-        '## MOD-002-REQ-001：新增用户', '', '#### Scenario: MOD-002-REQ-001-SCN-001 提交新增用户',
-        '- GIVEN 已登录', '- WHEN 提交新增用户', '- THEN 用户出现在列表', '- ERROR 用户已存在', '',
-        '### 测试用例', '', '#### MOD-002-REQ-001-SCN-001-TC-UI-01：新增用户',
-        '- **类型：** UI', '- **自动化测试：** `e2e/users.spec.ts`', '- **测试标识：** `data-testid=add-user`', '- **最近验证：** 待验证', '',
-        '| 步骤 | 用户操作 | 预期结果 |', '| --- | --- | --- |', '| 1 | 点击新增用户 | 打开表单 |', '',
-        '### 当前模块工程文件', '', '| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |', '| --- | --- | --- |', '| `src/pages/Users.tsx` | 用户页面 | `MOD-002-REQ-001-SCN-001-TC-UI-01` |', '',
-      ].join('\n'),
+      spec: richDelta().replaceAll('REQ-006', 'REQ-001'),
       tasks: [
         'version: 1',
         'tasks:',
@@ -382,7 +367,7 @@ describe('workflow approvals', () => {
   it('keeps a current-format task approval valid when only an automation locator changes', () => {
     const current = artifactsFor('PLAN', {
       design: '# 设计\n',
-      spec: '# 用户管理\n\n- **模块编号：** MOD-002\n- **规格版本：** 1\n',
+      spec: richDelta().replaceAll('REQ-006', 'REQ-001'),
       tasks: [
         'version: 1', 'tasks:', '  - id: CHG-20260901-001-TASK-01', '    title: 新增用户页面', '    status: PENDING',
         '    requirements: [MOD-002-REQ-001]', '    scenarios: [MOD-002-REQ-001-SCN-001]', '    testCases: [MOD-002-REQ-001-SCN-001-TC-UI-01]',

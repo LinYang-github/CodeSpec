@@ -694,7 +694,7 @@ program
   // spec-only flags
   .option('--requirements', '仅 JSON：只显示 Requirement（排除场景）')
   .option('--no-scenarios', '仅 JSON：排除场景内容')
-  .option('-r, --requirement <id>', '仅 JSON：按 ID 显示指定 Requirement（从 1 开始）')
+  .option('-r, --requirement <id>', '显示 Current 的稳定 Requirement ID；legacy Spec 的 JSON 仍支持从 1 开始的索引')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   // Explicit registration required: allowUnknownOption would otherwise
   // silently swallow --store-path instead of rejecting it deliberately.

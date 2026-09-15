@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { z } from 'zod';
-import { parseCurrentSpecification } from './current-spec-model.js';
+import type { CurrentSpecRequirement } from './current-spec-model.js';
+import { parseCurrentSpecDelta, projectCurrentSpecDelta } from './current-spec-delta.js';
 import { relationSchema, serviceSchema } from './current-spec-yaml.js';
 
 const moduleId = z.string().regex(/^MOD-\d{3}$/u);
@@ -193,43 +194,37 @@ export function hashTaskApprovalContent(input: { design: string; spec: string; t
 
 /** Excludes execution evidence and verified UI locators from the approved task plan. */
 export function projectCurrentSpecForPlanApproval(spec: string): unknown {
-  try {
-    const parsed = parseCurrentSpecification(spec);
-    return {
-      module: parsed.module,
-      requirements: parsed.requirements.map((requirement) => ({
-        id: requirement.id,
-        title: requirement.title,
-        scenarios: requirement.scenarios.map((scenario) => ({
-          id: scenario.id,
-          title: scenario.title,
-          given: scenario.given,
-          when: scenario.when,
-          then: scenario.then,
-          error: scenario.error,
-          testCases: scenario.testCases.map(({ automationTest: _automationTest, testId: _testId, latestVerification: _latestVerification, ...testCase }) => testCase),
-        })),
-      })),
-      engineeringFiles: parsed.engineeringFiles.map(({ path: _path, ...file }) => file),
-    };
-  } catch {
-    return spec.replace(/\r\n/gu, '\n').trimEnd();
-  }
+  return projectDeltaApproval(spec, true);
 }
 
 /** The design approval intentionally excludes test cases and file locators. */
 export function projectCurrentSpecForDesignApproval(spec: string): unknown {
+  return projectDeltaApproval(spec, false);
+}
+
+function projectDeltaApproval(spec: string, includePlan: boolean): unknown {
   try {
-    const parsed = parseCurrentSpecification(spec);
+    const parsed = projectCurrentSpecDelta(parseCurrentSpecDelta(spec));
+    const snapshot = (requirement: CurrentSpecRequirement) => ({
+      id: requirement.id,
+      title: requirement.title,
+      scenarios: requirement.scenarios.map(({ id, title, given, when, then, error, testCases }) => ({
+        id, title, given, when, then, error,
+        ...(includePlan ? { testCases: testCases.map(({ id, title, type, steps }) => ({ id, title, type, steps })) } : {}),
+      })),
+    });
     return {
       module: parsed.module,
-      requirements: parsed.requirements.map((requirement) => ({
-        id: requirement.id,
-        title: requirement.title,
-        scenarios: requirement.scenarios.map(({ id, title, given, when, then, error }) => ({ id, title, given, when, then, error })),
+      requirements: parsed.requirements.map(({ previous, next, ...entry }) => ({
+        ...entry,
+        ...(previous ? { previous: snapshot(previous) } : {}),
+        ...(next ? { next: snapshot(next) } : {}),
       })),
+      ...(includePlan ? { engineeringFiles: parsed.engineeringFiles } : {}),
     };
   } catch {
+    // Incomplete authoring still needs a changing receipt so revise can return
+    // to DESIGN. Validation, not this projection, accepts or rejects the delta.
     return spec.replace(/\r\n/gu, '\n').trimEnd();
   }
 }

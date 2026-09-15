@@ -8,6 +8,9 @@ import { parse as parseYaml } from 'yaml';
 import { parseChangeMetadata } from './schemas.js';
 import type { ChangeMetadata } from './types.js';
 import type { WorkspaceContext } from './loaders.js';
+import { parseAnalysisDocument } from './analysis.js';
+import { findCurrentRequirement, hashRequirementSnapshot, parseCurrentSpecification } from './current-spec-model.js';
+import { parseCurrentSpec } from './current-spec-parser.js';
 
 export interface Baseline {
   created_at: string;
@@ -43,14 +46,11 @@ export async function captureRepositoryBaseline(projectRoot: string): Promise<Pi
     return { commit: null, working_tree_fingerprint: `sha256:${digest('')}` };
   }
 }
-function blockFor(content: string, id: string): string {
-  const headings = [...content.matchAll(/^###\s+(MOD-\d{3}-REQ-\d{3})(?:\s+.*)?$/gmu)];
-  const hit = headings.find((item) => item[1] === id); if (!hit || hit.index === undefined) return '';
-  const next = headings.find((item) => (item.index ?? 0) > hit.index!);
-  return content.slice(hit.index, next?.index ?? content.length).trim();
-}
 export async function captureBaseline(workspace: WorkspaceContext, metadata: ChangeMetadata, authoredSpecs: Record<string, string> = {}): Promise<Baseline> {
   const repository = await captureRepositoryBaseline(path.dirname(workspace.codespecDir));
+  const analysis = metadata.artifacts.analysis && !metadata.artifacts.proposal
+    ? parseAnalysisDocument(parseYaml(await fs.readFile(path.join(workspace.codespecDir, metadata.artifacts.analysis), 'utf8')))
+    : undefined;
   const modules: Baseline['modules'] = {};
   let entries: Dirent[];
   try { entries = await fs.readdir(workspace.paths.changes, { withFileTypes: true }); }
@@ -65,17 +65,36 @@ export async function captureBaseline(workspace: WorkspaceContext, metadata: Cha
     if (candidate.change.id !== entry.name) throw new Error(`Change directory ${entry.name} does not match metadata change.id ${candidate.change.id}`);
     if (active.has(candidate.change.status) && candidate.change.id !== metadata.change.id) candidates.push(candidate);
   }
-  for (const selected of metadata.modules.confirmed) {
+  for (const selected of analysis?.modules ?? metadata.modules.confirmed) {
     const related = candidates.filter((candidate) => candidate.modules.confirmed.some((item) => item.module === selected.module)).sort((a, b) => b.change.updated_at.localeCompare(a.change.updated_at) || b.change.id.localeCompare(a.change.id));
     const latest_change = related[0]?.change.id ?? null;
     const specPath = path.join(workspace.paths.currentSpecs, selected.module, 'spec.md');
     let content: string;
     if (authoredSpecs[selected.module] !== undefined) content = authoredSpecs[selected.module];
     else { try { content = await fs.readFile(specPath, 'utf8'); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') content = ''; else throw error; } }
-    const requirement_ids = Object.values(metadata.requirements).flat().filter((item) => item.module === selected.module).map((item) => item.id);
+    const selectedRequirements = analysis?.requirements.filter((item) => item.id.startsWith(`${selected.module}-`)).sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    if (analysis && !selectedRequirements?.length) continue;
+    const requirement_ids = selectedRequirements?.map((item) => item.id) ?? Object.values(metadata.requirements).flat().filter((item) => item.module === selected.module).map((item) => item.id);
     const requirements: Record<string, string> = {};
-    for (const id of requirement_ids) requirements[id] = digest(blockFor(content, id));
-    modules[selected.module] = { outcome: selected.outcome, latest_change, requirement_ids, spec_hash: digest(content), requirements };
+    if (analysis) {
+      const current = content.trim() ? parseCurrentSpecification(content) : undefined;
+      if (current && current.module !== selected.module) throw new Error(`Current module ${current.module} does not match ${selected.module}`);
+      for (const { id, action } of selectedRequirements!) {
+        const snapshot = current && findCurrentRequirement(current, id);
+        if (action === 'ADDED') {
+          if (snapshot) throw new Error(`ADDED Requirement ${id} already exists in Current`);
+          requirements[id] = digest(`codespec:requirement-absent:v1:${id}`);
+        } else {
+          if (!snapshot) throw new Error(`${action} Requirement ${id} does not exist in Current`);
+          requirements[id] = hashRequirementSnapshot(snapshot);
+        }
+      }
+    } else {
+      // Proposal-bearing historical Changes retain their legacy snapshot model.
+      const legacy = parseCurrentSpec(content);
+      for (const id of requirement_ids) requirements[id] = digest(legacy.requirements.find((requirement) => requirement.id === id)?.raw ?? '');
+    }
+    modules[selected.module] = { outcome: selected.outcome, latest_change, requirement_ids, spec_hash: digest(analysis ? JSON.stringify(requirements) : content), requirements };
   }
   return { created_at: new Date().toISOString(), ...repository, stale: false, modules };
 }
