@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import * as fs from 'node:fs/promises';
+import path from 'node:path';
+import { stringify as stringifyYaml } from 'yaml';
 
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import {
@@ -20,6 +23,29 @@ import {
 } from '../../helpers/codespec-workflow.js';
 
 describe('codespec workflow state machine', () => {
+  it('computes ANALYZE completion from analysis content instead of a satisfied metadata flag', async () => {
+    const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
+    const analysisPath = path.join(fixture.paths.changes, fixture.changeId, 'analysis.yaml');
+    await writeChangeArtifacts(fixture, {
+      metadata: {
+        gates: { analyze: { required: true, satisfied: true } },
+        artifacts: { analysis: path.join('changes', fixture.changeId, 'analysis.yaml') },
+      } as never,
+    });
+    await fs.writeFile(analysisPath, stringifyYaml({
+      version: 1, change: fixture.changeId, revision: 1, problem: '澄清订单支付反馈',
+      goals: [{ id: 'GOAL-001', statement: '用户理解支付结果' }],
+      nonGoals: [{ id: 'NON-GOAL-001', statement: '不新增支付方式' }],
+      scope: { in: [], out: ['新的支付渠道'] }, actors: [], constraints: [], assumptions: [],
+      openQuestions: [{ id: 'QUESTION-001', question: '提示是否本地化', status: 'OPEN' }],
+      acceptanceCriteria: [], modules: [], requirements: [],
+    }));
+    const workspace = await loadWorkspace(fixture.codespecDir);
+    const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) => m.loadChangeArtifacts(workspace.paths, fixture.changeId));
+
+    expect((await validateExitGate(workspace, artifacts)).errors.join('\n')).toMatch(/scope\.in|openQuestions\[0\].status/i);
+  });
+
   it('allows VERIFY to return to IMPLEMENT for an implementation failure', () => {
     expect(canTransition('VERIFY', 'IMPLEMENT')).toBe(true);
   });
@@ -192,13 +218,13 @@ describe('codespec workflow state machine', () => {
     expect(persisted.metadata.gates.archive.satisfied).toBe(true);
   });
 
-  it('rejects a satisfied analyze flag when proposal sections and module consistency are absent', async () => {
+  it('requires a five-artifact ANALYZE Change to migrate even when its legacy analyze flag is satisfied', async () => {
     const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
     await writeBusinessFile(fixture, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Orders | Owns orders | Orders | orders |\n');
     await writeChangeArtifacts(fixture, { metadata: { gates: { analyze: { required: true, satisfied: true } } } });
     const workspace = await loadWorkspace(fixture.codespecDir);
     const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) => m.loadChangeArtifacts(workspace.paths, fixture.changeId));
-    expect((await validateExitGate(workspace, artifacts)).errors.join('\\n')).toMatch(/summary|goal|scope|module/i);
+    expect((await validateExitGate(workspace, artifacts)).errors.join('\\n')).toMatch(/analysis\.yaml.*migrated/i);
   });
 
   it('rejects a revision reason that merely contains the word semantic', () => {
@@ -313,7 +339,7 @@ describe('codespec workflow state machine', () => {
 
     await expect(
       transitionChange(workspace, artifacts, 'DESIGN', 'analysis complete')
-    ).rejects.toThrow(/ANALYZE.*summary|proposal.*summary|module/i);
+    ).rejects.toThrow(/ANALYZE.*analysis\.yaml.*migrated/i);
   });
 
   it('requires parsed Requirement and Scenario traceability before PLAN', async () => {

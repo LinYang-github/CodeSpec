@@ -8,6 +8,7 @@ import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from '
 import { parseVerificationDocument, validateCurrentVerificationArtifacts, validateVerificationEvidence } from './verification.js';
 import { evaluateMinimumSddLevel } from './sdd-level.js';
 import { parseCurrentTasks } from './current-change-yaml.js';
+import { validateAnalysisAgainstWorkspace } from './analysis-consistency.js';
 import { parse as parseYaml } from 'yaml';
 
 export interface GateResult { ok: boolean; errors: string[]; warnings: string[] }
@@ -63,10 +64,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   const isCurrentChange = !m.artifacts?.proposal;
   errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
-    if (!isCurrentChange && (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal))) errors.push('proposal 必须包含 summary、goals 和 scope 部分');
-    if (!m.impact.summary.trim()) errors.push('必须填写 proposal summary');
-    if (m.modules.candidates.length === 0) errors.push('必须提供模块候选项');
-    if (m.gates.analyze.required && !m.gates.analyze.satisfied) errors.push('ANALYZE 门禁尚未满足');
+    errors.push(...await validateAnalysisAgainstWorkspace(workspace, artifacts));
   }
   if (state === 'DESIGN') {
     errors.push(...validateSddLevel(artifacts));
