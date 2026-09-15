@@ -14,7 +14,7 @@ import type { ChangeArtifacts } from '../../../src/core/codespec-workflow/artifa
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { parseChangeMetadata } from '../../../src/core/codespec-workflow/schemas.js';
-import { stringify as stringifyYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { createWorkflowFixture, writeChangeArtifacts } from '../../helpers/codespec-workflow.js';
 
 function artifactsFor(
@@ -237,6 +237,41 @@ describe('workflow approvals', () => {
       await expect(approveChangeStage(workspace, artifacts, 'analyze')).resolves.toMatchObject({
         approvals: { analyze: { status: 'approved', revision: 1, content_hash: expect.stringMatching(/^[a-f0-9]{64}$/) } },
       });
+      const persisted = parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf8')) as {
+        approvals: Record<string, unknown>;
+      };
+      expect(persisted.approvals.analyze).toMatchObject({ status: 'approved' });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it('keeps legacy metadata two-stage after recording a design approval', async () => {
+    const fixture = await createWorkflowFixture({ configOverrides: { schema: 'spec-driven' } });
+    try {
+      await writeChangeArtifacts(fixture, {
+        metadata: {
+          change: { status: 'DESIGN' },
+          gates: { design: { required: true, satisfied: true } },
+          modules: {
+            candidates: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Orders own feedback' }],
+            confirmed: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Orders own feedback' }],
+            dependencies: [],
+          },
+          requirements: { added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }], modified: [], removed: [] },
+        },
+        design: '# Design\n\n## SDD 分级依据\n\nMOD-001-REQ-001\n',
+      });
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const artifacts = await loadChangeArtifacts(workspace.paths, fixture.changeId);
+
+      await approveChangeStage(workspace, artifacts, 'design');
+
+      const persisted = parseYaml(await fs.readFile(path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml'), 'utf8')) as {
+        approvals: Record<string, unknown>;
+      };
+      expect(persisted.approvals.design).toMatchObject({ status: 'approved' });
+      expect(persisted.approvals).not.toHaveProperty('analyze');
     } finally {
       fixture.cleanup();
     }

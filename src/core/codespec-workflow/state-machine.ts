@@ -7,6 +7,7 @@ import type { ChangeMetadata, ChangeStatus } from './types.js';
 import { validateEntryGate } from './gates.js';
 import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
 import { assertTransitionApproval, revokeApprovals } from './approvals.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 
 const EDGES: Record<ChangeStatus, readonly ChangeStatus[]> = {
   ANALYZE: ['DESIGN', 'ABANDONED'], DESIGN: ['PLAN', 'ANALYZE', 'ABANDONED'], PLAN: ['IMPLEMENT', 'DESIGN', 'ABANDONED'],
@@ -52,7 +53,7 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
     const metadataTmp = `${metadataPath}${token}.tmp`;
     const indexTmp = `${indexPath}${token}.tmp`;
     try {
-      await fs.writeFile(metadataTmp, stringifyYaml(next), 'utf8');
+      await fs.writeFile(metadataTmp, stringifyYaml(metadataForPersistence(next)), 'utf8');
       await fs.writeFile(indexTmp, stringifyYaml(nextIndex), 'utf8');
       await fs.rename(metadataTmp, metadataPath);
       await fs.rename(indexTmp, indexPath);

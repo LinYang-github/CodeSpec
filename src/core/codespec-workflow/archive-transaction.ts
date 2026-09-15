@@ -29,6 +29,7 @@ import {
   type ArchiveImpact,
 } from './archive-impact.js';
 import type { ArchivePlan as ContractArchivePlan, ChangeMetadata, RequirementDelta } from './types.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 
 export interface ArchivePlan extends ContractArchivePlan {
   workspace: WorkspaceContext;
@@ -380,7 +381,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
       await fs.writeFile(path.join(dir, 'spec.md'), content);
     }
     await copyTree(plan.artifacts.changeDir, path.join(stage, 'change'));
-    await fs.writeFile(path.join(stage, 'change', 'metadata.yaml'), stringifyYaml(archivedMetadata));
+    await fs.writeFile(path.join(stage, 'change', 'metadata.yaml'), stringifyYaml(metadataForPersistence(archivedMetadata)));
     const index = await loadChangeIndex(plan.workspace.paths);
     const nextIndex = { version: 1, changes: index.entries.filter((entry) => entry.id !== plan.changeId) };
     await fs.writeFile(path.join(stage, 'index.yaml'), stringifyYaml(nextIndex));

@@ -9,6 +9,7 @@ import type { ChangeMetadata, RequirementDelta } from './types.js';
 import { documentSections, INLINE_DESIGN_SECTIONS } from './document-sections.js';
 import { withChangeIndexLock } from './change-index.js';
 import { revokeApprovals } from './approvals.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 
 export interface RebaseDecision { strategy: 'semantic-rebase'; route: 'DESIGN'; reason: string; current_specs: string[]; decisions: Array<{ requirement_id: string; action: string; previous: string }> }
 export interface RebaseResult { change: ChangeMetadata['change']; baseline: Baseline; decision: RebaseDecision }
@@ -123,7 +124,7 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
       throw new Error('Rebase 冲突：Change 在重基线期间发生变化，请重新运行 rebase');
     }
     try {
-      await fs.writeFile(metadataTmp, stringifyYaml(change)); await fs.writeFile(specTmp, rebasedSpec);
+      await fs.writeFile(metadataTmp, stringifyYaml(metadataForPersistence(change))); await fs.writeFile(specTmp, rebasedSpec);
       if (designTmp && original.design !== null) await fs.writeFile(designTmp, `${original.design}\n\n## Rebase decision (revision ${change.change.revision})\n\n${stringifyYaml(decision)}`);
       await fs.writeFile(verificationTmp, '# Verification\n');
       await fs.rename(metadataTmp, metadataPath); await fs.rename(specTmp, specPath); if (designTmp && designPath) await fs.rename(designTmp, designPath);

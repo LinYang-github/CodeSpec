@@ -40,6 +40,7 @@ describe('stale changes and rebase', () => {
     for (const key of ['design', 'plan', 'implement', 'verify', 'archive']) expect(updated.gates[key].satisfied).toBe(false);
     expect(updated.approvals.design).toMatchObject({ status: 'revoked', revision: 2, content_hash: '', approved_at: null });
     expect(updated.approvals.plan).toMatchObject({ status: 'revoked', revision: 2, content_hash: '', approved_at: null });
+    expect(updated.approvals).not.toHaveProperty('analyze');
   });
 
   it('marks only a Requirement-overlapping Change stale after archive', async () => {

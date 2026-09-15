@@ -4,6 +4,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseChangeMetadata } from './schemas.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ChangeMetadata } from './types.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 
 const active = new Set(['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE']);
 export async function detectStaleChanges(workspace: WorkspaceContext, archivedRequirementIds: string[]): Promise<string[]> {
@@ -22,7 +23,7 @@ export async function detectStaleChanges(workspace: WorkspaceContext, archivedRe
     if (!ids.some((id) => archived.has(id))) continue;
     metadata.baseline.stale = true;
     metadata.change.updated_at = new Date().toISOString();
-    const temporary = `${file}.${process.pid}.tmp`; await fs.writeFile(temporary, stringifyYaml(metadata)); await fs.rename(temporary, file);
+    const temporary = `${file}.${process.pid}.tmp`; await fs.writeFile(temporary, stringifyYaml(metadataForPersistence(metadata))); await fs.rename(temporary, file);
     affected.push(metadata.change.id);
   }
   return affected.sort();

@@ -9,6 +9,7 @@ import { parseAnalysisDocument, projectAnalysisForApproval } from './analysis.js
 import { withChangeIndexLock } from './change-index.js';
 import { validateExitGate } from './gates.js';
 import type { WorkspaceContext } from './loaders.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 import type { ApprovalRecord, ApprovalStage, ChangeMetadata, ChangeStatus } from './types.js';
 import { parseCurrentTasks, projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from './current-change-yaml.js';
 
@@ -168,7 +169,7 @@ export async function approveChangeStage(
     const token = `.approve-${process.pid}-${Date.now()}`;
     const temporaryPath = `${metadataPath}${token}.tmp`;
     try {
-      await fs.writeFile(temporaryPath, stringifyYaml(next), 'utf8');
+      await fs.writeFile(temporaryPath, stringifyYaml(metadataForPersistence(next)), 'utf8');
       await fs.rename(temporaryPath, metadataPath);
     } catch (error) {
       await fs.rm(temporaryPath, { force: true }).catch(() => undefined);

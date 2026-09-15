@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
 import type { ChangeArtifacts } from './artifacts.js';
+import type { ChangeMetadata } from './types.js';
 import type { WorkspaceContext } from './loaders.js';
 import { loadChangeArtifacts } from './loaders.js';
 import { parseDeltaSpec } from './delta-parser.js';
@@ -14,6 +15,7 @@ import { validateTraceRows, type TraceRow } from './traceability.js';
 import { parseConfiguration } from './current-spec-yaml.js';
 import { parseCurrentTasks, parseCurrentVerification, type CurrentVerification } from './current-change-yaml.js';
 import { validateCurrentVerificationPlan } from './current-verification-policy.js';
+import { metadataForPersistence } from './metadata-persistence.js';
 import {
   requiredVerificationKinds,
   resolveControlledVerificationCommands,
@@ -299,12 +301,12 @@ export function parseVerificationDocument(content: string): VerificationEvidence
   }
 }
 
-async function publishPair(metadataPath: string, metadata: unknown, verificationPath: string, evidence: VerificationEvidence): Promise<void> {
+async function publishPair(metadataPath: string, metadata: ChangeMetadata, verificationPath: string, evidence: VerificationEvidence): Promise<void> {
   const token = `.verification-${process.pid}-${Date.now()}`;
   const metadataTmp = `${metadataPath}.${token}.tmp`; const evidenceTmp = `${verificationPath}.${token}.tmp`;
   const originalMetadata = await fs.readFile(metadataPath, 'utf8'); const originalEvidence = await fs.readFile(verificationPath, 'utf8');
   try {
-    await fs.writeFile(evidenceTmp, renderVerificationMarkdown(evidence)); await fs.writeFile(metadataTmp, stringifyYaml(metadata));
+    await fs.writeFile(evidenceTmp, renderVerificationMarkdown(evidence)); await fs.writeFile(metadataTmp, stringifyYaml(metadataForPersistence(metadata)));
     await hooks?.beforePublish?.(evidenceTmp);
     await fs.rename(evidenceTmp, verificationPath);
     await hooks?.beforePublish?.(metadataPath);
@@ -449,7 +451,7 @@ async function recordFreshCurrentVerification(
       verified_at: failed ? null : new Date().toISOString(),
     };
     await fs.writeFile(verificationTmp, nextVerification);
-    await fs.writeFile(metadataTmp, stringifyYaml(metadata));
+    await fs.writeFile(metadataTmp, stringifyYaml(metadataForPersistence(metadata)));
     await fs.rename(verificationTmp, verificationPath);
     await fs.rename(metadataTmp, metadataPath);
   } catch (error) {
