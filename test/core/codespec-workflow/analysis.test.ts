@@ -109,6 +109,19 @@ describe('analysis.yaml contract', () => {
 
     expect(projectAnalysisForApproval(reordered)).toEqual(projectAnalysisForApproval(sameMeaningDifferentOrder));
   });
+
+  it('orders approval projection string collections by code unit instead of the host locale', () => {
+    const analysis = parseAnalysisDocument({
+      ...completeAnalysis,
+      actors: ['ä', 'a', 'B'],
+      scope: { in: ['ä', 'a', 'B'], out: ['ä', 'a', 'B'] },
+    });
+
+    expect(projectAnalysisForApproval(analysis)).toMatchObject({
+      actors: ['B', 'a', 'ä'],
+      scope: { in: ['B', 'a', 'ä'], out: ['B', 'a', 'ä'] },
+    });
+  });
 });
 
 describe('analysis completeness', () => {

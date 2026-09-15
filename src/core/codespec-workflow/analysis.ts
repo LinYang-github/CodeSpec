@@ -132,8 +132,9 @@ export function renderInitialAnalysis(input: {
   }));
 }
 
-const sortedStrings = (values: readonly string[]): string[] => [...values].sort((left, right) => left.localeCompare(right));
-const byId = <T extends { id: string }>(values: readonly T[]): T[] => [...values].sort((left, right) => left.id.localeCompare(right.id));
+const compareCodeUnits = (left: string, right: string): number => left < right ? -1 : left > right ? 1 : 0;
+const sortedStrings = (values: readonly string[]): string[] => [...values].sort(compareCodeUnits);
+const byId = <T extends { id: string }>(values: readonly T[]): T[] => [...values].sort((left, right) => compareCodeUnits(left.id, right.id));
 
 /**
  * Converts collection ordering into a canonical form while retaining every
@@ -153,7 +154,7 @@ export function projectAnalysisForApproval(document: AnalysisDocument): unknown 
     assumptions: byId(document.assumptions).map((assumption) => ({ ...assumption, requirements: sortedStrings(assumption.requirements) })),
     openQuestions: byId(document.openQuestions),
     acceptanceCriteria: byId(document.acceptanceCriteria).map((criterion) => ({ ...criterion, requirements: sortedStrings(criterion.requirements) })),
-    modules: [...document.modules].sort((left, right) => left.module.localeCompare(right.module)),
+    modules: [...document.modules].sort((left, right) => compareCodeUnits(left.module, right.module)),
     requirements: byId(document.requirements),
   };
 }
