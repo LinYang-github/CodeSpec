@@ -2,9 +2,45 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as delta from '../../../src/core/codespec-workflow/current-spec-delta.js';
 import { projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from '../../../src/core/codespec-workflow/current-change-yaml.js';
-import { currentMarkdown, h3Snapshot, richDelta } from '../../helpers/rich-requirement.js';
+import { currentMarkdown, h3Snapshot, requirementMarkdown, richDelta } from '../../helpers/rich-requirement.js';
 
 describe('canonical rich Requirement deltas', () => {
+  it('keeps changed pipe-adjacent test expectations distinct in PLAN projections', () => {
+    const source = richDelta('ADDED', requirementMarkdown.replace('| 1 | 点击新增用户 | 打开表单 |', String.raw`| 1 | 选择 A \| B | 显示结果 X |`));
+    expect(projectCurrentSpecForPlanApproval(source.replace('显示结果 X', '显示结果 Y'))).not.toEqual(projectCurrentSpecForPlanApproval(source));
+  });
+
+  it.each([
+    ['nested metadata fence', richDelta().replace('- **模块编号：** MOD-002', '- **模块编号：** MOD-002\n\n  ```text\n  hidden metadata\n  ```')],
+    ['HTML between comments', richDelta().replace('# 用户管理增量', '# 用户管理增量\n\n<!-- allowed --><div>hidden content</div><!-- allowed -->')],
+  ])('rejects unconsumed %s', (_kind, source) => {
+    expect(() => delta.parseCurrentSpecDelta(source)).toThrow(/metadata|content|HTML/i);
+  });
+
+  it('permits a complete sequence of pure authoring comments without changing semantic state', () => {
+    const source = richDelta();
+    const commented = source.replace('# 用户管理增量', '# 用户管理增量\n\n<!-- first -->\n<!-- second -->');
+    expect(delta.parseCurrentSpecDelta(commented)).toEqual(delta.parseCurrentSpecDelta(source));
+  });
+
+  it('keeps soft-wrapped behavioral content equivalent in DESIGN and PLAN projections', () => {
+    const plain = richDelta().replace('THEN 用户出现在列表', 'THEN the user appears in the list');
+    const wrapped = richDelta().replace('THEN 用户出现在列表', 'THEN the user appears\n  in the list');
+    expect(projectCurrentSpecForDesignApproval(wrapped)).toEqual(projectCurrentSpecForDesignApproval(plain));
+    expect(projectCurrentSpecForPlanApproval(wrapped)).toEqual(projectCurrentSpecForPlanApproval(plain));
+  });
+
+  it('keeps a soft-wrapped reason equivalent in the rich delta projection', () => {
+    const plain = richDelta().replace('支持用户管理。', 'Support user management.');
+    const wrapped = richDelta().replace('支持用户管理。', 'Support user\nmanagement.');
+    expect(delta.projectCurrentSpecDelta(delta.parseCurrentSpecDelta(wrapped))).toEqual(delta.projectCurrentSpecDelta(delta.parseCurrentSpecDelta(plain)));
+  });
+
+  it('rejects a MODIFIED delta whose only difference is Markdown soft wrapping', () => {
+    const source = richDelta('MODIFIED').replace('THEN 用户出现在列表顶部', 'THEN the user appears\n  in the list').replace('THEN 用户出现在列表', 'THEN the user appears in the list');
+    expect(() => delta.parseCurrentSpecDelta(source)).toThrow(/Previous and New must differ/);
+  });
+
   it('parses the authoring template as exactly one rich Requirement delta', () => {
     const source = readFileSync('schemas/code-spec/templates/spec.md', 'utf8');
     const parsed = delta.parseCurrentSpecDelta(source);

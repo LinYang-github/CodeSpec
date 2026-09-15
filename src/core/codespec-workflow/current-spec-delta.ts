@@ -1,6 +1,6 @@
 import type { CurrentSpecRequirement, CurrentSpecEngineeringFile } from './current-spec-model.js';
 import MarkdownIt from 'markdown-it';
-import { parseCurrentSpecification, parseRequirementSnapshot, renderRequirementSnapshot, hashRequirementSnapshot, renderCurrentSpecification } from './current-spec-model.js';
+import { parseCurrentSpecification, parseRequirementSnapshot, renderRequirementSnapshot, hashRequirementSnapshot, renderCurrentSpecification, normalizeCurrentSpecInline } from './current-spec-model.js';
 
 export interface CurrentRequirementDelta {
   action: 'ADDED' | 'MODIFIED' | 'REMOVED';
@@ -32,7 +32,7 @@ export function parseCurrentSpecDelta(content: string): CurrentSpecDeltaDocument
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index]!;
     if (token.level !== 0 || token.nesting === -1 || !token.map) continue;
-    if (token.type === 'html_block' && /^\s*<!--[\s\S]*-->\s*$/u.test(token.content)) continue;
+    if (token.type === 'html_block' && token.content.replace(/<!--[\s\S]*?-->/gu, '').trim() === '') continue;
     let end = index + 1;
     if (token.nesting === 1) {
       while (end < tokens.length && !(tokens[end]!.nesting === -1 && tokens[end]!.level === token.level)) end += 1;
@@ -46,6 +46,12 @@ export function parseCurrentSpecDelta(content: string): CurrentSpecDeltaDocument
   }
   const heading = (index: number, tag: string) => blocks[index]?.token.type === 'heading_open' && blocks[index]?.token.tag === tag ? blocks[index]?.tokens[1]?.content.trim() : undefined;
   if (!heading(0, 'h1') || blocks[1]?.token.type !== 'bullet_list_open') throw new Error('Rich delta requires H1 title and module/version metadata');
+  const metadataItem = ['list_item_open', 'paragraph_open', 'inline', 'paragraph_close', 'list_item_close'];
+  const metadataTypes = ['bullet_list_open', ...metadataItem, ...metadataItem, 'bullet_list_close'];
+  const metadataLevels = [0, 1, 2, 3, 2, 1, 1, 2, 3, 2, 1, 0];
+  if (blocks[1]!.tokens.length !== metadataTypes.length || blocks[1]!.tokens.some((token, offset) =>
+    token.type !== metadataTypes[offset] || token.level !== metadataLevels[offset]
+  )) throw new Error('Rich delta metadata must contain exactly two plain list items; unconsumed nested content is not allowed');
   const metadataFields = blocks[1]!.tokens.filter((token) => token.type === 'inline').map((token) => token.content.trim());
   if (metadataFields.length !== 2 || new Set(metadataFields.map((field) => field.split('：')[0])).size !== 2) throw new Error('Rich delta requires exactly module/version metadata');
   const metadata = parseCurrentSpecification(`${blocks[0]!.content}\n\n${blocks[1]!.content}\n`);
@@ -84,7 +90,7 @@ export function parseCurrentSpecDelta(content: string): CurrentSpecDeltaDocument
         if (blocks[index]?.token.type !== 'paragraph_open') throw new Error('Reason must contain standalone prose, not Requirement snapshots or whole Specs');
         index += 1;
       }
-      const reason = blocks.slice(reasonStart, index).map((block) => block.tokens[1]!.content.trim()).join('\n\n');
+      const reason = blocks.slice(reasonStart, index).map((block) => normalizeCurrentSpecInline(block.tokens[1]!.content)).join('\n\n');
       document.requirements.push({ action, module: metadata.module, id: (previous ?? next)!.id, ...(previous ? { previous } : {}), ...(next ? { next } : {}), reason });
     }
   }

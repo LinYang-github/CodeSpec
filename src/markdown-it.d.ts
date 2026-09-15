@@ -12,5 +12,6 @@ declare module 'markdown-it' {
   export default class MarkdownIt {
     constructor(options?: { html?: boolean });
     parse(source: string, environment: object): Token[];
+    renderInline(source: string): string;
   }
 }

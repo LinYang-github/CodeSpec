@@ -5,6 +5,55 @@ import * as snapshots from '../../../src/core/codespec-workflow/current-spec-mod
 import { currentMarkdown, requirementMarkdown, h3Snapshot } from '../../helpers/rich-requirement.js';
 
 describe('shared rich Requirement snapshots', () => {
+  it.each([
+    [String.raw`选择 A \| B`, '选择 A | B'],
+    ['`A \\| B`', '`A | B`'],
+    [String.raw`选择 A \\\| B`, String.raw`选择 A \\| B`],
+  ])('preserves escaped pipes in every test-step table cell across snapshot round trips: %s', (cell, action) => {
+    const source = requirementMarkdown.replace('| 1 | 点击新增用户 | 打开表单 |', `| 1 | ${cell} | 显示 X \\| Y |`);
+    const snapshot = snapshots.parseRequirementSnapshot(source);
+    expect(snapshot.scenarios[0]!.testCases[0]!.steps[0]).toEqual({ number: '1', action, expected: '显示 X | Y' });
+    expect(snapshots.parseRequirementSnapshot(snapshots.renderRequirementSnapshot(snapshot))).toEqual(snapshot);
+  });
+
+  it('does not collapse different expectations into one hash when a preceding cell contains an escaped pipe', () => {
+    const source = requirementMarkdown.replace('| 1 | 点击新增用户 | 打开表单 |', String.raw`| 1 | 选择 A \| B | 显示结果 X |`);
+    const original = snapshots.parseRequirementSnapshot(source);
+    const changed = snapshots.parseRequirementSnapshot(source.replace('显示结果 X', '显示结果 Y'));
+    expect(snapshots.hashRequirementSnapshot(changed)).not.toBe(snapshots.hashRequirementSnapshot(original));
+  });
+
+  it('preserves engineering-file table cells containing escaped pipes', () => {
+    const source = currentMarkdown.replace('| 自动化测试 |', String.raw`| 自动化测试 \| 回归验证 |`);
+    const current = parseCurrentSpecification(source);
+    expect(current.engineeringFiles[0]!.role).toBe('自动化测试 | 回归验证');
+    expect(parseCurrentSpecification(renderCurrentSpecification(current))).toEqual(current);
+  });
+
+  it('normalizes presentation-only soft wrapping before hashing snapshots', () => {
+    const plain = snapshots.parseRequirementSnapshot(requirementMarkdown.replace('THEN 用户出现在列表', 'THEN the user appears in the list'));
+    const wrapped = snapshots.parseRequirementSnapshot(requirementMarkdown.replace('THEN 用户出现在列表', 'THEN the user appears\n  in the list'));
+    expect(snapshots.hashRequirementSnapshot(wrapped)).toBe(snapshots.hashRequirementSnapshot(plain));
+    expect(wrapped).toEqual(plain);
+  });
+
+  it.each(['  \n', '\\\n'])('preserves a meaningful hard break %j in snapshot state and hashes', (hardBreak) => {
+    const plain = snapshots.parseRequirementSnapshot(requirementMarkdown.replace('THEN 用户出现在列表', 'THEN first line second line'));
+    const hard = snapshots.parseRequirementSnapshot(requirementMarkdown.replace('THEN 用户出现在列表', `THEN first line${hardBreak}  second line`));
+    expect(hard.scenarios[0]!.then[0]).toContain('\n');
+    expect(snapshots.hashRequirementSnapshot(hard)).not.toBe(snapshots.hashRequirementSnapshot(plain));
+    expect(snapshots.parseRequirementSnapshot(snapshots.renderRequirementSnapshot(hard))).toEqual(hard);
+  });
+
+  it('normalizes soft wrapping alongside inline-code whitespace and a meaningful hard break', () => {
+    const plain = requirementMarkdown.replace('THEN 用户出现在列表', 'THEN first **soft** line with `left  \n  right` and hard  \n  break');
+    const wrapped = plain.replace('first **soft** line', 'first **soft**\n  line');
+    const snapshot = snapshots.parseRequirementSnapshot(wrapped);
+    expect(snapshot).toEqual(snapshots.parseRequirementSnapshot(plain));
+    expect(snapshot.scenarios[0]!.then[0]).toContain('`left  \nright`');
+    expect(snapshot.scenarios[0]!.then[0]).toContain('hard  \nbreak');
+  });
+
   it.each([2, 3] as const)('round-trips exactly one Requirement at H%s, including tests, errors and evidence', (level) => {
     const current = parseCurrentSpecification(currentMarkdown);
     const requirement = snapshots.findCurrentRequirement(current, 'MOD-002-REQ-006')!;

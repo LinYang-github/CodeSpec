@@ -59,6 +59,23 @@ export interface CurrentSpecification {
 const markdown = new MarkdownIt();
 type Token = ReturnType<typeof markdown.parse>[number];
 
+/** Normalize wrapping only when Markdown's inline meaning is unchanged. */
+export function normalizeCurrentSpecInline(content: string): string {
+  let normalized = content.trim();
+  if (!normalized.includes('\n')) return normalized;
+  // Soft breaks render as newlines; hard breaks retain an explicit <br>.
+  // Comparing rendered inline content also protects whitespace in code spans
+  // and avoids treating an escaped backslash as a hard-break marker.
+  const semantic = (value: string) => markdown.renderInline(value).replaceAll('\n', ' ');
+  const original = semantic(normalized);
+  const breaks = [...normalized.matchAll(/[ \t]*\n[ \t]*/gu)].reverse();
+  for (const match of breaks) {
+    const candidate = normalized.slice(0, match.index) + ' ' + normalized.slice(match.index! + match[0].length);
+    if (semantic(candidate) === original) normalized = candidate;
+  }
+  return normalized;
+}
+
 function headingContent(tokens: Token[], index: number, tag: string): string | null {
   if (tokens[index]?.type !== 'heading_open' || tokens[index]?.tag !== tag) return null;
   const inline = tokens[index + 1];
@@ -94,7 +111,7 @@ function listItemsAfter(tokens: Token[], index: number): string[] {
   for (let cursor = start + 1; cursor < tokens.length; cursor += 1) {
     const token = tokens[cursor];
     if (token?.type === 'bullet_list_close' && token.level === depth) return items;
-    if (token?.type === 'inline' && token.level === depth + 3) items.push(token.content.trim());
+    if (token?.type === 'inline' && token.level === depth + 3) items.push(normalizeCurrentSpecInline(token.content));
   }
   throw new Error('Unclosed bullet list in current specification');
 }
@@ -173,6 +190,12 @@ function requireTableRows(tokens: Token[], index: number, headers: string[]): st
     throw new Error(`Current specification table has an invalid column count: ${headers.join(' / ')}`);
   }
   return rows.slice(1);
+}
+
+function renderTableRow(cells: string[]): string {
+  // markdown-it removes the table escape before inline parsing. Restore one
+  // escape per pipe, including pipes inside code spans, before joining cells.
+  return `| ${cells.map((cell) => cell.replaceAll('|', '\\|')).join(' | ')} |`;
 }
 
 function isSafeRepositoryPath(value: string): boolean {
@@ -367,9 +390,9 @@ export function renderCurrentSpecification(specification: CurrentSpecification):
   }
   for (const file of specification.engineeringFiles) {
     if (hasActivity) {
-      lines.push(`| \`${file.path}\` | ${file.module ?? specification.module} | ${file.change ?? '修改'} | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
+      lines.push(renderTableRow([`\`${file.path}\``, file.module ?? specification.module, file.change ?? '修改', file.role, file.references.map((reference) => `\`${reference}\``).join('；')]));
     } else {
-      lines.push(`| \`${file.path}\` | ${file.role} | ${file.references.map((reference) => `\`${reference}\``).join('；')} |`);
+      lines.push(renderTableRow([`\`${file.path}\``, file.role, file.references.map((reference) => `\`${reference}\``).join('；')]));
     }
   }
   return `${lines.join('\n')}\n`;
@@ -397,7 +420,7 @@ export function renderRequirementSnapshot(requirement: CurrentSpecRequirement, h
         ...(testCase.verificationTime ? [`- **验证时间：** ${testCase.verificationTime}`] : []),
         ...(testCase.verificationSummary ? [`- **验证摘要：** ${testCase.verificationSummary}`] : []),
         `- **最近验证：** ${testCase.latestVerification}`, '', '| 步骤 | 用户操作 | 预期结果 |', '| --- | --- | --- |');
-      for (const step of testCase.steps) lines.push(`| ${step.number} | ${step.action} | ${step.expected} |`);
+      for (const step of testCase.steps) lines.push(renderTableRow([step.number, step.action, step.expected]));
     }
   }
   return `${lines.join('\n')}\n`;
