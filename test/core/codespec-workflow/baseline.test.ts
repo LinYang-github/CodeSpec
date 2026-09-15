@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
-import { captureBaseline } from '../../../src/core/codespec-workflow/baseline.js';
+import { captureBaseline, hashAbsentRequirement } from '../../../src/core/codespec-workflow/baseline.js';
 import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { hashRequirementSnapshot, parseRequirementSnapshot } from '../../../src/core/codespec-workflow/current-spec-model.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
@@ -62,4 +62,8 @@ describe('canonical Requirement semantic baselines', () => {
     await fs.writeFile(file, source);
     await expect(captureBaseline(workspace, metadata)).rejects.toThrow(message);
   });
+});
+
+it('keeps the Task 6 absence marker independent of the snapshot refresh path', () => {
+  expect(hashAbsentRequirement('MOD-001-REQ-001')).toBe('32f1160ca43cbba82071e8b1179166961629d05cf963e2b5d7ce823e0dac76dd');
 });

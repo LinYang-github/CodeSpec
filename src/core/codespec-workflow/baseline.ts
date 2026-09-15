@@ -23,6 +23,10 @@ const active = new Set(['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARC
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const execFileAsync = promisify(execFile);
 
+export function hashAbsentRequirement(id: string): string {
+  return digest(`codespec:requirement-absent:v1:${id}`);
+}
+
 export async function captureRepositoryBaseline(projectRoot: string): Promise<Pick<Baseline, 'commit' | 'working_tree_fingerprint'>> {
   try {
     const [head, status, diff] = await Promise.all([
@@ -83,7 +87,7 @@ export async function captureBaseline(workspace: WorkspaceContext, metadata: Cha
         const snapshot = current && findCurrentRequirement(current, id);
         if (action === 'ADDED') {
           if (snapshot) throw new Error(`ADDED Requirement ${id} already exists in Current`);
-          requirements[id] = digest(`codespec:requirement-absent:v1:${id}`);
+          requirements[id] = hashAbsentRequirement(id);
         } else {
           if (!snapshot) throw new Error(`${action} Requirement ${id} does not exist in Current`);
           requirements[id] = hashRequirementSnapshot(snapshot);

@@ -115,6 +115,13 @@ export function approvalContentHash(stage: ApprovalStage, artifacts: ChangeArtif
   return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
+/** Only an unchanged, current user receipt may survive revision regeneration. */
+export function isApprovalCurrent(stage: ApprovalStage, artifacts: ChangeArtifacts): boolean {
+  const receipt = artifacts.metadata.approvals[stage];
+  return receipt?.status === 'approved' && receipt.revision === artifacts.metadata.change.revision &&
+    receipt.content_hash === approvalContentHash(stage, artifacts);
+}
+
 function stageForTarget(artifacts: ChangeArtifacts, target: ChangeStatus): ApprovalStage | null {
   if (target === 'DESIGN') return artifacts.metadata.artifacts.proposal ? null : 'analyze';
   if (target === 'PLAN') return 'design';

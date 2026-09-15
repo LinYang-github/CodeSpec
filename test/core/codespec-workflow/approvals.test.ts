@@ -9,6 +9,7 @@ import {
   assertTransitionApproval,
   createPendingApprovals,
   classifyArtifactChange,
+  isApprovalCurrent,
 } from '../../../src/core/codespec-workflow/approvals.js';
 import type { ChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
@@ -85,6 +86,18 @@ function analysisDocument(overrides: Record<string, unknown> = {}): Record<strin
     ...overrides,
   };
 }
+
+it('requires approval status, matching revision and semantic hash before carrying authority', () => {
+  const artifacts = canonicalArtifacts();
+  expect(isApprovalCurrent('analyze', artifacts)).toBe(false);
+  artifacts.metadata = approveStage(artifacts, 'analyze');
+  expect(isApprovalCurrent('analyze', artifacts)).toBe(true);
+  artifacts.metadata.change.revision = 2;
+  expect(isApprovalCurrent('analyze', artifacts)).toBe(false);
+  artifacts.metadata.change.revision = 1;
+  artifacts.analysis = artifacts.analysis!.replace('Display a useful payment failure reason', 'Different intent');
+  expect(isApprovalCurrent('analyze', artifacts)).toBe(false);
+});
 
 function canonicalArtifacts(
   status: 'ANALYZE' | 'DESIGN' | 'PLAN' = 'ANALYZE',
