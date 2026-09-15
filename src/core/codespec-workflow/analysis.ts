@@ -36,7 +36,7 @@ const assumptionSchema = z.object({
   requirements: z.array(requirementId).default([]),
 }).strict();
 const questionSchema = z.object({
-  id: z.string().regex(/^QUESTION-\d{3}$/u),
+  id: z.string().regex(/^(?:QUESTION-\d{3}|Q-MIGRATION-001)$/u),
   question: nonEmpty,
   status: z.enum(['OPEN', 'RESOLVED']),
   resolution: nonEmpty.optional(),

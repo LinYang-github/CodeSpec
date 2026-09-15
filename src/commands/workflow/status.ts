@@ -25,6 +25,7 @@ import { asStatus } from '../shared-output.js';
 import { formatStatusLabel } from '../../ui/user-facing-messages.js';
 import { loadWorkspace, loadChangeArtifacts } from '../../core/codespec-workflow/loaders.js';
 import { validateExitGate } from '../../core/codespec-workflow/gates.js';
+import { CHANGE_MIGRATION_GUIDANCE } from '../../core/codespec-workflow/change-migration.js';
 import type { StoreDiagnostic } from '../../core/store/errors.js';
 import {
   validateChangeExists,
@@ -111,12 +112,16 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       {
         const workspace = canonicalWorkspace;
         const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
-        const gate = await validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
+        const needsMigration = !artifacts.metadata.artifacts.proposal && artifacts.analysis === null;
+        const gate = needsMigration
+          ? { errors: [`analysis.yaml: 活动五件套 Change 必须显式迁移。${CHANGE_MIGRATION_GUIDANCE}`] }
+          : await validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
         return {
           changeId: changeName, status: artifacts.metadata.change.status,
           revision: artifacts.metadata.change.revision, title: artifacts.metadata.change.title,
           baseline: artifacts.metadata.baseline, requirements: artifacts.metadata.requirements,
           verification: artifacts.metadata.verification, gateErrors: gate.errors,
+          ...(needsMigration ? { nextCommand: `codespec migrate --change ${changeName}` } : {}),
         };
       }
     };
@@ -183,11 +188,12 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
           if ('artifacts' in entry) {
             printStatusText(entry);
           } else if ('changeId' in entry) {
-            const canonicalEntry = entry as unknown as { changeId: string; status: string; revision: number; gateErrors?: string[] };
+            const canonicalEntry = entry as unknown as { changeId: string; status: string; revision: number; gateErrors?: string[]; nextCommand?: string };
             console.log(`Change：${canonicalEntry.changeId}`);
             console.log(`状态：${formatStatusLabel(canonicalEntry.status)}`);
             console.log(`修订：${canonicalEntry.revision}`);
             if (Array.isArray(canonicalEntry.gateErrors) && canonicalEntry.gateErrors.length > 0) console.log(chalk.red(`状态门禁阻塞：${canonicalEntry.gateErrors.join('；')}`));
+            if (canonicalEntry.nextCommand) console.log(`下一步：${canonicalEntry.nextCommand}`);
           } else {
             console.log(chalk.red(`✗ ${entry.changeName}: ${entry.status[0]?.message}`));
           }
@@ -237,6 +243,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       if (Array.isArray(canonical.gateErrors) && canonical.gateErrors.length > 0) {
         console.log(`状态门禁阻塞：${canonical.gateErrors.join('；')}`);
       }
+      if (canonical.nextCommand) console.log(`下一步：${canonical.nextCommand}`);
       return;
     }
 

@@ -8,6 +8,7 @@ import { FileSystemUtils } from '../../src/utils/file-system.js';
 import { approveStage } from '../../src/core/codespec-workflow/approvals.js';
 import { loadChangeArtifacts } from '../../src/core/codespec-workflow/artifacts.js';
 import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
+import { createMigrationFixture } from '../helpers/change-migration.js';
 
 describe('artifact-workflow CLI commands', () => {
   let tempDir: string;
@@ -49,6 +50,20 @@ describe('artifact-workflow CLI commands', () => {
 
     expect(result.exitCode).toBe(1);
     expect(getOutput(result)).toMatch(/analyze.*design.*plan/i);
+  });
+
+  it('migrates an explicitly selected five-artifact Change and explains manual delta authoring', async () => {
+    const fixture = await createMigrationFixture();
+    try {
+      const result = await runCLI(['migrate', '--change', fixture.changeId, '--json'], { cwd: fixture.tempDir });
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({ changeId: fixture.changeId, route: 'ANALYZE', unresolvedQuestionId: 'Q-MIGRATION-001' });
+      expect(JSON.parse(result.stdout).message).toMatch(/rich Requirement delta/);
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      expect((await loadChangeArtifacts(workspace.paths, fixture.changeId)).metadata.change.revision).toBe(2);
+      const repeated = await runCLI(['migrate', '--change', fixture.changeId], { cwd: fixture.tempDir });
+      expect(repeated.exitCode).toBe(1);
+    } finally { fixture.cleanup(); }
   });
 
   it('revises an approved changed authority and prints the revision result as JSON', async () => {

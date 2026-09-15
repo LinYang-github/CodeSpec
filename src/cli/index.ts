@@ -56,6 +56,7 @@ import { loadWorkspace, loadChangeArtifacts } from '../core/codespec-workflow/lo
 import { transitionChange } from '../core/codespec-workflow/state-machine.js';
 import { approveChangeStage } from '../core/codespec-workflow/approvals.js';
 import { migrateLegacyWorkspace } from '../core/codespec-workflow/migration.js';
+import { migrateActiveChangeAnalysis } from '../core/codespec-workflow/change-migration.js';
 import { detectStaleChanges } from '../core/codespec-workflow/stale.js';
 import { archiveChange, commitArchive, preflightArchive, prepareArchive } from '../core/codespec-workflow/archive-transaction.js';
 import { parseVerificationDocument } from '../core/codespec-workflow/verification.js';
@@ -890,12 +891,19 @@ program
 
 program
   .command('migrate')
-  .description('将旧版 CodeSpec 工作区转换为当前规格 v1 文件结构')
+  .description('迁移旧版工作区，或将活动五件套 Change 迁移到 analysis.yaml')
+  .option('--change <id>', '迁移指定的活动 canonical Change')
   .option('--json', '以 JSON 输出')
-  .action(async (options: { json?: boolean; store?: string; storePath?: string }) => {
+  .action(async (options: { change?: string; json?: boolean; store?: string; storePath?: string }) => {
     try {
       const root = await resolveRootForCommand(options, { json: Boolean(options.json) });
       if (!root) return;
+      if (options.change) {
+        const result = await migrateActiveChangeAnalysis(await loadWorkspace(path.join(root.path, 'codespec')), options.change);
+        if (options.json) console.log(JSON.stringify(result, null, 2));
+        else console.log(`已迁移 Change：${result.changeId}（5 → 6 artifacts，ANALYZE）\n${result.message}`);
+        return;
+      }
       await migrateLegacyWorkspace(path.join(root.path, 'codespec'));
       if (options.json) console.log(JSON.stringify({ status: 'migrated', path: path.join(root.path, 'codespec') }, null, 2));
       else console.log(`已迁移 CodeSpec 工作区：${path.join(root.path, 'codespec')}`);
