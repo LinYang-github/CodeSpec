@@ -80,6 +80,7 @@ const configurationChangeKeySchema = z.object({
 
 const currentTasksSchema = z.object({
   version: z.literal(1),
+  changeRevision: z.number().int().positive().optional(),
   tasks: z.array(taskSchema),
   moduleDeltas: z.array(z.object({
     module: moduleId,

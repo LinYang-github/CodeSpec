@@ -179,9 +179,11 @@ export async function approveChangeStage(
   return next;
 }
 
-export function revokeApprovals(metadata: ChangeMetadata): ChangeMetadata {
+export function revokeApprovals(metadata: ChangeMetadata, stages: readonly ApprovalStage[] = ['analyze', 'design', 'plan']): ChangeMetadata {
   const revoked = (): ApprovalRecord => ({
     status: 'revoked', revision: metadata.change.revision, content_hash: '', approved_at: null,
   });
-  return { ...metadata, approvals: { schema_version: 1, analyze: revoked(), design: revoked(), plan: revoked() } };
+  const approvals = { ...metadata.approvals };
+  for (const stage of stages) approvals[stage] = revoked();
+  return { ...metadata, approvals };
 }

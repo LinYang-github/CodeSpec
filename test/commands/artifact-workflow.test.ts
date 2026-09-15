@@ -5,6 +5,9 @@ import os from 'os';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { runCLI } from '../helpers/run-cli.js';
 import { FileSystemUtils } from '../../src/utils/file-system.js';
+import { approveStage } from '../../src/core/codespec-workflow/approvals.js';
+import { loadChangeArtifacts } from '../../src/core/codespec-workflow/artifacts.js';
+import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
 
 describe('artifact-workflow CLI commands', () => {
   let tempDir: string;
@@ -46,6 +49,34 @@ describe('artifact-workflow CLI commands', () => {
 
     expect(result.exitCode).toBe(1);
     expect(getOutput(result)).toMatch(/analyze.*design.*plan/i);
+  });
+
+  it('revises an approved changed authority and prints the revision result as JSON', async () => {
+    await createCanonicalCodeSpecWorkspace();
+    const changeId = await createCanonicalChange('VERIFY');
+    const workspace = await loadWorkspace(path.join(tempDir, 'codespec'));
+    const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+    const metadata = approveStage(artifacts, 'design');
+    const metadataPath = path.join(changesDir, changeId, 'metadata.yaml');
+    await fs.writeFile(metadataPath, stringifyYaml(metadata));
+    await fs.appendFile(path.join(changesDir, changeId, 'design.md'), '\nChanged scope\n');
+    const result = await runCLI(['revise', '--change', changeId, '--reason', 'scope changed'], { cwd: tempDir });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ changeId, previousRevision: 2, revision: 3, route: 'DESIGN', invalidatedApprovals: ['design', 'plan'] });
+    const noop = await runCLI(['revise', '--change', changeId, '--reason', 'nothing changed'], { cwd: tempDir });
+    expect(noop.exitCode).toBe(1);
+    expect(getOutput(noop)).toMatch(/no semantic|语义/i);
+  });
+
+  it.each([
+    [['--reason', 'scope changed'], /change/i],
+    [['--change', 'CHG-20260901-001', '--reason', '   '], /reason|原因/i],
+  ])('rejects invalid revise arguments %j', async (args, error) => {
+    await createCanonicalCodeSpecWorkspace();
+    await createCanonicalChange('VERIFY');
+    const result = await runCLI(['revise', ...args], { cwd: tempDir });
+    expect(result.exitCode).toBe(1);
+    expect(getOutput(result)).toMatch(error);
   });
 
   /**

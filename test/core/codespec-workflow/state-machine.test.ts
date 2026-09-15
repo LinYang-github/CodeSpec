@@ -110,7 +110,7 @@ describe('codespec workflow state machine', () => {
     ).rejects.toThrow(/DESIGN/i);
   });
 
-  it('increments revision only for approved semantic changes', async () => {
+  it('increments revision purely and leaves approval invalidation to the revision transaction', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
     const metadata = fixture.metadataAt('DESIGN');
@@ -118,9 +118,10 @@ describe('codespec workflow state machine', () => {
     metadata.approvals.design = {
       status: 'approved', revision: 1, content_hash: 'a'.repeat(64), approved_at: '2026-09-01T00:00:00.000Z',
     };
-    const revised = incrementRevision(metadata, 'requirements changed');
+    const revised = incrementRevision(metadata);
     expect(revised.change.revision).toBe(2);
-    expect(revised.approvals.design).toMatchObject({ status: 'revoked', revision: 2, content_hash: '', approved_at: null });
+    expect(revised.approvals).toEqual(metadata.approvals);
+    expect(metadata.change.revision).toBe(1);
   });
 
   it('blocks exiting ANALYZE without proposal summary, modules, and satisfied analyze gate', async () => {
@@ -271,10 +272,6 @@ describe('codespec workflow state machine', () => {
     const workspace = await loadWorkspace(fixture.codespecDir);
     const artifacts = await import('../../../src/core/codespec-workflow/artifacts.js').then((m) => m.loadChangeArtifacts(workspace.paths, fixture.changeId));
     expect((await validateExitGate(workspace, artifacts)).errors.join('\\n')).toMatch(/analysis\.yaml.*migrated/i);
-  });
-
-  it('rejects a revision reason that merely contains the word semantic', () => {
-    expect(() => incrementRevision({} as never, 'semantic cleanup')).toThrow(/Requirement|Scope/i);
   });
 
   it('matches a Requirement ID literally when the ID contains regex-significant characters', async () => {

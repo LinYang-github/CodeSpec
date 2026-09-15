@@ -51,6 +51,7 @@ import {
   type NewChangeOptions,
 } from '../commands/workflow/index.js';
 import { rebaseChange } from '../core/codespec-workflow/rebase.js';
+import { reviseChange } from '../core/codespec-workflow/revision.js';
 import { loadWorkspace, loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
 import { transitionChange } from '../core/codespec-workflow/state-machine.js';
 import { approveChangeStage } from '../core/codespec-workflow/approvals.js';
@@ -788,6 +789,25 @@ program
 // ═══════════════════════════════════════════════════════════
 // Workflow Commands (formerly experimental)
 // ═══════════════════════════════════════════════════════════
+
+program
+  .command('revise')
+  .description('根据已批准产物的语义变更递增 revision 并回退生命周期')
+  .requiredOption('--change <id>', 'Canonical Change ID')
+  .requiredOption('--reason <text>', '人类可读的修订原因')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
+  .action(async (options: { change: string; reason: string; store?: string; storePath?: string }) => {
+    try {
+      const root = await resolveRootForCommand(options, { json: true });
+      if (!root) return;
+      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
+      console.log(JSON.stringify(await reviseChange(workspace, options.change, options.reason), null, 2));
+    } catch (error) {
+      failWithError(error, { enabled: true, fallbackCode: 'revision_error' });
+      process.exit(1);
+    }
+  });
 
 program
   .command('rebase')

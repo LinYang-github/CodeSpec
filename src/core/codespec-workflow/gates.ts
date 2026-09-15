@@ -92,6 +92,9 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
     if (isCurrentChange) {
       try { currentTasks = parseCurrentTasks(parseYaml(artifacts.tasks)); }
       catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
+      if (currentTasks && currentTasks.changeRevision !== m.change.revision) {
+        errors.push(`tasks.yaml.changeRevision 必须等于 metadata.change.revision ${m.change.revision}`);
+      }
     }
     if (isCurrentChange
       ? !currentTasks || currentTasks.tasks.length === 0

@@ -6,7 +6,7 @@ import type { WorkspaceContext } from './loaders.js';
 import type { ChangeMetadata, ChangeStatus } from './types.js';
 import { validateEntryGate } from './gates.js';
 import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
-import { assertTransitionApproval, revokeApprovals } from './approvals.js';
+import { assertTransitionApproval } from './approvals.js';
 import { metadataForPersistence } from './metadata-persistence.js';
 
 const EDGES: Record<ChangeStatus, readonly ChangeStatus[]> = {
@@ -68,10 +68,7 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
   return next;
 }
 
-export function incrementRevision(metadata: ChangeMetadata, reason: string): ChangeMetadata {
-  const semanticChange = /requirements?\s+(?:added|modified|removed|changed)|scope\s+changed/i.test(reason) && Object.values(metadata.requirements).some((items) => items.length > 0);
-  const verifyToDesign = /^VERIFY\s*(?:->|to)\s*DESIGN(?:\s|$)/i.test(reason) && metadata.change.status === 'VERIFY';
-  if (!semanticChange && !verifyToDesign) throw new Error('修订号递增需要已批准的 Requirement/Scope 语义变更，或 VERIFY -> DESIGN 转换。');
-  const next = { ...metadata, change: { ...metadata.change, revision: metadata.change.revision + 1, updated_at: new Date().toISOString() } };
-  return revokeApprovals(next);
+/** Pure counter update; reviseChange owns semantic classification and invalidation. */
+export function incrementRevision(metadata: ChangeMetadata): ChangeMetadata {
+  return { ...metadata, change: { ...metadata.change, revision: metadata.change.revision + 1, updated_at: new Date().toISOString() } };
 }
