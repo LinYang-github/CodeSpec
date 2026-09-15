@@ -1,6 +1,83 @@
 # Concepts
 
-This guide explains the core ideas behind CodeSpec and how they fit together. For practical usage, see [Getting Started](getting-started.md) and [Workflows](workflows.md).
+Use `analysis.yaml` to record requirement clarification in ANALYZE. Use Current Specification as the complete accepted behavior. For the execution sequence, see [Workflows](workflows.md).
+
+## Canonical artifacts
+
+`schema: code-spec` creates six files under `codespec/changes/<CHG-ID>/`:
+
+- `analysis.yaml`
+- `metadata.yaml`
+- `design.md`
+- `spec.md`
+- `tasks.yaml`
+- `verification.yaml`
+
+### `analysis.yaml`
+
+**Authority:** the user's problem, goals, non-goals, scope, actors, constraints, assumptions, questions, acceptance criteria and Requirement actions.
+
+**ANALYZE:** brainstorming provides the method for clarification. Confirmed intent enters this artifact and the Core gate. Chat history alone cannot satisfy the gate.
+
+**Open decisions:** resolve every `OPEN` question with a `resolution`. Mark each `PROPOSED` assumption `CONFIRMED` or `REJECTED`. Core does not choose answers.
+
+### `metadata.yaml`
+
+**Authority:** Change ID, lifecycle status, revision, artifact paths and approval receipts.
+
+**Projections:** `modules` and `requirements` reflect analysis decisions. Core checks their consistency with analysis and the delta. Do not treat them as independent intent.
+
+### `design.md`
+
+**Authority:** technical design, trade-offs, SDD level rationale and archive-impact decisions. Reference Requirement IDs from the approved analysis.
+
+### `spec.md`
+
+**Authority:** the rich delta for affected Requirements and their Scenarios. See [Canonical Requirement delta](writing-specs.md#canonical-requirement-delta) for `Previous`, `New`, `Reason` and action rules.
+
+### `tasks.yaml`
+
+**Authority:** task definitions, planned files, verification plans and execution status.
+
+**Trace references:** each task declares `acceptanceCriteria`, `requirements`, `scenarios` and `testCases`. `changeRevision` binds the task document to the Change revision.
+
+### `verification.yaml`
+
+**Authority:** executed test records, commands, results and evidence identity.
+
+**Freshness:** evidence must match the Change revision and artifact identity. Task completion alone is not passing evidence.
+
+## Current Specification and history
+
+**`codespec/specs/<MOD-ID>/spec.md`:** the complete accepted Requirement baseline. A later Change reads this Current version, even when the same business requirement appeared in an earlier Change.
+
+**`codespec/archive/changes/<CHG-ID>/`:** immutable history of the six artifacts. It explains earlier decisions; it is not the baseline for new deltas.
+
+**Requirement merge:** archive replaces a MODIFIED Requirement in place, removes a REMOVED Requirement and appends ADDED Requirements in delta order. Unlisted Requirements retain their order and behavior. Engineering files merge by path.
+
+Only the archive transaction writes Current. It preserves the six artifacts in history, updates the index and removes the active Change after commit. Later Changes do not rewrite that history.
+
+## Acceptance Criterion traceability
+
+```text
+Goal → AC → Requirement → Scenario → Task → Test → Evidence
+```
+
+**Goal → AC:** analysis must contain a goal and acceptance criteria. There is no per-goal foreign-key field in the current schema.
+
+**PLAN:** checks the chain through the planned Test.
+
+**VERIFY and archive:** check fresh passing Evidence for each required chain.
+
+**`MUST`:** an incomplete or failing AC chain blocks completion.
+
+**`SHOULD` and `COULD`:** missing evidence produces warnings. These AC priorities are distinct from normative words such as `SHALL` in prose.
+
+Use [revise or rebase](editing-changes.md) when intent or Current changes. Three content-bound approvals protect the [ANALYZE, DESIGN and PLAN transitions](workflows.md#三次独立审批).
+
+## Legacy `spec-driven` model
+
+The following philosophy, slug paths, Markdown task lists, proposal artifacts and schema examples describe the compatible `spec-driven` workflow. They do not replace the canonical contract above.
 
 ## Philosophy
 
@@ -41,7 +118,7 @@ CodeSpec organizes your work into two main areas:
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-For canonical `code-spec` workspaces (`codespec/config.yaml` with `schema: code-spec`), `codespec/specs/` is the source of truth and `codespec/changes/CHG-YYYYMMDD-NNN/` contains proposed modifications. The `codespec/specs/` source-of-truth model and generic archive paths below apply only to generic `spec-driven` workspaces.
+For canonical `code-spec` storage, see [Canonical artifacts](#canonical-artifacts). The generic archive paths below apply to `spec-driven` workspaces.
 
 Canonical Scenarios use four protocol tokens: `GIVEN`, `WHEN`, `THEN`, and `ERROR`. `ERROR` describes how the system handles an exception. An explicit empty `ERROR` row is allowed only as an analysis placeholder; Core rejects it during Verification and archive until a human fills it in.
 
@@ -53,7 +130,7 @@ For the default `code-spec` schema, each current module keeps exactly three file
 codespec/specs/<module>/{spec.md,interface.yaml,api.yaml}
 ```
 
-The root also contains `business.yaml` and `configuration.yaml`. An active Change contains `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. After archive, each module has only `spec.md`, `interface.yaml`, and derived `api.yaml`; `interface.yaml` is the relationship source, and the business projections are regenerated from the complete graph. `spec.md` owns requirements, scenarios, readable test cases, the latest verification summary, and engineering files; `design.md` only references those IDs. UI archive reruns the real project and browser E2E. Archive is a recoverable transaction that updates these current files and removes the active Change; it creates neither `test-cases.md` nor a static graph file. The legacy artifact tree described later is retained for `spec-driven` compatibility and migration only.
+The root also contains `business.yaml` and `configuration.yaml`. `interface.yaml` is the relationship source. `api.yaml` and business projections derive from the complete graph. For active and archived Change files, see [Canonical artifacts](#canonical-artifacts) and [Current Specification and history](#current-specification-and-history).
 
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 
@@ -196,7 +273,7 @@ A change is a proposed modification to your system, packaged as a folder with ev
 ### Change Structure
 
 ```
-codespec/changes/CHG-YYYYMMDD-NNN/
+codespec/changes/add-dark-mode/
 ├── proposal.md           # Why and what
 ├── design.md             # How (technical approach)
 ├── tasks.md              # Implementation checklist
@@ -466,7 +543,7 @@ artifacts:
 
 ### Built-in Schemas
 
-**spec-driven** (default)
+**spec-driven** (legacy schema; the default is `code-spec`)
 
 The standard workflow for spec-driven development:
 
@@ -553,7 +630,7 @@ codespec/
 
 1. **Merge deltas.** Each delta spec section (ADDED/MODIFIED/REMOVED) is applied to the corresponding main spec.
 
-2. **Move to archive.** The Change folder moves to `codespec/archive/changes/` with a date prefix for chronological ordering.
+2. **Move to archive.** The legacy Change folder moves to `codespec/changes/archive/` with a date prefix for chronological ordering.
 
 3. **Preserve context.** All artifacts remain intact in the archive. You can always look back to understand why a change was made.
 
@@ -636,6 +713,3 @@ codespec/
 - [Workflows](workflows.md) - Common patterns and when to use each
 - [Commands](commands.md) - Full command reference
 - [Customization](customization.md) - Create custom schemas and configure your project
-# Canonical concepts
-
-`business.md` 是稳定模块注册表，`changes/index.yaml` 仅用于导航，`metadata.yaml` 是 Change 状态权威。`spec.md` 使用 `ADDED`、`MODIFIED`、`REMOVED`、`Previous`、`New`、`Reason` 和 `GIVEN/WHEN/THEN`。任务使用 `SP-##`，验证证据集中在 `verification.md`。

@@ -24,7 +24,7 @@ import { normalizeWorkflowId, type PublicWorkflowId } from '../profiles.js';
 export interface SkillTemplateEntry {
   template: SkillTemplate;
   dirName: string;
-  workflowId: string;
+  workflowId: PublicWorkflowId;
 }
 
 /**

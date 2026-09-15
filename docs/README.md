@@ -1,12 +1,10 @@
 # CodeSpec 文档
 
-这里是 CodeSpec 的文档首页。
+使用 `codespec-workflow` 澄清需求、审阅设计和计划，再实现 Change。
 
-CodeSpec 让你和 AI 编码助手在写代码前就**对要构建的内容达成一致**。你描述 Change，AI 生成简短的 Spec 和任务清单，你们共同审阅计划，然后再开始实现。
+默认 Schema 是 `code-spec`。新 Change 使用 `CHG-YYYYMMDD-NNN` ID，并创建[六个 canonical 产物](concepts.md#canonical-artifacts)。归档按 Requirement 合并 Current，并将六件套保存到 `codespec/archive/changes/<CHG-ID>/`。
 
-默认 Schema 是 `code-spec`。新的 canonical Change 使用 `CHG-YYYYMMDD-NNN` ID；活动 Change 只包含 `metadata.yaml`、`design.md`、`spec.md`、`tasks.yaml` 和 `verification.yaml`。归档会把已确认内容合并到当前规格并删除活动 Change，不创建归档副本；旧文件可以保留并通过迁移命令处理。
-
-如果只读两页，请阅读：
+从以下页面开始：
 
 1. [用户手册](user-manual.md)：从安装、初始化到归档的完整使用流程。
 2. [Getting Started](getting-started.md)：install, initialize, and ship your first change.
@@ -39,6 +37,16 @@ CodeSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用
 **Something's broken.** [Troubleshooting](troubleshooting.md) collects the failures people actually hit, with fixes.
 
 ## 文档地图
+
+需求澄清的文档归属：
+
+- [Concepts](concepts.md#canonical-artifacts)：六件套职责、Current 和证据链。
+- [Workflows](workflows.md#2-分析需求superpowers-brainstorming)：ANALYZE、三次审批和归档流程。
+- [Writing Good Specs](writing-specs.md#canonical-requirement-delta)：rich Requirement delta 的编写边界。
+- [Editing & Iterating](editing-changes.md)：revise、rebase 和活动五件套迁移。
+- [CLI](cli.md#canonical-lifecycle-commands)：可执行命令和结构化输出。
+
+每项协议事实在上述页面保留一份完整说明，其他页面通过链接引用。`spec-driven` 示例须标明兼容范围，不代表 canonical `code-spec` 的文件协议。
 
 ### 从这里开始
 

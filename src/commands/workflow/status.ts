@@ -23,9 +23,8 @@ import {
 } from '../../core/artifact-graph/index.js';
 import { asStatus } from '../shared-output.js';
 import { formatStatusLabel } from '../../ui/user-facing-messages.js';
-import { loadWorkspace, loadChangeArtifacts } from '../../core/codespec-workflow/loaders.js';
-import { validateExitGate } from '../../core/codespec-workflow/gates.js';
-import { CHANGE_MIGRATION_GUIDANCE } from '../../core/codespec-workflow/change-migration.js';
+import { loadChangeArtifacts } from '../../core/codespec-workflow/loaders.js';
+import { canonicalGuidance, renderCanonicalGuidance } from './canonical-guidance.js';
 import type { StoreDiagnostic } from '../../core/store/errors.js';
 import {
   validateChangeExists,
@@ -104,7 +103,6 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       if (!/^CHG-\d{8}-\d{3}$/.test(changeName)) return null;
       const canonicalWorkspace = await tryLoadCanonicalWorkspace(projectRoot);
       if (!canonicalWorkspace) return null;
-      const codespecDir = canonicalWorkspace.codespecDir;
       const metadataPath = path.join(canonicalWorkspace.paths.changes, changeName, 'metadata.yaml');
       if (!(await fs.access(metadataPath).then(() => true).catch(() => false))) {
         throw new Error(`未找到 canonical Change 元数据：${metadataPath}`);
@@ -112,16 +110,14 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       {
         const workspace = canonicalWorkspace;
         const artifacts = await loadChangeArtifacts(workspace.paths, changeName);
-        const needsMigration = !artifacts.metadata.artifacts.proposal && artifacts.analysis === null;
-        const gate = needsMigration
-          ? { errors: [`analysis.yaml: 活动五件套 Change 必须显式迁移。${CHANGE_MIGRATION_GUIDANCE}`] }
-          : await validateExitGate(workspace, artifacts, artifacts.metadata.change.status);
+        const guidance = await canonicalGuidance(workspace, artifacts);
+        guidance.nextCommand = withStoreFlag(root, guidance.nextCommand);
+        guidance.currentCommands = guidance.currentCommands.map((command) => withStoreFlag(root, command));
         return {
           changeId: changeName, status: artifacts.metadata.change.status,
           revision: artifacts.metadata.change.revision, title: artifacts.metadata.change.title,
           baseline: artifacts.metadata.baseline, requirements: artifacts.metadata.requirements,
-          verification: artifacts.metadata.verification, gateErrors: gate.errors,
-          ...(needsMigration ? { nextCommand: `codespec migrate --change ${changeName}` } : {}),
+          verification: artifacts.metadata.verification, ...guidance,
         };
       }
     };
@@ -192,8 +188,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
             console.log(`Change：${canonicalEntry.changeId}`);
             console.log(`状态：${formatStatusLabel(canonicalEntry.status)}`);
             console.log(`修订：${canonicalEntry.revision}`);
-            if (Array.isArray(canonicalEntry.gateErrors) && canonicalEntry.gateErrors.length > 0) console.log(chalk.red(`状态门禁阻塞：${canonicalEntry.gateErrors.join('；')}`));
-            if (canonicalEntry.nextCommand) console.log(`下一步：${canonicalEntry.nextCommand}`);
+            console.log(renderCanonicalGuidance(entry as unknown as Awaited<ReturnType<typeof canonicalGuidance>>));
           } else {
             console.log(chalk.red(`✗ ${entry.changeName}: ${entry.status[0]?.message}`));
           }
@@ -240,10 +235,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       console.log(`Change：${canonical.changeId}`);
       console.log(`状态：${formatStatusLabel(canonical.status)}`);
       console.log(`修订：${canonical.revision}`);
-      if (Array.isArray(canonical.gateErrors) && canonical.gateErrors.length > 0) {
-        console.log(`状态门禁阻塞：${canonical.gateErrors.join('；')}`);
-      }
-      if (canonical.nextCommand) console.log(`下一步：${canonical.nextCommand}`);
+      console.log(renderCanonicalGuidance(canonical as unknown as Awaited<ReturnType<typeof canonicalGuidance>>));
       return;
     }
 

@@ -786,7 +786,7 @@ describe('artifact-workflow CLI commands', () => {
       });
     });
 
-    it('keeps canonical Changes to the five-file contract when a description is supplied', async () => {
+    it('keeps canonical Changes to the six-file contract when a description is supplied', async () => {
       await createCanonicalCodeSpecWorkspace();
 
       const result = await runCLI(
@@ -797,9 +797,9 @@ describe('artifact-workflow CLI commands', () => {
       const output = getOutput(result);
       const createdId = output.match(/已创建 Change：((CHG-\d{8}-\d{3}))/)?.[1];
       expect(createdId).toMatch(/^CHG-\d{8}-\d{3}$/);
-      await expect(fs.readdir(path.join(changesDir, createdId!))).resolves.toEqual(expect.arrayContaining([
-        'metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml',
-      ]));
+      expect((await fs.readdir(path.join(changesDir, createdId!))).sort()).toEqual([
+        'analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml',
+      ]);
       await expect(fs.stat(path.join(changesDir, createdId!, 'README.md'))).rejects.toMatchObject({ code: 'ENOENT' });
     });
 

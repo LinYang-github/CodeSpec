@@ -13,18 +13,35 @@ describe('codespec-workflow integration', () => {
     expect(content).not.toContain('docs/superpowers/specs/');
   });
 
-  it('describes the five-file active Change layout and keeps PLAN compatibility-only', () => {
+  it('describes the six-file active Change contract', () => {
     const content = getCodeSpecWorkflowSkillTemplate().instructions;
     expect(content).toContain('metadata.yaml');
+    expect(content).toContain('analysis.yaml');
     expect(content).toContain('design.md');
     expect(content).toContain('spec.md');
     expect(content).toContain('tasks.yaml');
     expect(content).toContain('verification.yaml');
     expect(content).toContain('PLAN');
-    expect(content).toContain('兼容');
     expect(content).not.toContain('proposal.md');
     expect(content).not.toContain('tasks.md');
     expect(content).not.toContain('verification.md');
+  });
+
+  it('renders the declared analysis path in resolved context', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const metadata = fixture.metadataAt('ANALYZE');
+      metadata.artifacts.analysis = `changes/${fixture.changeId}/analysis.yaml`;
+      expect(renderCanonicalChangeContext(metadata)).toContain(`analysis=${metadata.artifacts.analysis}`);
+    } finally { await fixture.cleanup(); }
+  });
+
+  it('extracts Scenario IDs from rich delta H5 headings', async () => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const context = renderCanonicalChangeContext(fixture.metadataAt('DESIGN'), '##### Scenario: MOD-002-REQ-001-SCN-002 正常提交\n');
+      expect(context).toContain('Scenarios=MOD-002-REQ-001-SCN-002');
+    } finally { await fixture.cleanup(); }
   });
 
   it('keeps development orchestration in the single workflow entry', () => {

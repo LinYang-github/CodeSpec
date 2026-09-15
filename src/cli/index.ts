@@ -893,6 +893,8 @@ program
   .command('migrate')
   .description('迁移旧版工作区，或将活动五件套 Change 迁移到 analysis.yaml')
   .option('--change <id>', '迁移指定的活动 canonical Change')
+  .option('--store <id>', STORE_OPTION_DESCRIPTION)
+  .addOption(hiddenStorePathOption())
   .option('--json', '以 JSON 输出')
   .action(async (options: { change?: string; json?: boolean; store?: string; storePath?: string }) => {
     try {

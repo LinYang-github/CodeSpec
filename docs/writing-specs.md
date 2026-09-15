@@ -1,8 +1,89 @@
 # Writing Good Specs
 
-You rarely write a spec from a blank page. You describe a change in plain language, `/codespec:workflow` routes planning through Core and Superpowers, and then you review the requirements and scenarios.
+Write only the Requirements affected by the approved analysis. Start with [Getting Started](getting-started.md) for setup or [Reviewing a Change](reviewing-changes.md) for review.
 
-It's the companion to [Reviewing a Change](reviewing-changes.md): reviewing is catching the weak spots in a draft, writing is knowing what a strong one is made of.
+## Canonical Requirement delta
+
+Read each existing Requirement from Current in your terminal:
+
+```bash
+codespec show MOD-002 --type spec --requirement MOD-002-REQ-006 --json
+```
+
+Use the returned Requirement snapshot as the source for `Previous`. The rich delta uses `## ADDED`, `## MODIFIED` and `## REMOVED`, without the legacy `Requirements` suffix.
+
+| Action | Required blocks |
+|---|---|
+| `ADDED` | `New`, `Reason`; omit `Previous` |
+| `MODIFIED` | `Previous`, `New`, `Reason` |
+| `REMOVED` | `Previous`, `Reason`; omit `New` |
+
+**`Previous`:** the complete current Requirement, including its Scenarios and test cases.
+
+**`New`:** the complete target Requirement with the same stable ID. Preserve every still-valid Scenario and test case.
+
+**`Reason`:** the approved reason for this action. A no-op MODIFIED Requirement fails validation.
+
+### Write a rich delta
+
+This ADDED example shows the canonical Markdown structure:
+
+```markdown
+# 用户管理增量
+
+- **模块编号：** MOD-002
+- **规格版本：** 1
+
+## ADDED
+
+**New**
+
+### MOD-002-REQ-006：新增用户
+
+##### Scenario: MOD-002-REQ-006-SCN-001 有效提交
+- GIVEN 已登录
+- WHEN 提交用户
+- THEN 用户出现在列表
+- ERROR 重复用户时拒绝创建
+
+#### 测试用例
+
+##### MOD-002-REQ-006-SCN-001-TC-UI-01：提交用户
+- **类型：** UI
+- **自动化测试：** `e2e/users.spec.ts`
+- **测试标识：** `data-testid=add-user`
+- **最近验证：** 待验证
+
+| 步骤 | 用户操作 | 预期结果 |
+| --- | --- | --- |
+| 1 | 提交有效信息 | 用户出现在列表 |
+
+**Reason**
+
+允许管理员创建用户。
+
+## 工程文件增量
+
+| 文件 | 模块编号 | 变更 | 作用 | 关联需求 / 场景 / 测试用例 |
+| --- | --- | --- | --- | --- |
+| `e2e/users.spec.ts` | MOD-002 | 新增 | 自动化测试 | `MOD-002-REQ-006-SCN-001-TC-UI-01` |
+```
+
+**Engineering files:** use the exact `工程文件增量` columns. Each changed path declares its module, action and trace references.
+
+**Set equality:** analysis, metadata and spec must declare the same affected Requirement set. Every delta Requirement needs an AC reference.
+
+**Removed or replaced Scenarios:** record archive-impact mappings in `design.md` before approval.
+
+### Keep later Changes scoped
+
+If Current contains REQ-001 and REQ-002, and this Change modifies only REQ-001, its `spec.md` contains only REQ-001. Copying REQ-002 would claim an unrelated change and may fail the delta boundary check.
+
+The next Change for REQ-001 reads the version produced by the previous archive. It does not copy the previous Change or the full module. See [Current Specification and history](concepts.md#current-specification-and-history) for merge behavior.
+
+## Legacy `spec-driven` authoring
+
+The short examples and `## ADDED Requirements` format below apply to legacy `spec-driven` Changes. Canonical `code-spec` uses the rich structure above.
 
 ## A spec is behavior, not code
 

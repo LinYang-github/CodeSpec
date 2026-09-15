@@ -1,6 +1,6 @@
 # CodeSpec 工作流
 
-`code-spec` 把一次开发拆成两条协作线：CodeSpec Core 管理 Change、Requirement、Baseline、状态和归档事务，Superpowers 管理工程方法。正常开发只从 `workflow` 进入。
+使用 `codespec-workflow` 开始或继续开发。CodeSpec Core 管理产物、审批和状态；Superpowers 提供澄清、规划与实现方法。首次使用见[快速入门](getting-started.md)。
 
 ```text
 workflow ──► 分析/规划 ──► 实现 ──► 验证 ──► 人工确认归档
@@ -26,22 +26,17 @@ workflow ──► 分析/规划 ──► 实现 ──► 验证 ──► 人
 
 ## CodeSpec 产物顺序
 
-`code-spec` 默认 Change 使用 `CHG-YYYYMMDD-NNN` ID，目录为 `codespec/changes/<CHG-ID>/`。Core 按依赖顺序管理以下五个 canonical 产物：
+`code-spec` 默认 Change 使用 `CHG-YYYYMMDD-NNN` ID。六件套的职责见 [Canonical artifacts](concepts.md#canonical-artifacts)。
 
 ```text
 metadata.yaml
+    ├── analysis.yaml
     ├── design.md
     ├── spec.md
     ├── tasks.yaml
     └── verification.yaml
     └── 状态、基线、Requirement、Task 和验证证据
 ```
-
-- `metadata.yaml`：状态权威，记录 Change、模式、Baseline、模块、Requirement、Task、验证和归档门禁。
-- `design.md`：说明实现方案、边界和技术决策。
-- `spec.md`：记录 Requirement、Scenario、Markdown 测试用例和工程文件追溯。每个 Scenario 必须使用 `GIVEN`、`WHEN`、`THEN` 和 `ERROR`。
-- `tasks.yaml`：记录任务、计划修改文件、验证计划以及经确认的 `moduleDeltas`。
-- `verification.yaml`：按测试用例记录实际执行、profile、服务、工程版本、退出码和清理结果。
 
 旧版 `proposal.md`、`tasks.md`、`verification.md` 只在迁移或 `spec-driven` 工作流中出现，不属于新的 canonical `code-spec` Change。
 
@@ -65,24 +60,30 @@ metadata.yaml
 1. 阅读相关代码、现有 Spec 和约束。
 2. 澄清目标、范围、边界条件和不做什么。
 3. 比较可行方案及其取舍。
-4. 将确认后的方向交给 CodeSpec 产物和后续规划。
+4. 将确认的目标、范围、assumption、question 和 AC 写入 `analysis.yaml`。
+5. 运行 `codespec status --change <CHG-ID> --json`，补齐 `gateErrors` 指出的缺项。
 
-这一步解决“要做什么、为什么这样做”。它不负责分配 Requirement ID，也不负责修改 Current Specification。
+**需求澄清属于 ANALYZE。** brainstorming 是方法；`analysis.yaml` 保存其结果。先确认分析，再进入 DESIGN。
 
-### 3. 形成方案：Superpowers writing-plans
+### 三次独立审批
 
-`superpowers:writing-plans` 把已确认的方向拆成可以逐项执行的计划：
+| 完成阶段 | 用户确认内容 | CLI 阶段值 | 允许的下一阶段 |
+|---|---|---|---|
+| ANALYZE | 目标、范围、假设、问题结论和 AC | `analyze` | DESIGN |
+| DESIGN | 技术设计、Requirement delta 和影响 | `design` | PLAN |
+| PLAN | 任务定义和验证计划 | `plan` | IMPLEMENT |
 
-- 指出要修改的文件、模块和关键接口。
-- 按依赖关系排列实施步骤。
-- 为每一步指定验证方式和预期结果。
-- 将可追踪的实施项投影为 `tasks.yaml` 中的 `CHG-...-TASK-##`。
+每次展示对应产物，并等待独立用户确认。然后运行 [approve 与 transition](cli.md#canonical-lifecycle-commands)。审批绑定 revision 和内容 hash，修改绑定内容会使旧审批失效。
 
-CodeSpec 保存 `design.md`、`spec.md` 和结构化 `tasks.yaml`。Superpowers 的详细计划不重复塞进 Change。
+PLAN 任务图必须在进入 PLAN 前满足 Core 的入口检查。DESIGN 确认后编写任务，再执行 PLAN transition；PLAN 确认后才实现。
+
+### 3. 形成技术设计
+
+在 DESIGN 中，依据已批准的 `analysis.yaml` 编写 `design.md`。记录方案、取舍、SDD 分级依据和归档影响分析。引用本次受影响的 Requirement ID。
 
 ### 4. 编写需求和异常场景
 
-`spec.md` 是行为契约，不是实现笔记。每个 Requirement 至少应说明正常场景和必要的异常场景：
+按 [rich Requirement delta](writing-specs.md#canonical-requirement-delta) 编写 `spec.md`。以下片段只展示 Scenario 的异常处理字段：
 
 ```markdown
 #### Scenario: 查询失败
@@ -94,7 +95,18 @@ CodeSpec 保存 `design.md`、`spec.md` 和结构化 `tasks.yaml`。Superpowers 
 
 Core 负责校验 Requirement、Scenario、ID、Traceability 和 canonical Spec 结构。解析阶段缺少 `ERROR` 行会失败；显式空的 `ERROR` 只表示待补写，进入 VERIFY 或 archive 时仍会失败。Core 不从 `THEN` 或上下文推断异常处理，必须由人工补写。Superpowers 负责帮助判断场景是否覆盖真实使用和失败路径，并把异常处理落实为可验证的行为。
 
-### 5. 实现：Superpowers TDD
+### 5. 编写计划：Superpowers writing-plans
+
+确认设计和 Requirement delta 后，用 `superpowers:writing-plans` 拆分任务：
+
+- 指出要修改的文件、模块和关键接口。
+- 按依赖关系排列实施步骤。
+- 为每一步指定验证方式和预期结果。
+- 将可追踪的实施项写入 `tasks.yaml`，关联 AC、Requirement、Scenario 和 Test。
+
+任务图满足门禁后进入 PLAN，展示计划并取得 plan 审批，再进入 IMPLEMENT。
+
+### 6. 实现：Superpowers TDD
 
 `superpowers:test-driven-development` 按 `RED → GREEN → REFACTOR` 推进每个 `CHG-...-TASK-##`：
 
@@ -104,7 +116,7 @@ Core 负责校验 Requirement、Scenario、ID、Traceability 和 canonical Spec 
 
 每个任务完成后刷新 `status`，并记录 Requirement、Scenario、Task 与测试的对应关系。代码实现遵循 `tasks.yaml` 和已确认的 Superpowers 计划，不自行扩展范围。
 
-### 6. 遇到失败：Superpowers systematic-debugging
+### 7. 遇到失败：Superpowers systematic-debugging
 
 测试失败、构建失败或出现异常行为时，使用 `superpowers:systematic-debugging`，不要直接猜测修复：
 
@@ -114,9 +126,9 @@ Core 负责校验 Requirement、Scenario、ID、Traceability 和 canonical Spec 
 4. 修复根因并补充回归测试。
 5. 重新执行受影响的验证命令。
 
-如果失败意味着需求或设计发生变化，应回到 `brainstorming` 或 `writing-plans`，更新 Change 产物后再实现。
+如果失败意味着已批准的需求或设计发生变化，执行 [revise](editing-changes.md#revise-an-active-change)，按 Core 返回的阶段重做失效内容。
 
-### 7. 完成前验证和审查
+### 8. 完成前验证和审查
 
 `superpowers:verification-before-completion` 要求使用新鲜证据确认结果：
 
@@ -167,7 +179,7 @@ Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `a
 - 多个 Change 修改了同一范围，存在未裁决冲突。
 - 继续工作前必须重建 Baseline。
 
-`rebase` 会展示目标 Change、Baseline 和冲突集合。冲突不明确时停止并请求用户决定。成功后回到 `workflow`，重新注入上下文并继续 Superpowers 方法。
+`rebase` 返回 ANALYZE 或 DESIGN route。按 [Rebase against Current](editing-changes.md#rebase-against-current) 处理冲突并恢复开发。
 
 ## 归档和人工确认
 
@@ -176,7 +188,7 @@ Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `a
 1. Core 执行 `preflightArchive()`，检查任务、验证证据、Delta、Traceability、canonical Spec 和冲突。
 2. Core 执行 `prepareArchive()`，准备 Delta 和可恢复写入集，并确认 Delta 与 Current Specification 的每个 Scenario 都有非空 `ERROR`。
 3. 只有用户在交互式终端中明确确认后，Core 才执行 `commitArchive()` 和 `archiveTransaction()`。
-4. 事务将 Delta 应用到 Current Specification，并把 Change 移入 `codespec/changes/archive/`。
+4. 事务按 [Requirement merge](concepts.md#current-specification-and-history) 更新 Current，并将六件套保存到 `codespec/archive/changes/<CHG-ID>/`。
 
 归档规则：
 

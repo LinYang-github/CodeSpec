@@ -212,7 +212,7 @@ async function treeDigest(file: string): Promise<string> {
 
 async function checkTreeSnapshots(trees: ReadonlyMap<string, string>): Promise<void> {
   for (const [file, expected] of trees) {
-    if (await treeDigest(file) !== expected) throw new Error('归档冲突：预检后工作区发生变化，请重新运行 archive');
+    if (await treeDigest(file) !== expected) throw new Error(`ARCHIVE CONFLICT: ${file} changed after preflight; rerun archive`);
   }
 }
 
@@ -438,8 +438,10 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
         throw error;
       }));
     }
-    if (latestMetadata !== plan.snapshot.metadata || latestIndex !== plan.snapshot.index || [...latestCurrent].some(([module, content]) => content !== plan.snapshot.current.get(module))) {
-      throw new Error('归档冲突：预检后工作区发生变化，请重新运行 archive');
+    if (latestMetadata !== plan.snapshot.metadata) throw new Error(`ARCHIVE CONFLICT: ${path.join(plan.workspace.codespecDir, plan.artifacts.metadata.artifacts.metadata)} changed after preflight`);
+    if (latestIndex !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${plan.workspace.paths.changeIndex} changed after preflight`);
+    for (const [module, content] of latestCurrent) {
+      if (content !== plan.snapshot.current.get(module)) throw new Error(`ARCHIVE CONFLICT: ${path.join(plan.workspace.paths.currentSpecs, module, 'spec.md')} changed after preflight`);
     }
     await checkTreeSnapshots(plan.snapshot.trees);
     await fs.mkdir(stage, { recursive: true });
@@ -485,7 +487,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     await fs.writeFile(path.join(stage, 'history.yaml'), stringifyYaml(mergedHistory));
     await checkTreeSnapshots(plan.snapshot.trees);
     if (await fs.readFile(plan.workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) {
-      throw new Error('归档冲突：预检后 Change 索引发生变化，请重新运行 archive');
+      throw new Error(`ARCHIVE CONFLICT: ${plan.workspace.paths.changeIndex} changed after preflight`);
     }
     if (await exists(archivedPath)) throw new Error(`Archive destination already exists: ${plan.changeId}`);
     await fs.mkdir(backup, { recursive: true });
@@ -543,14 +545,15 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     const live = await readCurrentDeltaBaseline(workspace, delta.module);
     const conflicts = validateCurrentSpecDeltaAgainstCurrent(currentSpecDeltaBaseline(live, delta), delta);
     if (conflicts.length) throw new Error(conflicts.join('; '));
-    if ((live ?? '') !== plan.snapshot.current.get(delta.module)) throw new Error(`ARCHIVE CONFLICT: ${delta.module} Current changed after its preflight read`);
+    if ((live ?? '') !== plan.snapshot.current.get(delta.module)) throw new Error(`ARCHIVE CONFLICT: ${path.join(workspace.paths.currentSpecs, delta.module, 'spec.md')} changed after its preflight read`);
     const latestArtifacts = await loadChangeArtifacts(workspace.paths, plan.changeId);
-    if ((['analysis', 'design', 'spec', 'tasks'] as const).some((key) => latestArtifacts[key] !== artifacts[key]) ||
-      JSON.stringify(latestArtifacts.metadata) !== JSON.stringify(artifacts.metadata) || latestArtifacts.verification !== plan.snapshot.verification) {
-      throw new Error('ARCHIVE CONFLICT: active Change artifacts changed after their preflight read');
+    for (const key of ['analysis', 'design', 'spec', 'tasks', 'metadata', 'verification'] as const) {
+      const changed = key === 'metadata' ? JSON.stringify(latestArtifacts.metadata) !== JSON.stringify(artifacts.metadata)
+        : key === 'verification' ? latestArtifacts.verification !== plan.snapshot.verification : latestArtifacts[key] !== artifacts[key];
+      if (changed) throw new Error(`ARCHIVE CONFLICT: ${path.join(workspace.codespecDir, artifacts.metadata.artifacts[key]!)} changed after its preflight read`);
     }
     await checkTreeSnapshots(plan.snapshot.trees);
-    if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error('ARCHIVE CONFLICT: Change index changed after preflight');
+    if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${workspace.paths.changeIndex} changed after preflight`);
     const files: Array<{ target: string; before: string | null; after: string | null }> = [];
     const add = async (target: string, after: string | null) => { files.push({ target, before: await readOptional(target), after }); };
     const steps = new Map<string, string>();
@@ -603,7 +606,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     // directory is removed after commit, preserving concurrent author files.
     for (const filename of artifactFiles) await add(path.join(artifacts.changeDir, filename), null);
     await checkTreeSnapshots(plan.snapshot.trees);
-    if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error('ARCHIVE CONFLICT: Change index changed after preflight');
+    if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${workspace.paths.changeIndex} changed after preflight`);
     journal = await createArchiveJournal({
       paths: workspace.paths, transactionId, files,
       cleanupEmptyAfterCommit: [artifacts.changeDir], ownerPid: process.pid,

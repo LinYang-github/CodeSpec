@@ -290,8 +290,26 @@ describe('six-artifact canonical Requirement archive', () => {
       const edited = `${await fs.readFile(file, 'utf8')}\n# author edit\n`;
       await fs.writeFile(file, edited);
       const before = snapshotDirectory(fixture.codespecDir);
-      await expect(commitArchive(prepared)).rejects.toThrow(/ARCHIVE CONFLICT|预检后.*变化/);
+      const failure = await commitArchive(prepared).catch((error: Error) => error);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toMatch(/^ARCHIVE CONFLICT:/);
+      expect((failure as Error).message).toContain(file);
       await expectRestoredWithSafetyRecords(fixture.paths, before);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('names a changed snapshot tree with a stable archive conflict prefix', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      await writeCanonicalChange(fixture, modification());
+      const prepared = await prepareArchive(await preflightArchive(await loadWorkspace(fixture.codespecDir), fixture.changeId));
+      const file = fixture.paths.business;
+      await fs.appendFile(file, '\n# author edit\n');
+      const failure = await commitArchive(prepared).catch((error: Error) => error);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toMatch(/^ARCHIVE CONFLICT:/);
+      expect((failure as Error).message).toContain(file);
+      expect(await fs.readFile(file, 'utf8')).toContain('# author edit');
     } finally { fixture.cleanup(); }
   });
 
@@ -440,6 +458,23 @@ async function setup(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>,
 }
 
 describe('transactional CodeSpec archive', () => {
+  it.each(['metadata', 'index', 'Current'])('identifies the changed %s snapshot in legacy archive conflicts', async (target) => {
+    const fixture = await createWorkflowFixture();
+    try {
+      const metadata = ready(fixture); metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
+      await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** err\n');
+      const prepared = await prepareArchive(await preflightArchive(fixture.workspace, fixture.changeId));
+      const file = target === 'metadata' ? path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml')
+        : target === 'index' ? fixture.paths.changeIndex : path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.appendFile(file, '\n# author edit\n');
+      const failure = await commitArchive(prepared).catch((error: Error) => error);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toMatch(/^ARCHIVE CONFLICT:/);
+      expect((failure as Error).message).toContain(file);
+      expect(await fs.readFile(file, 'utf8')).toContain('# author edit');
+    } finally { fixture.cleanup(); }
+  });
   it('recovers a pending journal before direct archive execution', async () => {
     const fixture = await createWorkflowFixture();
     try {
@@ -560,7 +595,10 @@ describe('transactional CodeSpec archive', () => {
       const file = path.join(fixture.paths.changes, fixture.changeId, filename);
       const edited = await fs.readFile(file, 'utf8') + '\nEdited after preflight\n';
       await fs.writeFile(file, edited);
-      await expect(commitArchive(prepared)).rejects.toThrow(/预检后.*变化/);
+      const failure = await commitArchive(prepared).catch((error: Error) => error);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toMatch(/^ARCHIVE CONFLICT:/);
+      expect((failure as Error).message).toContain(path.dirname(file));
       expect(await fs.readFile(file, 'utf8')).toBe(edited);
       await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId))).rejects.toThrow();
     } finally { fixture.cleanup(); }

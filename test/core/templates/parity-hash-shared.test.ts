@@ -30,6 +30,15 @@ function resolvers(
 }
 
 describe('parity hash rewriting', () => {
+  it('is idempotent for the complete three-skill registry after a rewrite', () => {
+    const names = ['codespec-workflow', 'codespec-rebase-change', 'codespec-archive-change'];
+    const src = `const M = {\n${names.map((name) => `  '${name}': '${OLD}',`).join('\n')}\n};\n`;
+    const resolve = resolvers({}, Object.fromEntries(names.map((name) => [name, NEW])), names);
+    const first = rewriteParityHashes(src, resolve);
+    const second = rewriteParityHashes(first.source, resolve);
+    expect(first.moved).toEqual(names);
+    expect(second).toMatchObject({ source: first.source, moved: [] });
+  });
   it('rewrites a stale function pin and reports it moved', () => {
     const src = `const M = {\n  getFooTemplate: '${OLD}',\n};\n`;
     const result = rewriteParityHashes(src, resolvers({ getFooTemplate: NEW }));

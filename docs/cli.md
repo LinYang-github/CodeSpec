@@ -84,7 +84,7 @@ Initialize CodeSpec in your project. Creates the folder structure and configures
 
 Default behavior uses global config defaults: profile `core`, delivery `both`, and the canonical `workflow`, `rebase`, and `archive` entries.
 
-For `schema: code-spec`, initialization creates `business.yaml`, `configuration.yaml`, `specs/<module>/{spec.md,interface.yaml,api.yaml}`, and five-file `CHG-*` Changes. The `migrate --json` command converts legacy roots and invalidates approvals on active legacy Changes. Canonical archive removes the active Change after its journal commit; it does not create a new archive Change copy. Generic `spec-driven` schemas keep their own artifact and archive behavior.
+For `schema: code-spec`, initialization creates `business.yaml`, `configuration.yaml` and Current module files. `new change` creates the [six canonical artifacts](concepts.md#canonical-artifacts). Canonical archive preserves them under `codespec/archive/changes/<CHG-ID>/` before removing the active Change. Generic `spec-driven` schemas retain their own artifact contract.
 
 ```
 codespec init [path] [options]
@@ -270,7 +270,7 @@ codespec store setup team-context --path ~/codespec/team-context --no-init-git -
 Register an existing local store folder. During the stores beta, a root may be
 registered before any changes exist, specs have been applied, or changes have
 been archived; canonical workspaces use `codespec/changes/`, `codespec/specs/`, and
-`codespec/archive/changes/`. Generic `spec-driven` stores may retain historical paths; canonical `code-spec` archive does not create a second Change copy.
+`codespec/archive/changes/`. Generic `spec-driven` stores may retain historical paths.
 A config-only repo that declares `store: <id>` remains a pointer to another
 store and is not registered as a store root unless that pointer is removed.
 
@@ -515,7 +515,15 @@ codespec show [item-name] [options]
 |--------|-------------|
 | `--requirements` | Show only requirements, exclude scenarios (JSON mode) |
 | `--no-scenarios` | Exclude scenario content (JSON mode) |
-| `-r, --requirement <id>` | Show specific requirement by 1-based index (JSON mode) |
+| `-r, --requirement <id>` | Canonical: exact `MOD-###-REQ-###` ID in text or JSON. Legacy `spec-driven`: 1-based index in JSON mode |
+
+**Canonical Current lookup:**
+
+```bash
+codespec show MOD-002 --type spec --requirement MOD-002-REQ-006 --json
+```
+
+Returns the Requirement snapshot from Current, including Scenarios and test cases. Use this snapshot when writing [Previous](writing-specs.md#canonical-requirement-delta).
 
 **Examples:**
 
@@ -628,6 +636,98 @@ Validating add-dark-mode...
 
 ## Lifecycle Commands
 
+## Canonical lifecycle commands
+
+Run these commands in the terminal from the selected `code-spec` workspace. Examples use `CHG-20260915-001`; substitute the ID returned by `new change`.
+
+**`--store <id>`:** selects a registered store for these lifecycle commands. Carry the same selection into subsequent status and Current reads.
+
+### `codespec approve`
+
+```bash
+codespec approve --change CHG-20260915-001 --stage analyze
+codespec approve --change CHG-20260915-001 --stage design
+codespec approve --change CHG-20260915-001 --stage plan
+```
+
+**`--change`:** required canonical Change ID.
+
+**`--stage`:** required `analyze`, `design` or `plan`. The Change must be in the matching stage and pass its exit gate.
+
+**Result:** JSON containing `changeId`, `stage`, `revision` and `approvedAt`. The receipt binds the current revision and semantic content hash.
+
+**User action:** review the stage output and confirm it independently before the agent records approval. See [Three approvals](workflows.md#三次独立审批).
+
+### `codespec transition`
+
+```bash
+codespec transition --change CHG-20260915-001 --to DESIGN --reason "analyze approved"
+codespec transition --change CHG-20260915-001 --to PLAN --reason "design approved and tasks prepared"
+codespec transition --change CHG-20260915-001 --to IMPLEMENT --reason "plan approved"
+codespec transition --change CHG-20260915-001 --to VERIFY --reason "implementation complete"
+codespec transition --change CHG-20260915-001 --to ARCHIVE --reason "verification complete"
+```
+
+**`--change`, `--to`, `--reason`:** required. Core checks the lifecycle edge, approval and gate before persisting status.
+
+**PLAN entry:** requires the prepared task graph. Complete it after design approval before requesting this transition.
+
+**ARCHIVE state:** means ready for the archive operation. A transition does not perform archive.
+
+### `codespec revise`
+
+```bash
+codespec revise --change CHG-20260915-001 --reason "Acceptance criteria changed"
+```
+
+**Inputs:** `--change` and `--reason` are required. Run after editing the owning artifact.
+
+**Result:** JSON reporting the revision decision and route. See [Revise an active Change](editing-changes.md#revise-an-active-change) for invalidation rules.
+
+### `codespec rebase`
+
+```bash
+codespec rebase --change CHG-20260915-001
+```
+
+**`--change`:** required. Core reads Current and returns a semantic rebase decision with `route`, `reason` and per-Requirement decisions.
+
+**`--current-spec <path>`:** optional and repeatable. Canonical rebase validates supplied paths against Current; paths cannot redirect the baseline to history.
+
+**Route:** ANALYZE or DESIGN. See [Rebase against Current](editing-changes.md#rebase-against-current).
+
+### `codespec migrate`
+
+```bash
+codespec migrate --change CHG-20260915-001 --json
+```
+
+**`--change`:** selects one active five-artifact canonical Change. The result reports `fromArtifacts: 5`, `toArtifacts: 6` and `route: ANALYZE`.
+
+**`--json`:** emits structured output. Without it, the command prints migration guidance.
+
+**Without `--change`:** invokes the separate legacy workspace migration. It is not a substitute for confirming analysis.
+
+See [Migrate an active five-artifact Change](editing-changes.md#migrate-an-active-five-artifact-change) for the required follow-up.
+
+### Canonical `codespec archive`
+
+Run and confirm in the user's interactive terminal:
+
+```bash
+codespec archive CHG-20260915-001
+```
+
+**Gate:** current analyze/design/plan approvals, passing verification, valid delta and unchanged Previous snapshots.
+
+**Write:** applies the [Requirement merge](concepts.md#current-specification-and-history), saves six artifacts in immutable history and removes the active Change.
+
+**Confirmation:** `--yes` cannot bypass the first human confirmation. `--json` and non-TTY automation cannot complete canonical archive.
+
+### Legacy lifecycle commands
+
+The archive flags and slug examples below apply to `spec-driven` Changes.
+
 ### `codespec archive`
 
 Archive a completed change and merge delta specs into main specs.
@@ -689,13 +789,13 @@ These commands support the artifact-driven CodeSpec workflow. They're useful for
 
 ### `codespec new change`
 
-Create a change directory and optional checked-in metadata in the resolved CodeSpec root.
+Create a Change in the resolved CodeSpec root. Canonical `code-spec` allocates a `CHG-YYYYMMDD-NNN` ID, creates six artifacts and starts in ANALYZE.
 
 ```bash
 codespec new change <name> [options]
 ```
 
-Change names must use lowercase kebab-case: lowercase letters, numbers, and
+For legacy `spec-driven`, Change names must use lowercase kebab-case: lowercase letters, numbers, and
 single hyphens. They cannot contain spaces, underscores, uppercase letters,
 consecutive hyphens, or leading/trailing hyphens. A leading number is allowed,
 so you can prefix names to order or tier changes, for example `100-add-feature`
@@ -705,8 +805,8 @@ or `00001-add-auth`.
 
 | Option | Description |
 |--------|-------------|
-| `--description <text>` | Description to add to `README.md` |
-| `--goal <text>` | Optional goal metadata to store with the change |
+| `--description <text>` | Canonical analysis problem when `--goal` is absent; legacy README description |
+| `--goal <text>` | Canonical initial analysis problem; legacy goal metadata |
 | `--schema <name>` | Workflow schema to use |
 | `--store <id>` | Store id to use as the CodeSpec root (a store is a standalone CodeSpec repo you've registered) |
 | `--json` | Output JSON |
@@ -720,7 +820,37 @@ codespec new change add-billing-api --store team-context --json
 
 ### `codespec status`
 
-Display artifact completion status for a change.
+Display the lifecycle status and gate errors for a canonical Change.
+
+```bash
+codespec status --change CHG-20260915-001 --json
+codespec status --all --json
+```
+
+**Canonical JSON fields:**
+
+| Field | Contract |
+|---|---|
+| `analysisSummary` | Analysis path, problem, goals, ACs, completeness and current approval; null before migration |
+| `openQuestions` | Question records with status OPEN |
+| `assumptions` | Assumption records and their statuses |
+| `gateErrors` | Current stage blockers |
+| `gateWarnings` | Non-blocking warnings, including optional AC evidence gaps |
+| `traceGaps` | AC chain gaps at PLAN, VERIFY and ARCHIVE |
+| `currentCommands` | Exact Current Requirement reads for existing affected IDs |
+| `deltaBoundary` | Affected IDs, baseline and rich delta fields/actions |
+| `nextAction` | Human action, artifact path relative to `codespec/`, and explanation |
+| `nextCommand` | Executable CLI command for the next step |
+
+**OPEN questions:** `nextAction.action` is `edit_analysis`. The next command reads instructions; it does not edit the analysis file.
+
+**Completed ANALYZE:** next is `approve --stage analyze`. After valid approval, next is `transition --to DESIGN`.
+
+**STALE:** next is `rebase`. An active five-artifact Change instead reports the required `migrate --change` command.
+
+**`--all`:** returns a `changes` array. It cannot be combined with `--change`.
+
+The artifact completion examples below describe legacy `spec-driven` output.
 
 ```
 codespec status [options]
@@ -730,7 +860,7 @@ codespec status [options]
 
 | Option | Description |
 |--------|-------------|
-| `--change <id>` | Change name (prompts if omitted) |
+| `--change <id>` | Select one Change; use `--all` for all active Changes |
 | `--schema <name>` | Schema override (auto-detected from change's config) |
 | `--json` | Output as JSON |
 
@@ -795,7 +925,18 @@ is the artifact to write next.
 
 ### `codespec instructions`
 
-Get enriched instructions for creating an artifact or applying tasks. Used by AI agents to understand what to create next.
+Get stage instructions and the current read-only gate report.
+
+```bash
+codespec instructions analyze --change CHG-20260915-001 --json
+codespec instructions design --change CHG-20260915-001 --json
+codespec instructions plan --change CHG-20260915-001 --json
+codespec instructions verify --change CHG-20260915-001 --json
+```
+
+Canonical stage responses include the [status fields](#codespec-status), resolved artifact context and `instructions`. DESIGN exposes exact Current reads and the affected Requirement boundary. PLAN and VERIFY expose AC trace gaps.
+
+The artifact IDs in the legacy examples below follow the selected `spec-driven` schema.
 
 ```
 codespec instructions [artifact] [options]

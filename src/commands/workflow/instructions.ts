@@ -51,6 +51,7 @@ import {
 import { parseTaskLines, type ParsedTask } from '../../utils/task-progress.js';
 import { loadChangeArtifacts } from '../../core/codespec-workflow/loaders.js';
 import { renderCanonicalChangeContext, getStageAdapterGuidance, type WorkflowStage } from '../../core/templates/workflows/codespec-workflow.js';
+import { canonicalGuidance, renderCanonicalGuidance } from './canonical-guidance.js';
 
 function isWorkflowStage(value: string): value is WorkflowStage {
   switch (value) {
@@ -155,8 +156,11 @@ export async function instructionsCommand(
         const stage = artifactId;
         const projectContext = readProjectConfig(projectRoot)?.context?.trim();
         const contextSection = projectContext ? `\n\n## 项目上下文\n\n${projectContext}` : '';
-        const text = `## ${label}：${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}${contextSection}\n\n${getStageAdapterGuidance(stage)}\n\n使用 canonical Change 产物，并在转换前满足生命周期门禁。Superpowers 方法论保持不变：使用 TDD RED → GREEN、最新验证证据，并在基线处于 STALE 时执行语义 Rebase。\n`;
-        if (options.json) console.log(JSON.stringify({ changeId: changeName, status, instructions: text, root: toRootOutput(root) }, null, 2));
+        const guidance = await canonicalGuidance(workspace, artifacts);
+        guidance.nextCommand = withStoreFlag(root, guidance.nextCommand);
+        guidance.currentCommands = guidance.currentCommands.map((command) => withStoreFlag(root, command));
+        const text = `## ${label}：${changeName}\n\n${renderCanonicalChangeContext(artifacts.metadata, artifacts.spec)}${contextSection}\n\n${getStageAdapterGuidance(stage)}\n\n${renderCanonicalGuidance(guidance)}\n\n使用 canonical Change 产物，并在转换前满足生命周期门禁。Superpowers 方法论保持不变：使用 TDD RED → GREEN、最新验证证据，并在基线处于 STALE 时执行语义 Rebase。\n`;
+        if (options.json) console.log(JSON.stringify({ changeId: changeName, status, ...guidance, instructions: text, root: toRootOutput(root) }, null, 2));
         else console.log(text);
         return;
       }

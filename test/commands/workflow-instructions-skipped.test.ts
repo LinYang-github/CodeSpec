@@ -12,6 +12,41 @@ import {
   generateApplyInstructions,
 } from '../../src/commands/workflow/instructions.js';
 import { printStatusText } from '../../src/commands/workflow/status.js';
+import { createGuidanceFixture } from '../helpers/workflow-guidance.js';
+import { runCLI } from '../helpers/run-cli.js';
+import { parse, stringify } from 'yaml';
+
+describe('canonical structured stage instructions', () => {
+  it('returns exact Current reads and the affected Requirement boundary', async () => {
+    const f = await createGuidanceFixture('DESIGN');
+    try {
+      const result = await runCLI(['instructions', 'design', '--change', f.changeId, '--json'], { cwd: f.tempDir });
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      const output = JSON.parse(result.stdout);
+      expect(output.currentCommands).toEqual(['codespec show MOD-002 --type spec --requirement MOD-002-REQ-001 --json']);
+      expect(output.deltaBoundary).toEqual({ requirementIds: ['MOD-002-REQ-001'], baseline: 'Current', fields: ['Previous', 'New', 'Reason'], actions: ['ADDED', 'MODIFIED', 'REMOVED'] });
+      const current = await runCLI(output.currentCommands[0].split(' ').slice(1), { cwd: f.tempDir });
+      expect(current.exitCode, current.stdout + current.stderr).toBe(0);
+    } finally { f.cleanup(); }
+  });
+
+  it.each(['PLAN', 'VERIFY'] as const)('exposes AC trace gaps at %s', async (stage) => {
+    const f = await createGuidanceFixture(stage);
+    try {
+      const tasks = parse(f.artifacts.tasks);
+      tasks.tasks = [];
+      f.artifacts.tasks = stringify(tasks);
+      await f.save();
+      for (const args of [['status'], ['instructions', stage.toLowerCase()]]) {
+        const result = await runCLI([...args, '--change', f.changeId, '--json'], { cwd: f.tempDir });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        const output = JSON.parse(result.stdout);
+        expect(output.traceGaps.some((gap: string) => gap.includes('AC-001'))).toBe(true);
+        expect(output.gateErrors.length).toBeGreaterThan(0);
+      }
+    } finally { f.cleanup(); }
+  });
+});
 
 describe('printInstructionsText for skip_specs changes', () => {
   let tempDir: string;

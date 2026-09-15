@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
@@ -12,12 +13,34 @@ import {
 import { STORE_SELECTION_GUIDANCE } from '../../../src/core/templates/workflows/store-selection.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const EXPECTED_GENERATED_SKILL_CONTENT_HASHES: Record<string, string> = {
+  'codespec-workflow': 'ad769b53b38a89a62a8457e5dff3a99a894eb2f1e939b3b4f8fa6b13eca802ea',
+  'codespec-rebase-change': '5b74c552ec60152a3dc5dbf5f414f465d6485a8fe1a3ec81425b42876423a77c',
+  'codespec-archive-change': '2bc01d70290acf5d2088f03968923d9f2847ccdec4f86a8b970c69d95cc60ba2',
+};
 
 function stripGeneratedVersion(content: string): string {
   return content.replace(/^  generatedBy: "[^"]+"\n/m, '');
 }
 
 describe('public skill template parity', () => {
+  it('pins generated content for every registered public skill', () => {
+    expect(Object.keys(EXPECTED_GENERATED_SKILL_CONTENT_HASHES).sort()).toEqual(getSkillTemplates().map(({ dirName }) => dirName).sort());
+    for (const { template, dirName } of getSkillTemplates()) {
+      const hash = createHash('sha256').update(generateSkillContent(template, 'PARITY-BASELINE')).digest('hex');
+      expect(hash, dirName).toBe(EXPECTED_GENERATED_SKILL_CONTENT_HASHES[dirName]);
+    }
+  });
+  it('generates the clarification command and artifact contract in every public skill', () => {
+    for (const { template } of getSkillTemplates()) {
+      const generated = generateSkillContent(template, 'PARITY-BASELINE');
+      for (const token of ['analysis.yaml', 'metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml',
+        'codespec approve --change "<CHG-ID>" --stage analyze', 'Previous', 'New', 'Reason', 'MUST', 'SHOULD', 'COULD',
+        'codespec rebase --change "<CHG-ID>"', 'codespec migrate --change "<CHG-ID>"']) {
+        expect(generated, `${template.name}: ${token}`).toContain(token);
+      }
+    }
+  });
   it('pins the three public template factories to the generated registry', () => {
     const templates = getSkillTemplates();
     expect(templates.map(({ dirName }) => dirName)).toEqual([
