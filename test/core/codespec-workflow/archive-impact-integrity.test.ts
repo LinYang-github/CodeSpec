@@ -1,6 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { parseArchiveImpact, validateArchiveImpactDeltas } from '../../../src/core/codespec-workflow/archive-impact.js';
+import { parseArchiveImpact, validateArchiveImpactDeltas, validateChangeArchiveImpact } from '../../../src/core/codespec-workflow/archive-impact.js';
 import { parseDeltaSpec } from '../../../src/core/codespec-workflow/delta-parser.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../../helpers/current-archive.js';
+import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
+
+describe('rich Scenario archive impact', () => {
+  it('allows additive Scenario changes without claiming existing behavior was superseded', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      expect((await validateChangeArchiveImpact(await loadWorkspace(fixture.codespecDir), artifacts, 'DESIGN')).issues).toEqual([]);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('requires an explicit full-ID mapping for a removed Scenario and resolves the replacement from the rich delta', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const delta = modification();
+      delta.requirements[0].next!.scenarios.shift();
+      const artifacts = await writeCanonicalChange(fixture, delta);
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      expect((await validateChangeArchiveImpact(workspace, artifacts, 'DESIGN')).issues.join('\n')).toMatch(/MOD-002-REQ-001-SCN-001.*映射/);
+      artifacts.design = document({ outcome: 'affected', references: [{
+        current_requirement: 'MOD-002-REQ-001', current_scenario: 'MOD-002-REQ-001-SCN-001', disposition: 'modified',
+        replacement_requirement: 'MOD-002-REQ-001', replacement_scenario: 'MOD-002-REQ-001-SCN-003',
+      }], verification: ['archive-regression'] });
+      expect((await validateChangeArchiveImpact(workspace, artifacts, 'DESIGN')).issues).toEqual([]);
+    } finally { fixture.cleanup(); }
+  });
+});
 
 const scenario = (id: string, result = 'allowed') => `#### Scenario: ${id} login\n- **GIVEN** an account\n- **WHEN** signing in\n- **THEN** ${result}\n- **ERROR** access denied`;
 const old = `### MOD-001-REQ-001 Login\nOld rule\n${scenario('SCN-001')}`;

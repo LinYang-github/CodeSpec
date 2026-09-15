@@ -61,12 +61,14 @@ const currentSpec = (requirementId: string) => `# 订单管理
 
 ## ${requirementId}：支付反馈
 
-#### Scenario: SCN-001 支付失败
+#### Scenario: ${requirementId}-SCN-001 支付失败
 
 - GIVEN 用户提交支付
 - WHEN 支付被拒绝
 - THEN 显示失败原因
 - ERROR 无法读取错误原因时显示通用提示
+
+### 测试用例
 `;
 
 describe('analysis metadata projection', () => {

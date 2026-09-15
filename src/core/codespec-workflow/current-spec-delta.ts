@@ -1,4 +1,4 @@
-import type { CurrentSpecRequirement, CurrentSpecEngineeringFile } from './current-spec-model.js';
+import type { CurrentSpecRequirement, CurrentSpecEngineeringFile, CurrentSpecification } from './current-spec-model.js';
 import MarkdownIt from 'markdown-it';
 import { parseCurrentSpecification, parseRequirementSnapshot, renderRequirementSnapshot, hashRequirementSnapshot, renderCurrentSpecification, normalizeCurrentSpecInline } from './current-spec-model.js';
 
@@ -177,4 +177,31 @@ export function validateCurrentSpecDelta(document: CurrentSpecDeltaDocument): st
     for (const id of file.references) if (!known.has(id)) issues.push(`Engineering file ${file.path} references unrelated ID ${id}`);
   }
   return issues;
+}
+
+/** Check every operation against live Current before applying any of them. */
+export function validateCurrentSpecDeltaAgainstCurrent(current: CurrentSpecification, delta: CurrentSpecDeltaDocument): string[] {
+  const errors = validateCurrentSpecDelta(delta).map((issue) => `ARCHIVE CONFLICT: ${issue}`);
+  if (current.module !== delta.module) errors.push(`ARCHIVE CONFLICT: ${delta.module} does not match Current module ${current.module}`);
+  const requirements = new Map(current.requirements.map((requirement) => [requirement.id, requirement]));
+  for (const entry of delta.requirements) {
+    const existing = requirements.get(entry.id);
+    if (entry.action === 'ADDED') {
+      if (existing) errors.push(`ARCHIVE CONFLICT: ${entry.id} already exists in Current`);
+    } else if (!existing) {
+      errors.push(`ARCHIVE CONFLICT: ${entry.id} does not exist in Current`);
+    } else if (entry.previous) {
+      try {
+        if (hashRequirementSnapshot(existing) !== hashRequirementSnapshot(entry.previous)) {
+          errors.push(`ARCHIVE CONFLICT: ${entry.id} Current does not match Previous`);
+        }
+      } catch (error) { errors.push(`ARCHIVE CONFLICT: ${entry.id}: ${error instanceof Error ? error.message : String(error)}`); }
+    }
+  }
+  const paths = new Set(current.engineeringFiles.map((file) => file.path));
+  for (const file of delta.engineeringFiles) {
+    if (file.change === '新增' && paths.has(file.path)) errors.push(`ARCHIVE CONFLICT: ${file.path} already exists in Current`);
+    if ((file.change === '修改' || file.change === '删除') && !paths.has(file.path)) errors.push(`ARCHIVE CONFLICT: ${file.path} does not exist in Current`);
+  }
+  return errors;
 }

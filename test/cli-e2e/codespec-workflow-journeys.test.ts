@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { stringify as stringifyYaml } from 'yaml';
 import { createWorkflowFixture, writeChangeArtifacts } from '../helpers/codespec-workflow.js';
 import { createCanonicalChange } from '../../src/core/codespec-workflow/change-manager.js';
 import { archiveChange } from '../../src/core/codespec-workflow/archive-transaction.js';
@@ -11,6 +10,9 @@ import { canTransition } from '../../src/core/codespec-workflow/state-machine.js
 import { detectStaleChanges } from '../../src/core/codespec-workflow/stale.js';
 import { buildUiIndex } from '../../src/core/ui-content-index.js';
 import { runCLI } from '../helpers/run-cli.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../helpers/current-archive.js';
+import { parse, stringify } from 'yaml';
+import { approveStage } from '../../src/core/codespec-workflow/approvals.js';
 
 describe('canonical CodeSpec workflow journeys', () => {
   it('creates a feature Change, resumes it through verification, and preserves one Change for revision', async () => {
@@ -98,12 +100,13 @@ describe('canonical CodeSpec workflow journeys', () => {
     }
   });
 
-  it('routes a v1 current-spec archive through the confirmation gate without creating history', async () => {
-    const fixture = await createWorkflowFixture({ v1: true });
+  it('previews the actual Requirement delta before confirmation and archives all six artifacts', async () => {
+    const fixture = await createCurrentArchiveFixture();
     try {
       const created = await createCanonicalChange(fixture.workspace, {
         title: '当前规格归档', summary: '验证 v1 归档路由', mode: 'feature',
       });
+      await writeCanonicalChange(fixture, modification(), created.changeId);
       const result = await runCLI(
         ['archive', created.changeId, '--json', '--yes'],
         { cwd: fixture.tempDir }
@@ -111,36 +114,62 @@ describe('canonical CodeSpec workflow journeys', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toContain('archive_confirmation_required');
+      expect(JSON.parse(result.stdout).preflight).toMatchObject({
+        changeId: created.changeId,
+        modules: ['MOD-002'],
+        requirements: [{ id: 'MOD-002-REQ-001', action: 'MODIFIED' }],
+        engineeringFiles: [{ path: 'src/one.ts', change: '修改' }],
+      });
       await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
       await expect(fs.access(path.join(fixture.paths.archive, 'history.yaml'))).rejects.toThrow();
-
-      const metadata = {
-        ...created.metadata,
-        change: { ...created.metadata.change, status: 'ARCHIVE' as const },
-        gates: {
-          ...created.metadata.gates,
-          plan: { ...created.metadata.gates.plan, satisfied: true },
-          archive: { ...created.metadata.gates.archive, satisfied: true },
-        },
-        approvals: {
-          ...created.metadata.approvals,
-          design: { status: 'approved' as const, revision: 1, content_hash: 'd'.repeat(64), approved_at: '2026-09-07T10:29:00.000Z' },
-          plan: { status: 'approved' as const, revision: 1, content_hash: 'a'.repeat(64), approved_at: '2026-09-07T10:30:00.000Z' },
-        },
-        archive: { ...created.metadata.archive, ready: true },
-      };
-      await fs.writeFile(path.join(created.changeDir, 'metadata.yaml'), stringifyYaml(metadata));
-      await fs.writeFile(path.join(created.changeDir, 'spec.md'), '# Payment\n\n- **模块编号：** MOD-002\n- **规格版本：** 1\n');
 
       await archiveChange(await loadWorkspace(fixture.codespecDir), created.changeId);
       await expect(fs.access(created.changeDir)).rejects.toThrow();
-      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
-      await expect(fs.access(path.join(fixture.paths.archive, 'history.yaml'))).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId, 'analysis.yaml'))).resolves.toBeUndefined();
+      await expect(fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8')).resolves.toContain(created.changeId);
       await expect(fs.readFile(fixture.paths.business, 'utf8')).resolves.toContain('version: 1');
       await expect(buildUiIndex(fixture.tempDir)).resolves.toMatchObject({ currentSpecGraph: expect.any(Object) });
     } finally {
       fixture.cleanup();
     }
+  });
+
+  it('reports a stale canonical Previous during JSON preflight without changing Current', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const delta = modification();
+      delta.requirements[0].previous!.title = 'stale title';
+      await writeCanonicalChange(fixture, delta);
+      const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      const before = await fs.readFile(currentPath, 'utf8');
+      const result = await runCLI(['archive', fixture.changeId, '--json', '--yes'], { cwd: fixture.tempDir });
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('archive_preflight_failed');
+      expect(result.stdout).toMatch(/ARCHIVE CONFLICT.*MOD-002-REQ-001/);
+      expect(await fs.readFile(currentPath, 'utf8')).toBe(before);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('previews both endpoints changed by an interface projection', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      const tasks = parse(artifacts.tasks);
+      tasks.moduleDeltas = [{
+        module: 'MOD-002', interfaces: { upsert: [{
+          id: `REL-${fixture.changeId}-01`, kind: 'http', fromModule: 'MOD-001', toModule: 'MOD-002',
+          path: '/users', method: 'POST', input: '创建请求', output: '用户资料', errors: '参数错误',
+          requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'],
+        }], remove: [] }, configurationChanges: { upsert: [], remove: [] },
+      }];
+      artifacts.tasks = stringify(tasks);
+      artifacts.metadata = approveStage(artifacts, 'plan');
+      await fs.writeFile(path.join(artifacts.changeDir, 'tasks.yaml'), artifacts.tasks);
+      await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
+      const result = await runCLI(['archive', fixture.changeId, '--json', '--yes'], { cwd: fixture.tempDir });
+      expect(result.stdout).toContain('archive_confirmation_required');
+      expect(JSON.parse(result.stdout).preflight.modules).toEqual(['MOD-001', 'MOD-002']);
+    } finally { fixture.cleanup(); }
   });
 
   it('exposes an explicit legacy workspace migration command', async () => {

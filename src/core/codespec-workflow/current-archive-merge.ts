@@ -1,4 +1,6 @@
 import type { CurrentTasks } from './current-change-yaml.js';
+import type { CurrentSpecification } from './current-spec-model.js';
+import { validateCurrentSpecDeltaAgainstCurrent, type CurrentSpecDeltaDocument } from './current-spec-delta.js';
 import { buildCurrentSpecificationGraph } from './current-spec-graph.js';
 import {
   parseBusinessRegistry,
@@ -8,6 +10,50 @@ import {
   type ConfigurationSnapshot,
   type ModuleInterface,
 } from './current-spec-yaml.js';
+
+export type ApplyCurrentSpecDeltaResult = {
+  specification: CurrentSpecification;
+  added: string[];
+  modified: string[];
+  removed: string[];
+  engineeringFiles: { added: string[]; modified: string[]; removed: string[] };
+};
+
+export function applyCurrentSpecDelta(current: CurrentSpecification, delta: CurrentSpecDeltaDocument): ApplyCurrentSpecDeltaResult {
+  const errors = validateCurrentSpecDeltaAgainstCurrent(current, delta);
+  if (errors.length) throw new Error(errors.join('; '));
+  const entries = new Map(delta.requirements.map((entry) => [entry.id, entry]));
+  const files = new Map(delta.engineeringFiles.map((file) => [file.path, file]));
+  // Actions describe this Change; Current keeps the resulting file state.
+  const currentFile = ({ path, role, references }: CurrentSpecDeltaDocument['engineeringFiles'][number]) => ({ path, role, references });
+  return {
+    specification: {
+      ...current,
+      requirements: [
+        ...current.requirements.flatMap((requirement) => {
+          const entry = entries.get(requirement.id);
+          return entry?.action === 'REMOVED' ? [] : [entry?.next ?? requirement];
+        }),
+        ...delta.requirements.filter((entry) => entry.action === 'ADDED').map((entry) => entry.next!),
+      ],
+      engineeringFiles: [
+        ...current.engineeringFiles.flatMap((file) => {
+          const entry = files.get(file.path);
+          return entry?.change === '删除' ? [] : [entry ? currentFile(entry) : file];
+        }),
+        ...delta.engineeringFiles.filter((file) => file.change === '新增').map(currentFile),
+      ],
+    },
+    added: delta.requirements.filter((entry) => entry.action === 'ADDED').map((entry) => entry.id),
+    modified: delta.requirements.filter((entry) => entry.action === 'MODIFIED').map((entry) => entry.id),
+    removed: delta.requirements.filter((entry) => entry.action === 'REMOVED').map((entry) => entry.id),
+    engineeringFiles: {
+      added: delta.engineeringFiles.filter((file) => file.change === '新增').map((file) => file.path),
+      modified: delta.engineeringFiles.filter((file) => file.change === '修改').map((file) => file.path),
+      removed: delta.engineeringFiles.filter((file) => file.change === '删除').map((file) => file.path),
+    },
+  };
+}
 
 export interface CurrentArchiveMergeInput {
   business: BusinessRegistry;

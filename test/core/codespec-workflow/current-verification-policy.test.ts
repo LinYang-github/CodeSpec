@@ -9,6 +9,7 @@ import { appendLatestVerificationSummary, recordFreshVerification } from '../../
 import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/loaders.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../../helpers/current-archive.js';
 
 describe('current verification policy', () => {
   it('keeps only the newest human-readable verification summary in a prepared spec', () => {
@@ -81,9 +82,11 @@ describe('current verification policy', () => {
   });
 
   it('uses verification.yaml and the runtime configuration snapshot at the VERIFY gate', async () => {
-    const fixture = await createWorkflowFixture();
+    const fixture = await createCurrentArchiveFixture();
     try {
-      const metadata = fixture.metadataAt('VERIFY');
+      const canonical = await writeCanonicalChange(fixture, modification());
+      const metadata = canonical.metadata;
+      metadata.change.status = 'VERIFY';
       metadata.gates.verify.satisfied = true;
       metadata.baseline.commit = '9ec4bf1';
       metadata.artifacts = {
@@ -95,8 +98,6 @@ describe('current verification policy', () => {
       const changeDir = path.join(fixture.paths.changes, fixture.changeId);
       await fs.mkdir(changeDir, { recursive: true });
       await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata));
-      await fs.writeFile(path.join(changeDir, 'design.md'), '# 用户管理设计\n');
-      await fs.writeFile(path.join(changeDir, 'spec.md'), '# 用户管理\n');
       await fs.writeFile(path.join(changeDir, 'tasks.yaml'), stringifyYaml({
         version: 1,
         tasks: [{

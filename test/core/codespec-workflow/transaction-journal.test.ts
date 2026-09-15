@@ -60,6 +60,36 @@ describe('archive transaction journal', () => {
     await expect(fs.access(path.join(paths.transactions, 'archive-CHG-20260907-001'))).rejects.toThrow();
   });
 
+  it('preserves author edits while rolling back other transaction-owned files', async () => {
+    const { paths, target } = await setupTarget();
+    const analysis = path.join(paths.changes, 'CHG-20260907-001', 'analysis.yaml');
+    await fs.mkdir(path.dirname(analysis), { recursive: true });
+    await fs.writeFile(analysis, 'analysis before\n');
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-CHG-20260907-001',
+      files: [{ target, before: 'before\n', after: 'after\n' }, { target: analysis, before: 'analysis before\n', after: null }],
+    });
+    await installArchiveJournal(journal);
+    await fs.writeFile(analysis, 'author edited analysis\n');
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/conflict|ownership/i);
+    expect(await fs.readFile(target, 'utf8')).toBe('before\n');
+    expect(await fs.readFile(analysis, 'utf8')).toBe('author edited analysis\n');
+    await expect(fs.access(journal.directory)).resolves.toBeUndefined();
+  });
+
+  it('does not recover a live archive owned by another caller', async () => {
+    const { paths, target } = await setupTarget();
+    const journal = await createArchiveJournal({
+      paths, transactionId: 'archive-live', ownerPid: process.pid,
+      files: [{ target, before: 'before\n', after: 'after\n' }],
+    });
+    await installArchiveJournal(journal);
+    await expect(recoverPendingTransactions(paths)).rejects.toThrow(/active|busy/i);
+    expect(await fs.readFile(target, 'utf8')).toBe('after\n');
+    await recoverPendingTransactions(paths, journal.transactionId);
+    expect(await fs.readFile(target, 'utf8')).toBe('before\n');
+  });
+
   it('finishes every target from staged bytes when recovery finds a durable commit marker', async () => {
     const { paths, target } = await setupTarget();
     const journal = await createArchiveJournal({

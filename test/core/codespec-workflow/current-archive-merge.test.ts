@@ -3,11 +3,44 @@ import path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { describe, expect, it } from 'vitest';
 
-import { mergeCurrentModuleDeltas } from '../../../src/core/codespec-workflow/current-archive-merge.js';
+import { applyCurrentSpecDelta, mergeCurrentModuleDeltas } from '../../../src/core/codespec-workflow/current-archive-merge.js';
+import { currentSpecification, modification, requirement } from '../../helpers/current-archive.js';
 import { parseCurrentTasks } from '../../../src/core/codespec-workflow/current-change-yaml.js';
 import { parseBusinessRegistry, parseConfiguration, parseModuleInterface } from '../../../src/core/codespec-workflow/current-spec-yaml.js';
 import { installCurrentArchiveFiles } from '../../../src/core/codespec-workflow/archive-transaction.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
+
+describe('Requirement and engineering-file delta merge', () => {
+  it('applies two sequential Changes to one Requirement while preserving unrelated semantic state', () => {
+    const original = currentSpecification();
+    const first = applyCurrentSpecDelta(original, modification());
+    const second = applyCurrentSpecDelta(first.specification, modification(first.specification.requirements[0], requirement('MOD-002-REQ-001', ['A', 'B', 'C', 'E'])));
+    expect(second.specification.requirements.map((entry) => entry.id)).toEqual(['MOD-002-REQ-001', 'MOD-002-REQ-002']);
+    expect(second.specification.requirements[0].scenarios.map((entry) => entry.title)).toEqual(['A', 'B', 'C', 'E']);
+    expect(second.specification.requirements[1]).toEqual(original.requirements[1]);
+    expect(second.specification.engineeringFiles[1]).toEqual(original.engineeringFiles[1]);
+    expect(original.requirements[0].scenarios.map((entry) => entry.title)).toEqual(['A', 'B']);
+  });
+
+  it('replaces in place, removes listed keys, and appends additions in delta order', () => {
+    const current = currentSpecification();
+    const delta = modification();
+    delta.requirements.push(
+      { action: 'ADDED', module: 'MOD-002', id: 'MOD-002-REQ-004', next: requirement('MOD-002-REQ-004', ['F']), reason: 'F' },
+      { action: 'REMOVED', module: 'MOD-002', id: 'MOD-002-REQ-002', previous: current.requirements[1], reason: '删除 D' },
+      { action: 'ADDED', module: 'MOD-002', id: 'MOD-002-REQ-003', next: requirement('MOD-002-REQ-003', ['G']), reason: 'G' },
+    );
+    delta.engineeringFiles.push(
+      { path: 'src/two.ts', change: '删除', role: '删除实现', references: ['MOD-002-REQ-002'] },
+      { path: 'src/new.ts', change: '新增', role: '新实现', references: ['MOD-002-REQ-003'] },
+    );
+    const result = applyCurrentSpecDelta(current, delta);
+    expect(result.specification.requirements.map((entry) => entry.id)).toEqual(['MOD-002-REQ-001', 'MOD-002-REQ-004', 'MOD-002-REQ-003']);
+    expect(result.specification.engineeringFiles.map((file) => file.path)).toEqual(['src/one.ts', 'src/new.ts']);
+    expect(result).toMatchObject({ added: ['MOD-002-REQ-004', 'MOD-002-REQ-003'], modified: ['MOD-002-REQ-001'], removed: ['MOD-002-REQ-002'], engineeringFiles: { added: ['src/new.ts'], modified: ['src/one.ts'], removed: ['src/two.ts'] } });
+    expect(result.specification.title).toBe('当前用户管理');
+  });
+});
 
 describe('current archive module-delta merge', () => {
   it('mirrors relations and derives API, business, and configuration projections', () => {

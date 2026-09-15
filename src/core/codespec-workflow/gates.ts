@@ -62,7 +62,7 @@ function validateSddLevel(artifacts: ChangeArtifacts): string[] {
 async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtifacts, state: ChangeStatus): Promise<GateResult> {
   const m = artifacts.metadata; const errors: string[] = [];
   const isCurrentChange = !m.artifacts?.proposal;
-  errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
+  if (!isCurrentChange) errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
     if (workspace.config.schema === 'spec-driven') {
       if (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal)) errors.push('proposal 必须包含 summary、goals 和 scope 部分');
@@ -134,16 +134,14 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   }
   if (workspace.config?.schema === 'code-spec' && ['DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'].includes(state)) {
     if (['VERIFY', 'ARCHIVE'].includes(state) && !isCurrentChange) errors.push(...validateVerificationEvidence(artifacts));
-    if (!isCurrentChange) {
-      try {
-        const check = await validateChangeArchiveImpact(workspace, artifacts, state);
-        errors.push(...check.issues);
-        if (check.impact.outcome === 'affected' && ['VERIFY', 'ARCHIVE'].includes(state)) {
-          errors.push(...validateArchiveRegressionEvidence(check.impact, parseVerificationDocument(artifacts.verification)));
-        }
+    try {
+      const check = await validateChangeArchiveImpact(workspace, artifacts, state);
+      errors.push(...check.issues);
+      if (!isCurrentChange && check.impact.outcome === 'affected' && ['VERIFY', 'ARCHIVE'].includes(state)) {
+        errors.push(...validateArchiveRegressionEvidence(check.impact, parseVerificationDocument(artifacts.verification)));
       }
-      catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
     }
+    catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
   }
   return result(errors);
 }

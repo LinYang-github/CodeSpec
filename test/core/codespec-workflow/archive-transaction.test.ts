@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse, stringify } from 'yaml';
@@ -11,6 +11,251 @@ import { parseCurrentSpec } from '../../../src/core/codespec-workflow/current-sp
 import type { ArchiveImpact } from '../../../src/core/codespec-workflow/archive-impact.js';
 import { runCLI } from '../../helpers/run-cli.js';
 import { createArchiveJournal } from '../../../src/core/codespec-workflow/transaction-journal.js';
+import { parseCurrentSpecification, renderCurrentSpecification } from '../../../src/core/codespec-workflow/current-spec-model.js';
+import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
+import { createCurrentArchiveFixture, modification, requirement, writeCanonicalChange } from '../../helpers/current-archive.js';
+import { snapshotDirectory } from '../../helpers/fs-snapshot.js';
+import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
+
+// Keep real filesystem behavior while allowing a deterministic concurrent
+// write immediately after one read, before preflight captures its tree.
+vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof import('node:fs/promises')>() }));
+
+describe('six-artifact canonical Requirement archive', () => {
+  it('archives the fresh UI execution record and summary produced at archive time', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      artifacts.metadata.impact.affected_areas = ['ui'];
+      const testCase = 'MOD-002-REQ-001-SCN-001-TC-UI-01';
+      const command = `node -e "console.log('fresh UI run')"`;
+      artifacts.tasks = stringify({ version: 1, changeRevision: 1, tasks: [{
+        id: `${fixture.changeId}-TASK-01`, title: 'UI 验证', status: 'DONE',
+        requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'], testCases: [testCase], plannedFiles: ['src/one.ts'],
+        verificationPlan: [{ testCase, runner: 'node', command, startup: 'node -e "setInterval(() => {}, 1000)"', browser: 'chromium', profile: 'test', services: [], prepare: 'node -e "process.exit(0)"', cleanup: 'node -e "process.exit(0)"' }],
+      }], moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] } });
+      artifacts.verification = stringify({ version: 1, changeRevision: 1, testCases: [{
+        testCase, result: 'PASS', testFile: 'src/one.ts', testId: testCase, command, profile: 'test', services: [], browser: 'chromium', exitCode: 0,
+        gitRevision: '0000000', treeFingerprint: artifacts.metadata.baseline.working_tree_fingerprint, executedAt: '2026-09-15T00:00:00.000Z', summary: 'old execution', cleanupSucceeded: true,
+      }] });
+      artifacts.metadata = approveStage(artifacts, 'plan');
+      await fs.writeFile(fixture.paths.configuration, stringify({ version: 1, profiles: [{ id: 'test', services: [] }] }));
+      await fs.writeFile(path.join(artifacts.changeDir, 'tasks.yaml'), artifacts.tasks);
+      await fs.writeFile(path.join(artifacts.changeDir, 'verification.yaml'), artifacts.verification);
+      await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
+      await archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId);
+      expect(await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8')).toContain('fresh UI run');
+      const verification = parse(await fs.readFile(path.join(fixture.paths.archivedChanges, fixture.changeId, 'verification.yaml'), 'utf8'));
+      expect(verification.testCases[0].summary).toContain('fresh UI run');
+      expect(verification.changeRevision).toBe(1);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('merges two sequential Changes without copying unrelated Requirements or earlier Change prose', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      const historic = path.join(fixture.paths.archivedChanges, 'CHG-20260831-001', 'spec.md');
+      await fs.mkdir(path.dirname(historic), { recursive: true });
+      const historicContent = 'Archived prose and old Requirement snapshots must never be imported.\r\n';
+      await fs.writeFile(historic, historicContent);
+      const first = await writeCanonicalChange(fixture, modification());
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const firstResult = await archiveChange(workspace, fixture.changeId);
+      expect(firstResult.requirementIds).toEqual(['MOD-002-REQ-001']);
+      expect(firstResult.archivedPath).toBe(path.join(fixture.paths.archivedChanges, fixture.changeId));
+      const afterFirst = parseCurrentSpecification(await fs.readFile(currentPath, 'utf8'));
+      expect(afterFirst.requirements[1]).toEqual(fixture.current.requirements[1]);
+      const secondId = 'CHG-20260915-002';
+      const second = await writeCanonicalChange(fixture, modification(afterFirst.requirements[0], requirement('MOD-002-REQ-001', ['A', 'B', 'C', 'E'])), secondId);
+      expect(second.spec).not.toContain('MOD-002-REQ-002');
+      expect(second.spec).not.toContain(first.changeId);
+      await archiveChange(workspace, secondId);
+      const final = parseCurrentSpecification(await fs.readFile(currentPath, 'utf8'));
+      expect(final.requirements.map((entry) => entry.id)).toEqual(['MOD-002-REQ-001', 'MOD-002-REQ-002']);
+      expect(final.requirements[0].scenarios.map((entry) => entry.title)).toEqual(['A', 'B', 'C', 'E']);
+      expect(final.requirements[1]).toEqual(fixture.current.requirements[1]);
+      expect(final.engineeringFiles[1]).toEqual(fixture.current.engineeringFiles[1]);
+      expect(await fs.readFile(historic, 'utf8')).toBe(historicContent);
+      expect(await fs.readFile(currentPath, 'utf8')).not.toContain('Archived prose');
+      expect(parse(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([]);
+      for (const artifacts of [first, second]) {
+        const archivedDir = path.join(fixture.paths.archivedChanges, artifacts.changeId);
+        expect((await fs.readdir(archivedDir)).sort()).toEqual(['analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml']);
+        expect(await fs.readFile(path.join(archivedDir, 'analysis.yaml'), 'utf8')).toBe(artifacts.analysis);
+        expect(await fs.readFile(path.join(archivedDir, 'spec.md'), 'utf8')).toBe(artifacts.spec);
+        expect(parse(await fs.readFile(path.join(archivedDir, 'metadata.yaml'), 'utf8')).change.status).toBe('ARCHIVED');
+        await expect(fs.access(artifacts.changeDir)).rejects.toThrow();
+      }
+    } finally { fixture.cleanup(); }
+  });
+
+  it('rejects a whole Current spec in the canonical artifact contract instead of replacing the module', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      await fs.writeFile(path.join(artifacts.changeDir, 'spec.md'), renderCurrentSpecification({ ...fixture.current, requirements: [requirement()], engineeringFiles: [fixture.current.engineeringFiles[0]] }));
+      const before = snapshotDirectory(fixture.codespecDir);
+      await expect(archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId)).rejects.toThrow(/rich delta|action section/i);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('reports an engineering-file action conflict with the stable ARCHIVE CONFLICT prefix before writes', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const delta = modification();
+      delta.engineeringFiles[0].change = '新增';
+      await writeCanonicalChange(fixture, delta);
+      const before = snapshotDirectory(fixture.codespecDir);
+      await expect(archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId)).rejects.toThrow(/^ARCHIVE CONFLICT:.*src\/one\.ts/);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(['archived-change', 'change-index', 'archive-history'])('restores Current, six active artifacts, index and journal after failure at %s', async (step) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      await writeCanonicalChange(fixture, modification());
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const before = snapshotDirectory(fixture.codespecDir);
+      let sawMergedCurrent = false;
+      __setArchiveTestHooksForTests({ beforeCommitStep: async (currentStep) => {
+        if (currentStep === step) {
+          sawMergedCurrent = (await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8')).includes('得到 C');
+          throw new Error('injected canonical installation failure');
+        }
+      } });
+      await expect(archiveChange(workspace, fixture.changeId)).rejects.toThrow(/injected canonical installation failure.*rolled back/);
+      expect(sawMergedCurrent).toBe(true);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+    } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
+  });
+
+  it.each(['analysis.yaml', 'spec.md', 'tasks.yaml'])('preserves a concurrent %s edit after canonical preflight', async (filename) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const prepared = await prepareArchive(await preflightArchive(workspace, fixture.changeId));
+      const file = path.join(artifacts.changeDir, filename);
+      const edited = `${await fs.readFile(file, 'utf8')}\n# author edit\n`;
+      await fs.writeFile(file, edited);
+      const before = snapshotDirectory(fixture.codespecDir);
+      await expect(commitArchive(prepared)).rejects.toThrow(/ARCHIVE CONFLICT|预检后.*变化/);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('rolls back owned files and preserves a Current edit made during installation', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      const authorEdit = renderCurrentSpecification({ ...fixture.current, title: 'concurrent author edit' });
+      __setArchiveTestHooksForTests({ beforeCommitStep: async (step) => {
+        if (step === 'archived-change') await fs.writeFile(currentPath, authorEdit);
+      } });
+      await expect(archiveChange(workspace, fixture.changeId)).rejects.toThrow(/rollback incomplete/);
+      expect(await fs.readFile(currentPath, 'utf8')).toBe(authorEdit);
+      expect(await fs.readFile(path.join(artifacts.changeDir, 'analysis.yaml'), 'utf8')).toBe(artifacts.analysis);
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId, 'metadata.yaml'))).rejects.toThrow();
+      expect(await fs.readdir(fixture.paths.transactions)).toHaveLength(1);
+    } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
+  });
+
+  it('revalidates Previous against live Current immediately before installation', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      await writeCanonicalChange(fixture, modification());
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const prepared = await prepareArchive(await preflightArchive(workspace, fixture.changeId));
+      const edited = renderCurrentSpecification({ ...fixture.current, requirements: [requirement('MOD-002-REQ-001', ['X']), fixture.current.requirements[1]] });
+      const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      await fs.writeFile(currentPath, edited);
+      await expect(commitArchive(prepared)).rejects.toThrow(/ARCHIVE CONFLICT.*MOD-002-REQ-001/);
+      expect(await fs.readFile(currentPath, 'utf8')).toBe(edited);
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(['Current', 'active spec'])('preserves an author edit to %s between the initial read and preflight snapshot', async (target) => {
+    const fixture = await createCurrentArchiveFixture();
+    let readSpy: ReturnType<typeof vi.spyOn> | undefined;
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const file = target === 'Current' ? path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md') : path.join(artifacts.changeDir, 'spec.md');
+      const originalRead = fs.readFile;
+      const original = await originalRead(file, 'utf8');
+      const edited = target === 'Current' ? original.replace('得到 D', '作者修改 D') : original + '\n<!-- author edit -->\n';
+      let didEdit = false;
+      let reads = 0;
+      readSpy = vi.spyOn(fs, 'readFile').mockImplementation((async (requested: Parameters<typeof fs.readFile>[0], options: Parameters<typeof fs.readFile>[1]) => {
+        const content = await originalRead(requested, options);
+        if (String(requested) === file) reads += 1;
+        if (String(requested) === file && reads === (target === 'Current' ? 1 : 2) && !didEdit) {
+          didEdit = true;
+          await fs.writeFile(file, edited);
+        }
+        return content;
+      }) as typeof fs.readFile);
+      await expect(archiveChange(workspace, fixture.changeId)).rejects.toThrow(/ARCHIVE CONFLICT|预检后.*变化/);
+      expect(await originalRead(file, 'utf8')).toBe(edited);
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId))).rejects.toThrow();
+    } finally { readSpy?.mockRestore(); fixture.cleanup(); }
+  });
+
+  it('creates a complete Current shell when an all-ADDED delta targets a module with no spec', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+      await fs.unlink(currentPath);
+      const delta = modification();
+      delta.requirements[0] = { ...delta.requirements[0], action: 'ADDED', previous: undefined };
+      delta.engineeringFiles[0].change = '新增';
+      await writeCanonicalChange(fixture, delta);
+      await archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId);
+      const current = parseCurrentSpecification(await fs.readFile(currentPath, 'utf8'));
+      expect(current).toMatchObject({ module: 'MOD-002', version: '1', requirements: [{ id: 'MOD-002-REQ-001' }] });
+      expect(current.requirements).toHaveLength(1);
+    } finally { fixture.cleanup(); }
+  });
+
+  it('registers a new module and creates its three Current files from an all-ADDED delta', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const next = requirement('MOD-003-REQ-001', ['通知']);
+      const artifacts = await writeCanonicalChange(fixture, {
+        title: '通知', module: 'MOD-003', version: 1,
+        requirements: [{ id: next.id, module: 'MOD-003', action: 'ADDED', next, reason: '通知用户' }], engineeringFiles: [],
+      });
+      const tasks = parse(artifacts.tasks);
+      tasks.moduleRegistrations.upsert = [{ id: 'MOD-003', name: '通知' }];
+      artifacts.tasks = stringify(tasks);
+      artifacts.metadata = approveStage(artifacts, 'plan');
+      await fs.writeFile(path.join(artifacts.changeDir, 'tasks.yaml'), artifacts.tasks);
+      await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
+      await archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId);
+      expect((await fs.readdir(path.join(fixture.paths.currentSpecs, 'MOD-003'))).sort()).toEqual(['api.yaml', 'interface.yaml', 'spec.md']);
+      const spec = parseCurrentSpecification(await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-003', 'spec.md'), 'utf8'));
+      expect(spec.requirements).toEqual([next]);
+      expect(parse(await fs.readFile(fixture.paths.business, 'utf8')).modules).toContainEqual(expect.objectContaining({ id: 'MOD-003', status: 'ACTIVE' }));
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(['analyze', 'design', 'plan'] as const)('rejects a stale %s approval receipt before archive writes', async (stage) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      artifacts.metadata.approvals[stage]!.content_hash = '0'.repeat(64);
+      await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
+      const before = snapshotDirectory(fixture.codespecDir);
+      await expect(archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId)).rejects.toThrow(/确认已失效/);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+    } finally { fixture.cleanup(); }
+  });
+});
 
 const ready = (fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, modules = ['MOD-002']): ChangeMetadata => {
   const metadata = fixture.metadataAt('ARCHIVE');

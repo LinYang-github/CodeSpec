@@ -15,12 +15,14 @@ import { validateCurrentSpec } from './current-spec-parser.js';
 import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
 import { parseCurrentTasks, parseCurrentVerification } from './current-change-yaml.js';
 import { validateCurrentVerificationPlan } from './current-verification-policy.js';
-import { validateCurrentArchivePreflight } from './current-archive-preflight.js';
+import { readCurrentDeltaBaseline, validateCurrentArchivePreflight } from './current-archive-preflight.js';
 import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
 import { mergeCurrentModuleDeltas } from './current-archive-merge.js';
-import { buildArchiveProjection } from './archive-projection.js';
+import { buildArchiveProjection, currentSpecDeltaBaseline, projectCurrentSpecDelta, type ArchiveProjection } from './archive-projection.js';
+import { validateCurrentSpecDeltaAgainstCurrent, type CurrentSpecDeltaDocument } from './current-spec-delta.js';
 import { parseBusinessRegistry, parseConfiguration, parseModuleInterface } from './current-spec-yaml.js';
-import { parseCurrentSpecification, validateCurrentDesignOwnership, validateCurrentSpecification } from './current-spec-model.js';
+import { parseCurrentSpecification, validateCurrentSpecification } from './current-spec-model.js';
+import { assertTransitionApproval } from './approvals.js';
 import { isUiChange, runUiArchiveGate } from './ui-archive-gate.js';
 import {
   validateChangeArchiveImpact,
@@ -37,11 +39,13 @@ export interface ArchivePlan extends ContractArchivePlan {
   deltas: RequirementDelta[];
   current: Map<string, string>;
   archiveImpact: ArchiveImpact;
+  richDelta?: CurrentSpecDeltaDocument;
   snapshot: {
     metadata: string;
     current: Map<string, string>;
     index: string;
     trees: Map<string, string>;
+    verification?: string;
   };
 }
 
@@ -49,6 +53,8 @@ export interface PreparedArchive {
   plan: ArchivePlan;
   specs: Map<string, string>;
   archivedMetadata: ChangeMetadata;
+  projection?: ArchiveProjection;
+  affectedModules?: string[];
 }
 
 export interface ArchiveResult {
@@ -237,8 +243,12 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   if (m.archive.conflict) throw new Error('归档前必须先解决冲突');
   if (m.baseline.stale) throw new Error('归档被阻塞：baseline 已过期');
   if (!m.artifacts.proposal) {
+    for (const target of ['DESIGN', 'PLAN', 'IMPLEMENT'] as const) assertTransitionApproval(artifacts, target);
     const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
     const verification = parseCurrentVerification(parseYaml(artifacts.verification));
+    if (tasks.changeRevision !== m.change.revision || verification.changeRevision !== m.change.revision) {
+      throw new Error('tasks.yaml/verification.yaml Change revision must equal metadata.change.revision');
+    }
     const preflightErrors = validateCurrentArchivePreflight({
       designApproved: m.approvals?.design.status === 'approved' && m.approvals.design.revision === m.change.revision,
       planApproved: m.approvals?.plan.status === 'approved' && m.approvals.plan.revision === m.change.revision,
@@ -263,19 +273,26 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
   if (!trace.valid) throw new Error(`归档追踪性门禁失败：${trace.issues.join('; ')}`);
 }
 
-export async function preflightArchive(workspace: WorkspaceContext, changeId: string): Promise<ArchivePlan> {
-  const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+export async function preflightArchive(workspace: WorkspaceContext, changeId: string, verificationOverride?: string): Promise<ArchivePlan> {
+  const loaded = await loadChangeArtifacts(workspace.paths, changeId);
+  const artifacts = verificationOverride === undefined ? loaded : { ...loaded, verification: verificationOverride };
+  // Parse according to the artifact contract before checking receipts, so a
+  // whole Current document cannot reach the canonical module write path.
+  const { impact: archiveImpact, deltas, richDelta, current, issues: impactIssues } = await validateChangeArchiveImpact(workspace, artifacts);
+  if (impactIssues.length) {
+    const conflicts = impactIssues.filter((issue) => issue.startsWith('ARCHIVE CONFLICT:'));
+    if (richDelta && conflicts.length) throw new Error([...conflicts, ...impactIssues.filter((issue) => !issue.startsWith('ARCHIVE CONFLICT:'))].join('; '));
+    throw new Error(`归档影响映射校验失败：${impactIssues.join('; ')}`);
+  }
   ensureArchiveGates(artifacts);
   if (!artifacts.metadata.artifacts.proposal) {
     const errors = await validateCurrentVerificationArtifacts(workspace, artifacts);
     if (errors.length) throw new Error(`当前 Change 验证预检失败：${errors.join('; ')}`);
   }
-  const { impact: archiveImpact, deltas, current, issues: impactIssues } = await validateChangeArchiveImpact(workspace, artifacts);
-  if (impactIssues.length) throw new Error(`归档影响映射校验失败：${impactIssues.join('; ')}`);
-  const regressionIssues = validateArchiveRegressionEvidence(archiveImpact, parseVerificationDocument(artifacts.verification));
+  const regressionIssues = richDelta ? [] : validateArchiveRegressionEvidence(archiveImpact, parseVerificationDocument(artifacts.verification));
   if (regressionIssues.length) throw new Error(regressionIssues.join('; '));
   await validateRelations(workspace, artifacts.metadata);
-  for (const [module, content] of current) {
+  for (const [module, content] of richDelta ? [] : current) {
     const issues = validateCurrentSpec(content, module);
     if (issues.length) throw new Error(`Current Specification ${module} 校验失败：${issues.join('; ')}`);
   }
@@ -288,10 +305,12 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
     ...[...current.keys()].map((module) => path.join(workspace.paths.currentSpecs, module)),
     path.join(workspace.paths.archive, 'README.md'),
     path.join(workspace.paths.archive, 'history.yaml'),
+    ...(richDelta ? [workspace.paths.currentSpecs, workspace.paths.business, workspace.paths.configuration,
+      path.join(workspace.paths.archivedChanges, changeId)] : []),
   ]) trees.set(file, await treeDigest(file));
   return {
-    changeId: changeId as ContractArchivePlan['changeId'], ready: true, conflict: false, reasons: [], workspace, artifacts, deltas, current, archiveImpact,
-    snapshot: { metadata: await fs.readFile(metadataPath, 'utf8'), current: new Map(current), index: indexRaw, trees },
+    changeId: changeId as ContractArchivePlan['changeId'], ready: true, conflict: false, reasons: [], workspace, artifacts, deltas, current, archiveImpact, richDelta,
+    snapshot: { metadata: await fs.readFile(metadataPath, 'utf8'), current: new Map(current), index: indexRaw, trees, verification: loaded.verification },
   };
 }
 
@@ -303,6 +322,7 @@ function validatePreparedCurrentSpec(module: string, spec: string): void {
 }
 
 export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive> {
+  if (plan.richDelta) return prepareCurrentArchive(plan);
   const changedModules = new Set(plan.deltas.map((delta) => delta.module));
   const specs = new Map([...plan.current].filter(([module]) => changedModules.has(module as RequirementDelta['module'])));
   for (const delta of plan.deltas) specs.set(delta.module, applyDelta(specs.get(delta.module) ?? '', delta));
@@ -323,12 +343,60 @@ export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive
   return { plan, specs, archivedMetadata };
 }
 
+async function prepareCurrentArchive(plan: ArchivePlan): Promise<PreparedArchive> {
+  const { workspace, artifacts, richDelta: delta } = plan;
+  if (!delta) throw new Error('Canonical archive requires a rich delta');
+  const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+  const business = parseBusinessRegistry(parseYaml(await fs.readFile(workspace.paths.business, 'utf8')));
+  const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
+  const interfaces = new Map<string, ReturnType<typeof parseModuleInterface>>();
+  for (const module of business.modules) {
+    interfaces.set(module.id, parseModuleInterface(parseYaml(await fs.readFile(path.join(workspace.paths.currentSpecs, module.id, 'interface.yaml'), 'utf8'))));
+  }
+  const merged = mergeCurrentModuleDeltas({ business, interfaces, configuration, moduleDeltas: tasks.moduleDeltas, moduleRegistrations: tasks.moduleRegistrations });
+  await validateCurrentModuleLayout(workspace, merged.business.modules.map((module) => module.id));
+  const allowed = new Set(['metadata.yaml', 'analysis.yaml', 'spec.md', 'design.md', 'tasks.yaml', 'verification.yaml']);
+  for (const filename of await fs.readdir(artifacts.changeDir)) {
+    if (!allowed.has(filename)) throw new Error(`当前 Change 只能包含六个 canonical 产物：${filename}`);
+  }
+  const target = merged.business.modules.find((module) => module.id === delta.module);
+  if (!target) throw new Error(`当前 Change spec.md 引用了未注册模块：${delta.module}`);
+  if (target.status === 'RETIRED') throw new Error(`当前 Change 不能归档到已退役模块：${delta.module}`);
+  const specification = projectCurrentSpecDelta(plan.current.get(delta.module) || null, delta);
+  const specIssues = validateCurrentSpecification(parseCurrentSpecification(specification));
+  if (specIssues.length) throw new Error(`当前 Change 合并后的 spec.md 校验失败：${specIssues.join('; ')}`);
+  await validateCurrentEngineeringFiles(workspace, { ...currentSpecDeltaBaseline(null, delta), engineeringFiles: delta.engineeringFiles });
+  const verification = parseCurrentVerification(parseYaml(artifacts.verification));
+  const specs = new Map<string, string>();
+  for (const module of merged.business.modules) {
+    specs.set(module.id, module.id === delta.module ? appendLatestVerificationSummary(specification, verification)
+      : await fs.readFile(path.join(workspace.paths.currentSpecs, module.id, 'spec.md'), 'utf8'));
+  }
+  const archivedMetadata = structuredClone(artifacts.metadata);
+  archivedMetadata.change.status = 'ARCHIVED';
+  archivedMetadata.archive.archived_at = new Date().toISOString();
+  const projection = buildArchiveProjection({ specs, business: merged.business, interfaces: merged.interfaces, configuration: merged.configuration });
+  const affectedModules: string[] = [];
+  for (const [module, document] of projection.modules) {
+    for (const [filename, content] of Object.entries({ 'spec.md': document.spec, 'interface.yaml': document.interface, 'api.yaml': document.api })) {
+      if (await readOptional(path.join(workspace.paths.currentSpecs, module, filename)) !== content) {
+        affectedModules.push(module);
+        break;
+      }
+    }
+  }
+  return {
+    plan, specs, archivedMetadata, projection, affectedModules,
+  };
+}
+
 async function copyTree(source: string, destination: string): Promise<void> {
   await fs.mkdir(destination, { recursive: true });
   await fs.cp(source, destination, { recursive: true });
 }
 
 export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveResult> {
+  if (prepared.plan.richDelta) return commitCurrentArchive(prepared);
   const { plan, specs, archivedMetadata } = prepared;
   const token = `.archive-${plan.changeId}-${process.pid}-${Date.now()}`;
   const stage = path.join(plan.workspace.paths.archive, token);
@@ -454,69 +522,117 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
   }
 }
 
+async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveResult> {
+  const { plan, projection, archivedMetadata } = prepared;
+  const { workspace, artifacts, richDelta: delta } = plan;
+  if (!projection || !delta) throw new Error('Canonical archive projection is missing');
+  const archivedPath = path.join(workspace.paths.archivedChanges, plan.changeId);
+  const lock = path.join(workspace.paths.archive, '.archive.lock');
+  const indexLock = `${workspace.paths.changeIndex}.lock`;
+  let ownsLock = false;
+  let ownsIndexLock = false;
+  let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
+  let committed = false;
+  try {
+    await acquireArchiveLock(lock); ownsLock = true;
+    try { await fs.mkdir(indexLock); ownsIndexLock = true; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change 索引正忙'); throw error; }
+    // Re-read Current under the archive lock; Previous is never validated
+    // against an archived Change or a previously prepared projection.
+    const live = await readCurrentDeltaBaseline(workspace, delta.module);
+    const conflicts = validateCurrentSpecDeltaAgainstCurrent(currentSpecDeltaBaseline(live, delta), delta);
+    if (conflicts.length) throw new Error(conflicts.join('; '));
+    if ((live ?? '') !== plan.snapshot.current.get(delta.module)) throw new Error(`ARCHIVE CONFLICT: ${delta.module} Current changed after its preflight read`);
+    const latestArtifacts = await loadChangeArtifacts(workspace.paths, plan.changeId);
+    if ((['analysis', 'design', 'spec', 'tasks'] as const).some((key) => latestArtifacts[key] !== artifacts[key]) ||
+      JSON.stringify(latestArtifacts.metadata) !== JSON.stringify(artifacts.metadata) || latestArtifacts.verification !== plan.snapshot.verification) {
+      throw new Error('ARCHIVE CONFLICT: active Change artifacts changed after their preflight read');
+    }
+    await checkTreeSnapshots(plan.snapshot.trees);
+    if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error('ARCHIVE CONFLICT: Change index changed after preflight');
+    const files: Array<{ target: string; before: string | null; after: string | null }> = [];
+    const add = async (target: string, after: string | null) => { files.push({ target, before: await readOptional(target), after }); };
+    const steps = new Map<string, string>();
+    for (const [module, document] of projection.modules) {
+      for (const [filename, content] of Object.entries({ 'spec.md': document.spec, 'interface.yaml': document.interface, 'api.yaml': document.api })) {
+        const target = path.join(workspace.paths.currentSpecs, module, filename);
+        await add(target, content);
+        steps.set(target, `current-${filename.split('.')[0]}:${module}`);
+      }
+    }
+    await add(workspace.paths.business, projection.business);
+    await add(workspace.paths.configuration, projection.configuration);
+    const artifactFiles = ['metadata.yaml', 'analysis.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml'];
+    for (const filename of artifactFiles) {
+      const target = path.join(archivedPath, filename);
+      await add(target, filename === 'metadata.yaml' ? stringifyYaml(metadataForPersistence(archivedMetadata))
+        : filename === 'verification.yaml' ? artifacts.verification : await fs.readFile(path.join(artifacts.changeDir, filename), 'utf8'));
+      steps.set(target, 'archived-change');
+    }
+    const index = await loadChangeIndex(workspace.paths);
+    await add(workspace.paths.changeIndex, stringifyYaml({ version: 1, changes: index.entries.filter((entry) => entry.id !== plan.changeId) }));
+    steps.set(workspace.paths.changeIndex, 'change-index');
+    const readmePath = path.join(workspace.paths.archive, 'README.md');
+    const historyPath = path.join(workspace.paths.archive, 'history.yaml');
+    const readme = await readOptional(readmePath) ?? '';
+    const rawHistory = await readOptional(historyPath);
+    const history = rawHistory?.trim() ? parseYaml(rawHistory) : { version: 1, records: [] };
+    if (history?.version !== 1 || !Array.isArray(history.records) || history.records.some((record: { change?: string; status?: string; archived_at?: string }) =>
+      !record || !/^CHG-\d{8}-\d{3}$/u.test(record.change ?? '') || record.status !== 'ARCHIVED' || !record.archived_at || Number.isNaN(Date.parse(record.archived_at)))) {
+      throw new Error('归档历史必须使用 canonical version 1 records Schema');
+    }
+    const priorSpecs = history.records.flatMap((record: { current_specs?: Array<{ module: string; revision: number }> }) => record.current_specs ?? []);
+    if (priorSpecs.some((spec: { module: string; revision: number }) => !spec || !/^MOD-\d{3}$/u.test(spec.module) || !Number.isSafeInteger(spec.revision) || spec.revision < 1)) {
+      throw new Error('归档历史包含无效的 Current Specification revision');
+    }
+    history.records.push({
+      change: plan.changeId, status: 'ARCHIVED', archived_at: archivedMetadata.archive.archived_at,
+      change_revision: artifacts.metadata.change.revision, archive_impact: plan.archiveImpact,
+      current_specs: [{
+        module: delta.module,
+        revision: Math.max(0, ...priorSpecs.filter((spec: { module: string }) => spec.module === delta.module).map((spec: { revision: number }) => spec.revision)) + 1,
+        content_hash: createHash('sha256').update(prepared.specs.get(delta.module)!).digest('hex'),
+      }],
+    });
+    await add(readmePath, `${readme}${readme && !readme.endsWith('\n') ? '\n' : ''}\n## Archived ${plan.changeId}\n\nStatus: ARCHIVED\n`);
+    steps.set(readmePath, 'archive-readme');
+    await add(historyPath, stringifyYaml(history));
+    steps.set(historyPath, 'archive-history');
+    // Source deletion is journalled file by file. Only an empty Change
+    // directory is removed after commit, preserving concurrent author files.
+    for (const filename of artifactFiles) await add(path.join(artifacts.changeDir, filename), null);
+    await checkTreeSnapshots(plan.snapshot.trees);
+    if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error('ARCHIVE CONFLICT: Change index changed after preflight');
+    journal = await createArchiveJournal({
+      paths: workspace.paths, transactionId: `archive-${plan.changeId}-${process.pid}-${Date.now()}`, files,
+      cleanupEmptyAfterCommit: [artifacts.changeDir], ownerPid: process.pid,
+    });
+    await installArchiveJournal(journal, async (target) => { await archiveTestHooks?.beforeCommitStep?.(steps.get(target) ?? 'active-change'); });
+    await markArchiveJournalCommitted(journal);
+    committed = true;
+    await recoverPendingTransactions(workspace.paths, journal.transactionId);
+    const requirementIds = delta.requirements.map((entry) => entry.id);
+    return { changeId: plan.changeId, archivedPath, requirementIds, staleChanges: await detectStaleChanges(workspace, requirementIds) };
+  } catch (error) {
+    if (committed) throw new Error(`${error instanceof Error ? error.message : String(error)} (archive committed; recovery or stale scan requires retry)`);
+    if (journal) {
+      try { await recoverPendingTransactions(workspace.paths, journal.transactionId); }
+      catch (recoveryError) { throw new Error(`${error instanceof Error ? error.message : String(error)} (rollback incomplete; ${String(recoveryError)})`); }
+    }
+    throw new Error(`${error instanceof Error ? error.message : String(error)} (transaction rolled back)`);
+  } finally {
+    if (ownsIndexLock) await fs.rm(indexLock, { recursive: true, force: true }).catch(() => undefined);
+    if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 export async function archiveChange(workspace: WorkspaceContext, changeId: string): Promise<ArchiveResult> {
   await recoverPendingTransactions(workspace.paths);
-  let artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
+  let verificationOverride: string | undefined;
   if (!artifacts.metadata.artifacts.proposal && isUiChange(artifacts)) {
     const gate = await runUiArchiveGate(workspace, artifacts);
-    artifacts = { ...artifacts, verification: stringifyYaml({ version: 1, testCases: gate.verification.testCases }) };
+    verificationOverride = stringifyYaml(gate.verification);
   }
-  if (!artifacts.metadata.artifacts.proposal) {
-    ensureArchiveGates(artifacts);
-    const verificationErrors = await validateCurrentVerificationArtifacts(workspace, artifacts);
-    if (verificationErrors.length) throw new Error(`当前 Change 验证预检失败：${verificationErrors.join('; ')}`);
-    const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
-    const business = parseBusinessRegistry(parseYaml(await fs.readFile(workspace.paths.business, 'utf8')));
-    const configuration = parseConfiguration(parseYaml(await fs.readFile(workspace.paths.configuration, 'utf8')));
-    const registeredModuleIds = new Set(business.modules.map((module) => module.id));
-    const newModuleIds = new Set(tasks.moduleRegistrations.upsert
-      .map((registration) => registration.id)
-      .filter((moduleId) => !registeredModuleIds.has(moduleId)));
-    const interfaces = new Map<string, ReturnType<typeof parseModuleInterface>>();
-    for (const module of business.modules) {
-      const interfacePath = path.join(workspace.paths.currentSpecs, module.id, 'interface.yaml');
-      const raw = await fs.readFile(interfacePath, 'utf8').catch((error: NodeJS.ErrnoException) => {
-        if (error.code === 'ENOENT' && newModuleIds.has(module.id)) return null;
-        throw error;
-      });
-      if (raw) interfaces.set(module.id, parseModuleInterface(parseYaml(raw)));
-    }
-    const merged = mergeCurrentModuleDeltas({ business, interfaces, configuration, moduleDeltas: tasks.moduleDeltas, moduleRegistrations: tasks.moduleRegistrations });
-    await validateCurrentModuleLayout(workspace, merged.business.modules.map((module) => module.id));
-    const changeSpec = parseCurrentSpecification(artifacts.spec);
-    if (changeSpec.version !== '1') throw new Error('当前 Change spec.md 必须是版本 1 规格');
-    const specIssues = validateCurrentSpecification(changeSpec);
-    if (specIssues.length) throw new Error(`当前 Change spec.md 校验失败：${specIssues.join('; ')}`);
-    const designIssues = validateCurrentDesignOwnership(artifacts.design, changeSpec);
-    if (designIssues.length) throw new Error(`当前 Change design.md 归属校验失败：${designIssues.join('; ')}`);
-    const changeEntries = await fs.readdir(artifacts.changeDir);
-    if (changeEntries.includes('test-cases.md')) throw new Error('当前 Change 不得包含独立的 test-cases.md');
-    const targetModule = merged.business.modules.find((module) => module.id === changeSpec.module);
-    if (!targetModule) throw new Error(`当前 Change spec.md 引用了未注册模块：${changeSpec.module}`);
-    if (targetModule.status === 'RETIRED') throw new Error(`当前 Change 不能归档到已退役模块：${changeSpec.module}`);
-    await validateCurrentEngineeringFiles(workspace, changeSpec);
-    const verification = parseCurrentVerification(parseYaml(artifacts.verification));
-    const specs = new Map<string, string>();
-    for (const module of merged.business.modules) {
-      specs.set(module.id, module.id === changeSpec.module
-        ? appendLatestVerificationSummary(artifacts.spec, verification)
-        : await fs.readFile(path.join(workspace.paths.currentSpecs, module.id, 'spec.md'), 'utf8'));
-    }
-    const projection = buildArchiveProjection({
-      specs,
-      business: merged.business,
-      interfaces: merged.interfaces,
-      configuration: merged.configuration,
-    });
-    await installCurrentArchiveFiles({
-      paths: workspace.paths,
-      changeId,
-      changeDir: artifacts.changeDir,
-      moduleFiles: projection.modules,
-      business: projection.business,
-      configuration: projection.configuration,
-    });
-    return { changeId, archivedPath: '', staleChanges: await detectStaleChanges(workspace, []), requirementIds: [] };
-  }
-  return commitArchive(await prepareArchive(await preflightArchive(workspace, changeId)));
+  return commitArchive(await prepareArchive(await preflightArchive(workspace, changeId, verificationOverride)));
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
-import { buildArchiveProjection } from '../../../src/core/codespec-workflow/archive-projection.js';
+import { buildArchiveProjection, projectCurrentSpecDelta } from '../../../src/core/codespec-workflow/archive-projection.js';
+import { currentSpecification, modification } from '../../helpers/current-archive.js';
+import { parseCurrentSpecification, renderCurrentSpecification } from '../../../src/core/codespec-workflow/current-spec-model.js';
 import {
   parseBusinessRegistry,
   parseConfiguration,
@@ -24,6 +26,13 @@ const relation = {
 };
 
 describe('archive projection builder', () => {
+  it('projects only listed Requirement and file changes, keeping unrelated Current sections verbatim', () => {
+    const raw = renderCurrentSpecification(currentSpecification()).replace('#### Scenario: MOD-002-REQ-002-SCN-001 D', '####  Scenario: MOD-002-REQ-002-SCN-001 D');
+    const result = projectCurrentSpecDelta(raw, modification());
+    expect(parseCurrentSpecification(result).requirements[1]).toEqual(currentSpecification().requirements[1]);
+    expect(result).toContain('####  Scenario: MOD-002-REQ-002-SCN-001 D');
+    expect(result).not.toContain('本次请求');
+  });
   it('serializes every module projection and derives global business/API files', () => {
     const result = buildArchiveProjection({
       specs: new Map([

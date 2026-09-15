@@ -16,6 +16,46 @@ import {
 import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
 import { validateRelations } from '../../../src/core/codespec-workflow/relations.js';
 import { recordFreshVerification } from '../../../src/core/codespec-workflow/verification.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../../helpers/current-archive.js';
+import { parse as parseYaml } from 'yaml';
+
+describe('canonical Requirement delta boundary at DESIGN and later gates', () => {
+  it.each(['DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'] as const)('rejects stale Previous at %s', async (state) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const delta = modification();
+      delta.requirements[0].previous!.title = 'stale';
+      const artifacts = await writeCanonicalChange(fixture, delta);
+      const gate = await validateExitGate(await loadWorkspace(fixture.codespecDir), artifacts, state);
+      expect(gate.errors).toContainEqual(expect.stringMatching(/ARCHIVE CONFLICT.*MOD-002-REQ-001/));
+    } finally { fixture.cleanup(); }
+  });
+
+  it('accepts additive rich changes with matching analysis/metadata and acceptance criteria', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      expect(await validateExitGate(await loadWorkspace(fixture.codespecDir), artifacts, 'DESIGN')).toMatchObject({ ok: true, errors: [] });
+    } finally { fixture.cleanup(); }
+  });
+
+  it.each(['analysis', 'metadata', 'acceptanceCriteria'])('rejects an orphan Requirement in %s', async (owner) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      if (owner === 'metadata') artifacts.metadata.requirements.modified.push({ id: 'MOD-002-REQ-002', module: 'MOD-002' });
+      else {
+        const analysis = parseYaml(artifacts.analysis!);
+        if (owner === 'analysis') analysis.requirements.push({ id: 'MOD-002-REQ-002', action: 'MODIFIED', reason: 'extra' });
+        else analysis.acceptanceCriteria[0].requirements = ['MOD-002-REQ-002'];
+        artifacts.analysis = stringifyYaml(analysis);
+      }
+      const gate = await validateExitGate(await loadWorkspace(fixture.codespecDir), artifacts, 'DESIGN');
+      expect(gate.ok).toBe(false);
+      expect(gate.errors.join('\n')).toMatch(/analysis|metadata|AC-001/);
+    } finally { fixture.cleanup(); }
+  });
+});
 import {
   createWorkflowFixture,
   writeBusinessFile,

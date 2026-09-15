@@ -554,17 +554,25 @@ program
         if (options?.skipSpecs || options?.noValidate || options?.validate === false) throw new Error('canonical code-spec 不能跳过 Spec 更新或归档校验。');
         const currentArtifacts = await loadChangeArtifacts(workspace.paths, changeName);
         if (!currentArtifacts.metadata.artifacts.proposal) {
+          const prepared = await prepareArchive(await preflightArchive(workspace, changeName));
+          const delta = prepared.plan.richDelta!;
+          const preview = {
+            changeId: changeName, revision: currentArtifacts.metadata.change.revision, mode: 'current-spec',
+            modules: prepared.affectedModules, archiveImpact: prepared.plan.archiveImpact,
+            requirements: delta.requirements.map(({ id, action }) => ({ id, action })),
+            engineeringFiles: delta.engineeringFiles.map(({ path, change }) => ({ path, change })),
+          };
           if (options?.json) {
             failWithError(archiveConfirmationError, {
               enabled: true,
-              payload: { archive: null, preflight: { changeId: changeName, mode: 'current-spec', modules: [] } },
+              payload: { archive: null, preflight: preview },
               fallbackCode: 'archive_confirmation_required',
             });
             return;
           }
           if (!isInteractiveTerminal()) throw archiveConfirmationError;
           console.log('当前规格归档预检（尚未写入）：');
-          console.log(JSON.stringify({ changeId: changeName, mode: 'current-spec' }, null, 2));
+          console.log(JSON.stringify(preview, null, 2));
           if (!await confirmPrompt({ message: `确认按上述当前规格事务归档 Change "${changeName}"？`, default: false })) {
             console.log('已取消归档。'); return;
           }
