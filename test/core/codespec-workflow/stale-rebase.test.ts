@@ -14,6 +14,7 @@ import { approveStage, assertTransitionApproval } from '../../../src/core/codesp
 import { parseCurrentSpecDelta } from '../../../src/core/codespec-workflow/current-spec-delta.js';
 import { parseAnalysisDocument } from '../../../src/core/codespec-workflow/analysis.js';
 import { projectAnalysisMetadata } from '../../../src/core/codespec-workflow/analysis-consistency.js';
+import { recoverPendingTransactions } from '../../../src/core/codespec-workflow/transaction-journal.js';
 
 vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof fs>() }));
 afterEach(() => vi.restoreAllMocks());
@@ -60,6 +61,97 @@ async function canonicalRebase(action: 'ADDED' | 'MODIFIED' | 'REMOVED' = 'MODIF
 }
 
 describe('rich semantic rebase', () => {
+  it.each(['displacement', 'publication'])('preserves author edits at the actual forward %s syscall', async (boundary) => {
+    const fixture = await canonicalRebase();
+    const target = fixture.file('spec.md');
+    const metadataBefore = await fs.readFile(fixture.file('metadata.yaml'), 'utf8');
+    const realRename = fs.rename;
+    const realLink = fs.link;
+    let edited = false;
+    const edit = async () => {
+      if (!edited) { edited = true; await fs.writeFile(target, 'author edit at final forward syscall'); }
+    };
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      if (to === target || (boundary === 'displacement' && from === target)) await edit();
+      return realRename(from, to);
+    });
+    vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
+      if (boundary === 'publication' && to === target) await edit();
+      return realLink(from, to);
+    });
+    const outcome = await rebaseChange(fixture.workspace, fixture.changeId).catch((error: unknown) => error);
+    expect(edited).toBe(true);
+    expect(await fs.readFile(target, 'utf8')).toBe('author edit at final forward syscall');
+    expect(outcome).toBeInstanceOf(Error);
+    expect(await fs.readFile(fixture.file('metadata.yaml'), 'utf8')).toBe(metadataBefore);
+  });
+
+  it('retains late writes through a pre-rebase handle in discoverable manual-only escrow', async () => {
+    const fixture = await canonicalRebase();
+    const target = fixture.file('spec.md');
+    const handle = await fs.open(target, 'r+');
+    const identity = await handle.stat();
+    try {
+      await rebaseChange(fixture.workspace, fixture.changeId);
+      const businessSpec = await fs.readFile(target, 'utf8');
+      await handle.truncate(0);
+      await handle.writeFile('late author write after rebase returned');
+      await handle.sync();
+      expect((await handle.stat()).nlink).toBeGreaterThan(0);
+      const escrowRoot = path.join(fixture.paths.archive, '.recovery-escrow');
+      const directories = await fs.readdir(escrowRoot);
+      const escrow = path.join(escrowRoot, directories.find((name) => name.startsWith('rebase-'))!);
+      const manifest = parseYaml(await fs.readFile(path.join(escrow, 'manifest.yaml'), 'utf8'));
+      expect(manifest).toMatchObject({ version: 1, outcome: 'committed', cleanupPolicy: 'manual-only' });
+      const retained = manifest.retained.find((entry: { target: string }) => entry.target === path.relative(fixture.codespecDir, target).split(path.sep).join('/'));
+      const saved = path.join(escrow, retained.file);
+      const savedIdentity = await fs.stat(saved);
+      expect([savedIdentity.dev, savedIdentity.ino]).toEqual([identity.dev, identity.ino]);
+      expect(await fs.readFile(saved, 'utf8')).toBe('late author write after rebase returned');
+      expect(await fs.readFile(target, 'utf8')).toBe(businessSpec);
+      expect((await fs.readdir(path.dirname(target))).sort()).toEqual(['analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml']);
+      await handle.close();
+      await recoverPendingTransactions(fixture.paths);
+      expect(await fs.readFile(saved, 'utf8')).toBe('late author write after rebase returned');
+      expect(await fs.readdir(fixture.paths.transactions)).toEqual([]);
+    } finally { await handle.close(); }
+  });
+
+  it('preserves author edits at the actual rollback replacement syscall', async () => {
+    const fixture = await canonicalRebase();
+    const target = fixture.file('metadata.yaml');
+    const realRename = fs.rename;
+    const realLink = fs.link;
+    const realWrite = fs.writeFile;
+    let rollingBack = false;
+    let edited = false;
+    const edit = async () => {
+      if (!edited) { edited = true; await realWrite(target, 'author metadata at rollback syscall'); }
+    };
+    const failInstallation = (to: unknown) => {
+      if (!rollingBack && to === fixture.file('verification.yaml')) { rollingBack = true; throw new Error('verification installation failed'); }
+    };
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      failInstallation(to);
+      if (rollingBack && (from === target || to === target)) await edit();
+      return realRename(from, to);
+    });
+    vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
+      failInstallation(to);
+      if (rollingBack && to === target) await edit();
+      return realLink(from, to);
+    });
+    vi.spyOn(fs, 'writeFile').mockImplementation(async (...args) => {
+      if (rollingBack && args[0] === target) await edit();
+      return realWrite(...args);
+    });
+    const outcome = await rebaseChange(fixture.workspace, fixture.changeId).catch((error: unknown) => error);
+    expect(outcome).toBeInstanceOf(Error);
+    expect(edited).toBe(true);
+    expect(await fs.readFile(target, 'utf8')).toBe('author metadata at rollback syscall');
+    expect((outcome as Error).message).toMatch(/verification installation failed.*rollback/i);
+  });
+
   it('refreshes only the affected Previous and carries current analyze authority to DESIGN', async () => {
     const fixture = await canonicalRebase();
     const before = parseCurrentSpecDelta(await fs.readFile(fixture.file('spec.md'), 'utf8'));
@@ -182,7 +274,7 @@ describe('rich semantic rebase', () => {
     expect(await fs.readFile(fixture.file('metadata.yaml'), 'utf8')).toBe(before);
   });
 
-  it.each(['writeFile', 'rename'] as const)('rolls back all artifacts and index at every %s failure', async (operation) => {
+  it.each(['open', 'rename', 'link'] as const)('rolls back all artifacts and index at every installation %s failure', async (operation) => {
     const fixture = await canonicalRebase();
     await fs.writeFile(fixture.currentPath, currentMarkdown.replace('THEN 用户出现在列表', 'THEN 用户出现在筛选列表'));
     const files = ['metadata.yaml', 'analysis.yaml', 'spec.md', 'design.md', 'tasks.yaml', 'verification.yaml'].map(fixture.file).concat(fixture.paths.changeIndex);
@@ -191,13 +283,20 @@ describe('rich semantic rebase', () => {
     for (let failure = 1; failure <= 6; failure++) {
       let count = 0;
       const spy = vi.spyOn(fs, operation).mockImplementation((async (...args: Parameters<typeof real>) => {
-        if (++count === failure) throw new Error('injected rebase failure');
+        const installation = path.join(fixture.paths.transactions, '');
+        const source = String(args[0]);
+        const destination = String(args[1]);
+        const isInstall = operation === 'rename'
+          ? destination.startsWith(installation) && destination.includes(`${path.sep}installation${path.sep}`)
+          : source.startsWith(installation) && source.includes(`${path.sep}installation${path.sep}`);
+        if (isInstall && ++count === failure) throw new Error('injected rebase failure');
         return (real as Function)(...args);
       }) as typeof real);
       await expect(rebaseChange(fixture.workspace, fixture.changeId)).rejects.toThrow('injected rebase failure');
       spy.mockRestore();
       expect(await Promise.all(files.map((file) => fs.readFile(file, 'utf8')))).toEqual(before);
       expect((await fs.readdir(path.dirname(fixture.file('metadata.yaml')))).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+      expect(await fs.readdir(fixture.paths.transactions)).toEqual([]);
     }
   });
 
@@ -206,9 +305,10 @@ describe('rich semantic rebase', () => {
     await fs.writeFile(fixture.currentPath, currentMarkdown);
     const files = ['metadata.yaml', 'analysis.yaml', 'spec.md', 'design.md', 'tasks.yaml', 'verification.yaml'].map(fixture.file).concat(fixture.paths.changeIndex);
     const before = await Promise.all(files.map((file) => fs.readFile(file, 'utf8')));
-    const real = fs.rename;
-    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
-      if (to === fixture.paths.changeIndex) throw new Error('index replacement failed');
+    const real = fs.link;
+    let failed = false;
+    vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
+      if (!failed && to === fixture.paths.changeIndex) { failed = true; throw new Error('index replacement failed'); }
       return real(from, to);
     });
     await expect(rebaseChange(fixture.workspace, fixture.changeId)).rejects.toThrow('index replacement failed');
@@ -220,8 +320,8 @@ describe('rich semantic rebase', () => {
     const files = ['metadata.yaml', 'analysis.yaml', 'spec.md', 'design.md', 'verification.yaml'].map(fixture.file).concat(fixture.paths.changeIndex);
     const before = await Promise.all(files.map((file) => fs.readFile(file, 'utf8')));
     const targetPath = target === 'Current' ? fixture.currentPath : fixture.file('tasks.yaml');
-    const real = fs.rename;
-    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+    const real = fs.link;
+    vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
       await real(from, to);
       if (to === fixture.file('metadata.yaml')) await fs.writeFile(targetPath, 'concurrent author edit');
     });
@@ -232,9 +332,11 @@ describe('rich semantic rebase', () => {
 
   it('reports rollback ownership conflicts without overwriting newer author edits', async () => {
     const fixture = await canonicalRebase();
-    const real = fs.rename;
-    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
-      if (to === fixture.file('verification.yaml')) {
+    const real = fs.link;
+    let failed = false;
+    vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
+      if (!failed && to === fixture.file('verification.yaml')) {
+        failed = true;
         await fs.writeFile(fixture.file('metadata.yaml'), 'author metadata edit');
         throw new Error('verification replacement failed');
       }

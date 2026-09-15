@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { isDeepStrictEqual } from 'node:util';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { captureBaseline, hashAbsentRequirement, type Baseline } from './baseline.js';
 import type { WorkspaceContext } from './loaders.js';
 import { loadChangeArtifacts } from './loaders.js';
@@ -17,6 +17,7 @@ import { projectAnalysisMetadata } from './analysis-consistency.js';
 import { parseCurrentSpecDelta, renderCurrentSpecDelta, type CurrentSpecDeltaDocument } from './current-spec-delta.js';
 import { parseCurrentSpecification, hashRequirementSnapshot, type CurrentSpecification } from './current-spec-model.js';
 import { parseChangeMetadata } from './schemas.js';
+import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
 
 export interface RebaseDecision {
   strategy: 'semantic-rebase';
@@ -183,34 +184,35 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
       try { return await fs.readFile(target, 'utf8'); }
       catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error; }
     };
-    const token = `.rebase-${process.pid}-${Date.now()}.tmp`;
-    const committed: string[] = [];
-    const checkInputs = async () => {
+    const checkReadOnlyInputs = async () => {
       for (const [target, original] of originals) {
-        const expected = committed.includes(target) ? writes.get(target)! : original;
-        if (await read(target) !== expected) throw new Error(`Rebase conflict: artifact or Current changed: ${target}`);
+        if (!writes.has(target) && await read(target) !== original) throw new Error(`Rebase conflict: artifact or Current changed: ${target}`);
       }
     };
+    let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
+    let committed = false;
     try {
-      for (const [target, content] of writes) await fs.writeFile(`${target}${token}`, content, 'utf8');
-      for (const target of writes.keys()) {
-        await checkInputs();
-        await fs.rename(`${target}${token}`, target);
-        committed.push(target);
-      }
-      await checkInputs();
+      await checkReadOnlyInputs();
+      // Use the same owned-entry installation and recovery as archive. It
+      // validates the actual displaced inode and publishes without replacing
+      // an editor's new file. Recovery retains displaced inodes in durable,
+      // manual-only escrow for writes through handles opened before rebase.
+      journal = await createArchiveJournal({
+        paths: workspace.paths, transactionId: `rebase-${changeId}-${randomUUID()}`, ownerPid: process.pid,
+        files: [...writes].map(([target, after]) => ({ target, before: originals.get(target)!, after })),
+      });
+      await installArchiveJournal(journal, checkReadOnlyInputs);
+      await checkReadOnlyInputs();
+      await markArchiveJournalCommitted(journal);
+      committed = true;
+      await recoverPendingTransactions(workspace.paths, journal.transactionId);
     } catch (error) {
-      const failures: unknown[] = [];
-      for (const target of committed.reverse()) {
-        try {
-          if (await read(target) !== writes.get(target)) throw new Error(`Rebase rollback conflict: preserving author edit: ${target}`);
-          await fs.writeFile(target, originals.get(target)!, 'utf8');
-        } catch (failure) { failures.push(failure); }
+      if (committed) throw new Error(`${String(error)} (rebase committed; recovery requires retry)`);
+      if (journal) {
+        try { await recoverPendingTransactions(workspace.paths, journal.transactionId); }
+        catch (failure) { throw new AggregateError([error, failure], `Rebase failed: ${String(error)}; rollback conflict or incomplete recovery: ${String(failure)}`); }
       }
-      if (failures.length) throw new AggregateError([error, ...failures], `Rebase failed and rollback could not restore every artifact: ${[error, ...failures].map(String).join('; ')}`);
       throw error;
-    } finally {
-      await Promise.all([...writes.keys()].map((target) => fs.rm(`${target}${token}`, { force: true })));
     }
     return { change: next.change, baseline: next.baseline as Baseline, decision };
   });
