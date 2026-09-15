@@ -136,6 +136,53 @@ describe('semantic revision transaction', () => {
     expect(await fs.readFile(fixture.file('spec.md'), 'utf8')).toBe('concurrent spec edit');
   });
 
+  it('preserves an author edit between renames and rolls back only transaction writes', async () => {
+    const fixture = await prepared();
+    await fixture.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
+    const files = ['metadata.yaml', 'analysis.yaml', 'verification.yaml'].map(fixture.file).concat(fixture.paths.changeIndex);
+    const before = await Promise.all(files.map((file) => fs.readFile(file, 'utf8')));
+    const authorTasks = (await fs.readFile(fixture.file('tasks.yaml'), 'utf8')).replace('title: New plan', 'title: Author saved during commit');
+    const real = fs.rename;
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      await real(from, to);
+      if (to === fixture.file('metadata.yaml')) await fs.writeFile(fixture.file('tasks.yaml'), authorTasks);
+    });
+    const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
+    await expect(reviseChange(fixture.workspace, fixture.changeId, 'replan')).rejects.toThrow(/冲突.*tasks\.yaml|conflict.*tasks\.yaml/i);
+    expect(await fs.readFile(fixture.file('tasks.yaml'), 'utf8')).toBe(authorTasks);
+    expect(await Promise.all(files.map((file) => fs.readFile(file, 'utf8')))).toEqual(before);
+    expect((await fs.readdir(path.dirname(fixture.file('metadata.yaml')))).filter((file) => file.endsWith('.tmp'))).toEqual([]);
+    expect((await fs.readdir(fixture.paths.changes)).filter((file) => file.endsWith('.tmp') || file.endsWith('.lock'))).toEqual([]);
+  });
+
+  it('preserves an author edit before rollback and reports both the failure and ownership conflict', async () => {
+    const fixture = await prepared();
+    await fixture.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
+    const files = ['metadata.yaml', 'analysis.yaml', 'verification.yaml'].map(fixture.file).concat(fixture.paths.changeIndex);
+    const before = await Promise.all(files.map((file) => fs.readFile(file, 'utf8')));
+    const authorTasks = (await fs.readFile(fixture.file('tasks.yaml'), 'utf8')).replace('title: New plan', 'title: Author saved before rollback');
+    const real = fs.rename;
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      if (to === fixture.file('verification.yaml')) {
+        await fs.writeFile(fixture.file('tasks.yaml'), authorTasks);
+        throw new Error('injected verification replacement failure');
+      }
+      await real(from, to);
+    });
+    const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
+    const failure = await reviseChange(fixture.workspace, fixture.changeId, 'replan').catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(AggregateError);
+    const aggregate = failure as AggregateError;
+    expect(aggregate.message).toMatch(/injected verification replacement failure/);
+    expect(aggregate.message).toMatch(/冲突.*tasks\.yaml|conflict.*tasks\.yaml/i);
+    expect(aggregate.errors[0].message).toBe('injected verification replacement failure');
+    expect(aggregate.errors[1].message).toMatch(/冲突.*tasks\.yaml|conflict.*tasks\.yaml/i);
+    expect(await fs.readFile(fixture.file('tasks.yaml'), 'utf8')).toBe(authorTasks);
+    expect(await Promise.all(files.map((file) => fs.readFile(file, 'utf8')))).toEqual(before);
+    expect((await fs.readdir(path.dirname(fixture.file('metadata.yaml')))).filter((file) => file.endsWith('.tmp'))).toEqual([]);
+    expect((await fs.readdir(fixture.paths.changes)).filter((file) => file.endsWith('.tmp') || file.endsWith('.lock'))).toEqual([]);
+  });
+
   it.each([
     ['tasks.yaml', 'status: PENDING', 'status: DONE'],
     ['verification.yaml', 'testCases: []', 'testCases: [] # fresh evidence'],

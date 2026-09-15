@@ -115,16 +115,27 @@ export async function reviseChange(workspace: WorkspaceContext, changeId: string
         }
       }
       for (const file of writes.keys()) {
+        if (await fs.readFile(file, 'utf8') !== originals.get(file)) {
+          throw new Error(`Revision 冲突：替换前产物已变更：${file}`);
+        }
         await fs.rename(`${file}${token}`, file);
         committed.push(file);
       }
     } catch (error) {
       const failures: unknown[] = [];
       for (const file of committed.reverse()) {
-        try { await fs.writeFile(file, originals.get(file)!, 'utf8'); }
+        try {
+          if (await fs.readFile(file, 'utf8') !== writes.get(file)) {
+            throw new Error(`Revision rollback conflict：保留作者修改的产物：${file}`);
+          }
+          await fs.writeFile(file, originals.get(file)!, 'utf8');
+        }
         catch (rollbackError) { failures.push(rollbackError); }
       }
-      if (failures.length) throw new AggregateError([error, ...failures], 'Revision failed and rollback could not restore every artifact');
+      if (failures.length) {
+        const details = [error, ...failures].map((failure) => failure instanceof Error ? failure.message : String(failure));
+        throw new AggregateError([error, ...failures], `Revision failed and rollback could not restore every artifact: ${details.join('; ')}`);
+      }
       throw error;
     } finally {
       await Promise.all([...writes.keys()].map((file) => fs.rm(`${file}${token}`, { force: true })));
