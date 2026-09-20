@@ -1,18 +1,21 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { parse as parseYaml } from 'yaml';
 
-import type { ChangeArtifacts } from './artifacts.js';
+import { loadChangeArtifacts, type ChangeArtifacts } from './artifacts.js';
 import { parseAnalysisDocument, projectAnalysisForApproval } from './analysis.js';
 import { projectPendingAnalysis } from './analysis-consistency.js';
 import { withChangeIndexLock } from './change-index.js';
 import { validateExitGate } from './gates.js';
-import type { WorkspaceContext } from './loaders.js';
+import { loadWorkspace, type WorkspaceContext } from './loaders.js';
 import { metadataForPersistence } from './metadata-persistence.js';
 import type { ApprovalRecord, ApprovalStage, ChangeMetadata, ChangeStatus } from './types.js';
 import { parseCurrentTasks, projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from './current-change-yaml.js';
+import { parseChangeMetadata } from './schemas.js';
+import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
 
 export interface ChangeContent {
   design: string;
@@ -168,24 +171,52 @@ export async function approveChangeStage(
   if (artifacts.metadata.change.status !== expectedStatus) {
     throw new Error(`只能在 ${expectedStatus} 状态确认${stageLabel(stage)}。`);
   }
-  if (stage === 'analyze') artifacts = projectPendingAnalysis(artifacts);
-  const gate = await validateExitGate(workspace, artifacts);
-  if (!gate.ok) throw new Error(`无法确认${stageLabel(stage)}：阶段门禁未通过：${gate.errors.join('；')}`);
-
-  const next = approveStage(artifacts, stage);
-  const metadataPath = path.join(workspace.codespecDir, artifacts.metadata.artifacts.metadata);
-  await withChangeIndexLock(workspace.paths, async () => {
-    const token = `.approve-${process.pid}-${Date.now()}`;
-    const temporaryPath = `${metadataPath}${token}.tmp`;
+  return withChangeIndexLock(workspace.paths, async () => {
+    const currentWorkspace = await loadWorkspace(workspace.codespecDir);
+    if (!isDeepStrictEqual(currentWorkspace.paths, workspace.paths)) throw new Error('Approval conflict: workspace paths changed; reload before approval');
+    const fresh = await loadChangeArtifacts(currentWorkspace.paths, artifacts.changeId);
+    if (!isDeepStrictEqual(fresh, artifacts)) throw new Error('Approval conflict: stale Change artifacts; reload before approval');
+    if (fresh.metadata.change.status !== expectedStatus) throw new Error(`只能在 ${expectedStatus} 状态确认${stageLabel(stage)}。`);
+    const metadataPath = path.join(currentWorkspace.codespecDir, fresh.metadata.artifacts.metadata);
+    const originalMetadata = await fs.readFile(metadataPath, 'utf8');
+    if (!isDeepStrictEqual(parseChangeMetadata(parseYaml(originalMetadata)), fresh.metadata)) throw new Error('Approval conflict: metadata changed during load');
+    const originals = new Map<string, string>([[currentWorkspace.paths.changeIndex, await fs.readFile(currentWorkspace.paths.changeIndex, 'utf8')]]);
+    for (const name of ['analysis', 'proposal', 'design', 'spec', 'tasks', 'verification'] as const) {
+      const relative = fresh.metadata.artifacts[name];
+      if (relative) originals.set(path.join(currentWorkspace.codespecDir, relative), fresh[name]!);
+    }
+    const checkInputs = async () => {
+      for (const [file, before] of originals) {
+        if (await fs.readFile(file, 'utf8') !== before) throw new Error(`Approval conflict: input changed during approval: ${file}`);
+      }
+    };
+    const candidate = stage === 'analyze' ? projectPendingAnalysis(fresh) : fresh;
+    const gate = await validateExitGate(currentWorkspace, candidate);
+    if (!gate.ok) throw new Error(`无法确认${stageLabel(stage)}：阶段门禁未通过：${gate.errors.join('；')}`);
+    const next = approveStage(candidate, stage);
+    let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
+    let committed = false;
     try {
-      await fs.writeFile(temporaryPath, stringifyYaml(metadataForPersistence(next)), 'utf8');
-      await fs.rename(temporaryPath, metadataPath);
+      await checkInputs();
+      journal = await createArchiveJournal({
+        paths: currentWorkspace.paths, transactionId: `approve-${fresh.changeId}-${randomUUID()}`, ownerPid: process.pid,
+        files: [{ target: metadataPath, before: originalMetadata, after: stringifyYaml(metadataForPersistence(next)) }],
+      });
+      await installArchiveJournal(journal, checkInputs);
+      await checkInputs();
+      await markArchiveJournalCommitted(journal);
+      committed = true;
+      await recoverPendingTransactions(currentWorkspace.paths, journal.transactionId);
     } catch (error) {
-      await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+      if (committed) throw new Error(`${String(error)} (approval committed; recovery requires retry)`);
+      if (journal) {
+        try { await recoverPendingTransactions(currentWorkspace.paths, journal.transactionId); }
+        catch (failure) { throw new AggregateError([error, failure], `Approval failed: ${String(error)}; rollback conflict or incomplete recovery: ${String(failure)}`); }
+      }
       throw error;
     }
+    return next;
   });
-  return next;
 }
 
 export function revokeApprovals(metadata: ChangeMetadata, stages: readonly ApprovalStage[] = ['analyze', 'design', 'plan']): ChangeMetadata {

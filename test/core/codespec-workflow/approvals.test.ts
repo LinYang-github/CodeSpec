@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   approvalContentHash,
@@ -20,6 +20,165 @@ import { createWorkflowFixture, writeChangeArtifacts } from '../../helpers/codes
 import { richDelta } from '../../helpers/rich-requirement.js';
 import { snapshotDirectory } from '../../helpers/fs-snapshot.js';
 import { transitionChange } from '../../../src/core/codespec-workflow/state-machine.js';
+import { createCurrentArchiveFixture } from '../../helpers/current-archive.js';
+import { createCanonicalChange } from '../../../src/core/codespec-workflow/change-manager.js';
+
+vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof fs>() }));
+afterEach(() => vi.restoreAllMocks());
+
+async function pendingAnalysis() {
+  const fixture = await createCurrentArchiveFixture();
+  const workspace = await loadWorkspace(fixture.codespecDir);
+  const created = await createCanonicalChange(workspace, { title: 'Approve current analysis', summary: 'Clarify the requested behavior', mode: 'feature' });
+  const analysis = analysisDocument({ change: created.changeId,
+    modules: [{ module: 'MOD-002', outcome: 'OWNED', reason: 'Owns the requested behavior' }],
+    requirements: [{ id: 'MOD-002-REQ-001', action: 'MODIFIED', reason: 'Extend behavior' }],
+    acceptanceCriteria: [{ id: 'AC-001', statement: 'Requested behavior is supported', priority: 'MUST', requirements: ['MOD-002-REQ-001'] }],
+  });
+  await fs.writeFile(path.join(created.changeDir, 'analysis.yaml'), stringifyYaml(analysis));
+  return { ...fixture, workspace, ...created, artifacts: await loadChangeArtifacts(fixture.paths, created.changeId) };
+}
+
+describe('approval transaction ownership', () => {
+  it.each(['analysis.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml'])('rejects a caller with stale %s before publishing any approval', async (name) => {
+    const f = await pendingAnalysis();
+    try {
+      const file = path.join(f.changeDir, name);
+      const author = `${await fs.readFile(file, 'utf8')}\n# Author update\n`;
+      await fs.writeFile(file, author);
+      const metadata = await fs.readFile(f.metadataPath, 'utf8');
+      const index = await fs.readFile(f.paths.changeIndex, 'utf8');
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/stale|conflict/i);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
+      expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(index);
+      expect(await fs.readFile(file, 'utf8')).toBe(author);
+    } finally { f.cleanup(); }
+  });
+
+  it('rejects a stale caller after another approval and real transition without splitting metadata from the index', async () => {
+    const f = await pendingAnalysis();
+    try {
+      await approveChangeStage(f.workspace, f.artifacts, 'analyze');
+      await transitionChange(f.workspace, await loadChangeArtifacts(f.paths, f.changeId), 'DESIGN', 'Analysis approved');
+      const metadata = await fs.readFile(f.metadataPath, 'utf8');
+      const index = await fs.readFile(f.paths.changeIndex, 'utf8');
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/stale|changed|冲突|ANALYZE/i);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
+      expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(index);
+      expect(parseYaml(metadata).change.status).toBe('DESIGN');
+      expect(parseYaml(index).changes[0].status).toBe('DESIGN');
+    } finally { f.cleanup(); }
+  });
+
+  it('serializes competing pending approvals and rejects the stale snapshot', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const results = await Promise.allSettled([approveChangeStage(f.workspace, f.artifacts, 'analyze'), approveChangeStage(f.workspace, f.artifacts, 'analyze')]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+      const saved = await loadChangeArtifacts(f.paths, f.changeId);
+      expect(isApprovalCurrent('analyze', saved)).toBe(true);
+      expect(saved.metadata.requirements.modified).toEqual([{ id: 'MOD-002-REQ-001', module: 'MOD-002' }]);
+      expect(parseYaml(await fs.readFile(f.paths.changeIndex, 'utf8')).changes[0].status).toBe(saved.metadata.change.status);
+    } finally { f.cleanup(); }
+  });
+
+  it('preserves an author metadata save at the install boundary and reports a recovery conflict', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const author = stringifyYaml({ ...f.artifacts.metadata, change: { ...f.artifacts.metadata.change, title: 'Author saved during approval' } });
+      const index = await fs.readFile(f.paths.changeIndex, 'utf8');
+      const rename = fs.rename;
+      let injected = false;
+      vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+        if (!injected && (from === f.metadataPath || to === f.metadataPath)) { injected = true; await fs.writeFile(f.metadataPath, author); }
+        return rename(from, to);
+      });
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/conflict|冲突|ownership/i);
+      expect(injected).toBe(true);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(author);
+      expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(index);
+    } finally { f.cleanup(); }
+  });
+
+  it('retains the old metadata inode after success for late writes through an already-open author handle', async () => {
+    const f = await pendingAnalysis();
+    const handle = await fs.open(f.metadataPath, 'r+');
+    try {
+      await approveChangeStage(f.workspace, f.artifacts, 'analyze');
+      const saved = await fs.readFile(f.metadataPath, 'utf8');
+      const author = 'late author bytes after approval\n';
+      await handle.truncate(0);
+      await handle.write(author, 0, 'utf8');
+      const escrow = path.join(f.paths.archive, '.recovery-escrow');
+      const transactions = await fs.readdir(escrow);
+      expect(transactions).toHaveLength(1);
+      const root = path.join(escrow, transactions[0]);
+      const manifest = parseYaml(await fs.readFile(path.join(root, 'manifest.yaml'), 'utf8'));
+      expect(manifest).toMatchObject({ outcome: 'committed', cleanupPolicy: 'manual-only' });
+      const retained = manifest.retained.find((entry: { target: string; phase: string }) => entry.target.endsWith('/metadata.yaml') && entry.phase === 'installation');
+      expect(await fs.readFile(path.join(root, retained.file), 'utf8')).toBe(author);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(saved);
+      expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+    } finally { await handle.close(); f.cleanup(); }
+  });
+
+  it('does not replace an author file recreated after metadata displacement', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const author = stringifyYaml({ ...f.artifacts.metadata, change: { ...f.artifacts.metadata.change, title: 'New author inode' } });
+      const rename = fs.rename;
+      let injected = false;
+      vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+        await rename(from, to);
+        if (!injected && from === f.metadataPath) { injected = true; await fs.writeFile(f.metadataPath, author); }
+      });
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/rollback conflict|ownership/i);
+      expect(injected).toBe(true);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(author);
+      expect(await fs.readdir(f.paths.transactions)).toHaveLength(1);
+      const escrow = path.join(f.paths.archive, '.recovery-escrow');
+      expect(await fs.readdir(escrow)).toHaveLength(1);
+    } finally { f.cleanup(); }
+  });
+
+  it('rolls back projected fields and the receipt together when the commit marker cannot be persisted', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const metadata = await fs.readFile(f.metadataPath, 'utf8');
+      const index = await fs.readFile(f.paths.changeIndex, 'utf8');
+      const open = fs.open;
+      vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+        if (path.basename(String(args[0])) === 'COMMITTED') throw new Error('injected approval commit failure');
+        return open(...args);
+      });
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/injected approval commit failure/);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
+      expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(index);
+      expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+    } finally { f.cleanup(); }
+  });
+
+  it('rolls back the receipt when analysis changes while metadata is being published', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const metadata = await fs.readFile(f.metadataPath, 'utf8');
+      const analysisPath = path.join(f.changeDir, 'analysis.yaml');
+      const author = f.artifacts.analysis!.replace('Requested behavior is supported', 'A changed acceptance condition');
+      const link = fs.link;
+      let injected = false;
+      vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
+        await link(from, to);
+        if (!injected && to === f.metadataPath) { injected = true; await fs.writeFile(analysisPath, author); }
+      });
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/input changed.*analysis.yaml/);
+      expect(injected).toBe(true);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
+      expect(await fs.readFile(analysisPath, 'utf8')).toBe(author);
+      expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+    } finally { f.cleanup(); }
+  });
+});
 
 function artifactsFor(
   status: 'ANALYZE' | 'DESIGN' | 'PLAN',
@@ -245,12 +404,13 @@ describe('workflow approvals', () => {
         ...artifacts,
         metadata: { ...artifacts.metadata, change: { ...artifacts.metadata.change, status: 'DESIGN' } },
       }, 'analyze')).rejects.toThrow(/只能在 ANALYZE/i);
-      const before = snapshotDirectory(fixture.codespecDir);
-      await expect(approveChangeStage(workspace, {
-        ...artifacts,
-        analysis: stringifyYaml({ ...analysis, openQuestions: [{ id: 'Q-001', question: 'Unresolved scope?', status: 'OPEN' }] }),
-      }, 'analyze')).rejects.toThrow(/OPEN|openQuestions/);
-      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
+      await fs.writeFile(path.join(changeDir, 'analysis.yaml'), stringifyYaml({ ...analysis, openQuestions: [{ id: 'QUESTION-001', question: 'Unresolved scope?', status: 'OPEN' }] }));
+      const before = snapshotDirectory(changeDir);
+      const originalIndex = await fs.readFile(fixture.paths.changeIndex, 'utf8');
+      await expect(approveChangeStage(workspace, await loadChangeArtifacts(workspace.paths, fixture.changeId), 'analyze')).rejects.toThrow(/OPEN|openQuestions/);
+      expect(snapshotDirectory(changeDir)).toEqual(before);
+      expect(await fs.readFile(fixture.paths.changeIndex, 'utf8')).toBe(originalIndex);
+      await fs.writeFile(path.join(changeDir, 'analysis.yaml'), artifacts.analysis!);
       await expect(approveChangeStage(workspace, artifacts, 'analyze')).resolves.toMatchObject({
         modules: { candidates: analysis.modules, confirmed: analysis.modules, dependencies: [] },
         requirements: { added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }], modified: [], removed: [] },
@@ -264,10 +424,11 @@ describe('workflow approvals', () => {
       approved.metadata.modules.confirmed = [];
       await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(approved.metadata));
       const tampered = await loadChangeArtifacts(workspace.paths, fixture.changeId);
-      const afterTampering = snapshotDirectory(fixture.codespecDir);
+      const afterTampering = snapshotDirectory(changeDir);
       await expect(transitionChange(workspace, tampered, 'DESIGN', 'Approved analysis')).rejects.toThrow(/metadata.modules/);
       await expect(approveChangeStage(workspace, tampered, 'analyze')).rejects.toThrow(/metadata.modules/);
-      expect(snapshotDirectory(fixture.codespecDir)).toEqual(afterTampering);
+      expect(snapshotDirectory(changeDir)).toEqual(afterTampering);
+      expect(await fs.readFile(fixture.paths.changeIndex, 'utf8')).toBe(originalIndex);
     } finally {
       fixture.cleanup();
     }

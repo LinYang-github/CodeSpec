@@ -75,7 +75,7 @@ metadata.yaml
 
 每次展示对应产物，并等待独立用户确认。然后运行 [approve 与 transition](cli.md#canonical-lifecycle-commands)。审批绑定 revision 和内容 hash，修改绑定内容会使旧审批失效。
 
-PLAN 任务图必须在进入 PLAN 前满足 Core 的入口检查。DESIGN 确认后编写任务，再执行 PLAN transition；PLAN 确认后才实现。
+DESIGN 审批后先进入 PLAN，再编写 `tasks.yaml`。完成任务图和验证计划后取得 plan 审批，再进入 IMPLEMENT。
 
 ### 3. 形成技术设计
 
@@ -97,14 +97,14 @@ Core 负责校验 Requirement、Scenario、ID、Traceability 和 canonical Spec 
 
 ### 5. 编写计划：Superpowers writing-plans
 
-确认设计和 Requirement delta 后，用 `superpowers:writing-plans` 拆分任务：
+取得 design 审批并转换到 PLAN 后，用 `superpowers:writing-plans` 拆分任务：
 
 - 指出要修改的文件、模块和关键接口。
 - 按依赖关系排列实施步骤。
 - 为每一步指定验证方式和预期结果。
 - 将可追踪的实施项写入 `tasks.yaml`，关联 AC、Requirement、Scenario 和 Test。
 
-任务图满足门禁后进入 PLAN，展示计划并取得 plan 审批，再进入 IMPLEMENT。
+任务图满足 PLAN 门禁后，展示计划并取得 plan 审批，再转换到 IMPLEMENT。
 
 ### 6. 实现：Superpowers TDD
 
