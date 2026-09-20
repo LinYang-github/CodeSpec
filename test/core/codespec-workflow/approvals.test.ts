@@ -18,6 +18,8 @@ import { parseChangeMetadata } from '../../../src/core/codespec-workflow/schemas
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { createWorkflowFixture, writeChangeArtifacts } from '../../helpers/codespec-workflow.js';
 import { richDelta } from '../../helpers/rich-requirement.js';
+import { snapshotDirectory } from '../../helpers/fs-snapshot.js';
+import { transitionChange } from '../../../src/core/codespec-workflow/state-machine.js';
 
 function artifactsFor(
   status: 'ANALYZE' | 'DESIGN' | 'PLAN',
@@ -229,14 +231,8 @@ describe('workflow approvals', () => {
             tasks: path.join('changes', fixture.changeId, 'tasks.yaml'),
             verification: path.join('changes', fixture.changeId, 'verification.yaml'),
           },
-          modules: {
-            candidates: analysis.modules as never,
-            confirmed: analysis.modules as never,
-            dependencies: [],
-          },
-          requirements: {
-            added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }], modified: [], removed: [],
-          },
+          modules: { candidates: [], confirmed: [], dependencies: [] },
+          requirements: { added: [], modified: [], removed: [] },
         } as never,
       });
       await fs.writeFile(path.join(changeDir, 'analysis.yaml'), stringifyYaml(analysis));
@@ -249,13 +245,29 @@ describe('workflow approvals', () => {
         ...artifacts,
         metadata: { ...artifacts.metadata, change: { ...artifacts.metadata.change, status: 'DESIGN' } },
       }, 'analyze')).rejects.toThrow(/只能在 ANALYZE/i);
+      const before = snapshotDirectory(fixture.codespecDir);
+      await expect(approveChangeStage(workspace, {
+        ...artifacts,
+        analysis: stringifyYaml({ ...analysis, openQuestions: [{ id: 'Q-001', question: 'Unresolved scope?', status: 'OPEN' }] }),
+      }, 'analyze')).rejects.toThrow(/OPEN|openQuestions/);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(before);
       await expect(approveChangeStage(workspace, artifacts, 'analyze')).resolves.toMatchObject({
+        modules: { candidates: analysis.modules, confirmed: analysis.modules, dependencies: [] },
+        requirements: { added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }], modified: [], removed: [] },
         approvals: { analyze: { status: 'approved', revision: 1, content_hash: expect.stringMatching(/^[a-f0-9]{64}$/) } },
       });
       const persisted = parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf8')) as {
         approvals: Record<string, unknown>;
       };
       expect(persisted.approvals.analyze).toMatchObject({ status: 'approved' });
+      const approved = await loadChangeArtifacts(workspace.paths, fixture.changeId);
+      approved.metadata.modules.confirmed = [];
+      await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(approved.metadata));
+      const tampered = await loadChangeArtifacts(workspace.paths, fixture.changeId);
+      const afterTampering = snapshotDirectory(fixture.codespecDir);
+      await expect(transitionChange(workspace, tampered, 'DESIGN', 'Approved analysis')).rejects.toThrow(/metadata.modules/);
+      await expect(approveChangeStage(workspace, tampered, 'analyze')).rejects.toThrow(/metadata.modules/);
+      expect(snapshotDirectory(fixture.codespecDir)).toEqual(afterTampering);
     } finally {
       fixture.cleanup();
     }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -9,6 +9,146 @@ import { approveStage } from '../../src/core/codespec-workflow/approvals.js';
 import { loadChangeArtifacts } from '../../src/core/codespec-workflow/artifacts.js';
 import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
 import { createMigrationFixture } from '../helpers/change-migration.js';
+import { createCurrentArchiveFixture, requirement, modification } from '../helpers/current-archive.js';
+import { createCanonicalChange as newCanonicalChange } from '../../src/core/codespec-workflow/change-manager.js';
+import { approveChangeStage, isApprovalCurrent } from '../../src/core/codespec-workflow/approvals.js';
+import { transitionChange } from '../../src/core/codespec-workflow/state-machine.js';
+import { parseAnalysisDocument } from '../../src/core/codespec-workflow/analysis.js';
+import { parseCurrentSpecDelta, renderCurrentSpecDelta } from '../../src/core/codespec-workflow/current-spec-delta.js';
+import { parseCurrentSpecification, type CurrentSpecRequirement } from '../../src/core/codespec-workflow/current-spec-model.js';
+import { recordFreshVerification, verificationArtifactIdentity } from '../../src/core/codespec-workflow/verification.js';
+import { archiveChange } from '../../src/core/codespec-workflow/archive-transaction.js';
+import { ShowCommand } from '../../src/commands/show.js';
+import { snapshotDirectory } from '../helpers/fs-snapshot.js';
+import { canonicalGuidance } from '../../src/commands/workflow/canonical-guidance.js';
+
+describe('canonical clarification closed loop in one process', () => {
+  it('archives two independently approved Changes to the same Requirement without carrying history or replacing its module', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    const originalCwd = process.cwd();
+    const artifactNames = ['analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml'];
+    const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
+    const currentBefore = await fs.readFile(currentPath, 'utf8');
+    const unrelatedBytes = (text: string) => text.slice(text.indexOf('\n## MOD-002-REQ-002：'), text.indexOf('\n### 当前模块工程文件'));
+    const unrelatedBefore = unrelatedBytes(currentBefore);
+    const untouchedModule = snapshotDirectory(path.join(fixture.paths.currentSpecs, 'MOD-001'));
+    let previous: CurrentSpecRequirement = fixture.current.requirements[0];
+    let firstHistory: Map<string, string> | undefined;
+    let firstHistoryPath = '';
+    let firstId = '';
+    try {
+      process.chdir(fixture.tempDir);
+      await fs.writeFile(fixture.paths.configuration, stringifyYaml({ version: 1, profiles: [{ id: 'test', services: [] }] }));
+      for (const round of [1, 2]) {
+        const baselineBytes = await fs.readFile(currentPath, 'utf8');
+        const workspace = await loadWorkspace(fixture.codespecDir);
+        const created = await newCanonicalChange(workspace, { title: `Independent change ${round}`, summary: `Request ${round}`, mode: 'feature' });
+        if (round === 2) expect(created.changeId).not.toBe(firstId);
+        const load = () => loadChangeArtifacts(workspace.paths, created.changeId);
+        const write = (name: string, content: string) => fs.writeFile(path.join(created.changeDir, name), content);
+        const transition = async (target: Parameters<typeof transitionChange>[2]) => {
+          await transitionChange(workspace, await load(), target, `Complete preceding stage for ${target}`);
+          const artifacts = await load();
+          expect(artifacts.metadata.change.status).toBe(target);
+          expect(parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([expect.objectContaining({ id: created.changeId, status: target })]);
+        };
+        expect((await fs.readdir(created.changeDir)).sort()).toEqual(artifactNames);
+        expect((await load()).metadata.change.status).toBe('ANALYZE');
+        await expect(approveChangeStage(workspace, await load(), 'analyze')).rejects.toThrow();
+        const analysis = parseAnalysisDocument({
+          version: 1, change: created.changeId, revision: 1, problem: `Request ${round}`,
+          goals: [{ id: 'GOAL-001', statement: 'Support the requested additional state' }], nonGoals: [],
+          scope: { in: ['Additional state for the selected Requirement'], out: ['Other Requirements'] },
+          actors: ['User'], constraints: [], assumptions: [], openQuestions: [],
+          acceptanceCriteria: [{ id: 'AC-001', statement: 'Existing and additional states pass verification', priority: 'MUST', requirements: ['MOD-002-REQ-001'] }],
+          modules: [{ module: 'MOD-002', outcome: 'OWNED', reason: 'Owns the requested behavior' }],
+          requirements: [{ id: 'MOD-002-REQ-001', action: 'MODIFIED', reason: `Reason exclusive to round ${round}` }],
+        });
+        await write('analysis.yaml', stringifyYaml(analysis));
+        const guidance = await canonicalGuidance(workspace, await load());
+        expect(guidance.analysisSummary?.complete).toBe(true);
+        expect(guidance.nextAction.action).toBe('request_approval');
+        await expect(transitionChange(workspace, await load(), 'DESIGN', 'Missing approval')).rejects.toThrow(/确认|approval/i);
+        await approveChangeStage(workspace, await load(), 'analyze');
+        await transition('DESIGN');
+
+        const output: string[] = [];
+        const capture = vi.spyOn(console, 'log').mockImplementation((value) => { output.push(String(value)); });
+        try { await new ShowCommand().execute('MOD-002', { type: 'spec', requirement: 'MOD-002-REQ-001', json: true, noInteractive: true }); }
+        finally { capture.mockRestore(); }
+        expect(output).toHaveLength(1);
+        const selected: CurrentSpecRequirement = JSON.parse(output[0]);
+        expect(selected).toEqual(previous);
+        expect(output[0]).not.toContain('MOD-002-REQ-002');
+        const next = requirement('MOD-002-REQ-001', round === 1 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'E']);
+        const delta = modification(selected, next);
+        delta.title = `Delta exclusive to round ${round}`;
+        delta.requirements[0].reason = `Reason exclusive to round ${round}`;
+        const spec = renderCurrentSpecDelta(delta);
+        await write('spec.md', spec);
+        await write('design.md', `# Design\n\nMOD-002-REQ-001\n\n## SDD 分级依据\n\nSingle module additive behavior.\n\n## 归档影响分析\n\n\`\`\`yaml\noutcome: none\nreferences: []\nverification: []\n\`\`\`\n`);
+        expect(parseCurrentSpecDelta(spec).requirements).toHaveLength(1);
+        expect(parseCurrentSpecDelta(spec).requirements[0].previous).toEqual(previous);
+        expect(spec).not.toContain('MOD-002-REQ-002');
+        if (round === 2) for (const forbidden of [firstId, 'Delta exclusive to round 1', 'Reason exclusive to round 1']) expect(spec).not.toContain(forbidden);
+        await expect(transitionChange(workspace, await load(), 'PLAN', 'Missing design approval')).rejects.toThrow(/确认|approval/i);
+        await approveChangeStage(workspace, await load(), 'design');
+        await transition('PLAN');
+        await expect(approveChangeStage(workspace, await load(), 'plan')).rejects.toThrow(/任务图|Task/);
+        const command = `node -e "const fs = require('node:fs'); require('node:assert/strict').ok(fs.readFileSync('src/one.ts', 'utf8').includes('value = ${round}'))"`;
+        const tasks = {
+          version: 1, changeRevision: 1, moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] },
+          tasks: next.scenarios.map((scenario, index) => ({
+            id: `${created.changeId}-TASK-0${index + 1}`, title: `Implement ${scenario.title}`, status: 'PENDING',
+            acceptanceCriteria: ['AC-001'], requirements: [next.id], scenarios: [scenario.id], testCases: scenario.testCases.map((test) => test.id), plannedFiles: ['src/one.ts'],
+            verificationPlan: scenario.testCases.map((test) => ({ testCase: test.id, runner: 'node', command, profile: 'test', services: [], prepare: 'none', cleanup: 'none' })),
+          })),
+        };
+        await write('tasks.yaml', stringifyYaml(tasks));
+        await expect(transitionChange(workspace, await load(), 'IMPLEMENT', 'Missing plan approval')).rejects.toThrow(/确认|approval/i);
+        await approveChangeStage(workspace, await load(), 'plan');
+        await transition('IMPLEMENT');
+        await expect(transitionChange(workspace, await load(), 'VERIFY', 'Tasks still pending')).rejects.toThrow(/DONE/);
+        await fs.writeFile(path.join(fixture.tempDir, 'src', 'one.ts'), `export const value = ${round};\n`);
+        tasks.tasks.forEach((task) => { task.status = 'DONE'; });
+        await write('tasks.yaml', stringifyYaml(tasks));
+        expect(isApprovalCurrent('plan', await load())).toBe(true);
+        await transition('VERIFY');
+        await expect(transitionChange(workspace, await load(), 'ARCHIVE', 'Evidence missing')).rejects.toThrow();
+        const evidence = await recordFreshVerification(workspace, created.changeId, tasks.tasks.flatMap((task) => task.verificationPlan.map((plan) => ({ ...plan, kind: 'requirements' as const, testFile: 'src/one.ts', testId: plan.testCase }))));
+        expect(evidence.trace_rows).toEqual(tasks.tasks.map((task) => expect.objectContaining({ acceptance_id: 'AC-001', requirement_id: 'MOD-002-REQ-001', scenario_id: task.scenarios[0], task_id: task.id, test_id: task.testCases[0], result: 'PASS' })));
+        const verified = await load();
+        expect(parseYaml(verified.verification)).toMatchObject({ changeRevision: 1, artifactIdentity: verificationArtifactIdentity(verified), testCases: tasks.tasks.map((task) => expect.objectContaining({ testCase: task.testCases[0], acceptanceCriteria: ['AC-001'], result: 'PASS', exitCode: 0 })) });
+        await transition('ARCHIVE');
+        expect(await fs.readFile(currentPath, 'utf8')).toBe(baselineBytes);
+        const archived = await archiveChange(workspace, created.changeId);
+        expect(archived.requirementIds).toEqual(['MOD-002-REQ-001']);
+        expect(archived.archivedPath).toBe(path.join(fixture.paths.archivedChanges, created.changeId));
+        expect((await fs.readdir(archived.archivedPath)).sort()).toEqual(artifactNames);
+        expect(await fs.readFile(path.join(archived.archivedPath, 'spec.md'), 'utf8')).toBe(spec);
+        expect(await fs.readFile(path.join(archived.archivedPath, 'analysis.yaml'), 'utf8')).toBe(stringifyYaml(analysis));
+        expect(await fs.readFile(path.join(archived.archivedPath, 'verification.yaml'), 'utf8')).toBe(verified.verification);
+        expect(parseYaml(await fs.readFile(path.join(archived.archivedPath, 'metadata.yaml'), 'utf8')).change.status).toBe('ARCHIVED');
+        await expect(fs.access(created.changeDir)).rejects.toThrow();
+        expect(parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([]);
+        const currentBytes = await fs.readFile(currentPath, 'utf8');
+        const current = parseCurrentSpecification(currentBytes);
+        for (const task of tasks.tasks) expect(currentBytes).toContain(`\`${task.testCases[0]}\`：PASS`);
+        expect(current.requirements.map((entry) => entry.id)).toEqual(['MOD-002-REQ-001', 'MOD-002-REQ-002']);
+        expect(current.requirements[0].scenarios.map((scenario) => scenario.title)).toEqual(round === 1 ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'E']);
+        expect(current.requirements[1]).toEqual(fixture.current.requirements[1]);
+        expect(unrelatedBefore.length).toBeGreaterThan(0);
+        expect(unrelatedBytes(currentBytes)).toBe(unrelatedBefore);
+        expect(current.engineeringFiles[1]).toEqual(fixture.current.engineeringFiles[1]);
+        expect(snapshotDirectory(path.join(fixture.paths.currentSpecs, 'MOD-001'))).toEqual(untouchedModule);
+        previous = current.requirements[0];
+        if (round === 1) { firstId = created.changeId; firstHistoryPath = archived.archivedPath; firstHistory = snapshotDirectory(firstHistoryPath); }
+        else expect(snapshotDirectory(firstHistoryPath)).toEqual(firstHistory);
+      }
+      expect((await fs.readdir(fixture.paths.archivedChanges)).filter((name) => name.startsWith('CHG-'))).toHaveLength(2);
+    } finally { process.chdir(originalCwd); fixture.cleanup(); }
+  }, 30_000);
+});
 
 describe('artifact-workflow CLI commands', () => {
   let tempDir: string;

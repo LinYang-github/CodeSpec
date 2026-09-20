@@ -68,7 +68,7 @@ describe('canonical lifecycle guidance', () => {
     } finally { f.cleanup(); }
   });
 
-  it.each([false, true])('checks PLAN entry before recommending an approved DESIGN transition (empty tasks=%s)', async (empty) => {
+  it.each([false, true])('enters PLAN after approved DESIGN, then reports missing tasks in PLAN (empty tasks=%s)', async (empty) => {
     const f = await createGuidanceFixture('DESIGN');
     try {
       if (empty) {
@@ -77,22 +77,30 @@ describe('canonical lifecycle guidance', () => {
         f.artifacts.tasks = stringify(tasks);
         await f.save();
       }
+      let nextCommand = '';
       for (const args of [['status'], ['instructions', 'design']]) {
         const result = await runCLI([...args, '--change', f.changeId, '--json'], { cwd: f.tempDir });
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         const guidance = JSON.parse(result.stdout);
-        expect(guidance.nextAction.action).toBe(empty ? 'edit_tasks' : 'transition');
-        if (empty) {
-          expect(guidance.nextAction.path).toBe(f.artifacts.metadata.artifacts.tasks);
-          expect(guidance.traceGaps.join(' ')).toContain('AC-001');
-          expect(guidance.gateErrors.length).toBeGreaterThan(0);
-        }
-        const argv = guidance.nextCommand.match(/"[^"]*"|\S+/g).slice(1).map((part: string) => part.replace(/^"|"$/g, ''));
+        expect(guidance.nextAction.action).toBe('transition');
+        expect(guidance.traceGaps).toEqual([]);
+        expect(guidance.gateErrors).toEqual([]);
+        nextCommand = guidance.nextCommand;
+      }
+      const argv = nextCommand.match(/"[^"]*"|\S+/g)!.slice(1).map((part: string) => part.replace(/^"|"$/g, ''));
+      const next = await runCLI(argv, { cwd: f.tempDir });
+      expect(next.exitCode, next.stdout + next.stderr).toBe(0);
+      if (empty) for (const args of [['status'], ['instructions', 'plan']]) {
+        const result = await runCLI([...args, '--change', f.changeId, '--json'], { cwd: f.tempDir });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        const guidance = JSON.parse(result.stdout);
+        expect(guidance.nextAction).toMatchObject({ action: 'edit_tasks', path: f.artifacts.metadata.artifacts.tasks });
+        expect(guidance.traceGaps.join(' ')).toContain('AC-001');
+        expect(guidance.gateErrors.length).toBeGreaterThan(0);
         const before = await snapshotFiles(f.codespecDir);
-        const next = await runCLI(argv, { cwd: f.tempDir });
-        expect(next.exitCode, next.stdout + next.stderr).toBe(0);
-        if (empty) expect(await snapshotFiles(f.codespecDir)).toEqual(before);
-        if (!empty) break;
+        const instructions = await runCLI(guidance.nextCommand.split(' ').slice(1), { cwd: f.tempDir });
+        expect(instructions.exitCode).toBe(0);
+        expect(await snapshotFiles(f.codespecDir)).toEqual(before);
       }
     } finally { f.cleanup(); }
   });
@@ -101,7 +109,10 @@ describe('canonical lifecycle guidance', () => {
     const f = await createGuidanceFixture();
     try {
       f.artifacts.metadata.approvals.analyze = createPendingApprovals(1).analyze;
+      f.artifacts.metadata.modules = { candidates: [], confirmed: [], dependencies: [] };
+      f.artifacts.metadata.requirements = { added: [], modified: [], removed: [] };
       await f.save();
+      const beforeStatus = await snapshotFiles(f.codespecDir);
       const get = async () => {
         const result = await runCLI(['status', '--change', f.changeId, '--json'], { cwd: f.tempDir });
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
@@ -113,8 +124,15 @@ describe('canonical lifecycle guidance', () => {
       expect(status.assumptions).toEqual([]);
       expect(status.gateErrors).toEqual([]);
       expect(status.nextCommand).toBe(`codespec approve --change ${f.changeId} --stage analyze`);
+      const instructions = await runCLI(['instructions', 'analyze', '--change', f.changeId, '--json'], { cwd: f.tempDir });
+      expect(instructions.exitCode).toBe(0);
+      expect(JSON.parse(instructions.stdout).analysisSummary.complete).toBe(true);
+      expect(await snapshotFiles(f.codespecDir)).toEqual(beforeStatus);
       const approval = await runCLI(status.nextCommand.split(' ').slice(1), { cwd: f.tempDir });
       expect(approval.exitCode, approval.stdout + approval.stderr).toBe(0);
+      const metadata = parse(await fs.readFile(path.join(f.artifacts.changeDir, 'metadata.yaml'), 'utf8'));
+      expect(metadata.requirements).toEqual({ added: [], modified: [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }], removed: [] });
+      expect(metadata.modules.confirmed).toEqual(parse(f.artifacts.analysis!).modules);
       const approved = await get();
       expect(approved.analysisSummary.approved).toBe(true);
       expect(approved.nextCommand).toBe(`codespec transition --change ${f.changeId} --to DESIGN --reason "analyze approved"`);

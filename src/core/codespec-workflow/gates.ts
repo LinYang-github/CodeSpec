@@ -62,6 +62,7 @@ function validateSddLevel(artifacts: ChangeArtifacts): string[] {
 async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtifacts, state: ChangeStatus): Promise<GateResult> {
   const m = artifacts.metadata; const errors: string[] = []; const warnings: string[] = [];
   const isCurrentChange = !m.artifacts?.proposal;
+  const computedGates = isCurrentChange && Boolean(m.artifacts?.analysis);
   if (!isCurrentChange) errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
     if (workspace.config.schema === 'spec-driven') {
@@ -76,7 +77,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   if (state === 'DESIGN') {
     errors.push(...validateSddLevel(artifacts));
     if (m.modules.confirmed.length === 0) errors.push('必须确认模块');
-    if (m.gates.design.required && !m.gates.design.satisfied) errors.push('DESIGN 门禁尚未满足');
+    if (!computedGates && m.gates.design.required && !m.gates.design.satisfied) errors.push('DESIGN 门禁尚未满足');
     const owners = m.modules.confirmed.filter((x) => x.outcome === 'OWNED');
     const confirmed = new Set(owners.map((x) => x.module));
     const refs = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed];
@@ -99,7 +100,7 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
     if (isCurrentChange
       ? !currentTasks || currentTasks.tasks.length === 0
       : m.tasks.total === 0 || Object.keys(m.tasks.items).length === 0) errors.push('必须提供具体的任务图');
-    if (m.gates.plan.required && !m.gates.plan.satisfied) errors.push('PLAN 门禁尚未满足');
+    if (!computedGates && m.gates.plan.required && !m.gates.plan.satisfied) errors.push('PLAN 门禁尚未满足');
     if (isCurrentChange
       ? currentTasks?.tasks.some((task) => !task.title.trim())
       : Object.values(m.tasks.items).some((item) => !item.title?.trim() || item.status === 'BLOCKED')) errors.push('任务图包含无效或被阻塞的任务');
@@ -108,11 +109,20 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
     }
   }
   if (state === 'IMPLEMENT') {
-    if (m.tasks.total === 0 || m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((item) => item.status !== 'DONE')) errors.push('全部任务必须为 DONE');
-    if (m.gates.implement.required && !m.gates.implement.satisfied) errors.push('IMPLEMENT 门禁尚未满足');
+    if (computedGates) {
+      try {
+        const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+        if (tasks.changeRevision !== m.change.revision) errors.push('tasks.yaml.changeRevision 必须等于 metadata.change.revision');
+        if (!tasks.tasks.length || tasks.tasks.some((task) => task.status !== 'DONE')) errors.push('全部任务必须为 DONE');
+        errors.push(...validateChangeTraceability(artifacts).issues);
+      } catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
+    } else {
+      if (m.tasks.total === 0 || m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((item) => item.status !== 'DONE')) errors.push('全部任务必须为 DONE');
+      if (m.gates.implement.required && !m.gates.implement.satisfied) errors.push('IMPLEMENT 门禁尚未满足');
+    }
   }
   if (state === 'VERIFY') {
-    if (m.gates.verify.required && !m.gates.verify.satisfied) errors.push('VERIFY 门禁尚未满足');
+    if (!computedGates && m.gates.verify.required && !m.gates.verify.satisfied) errors.push('VERIFY 门禁尚未满足');
     if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
     else {
       if (!m.verification.requirements_verified) errors.push('缺少 Requirement 验证证据');
@@ -158,11 +168,9 @@ export async function validateEntryGate(workspace: WorkspaceContext, artifacts: 
   // entered before fresh evidence exists. The current state's exit gate is
   // the only completion check at this boundary.
   const current = await validateExitGate(workspace, artifacts);
-  // PLAN is the one target whose entry has a meaningful precondition: its
-  // task graph and traceability must exist before implementation can begin.
-  // IMPLEMENT/VERIFY/ARCHIVE are completion states reached after their own
-  // preceding state's exit gate, so validating them here would make entry
-  // circular (tasks/evidence are produced after entry).
-  const entering = target === 'PLAN' ? await validateState(workspace, artifacts, target) : result([]);
+  // Canonical tasks are authored in PLAN and checked when leaving it.
+  // Keep the historical PLAN entry contract for pre-analysis Changes.
+  const entering = target === 'PLAN' && !artifacts.metadata.artifacts.analysis
+    ? await validateState(workspace, artifacts, target) : result([]);
   return { ...result([...current.errors, ...entering.errors]), warnings: [...current.warnings, ...entering.warnings] };
 }

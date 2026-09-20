@@ -6,6 +6,7 @@ import { parse as parseYaml } from 'yaml';
 
 import type { ChangeArtifacts } from './artifacts.js';
 import { parseAnalysisDocument, projectAnalysisForApproval } from './analysis.js';
+import { projectPendingAnalysis } from './analysis-consistency.js';
 import { withChangeIndexLock } from './change-index.js';
 import { validateExitGate } from './gates.js';
 import type { WorkspaceContext } from './loaders.js';
@@ -167,6 +168,7 @@ export async function approveChangeStage(
   if (artifacts.metadata.change.status !== expectedStatus) {
     throw new Error(`只能在 ${expectedStatus} 状态确认${stageLabel(stage)}。`);
   }
+  if (stage === 'analyze') artifacts = projectPendingAnalysis(artifacts);
   const gate = await validateExitGate(workspace, artifacts);
   if (!gate.ok) throw new Error(`无法确认${stageLabel(stage)}：阶段门禁未通过：${gate.errors.join('；')}`);
 

@@ -46,6 +46,17 @@ export function projectAnalysisMetadata(document: AnalysisDocument): AnalysisPro
   };
 }
 
+/** Preview pending intent without making authors maintain derived query fields.
+ * Approved metadata remains unmodified so consistency checks detect tampering.
+ * Only approveChangeStage persists this projection with its approval receipt.
+ */
+export function projectPendingAnalysis(artifacts: ChangeArtifacts): ChangeArtifacts {
+  if (artifacts.metadata.change.status !== 'ANALYZE' || artifacts.metadata.artifacts.proposal ||
+      artifacts.analysis === null || artifacts.metadata.approvals.analyze?.status === 'approved') return artifacts;
+  const projection = projectAnalysisMetadata(parseAnalysisDocument(parseYaml(artifacts.analysis)));
+  return { ...artifacts, metadata: { ...artifacts.metadata, ...projection } };
+}
+
 function formatSchemaErrors(error: unknown): string[] {
   if (error instanceof ZodError) {
     return error.issues.map((issue) =>

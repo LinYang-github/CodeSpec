@@ -2,7 +2,7 @@ import { parse as parseYaml } from 'yaml';
 import type { ChangeArtifacts } from '../../core/codespec-workflow/artifacts.js';
 import type { WorkspaceContext } from '../../core/codespec-workflow/loaders.js';
 import { parseAnalysisDocument } from '../../core/codespec-workflow/analysis.js';
-import { validateAnalysisAgainstWorkspace } from '../../core/codespec-workflow/analysis-consistency.js';
+import { projectPendingAnalysis, validateAnalysisAgainstWorkspace } from '../../core/codespec-workflow/analysis-consistency.js';
 import { isApprovalCurrent } from '../../core/codespec-workflow/approvals.js';
 import { validateEntryGate, validateExitGate } from '../../core/codespec-workflow/gates.js';
 import { validateChangeTraceability } from '../../core/codespec-workflow/traceability.js';
@@ -10,6 +10,7 @@ import { CHANGE_MIGRATION_GUIDANCE } from '../../core/codespec-workflow/change-m
 
 /** Read-only lifecycle advice shared by status and stage instructions. */
 export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: ChangeArtifacts) {
+  artifacts = projectPendingAnalysis(artifacts);
   const { metadata } = artifacts;
   const id = metadata.change.id;
   const state = metadata.change.status;
@@ -19,7 +20,7 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
   const gate = needsMigration
     ? { errors: [`analysis.yaml: 活动五件套 Change 必须显式迁移。${CHANGE_MIGRATION_GUIDANCE}`], warnings: [] }
     : await validateExitGate(workspace, artifacts, state);
-  const planEntry = state === 'DESIGN' && isApprovalCurrent('design', artifacts)
+  const planEntry = !metadata.artifacts.analysis && state === 'DESIGN' && isApprovalCurrent('design', artifacts)
     ? await validateEntryGate(workspace, artifacts, 'PLAN') : null;
   const currentCommands = Object.values(metadata.requirements).flat()
     .filter((ref) => !metadata.requirements.added.some((added) => added.id === ref.id))
@@ -47,6 +48,9 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
   } else if (planEntry && planEntry.errors.length) {
     nextCommand = `codespec instructions design --change ${id} --json`;
     nextAction = { action: 'edit_tasks', path: metadata.artifacts.tasks, description: '人工补齐 tasks.yaml 的任务图和 AC 追踪缺口，并解决列出的 PLAN 入口门禁。此命令只读取指导，不编辑文件；入口满足后才能进入 PLAN。' };
+  } else if (analysis && state === 'PLAN' && gate.errors.length) {
+    nextCommand = `codespec instructions plan --change ${id} --json`;
+    nextAction = { action: 'edit_tasks', path: metadata.artifacts.tasks, description: '人工补齐 tasks.yaml 的任务图和 AC 追踪缺口；完成后请求计划审批，再进入 IMPLEMENT。此命令只读取指导，不编辑文件。' };
   } else if (gate.errors.length === 0 && ['ANALYZE', 'DESIGN', 'PLAN'].includes(state)) {
     const stage = state === 'ANALYZE' ? 'analyze' : state === 'DESIGN' ? 'design' : 'plan';
     if (!isApprovalCurrent(stage, artifacts)) {
