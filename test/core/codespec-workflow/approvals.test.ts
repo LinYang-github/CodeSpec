@@ -22,6 +22,7 @@ import { snapshotDirectory } from '../../helpers/fs-snapshot.js';
 import { transitionChange } from '../../../src/core/codespec-workflow/state-machine.js';
 import { createCurrentArchiveFixture } from '../../helpers/current-archive.js';
 import { createCanonicalChange } from '../../../src/core/codespec-workflow/change-manager.js';
+import { allocateRequirementIds } from '../../../src/core/codespec-workflow/requirement-allocator.js';
 
 vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal<typeof fs>() }));
 afterEach(() => vi.restoreAllMocks());
@@ -40,6 +41,49 @@ async function pendingAnalysis() {
 }
 
 describe('approval transaction ownership', () => {
+  it('rejects an unreserved ADDED Requirement before publishing the derived projection', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const analysis = parseYaml(f.artifacts.analysis!);
+      analysis.requirements = [{ id: 'MOD-002-REQ-999', action: 'ADDED', reason: 'new behavior' }];
+      analysis.acceptanceCriteria[0].requirements = ['MOD-002-REQ-999'];
+      await fs.writeFile(path.join(f.changeDir, 'analysis.yaml'), stringifyYaml(analysis));
+      const before = await fs.readFile(f.metadataPath, 'utf8');
+      await expect(approveChangeStage(f.workspace, await loadChangeArtifacts(f.paths, f.changeId), 'analyze')).rejects.toThrow(/MOD-002-REQ-999.*reserv|reserv.*MOD-002-REQ-999/i);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(before);
+    } finally { f.cleanup(); }
+  });
+
+  it('approves sequential ADDED IDs reserved by this Change', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const ids = await allocateRequirementIds(f.workspace, f.changeId, 'MOD-002', 2);
+      expect(ids).toEqual(['MOD-002-REQ-003', 'MOD-002-REQ-004']);
+      const analysis = parseYaml(f.artifacts.analysis!);
+      analysis.requirements = ids.map((id) => ({ id, action: 'ADDED', reason: 'new behavior' }));
+      analysis.acceptanceCriteria[0].requirements = ids;
+      await fs.writeFile(path.join(f.changeDir, 'analysis.yaml'), stringifyYaml(analysis));
+      const approved = await approveChangeStage(f.workspace, await loadChangeArtifacts(f.paths, f.changeId), 'analyze');
+      expect(approved.approvals.analyze.status).toBe('approved');
+      expect(approved.requirements.added.map(({ id }) => id)).toEqual(ids);
+    } finally { f.cleanup(); }
+  });
+
+  it('rejects an ADDED ID reserved by another active Change', async () => {
+    const f = await pendingAnalysis();
+    try {
+      const other = await createCanonicalChange(f.workspace, { title: 'Other author', summary: 'Own new behavior', mode: 'feature' });
+      const [id] = await allocateRequirementIds(f.workspace, other.changeId, 'MOD-002', 1);
+      const analysis = parseYaml(f.artifacts.analysis!);
+      analysis.requirements = [{ id, action: 'ADDED', reason: 'claim another author ID' }];
+      analysis.acceptanceCriteria[0].requirements = [id];
+      await fs.writeFile(path.join(f.changeDir, 'analysis.yaml'), stringifyYaml(analysis));
+      const before = await fs.readFile(f.metadataPath, 'utf8');
+      await expect(approveChangeStage(f.workspace, await loadChangeArtifacts(f.paths, f.changeId), 'analyze')).rejects.toThrow(/reserved exclusively/);
+      expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(before);
+    } finally { f.cleanup(); }
+  });
+
   it.each(['analysis.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml'])('rejects a caller with stale %s before publishing any approval', async (name) => {
     const f = await pendingAnalysis();
     try {
@@ -398,6 +442,7 @@ describe('workflow approvals', () => {
       await fs.writeFile(path.join(changeDir, 'tasks.yaml'), 'version: 1\ntasks: []\nmoduleDeltas: []\nmoduleRegistrations: { upsert: [], retire: [] }\n');
       await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\ntestCases: []\n');
       const workspace = await loadWorkspace(fixture.codespecDir);
+      await allocateRequirementIds(workspace, fixture.changeId as `CHG-${string}`, 'MOD-001', 1);
       const artifacts = await loadChangeArtifacts(workspace.paths, fixture.changeId);
 
       await expect(approveChangeStage(workspace, {

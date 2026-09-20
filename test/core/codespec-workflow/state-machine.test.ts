@@ -18,8 +18,36 @@ import { validateRelations } from '../../../src/core/codespec-workflow/relations
 import { recordFreshVerification } from '../../../src/core/codespec-workflow/verification.js';
 import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../../helpers/current-archive.js';
 import { parse as parseYaml } from 'yaml';
+import { createCanonicalChange } from '../../../src/core/codespec-workflow/change-manager.js';
+import { loadChangeArtifacts } from '../../../src/core/codespec-workflow/artifacts.js';
+import { approveChangeStage } from '../../../src/core/codespec-workflow/approvals.js';
+import { renderCurrentSpecDelta } from '../../../src/core/codespec-workflow/current-spec-delta.js';
 
 describe('canonical Requirement delta boundary at DESIGN and later gates', () => {
+  it('takes the shipped Level 1 inline design template through DESIGN approval into PLAN', async () => {
+    const f = await createCurrentArchiveFixture();
+    try {
+      const workspace = await loadWorkspace(f.codespecDir);
+      const created = await createCanonicalChange(workspace, { title: 'Small fix', summary: 'Clarify one behavior', mode: 'bugfix', sddLevel: 1 });
+      const template = await fs.readFile(path.join(created.changeDir, 'spec.md'), 'utf8');
+      const analysis = {
+        version: 1, change: created.changeId, revision: 1, problem: 'Fix one behavior', goals: [{ id: 'GOAL-001', statement: 'Reliable behavior' }], nonGoals: [], scope: { in: ['one behavior'], out: ['other modules'] }, actors: ['user'], constraints: [], assumptions: [], openQuestions: [],
+        modules: [{ module: 'MOD-002', outcome: 'OWNED', reason: 'Owns behavior' }], requirements: [{ id: 'MOD-002-REQ-001', action: 'MODIFIED', reason: 'Fix behavior' }], acceptanceCriteria: [{ id: 'AC-001', statement: 'Behavior works', priority: 'MUST', requirements: ['MOD-002-REQ-001'] }],
+      };
+      await fs.writeFile(path.join(created.changeDir, 'analysis.yaml'), stringifyYaml(analysis));
+      await approveChangeStage(workspace, await loadChangeArtifacts(f.paths, created.changeId), 'analyze');
+      await transitionChange(workspace, await loadChangeArtifacts(f.paths, created.changeId), 'DESIGN', 'analyze approved');
+      const delta = renderCurrentSpecDelta(modification());
+      const inline = template.replace(/^# Spec\s*/u, '').replace('<!-- 说明本次小范围修复的实现思路。 -->', '仅修复 MOD-002-REQ-001，不修改其他需求。');
+      await fs.writeFile(path.join(created.changeDir, 'spec.md'), delta.replace('## 工程文件增量', `${inline.trim()}\n\n## 工程文件增量`));
+      const designPath = path.join(created.changeDir, 'design.md');
+      await fs.writeFile(designPath, (await fs.readFile(designPath, 'utf8')).replace('# Design', '# Design\n\nMOD-002-REQ-001'));
+      const approved = await approveChangeStage(workspace, await loadChangeArtifacts(f.paths, created.changeId), 'design');
+      expect(approved.approvals.design.status).toBe('approved');
+      expect((await transitionChange(workspace, await loadChangeArtifacts(f.paths, created.changeId), 'PLAN', 'design approved')).change.status).toBe('PLAN');
+    } finally { f.cleanup(); }
+  });
+
   it.each(['DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'] as const)('rejects stale Previous at %s', async (state) => {
     const fixture = await createCurrentArchiveFixture();
     try {

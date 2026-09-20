@@ -5,6 +5,26 @@ import { projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval 
 import { currentMarkdown, h3Snapshot, requirementMarkdown, richDelta } from '../../helpers/rich-requirement.js';
 
 describe('canonical rich Requirement deltas', () => {
+  it('preserves inline design separately from Requirement actions and binds it to approvals', () => {
+    const source = richDelta().replace('## 工程文件增量', '## 设计说明\n\n保持既有接口，只更新提示。\n\n## SDD 分级依据\n\n单模块低风险修复。\n\n## 归档影响分析\n\n```yaml\noutcome: none\nreferences: []\nverification: []\n```\n\n## 工程文件增量');
+    const parsed = delta.parseCurrentSpecDelta(source);
+    expect(parsed.requirements).toEqual(delta.parseCurrentSpecDelta(richDelta()).requirements);
+    expect(delta.parseCurrentSpecDelta(delta.renderCurrentSpecDelta(parsed))).toEqual(parsed);
+    expect(delta.renderCurrentSpecDelta(parsed).trimEnd()).toMatch(/\| `MOD-002-REQ-006-SCN-001-TC-UI-01` \|$/u);
+    for (const project of [projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval]) {
+      expect(project(source.replace('只更新提示', '同时修改接口'))).not.toEqual(project(source));
+    }
+  });
+
+  it.each([
+    '## 设计说明\n\n**New**\n\n' + h3Snapshot(),
+    '## 设计说明\n\n' + h3Snapshot(),
+    '## 设计说明\n\n说明。\n\n## ADDED\n',
+    '## 设计说明\n\n说明。\n\n## 设计说明\n\n重复。\n',
+  ])('rejects Requirement semantics or duplicate sections inside inline design (%s)', (section) => {
+    expect(() => delta.parseCurrentSpecDelta(richDelta().replace('## 工程文件增量', section + '\n\n## 工程文件增量'))).toThrow();
+  });
+
   it('keeps changed pipe-adjacent test expectations distinct in PLAN projections', () => {
     const source = richDelta('ADDED', requirementMarkdown.replace('| 1 | 点击新增用户 | 打开表单 |', String.raw`| 1 | 选择 A \| B | 显示结果 X |`));
     expect(projectCurrentSpecForPlanApproval(source.replace('显示结果 X', '显示结果 Y'))).not.toEqual(projectCurrentSpecForPlanApproval(source));

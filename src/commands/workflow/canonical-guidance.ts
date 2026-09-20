@@ -42,7 +42,9 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
   } else if (analysis && state === 'ANALYZE' && analysisErrors.length) {
     nextCommand = `codespec instructions analyze --change ${id} --json`;
     nextAction = { action: 'edit_analysis', path: metadata.artifacts.analysis!, description: '人工修订 analysis.yaml：先检查 design.md 中的 Rebase decision（如有），解决分析冲突、revision 缺项和 OPEN question，确认或拒绝 PROPOSED assumption，再继续审批。此命令只读取指导，不编辑文件；未解决分析冲突时不要重复 rebase。' };
-  } else if (metadata.baseline.stale) {
+  // An ANALYZE rebase deliberately retains the stale baseline. Once its
+  // analysis is repaired, approve that intent before attempting another rebase.
+  } else if (metadata.baseline.stale && !(analysis && state === 'ANALYZE')) {
     nextCommand = `codespec rebase --change ${id}`;
     nextAction = { action: 'rebase', path: metadata.artifacts.spec, description: '用 Current 执行 semantic rebase，并按返回的 ANALYZE 或 DESIGN route 继续。' };
   } else if (planEntry && planEntry.errors.length) {

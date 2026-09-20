@@ -66,6 +66,75 @@ async function prepared(legacy = false) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('semantic revision transaction', () => {
+  it('preserves author tasks saved at the actual install rename boundary', async () => {
+    const f = await prepared();
+    await f.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
+    const target = f.file('tasks.yaml');
+    const author = (await fs.readFile(target, 'utf8')).replace('title: New plan', 'title: Author at install');
+    const real = fs.rename;
+    let injected = false;
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      if (!injected && (from === target || to === target)) {
+        injected = true;
+        await fs.writeFile(target, author);
+      }
+      return real(from, to);
+    });
+    const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
+    await expect(reviseChange(f.workspace, f.changeId, 'replan')).rejects.toThrow(/conflict|冲突/i);
+    expect(await fs.readFile(target, 'utf8')).toBe(author);
+  });
+
+  it('preserves author tasks saved at the actual rollback replacement boundary', async () => {
+    const f = await prepared();
+    await f.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
+    const target = f.file('tasks.yaml');
+    const author = (await fs.readFile(target, 'utf8')).replace('title: New plan', 'title: Author at rollback');
+    const rename = fs.rename;
+    const write = fs.writeFile;
+    let rollback = false;
+    let injected = false;
+    const edit = async () => { if (!injected) { injected = true; await write(target, author); } };
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      if (!rollback && (from === f.file('verification.yaml') || to === f.file('verification.yaml'))) {
+        rollback = true;
+        throw new Error('injected verification installation failure');
+      }
+      if (rollback && from === target) await edit();
+      return rename(from, to);
+    });
+    vi.spyOn(fs, 'writeFile').mockImplementation(async (...args) => {
+      if (rollback && args[0] === target) await edit();
+      return write(...args);
+    });
+    const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
+    await expect(reviseChange(f.workspace, f.changeId, 'replan')).rejects.toThrow(/rollback.*conflict|ownership/i);
+    expect(await fs.readFile(target, 'utf8')).toBe(author);
+  });
+
+  it('retains late author tasks writes through an old handle in durable escrow', async () => {
+    const f = await prepared();
+    await f.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
+    const target = f.file('tasks.yaml');
+    const handle = await fs.open(target, 'r+');
+    try {
+      const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
+      await reviseChange(f.workspace, f.changeId, 'replan');
+      const published = await fs.readFile(target, 'utf8');
+      await handle.truncate(0);
+      await handle.writeFile('late author tasks\n');
+      expect(await fs.readFile(target, 'utf8')).toBe(published);
+      const escrow = path.join(f.paths.archive, '.recovery-escrow');
+      const transactions = await fs.readdir(escrow);
+      expect(transactions).toHaveLength(1);
+      const dir = path.join(escrow, transactions[0]);
+      const manifest = parseYaml(await fs.readFile(path.join(dir, 'manifest.yaml'), 'utf8'));
+      expect(manifest.cleanupPolicy).toBe('manual-only');
+      const retained = manifest.retained.find((entry: { target: string }) => entry.target.endsWith('/tasks.yaml'));
+      expect(await fs.readFile(path.join(dir, retained.file), 'utf8')).toBe('late author tasks\n');
+    } finally { await handle.close(); }
+  });
+
   it.each([
     ['analysis.yaml', 'Order feedback', 'Localized feedback', 'ANALYZE', ['analyze', 'design', 'plan']],
     ['design.md', '# Design', '# Revised design', 'DESIGN', ['design', 'plan']],
@@ -124,12 +193,12 @@ describe('semantic revision transaction', () => {
     const fixture = await prepared();
     await fixture.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
     const metadataBefore = await fs.readFile(fixture.file('metadata.yaml'), 'utf8');
-    const real = fs.writeFile;
+    const real = fs.open;
     let injected = false;
-    vi.spyOn(fs, 'writeFile').mockImplementation(async (...args) => {
-      if (!injected && String(args[0]).endsWith('.tmp')) {
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      if (!injected && String(args[0]).includes('/installation/')) {
         injected = true;
-        await real(fixture.file('spec.md'), 'concurrent spec edit');
+        await fs.writeFile(fixture.file('spec.md'), 'concurrent spec edit');
       }
       return real(...args);
     });
@@ -148,7 +217,7 @@ describe('semantic revision transaction', () => {
     const real = fs.rename;
     vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
       await real(from, to);
-      if (to === fixture.file('metadata.yaml')) await fs.writeFile(fixture.file('tasks.yaml'), authorTasks);
+      if (from === fixture.file('metadata.yaml')) await fs.writeFile(fixture.file('tasks.yaml'), authorTasks);
     });
     const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
     await expect(reviseChange(fixture.workspace, fixture.changeId, 'replan')).rejects.toThrow(/冲突.*tasks\.yaml|conflict.*tasks\.yaml/i);
@@ -166,7 +235,7 @@ describe('semantic revision transaction', () => {
     const authorTasks = (await fs.readFile(fixture.file('tasks.yaml'), 'utf8')).replace('title: New plan', 'title: Author saved before rollback');
     const real = fs.rename;
     vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
-      if (to === fixture.file('verification.yaml')) {
+      if (from === fixture.file('verification.yaml')) {
         await fs.writeFile(fixture.file('tasks.yaml'), authorTasks);
         throw new Error('injected verification replacement failure');
       }
@@ -212,7 +281,7 @@ describe('semantic revision transaction', () => {
     expect(() => assertTransitionApproval(artifacts, 'PLAN')).not.toThrow();
   });
 
-  it.each(['writeFile', 'rename'] as const)('rolls back every artifact when any %s step fails', async (operation) => {
+  it.each(['open', 'rename'] as const)('rolls back every artifact when any %s installation step fails', async (operation) => {
     const fixture = await prepared();
     await fixture.edit('tasks.yaml', 'title: Order feedback', 'title: New plan');
     const files = ['metadata.yaml', 'analysis.yaml', 'tasks.yaml', 'verification.yaml'].map(fixture.file).concat(fixture.paths.changeIndex);
@@ -222,7 +291,7 @@ describe('semantic revision transaction', () => {
     for (let failure = 1; failure <= 5; failure++) {
       let count = 0;
       const spy = vi.spyOn(fs, operation).mockImplementation((async (...args: Parameters<typeof real>) => {
-        if (++count === failure) throw new Error('injected transaction failure');
+        if ((operation === 'rename' || String(args[0]).includes('/installation/')) && ++count === failure) throw new Error('injected transaction failure');
         return (real as Function)(...args);
       }) as typeof real);
       await expect(reviseChange(fixture.workspace, fixture.changeId, 'replan')).rejects.toThrow('injected transaction failure');

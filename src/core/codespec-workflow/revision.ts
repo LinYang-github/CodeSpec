@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { randomUUID } from 'node:crypto';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseAnalysisDocument } from './analysis.js';
 import { validateAnalysisAgainstWorkspace } from './analysis-consistency.js';
@@ -14,6 +15,7 @@ import { metadataForPersistence } from './metadata-persistence.js';
 import { incrementRevision } from './state-machine.js';
 import { parseChangeMetadata } from './schemas.js';
 import type { ApprovalStage } from './types.js';
+import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
 
 export type RevisionRoute = 'ANALYZE' | 'DESIGN' | 'PLAN';
 export type RevisionResult = {
@@ -105,40 +107,33 @@ export async function reviseChange(workspace: WorkspaceContext, changeId: string
     writes.set(artifactPath(metadata.artifacts.verification), canonical ? stringifyYaml({ version: 1, testCases: [] }) : '# Verification\n');
     writes.set(workspace.paths.changeIndex, stringifyYaml({ version: 1, changes: entries }));
 
-    const token = `.revise-${process.pid}-${Date.now()}.tmp`;
-    const committed: string[] = [];
-    try {
-      for (const [file, content] of writes) await fs.writeFile(`${file}${token}`, content, 'utf8');
+    const checkReadOnlyInputs = async () => {
       for (const [file, original] of originals) {
-        if (await fs.readFile(file, 'utf8') !== original) {
-          throw new Error(`Revision 冲突：暂存期间产物已变更：${file}`);
+        if (!writes.has(file) && await fs.readFile(file, 'utf8') !== original) {
+          throw new Error(`Revision conflict: artifact changed: ${file}`);
         }
       }
-      for (const file of writes.keys()) {
-        if (await fs.readFile(file, 'utf8') !== originals.get(file)) {
-          throw new Error(`Revision 冲突：替换前产物已变更：${file}`);
-        }
-        await fs.rename(`${file}${token}`, file);
-        committed.push(file);
-      }
+    };
+    let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
+    let committed = false;
+    try {
+      await checkReadOnlyInputs();
+      journal = await createArchiveJournal({
+        paths: workspace.paths, transactionId: `revise-${changeId}-${randomUUID()}`, ownerPid: process.pid,
+        files: [...writes].map(([target, after]) => ({ target, before: originals.get(target)!, after })),
+      });
+      await installArchiveJournal(journal, checkReadOnlyInputs);
+      await checkReadOnlyInputs();
+      await markArchiveJournalCommitted(journal);
+      committed = true;
+      await recoverPendingTransactions(workspace.paths, journal.transactionId);
     } catch (error) {
-      const failures: unknown[] = [];
-      for (const file of committed.reverse()) {
-        try {
-          if (await fs.readFile(file, 'utf8') !== writes.get(file)) {
-            throw new Error(`Revision rollback conflict：保留作者修改的产物：${file}`);
-          }
-          await fs.writeFile(file, originals.get(file)!, 'utf8');
-        }
-        catch (rollbackError) { failures.push(rollbackError); }
-      }
-      if (failures.length) {
-        const details = [error, ...failures].map((failure) => failure instanceof Error ? failure.message : String(failure));
-        throw new AggregateError([error, ...failures], `Revision failed and rollback could not restore every artifact: ${details.join('; ')}`);
+      if (committed) throw new Error(`${String(error)} (revision committed; recovery requires retry)`);
+      if (journal) {
+        try { await recoverPendingTransactions(workspace.paths, journal.transactionId); }
+        catch (failure) { throw new AggregateError([error, failure], `Revision failed: ${String(error)}; rollback conflict or incomplete recovery: ${String(failure)}`); }
       }
       throw error;
-    } finally {
-      await Promise.all([...writes.keys()].map((file) => fs.rm(`${file}${token}`, { force: true })));
     }
     return { changeId, previousRevision: metadata.change.revision, revision: next.change.revision, route, invalidatedApprovals };
   });

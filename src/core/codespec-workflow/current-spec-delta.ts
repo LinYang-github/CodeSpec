@@ -1,6 +1,7 @@
 import type { CurrentSpecRequirement, CurrentSpecEngineeringFile, CurrentSpecification } from './current-spec-model.js';
 import MarkdownIt from 'markdown-it';
 import { parseCurrentSpecification, parseRequirementSnapshot, renderRequirementSnapshot, hashRequirementSnapshot, renderCurrentSpecification, normalizeCurrentSpecInline } from './current-spec-model.js';
+import { INLINE_DESIGN_SECTIONS } from './document-sections.js';
 
 export interface CurrentRequirementDelta {
   action: 'ADDED' | 'MODIFIED' | 'REMOVED';
@@ -17,6 +18,7 @@ export interface CurrentSpecDeltaDocument {
   version: 1;
   requirements: CurrentRequirementDelta[];
   engineeringFiles: CurrentSpecEngineeringFile[];
+  inlineDesign?: Array<{ title: string; content: string }>;
 }
 
 const markdown = new MarkdownIt({ html: true });
@@ -77,6 +79,20 @@ export function parseCurrentSpecDelta(content: string): CurrentSpecDeltaDocument
       index += 1;
       break;
     }
+    if (section && INLINE_DESIGN_SECTIONS.has(section)) {
+      if (!document.requirements.length || document.inlineDesign?.some((item) => item.title === section)) throw new Error(`Invalid or duplicate inline design section: ${section}`);
+      const start = ++index;
+      while (index < blocks.length && !heading(index, 'h2')) {
+        const block = blocks[index]!;
+        if (block.label || (block.token.type === 'heading_open' && /MOD-\d{3}-REQ-\d{3}|^Scenario:/u.test(block.tokens[1]!.content))) {
+          throw new Error('Inline design must not contain Requirement action semantics or snapshots');
+        }
+        index += 1;
+      }
+      (document.inlineDesign ??= []).push({ title: section, content: blocks.slice(start, index).map((block) => block.content).join('\n\n') });
+      continue;
+    }
+    if (document.inlineDesign) throw new Error('Requirement actions must precede inline design; 工程文件增量 must remain final');
     if (!actions.includes(section as CurrentRequirementDelta['action']) || seen.has(section!)) throw new Error(`Unknown or duplicate rich delta action section: ${section ?? blocks[index]?.content}`);
     const action = section as CurrentRequirementDelta['action'];
     seen.add(action);
@@ -113,6 +129,7 @@ export function renderCurrentSpecDelta(document: CurrentSpecDeltaDocument): stri
       lines.push('', '**Reason**', '', entry.reason);
     }
   }
+  for (const section of document.inlineDesign ?? []) lines.push('', `## ${section.title}`, '', section.content);
   const files = renderCurrentSpecification({ title: document.title, module: document.module, version: '1', requirements: [], engineeringFiles: document.engineeringFiles });
   const table = document.engineeringFiles.length ? files.slice(files.indexOf('| 文件 |')) : `| ${fileHeaders.join(' | ')} |\n| --- | --- | --- | --- | --- |\n`;
   lines.push('', '## 工程文件增量', '', table.trimEnd());
@@ -131,11 +148,18 @@ export function projectCurrentSpecDelta(document: CurrentSpecDeltaDocument): Cur
     })).sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
     engineeringFiles: document.engineeringFiles.map((file) => ({ path: file.path, module: file.module ?? document.module, change: file.change, role: file.role, references: [...file.references].sort() }))
       .sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0),
+    ...(document.inlineDesign ? { inlineDesign: document.inlineDesign.map((section) => ({ ...section })) } : {}),
   };
 }
 
 export function validateCurrentSpecDelta(document: CurrentSpecDeltaDocument): string[] {
   const issues: string[] = [];
+  const designTitles = new Set<string>();
+  for (const section of document.inlineDesign ?? []) {
+    if (!INLINE_DESIGN_SECTIONS.has(section.title) || designTitles.has(section.title)) issues.push(`Invalid or duplicate inline design section: ${section.title}`);
+    designTitles.add(section.title);
+    if (/^##\s|^\*\*(?:Previous|New|Reason)\*\*\s*$|^#{1,6}\s+(?:MOD-\d{3}-REQ-\d{3}|Scenario:)/mu.test(section.content)) issues.push('Inline design must not contain Requirement action semantics or snapshots');
+  }
   if (!document.title.trim() || !/^MOD-\d{3}$/u.test(document.module) || document.version !== 1) issues.push('Invalid rich delta title, module or version');
   if (!document.requirements.length) issues.push('Rich delta requires at least one Requirement');
   const ids = new Set<string>();

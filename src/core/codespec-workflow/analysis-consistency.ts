@@ -14,6 +14,7 @@ import { parseCurrentSpecification } from './current-spec-model.js';
 import { getCurrentModuleArtifactPaths } from './current-spec-paths.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ChangeMetadata } from './types.js';
+import { parseChangeMetadata } from './schemas.js';
 
 export type AnalysisProjection = {
   modules: ChangeMetadata['modules'];
@@ -130,6 +131,23 @@ export async function validateAnalysisAgainstWorkspace(
   }
 
   const currentByModule = new Map<string, Promise<{ ids: Set<string>; error?: string }>>();
+  const reservations = new Map<string, Set<string>>();
+  const requireReservation = !artifacts.metadata.artifacts.proposal && isActiveChange(workspace, artifacts);
+  if (requireReservation && document.requirements.some((requirement) => requirement.action === 'ADDED')) {
+    // Read persisted allocation ownership, not the pending derived projection:
+    // previewing analysis must never turn a made-up ID into a reservation.
+    for (const entry of await fs.readdir(workspace.paths.changes, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !/^CHG-\d{8}-\d{3}$/u.test(entry.name)) continue;
+      const metadata = parseChangeMetadata(parseYaml(await fs.readFile(path.join(workspace.paths.changes, entry.name, 'metadata.yaml'), 'utf8')));
+      if (metadata.change.id !== entry.name) throw new Error(`Change directory ${entry.name} does not match metadata change.id ${metadata.change.id}`);
+      if (['ARCHIVED', 'ABANDONED'].includes(metadata.change.status)) continue;
+      for (const ref of metadata.requirements.added) {
+        const owners = reservations.get(ref.id) ?? new Set<string>();
+        owners.add(metadata.change.id);
+        reservations.set(ref.id, owners);
+      }
+    }
+  }
   for (const [index, requirement] of document.requirements.entries()) {
     const moduleId = requirement.id.slice(0, requirement.id.indexOf('-REQ-'));
     if (owned.get(moduleId) !== 1) {
@@ -149,6 +167,12 @@ export async function validateAnalysisAgainstWorkspace(
     const exists = snapshot.ids.has(requirement.id);
     if (requirement.action === 'ADDED' && exists) {
       errors.push(`requirements[${index}].id: ADDED Requirement ${requirement.id} already exists in the Current Specification`);
+    }
+    if (requirement.action === 'ADDED' && requireReservation) {
+      const owners = reservations.get(requirement.id);
+      if (owners?.size !== 1 || !owners.has(artifacts.changeId)) {
+        errors.push(`requirements[${index}].id: ADDED Requirement ${requirement.id} must be actively reserved exclusively by Change ${artifacts.changeId}`);
+      }
     }
     if ((requirement.action === 'MODIFIED' || requirement.action === 'REMOVED') && !exists) {
       errors.push(`requirements[${index}].id: ${requirement.action} Requirement ${requirement.id} does not exist in the Current Specification`);

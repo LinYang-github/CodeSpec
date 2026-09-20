@@ -246,6 +246,7 @@ function projectDeltaApproval(spec: string, includePlan: boolean): unknown {
     });
     return {
       module: parsed.module,
+      ...(parsed.inlineDesign ? { inlineDesign: parsed.inlineDesign } : {}),
       requirements: parsed.requirements.map(({ previous, next, ...entry }) => ({
         ...entry,
         ...(previous ? { previous: snapshot(previous) } : {}),

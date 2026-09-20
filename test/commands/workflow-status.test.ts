@@ -41,6 +41,37 @@ describe('canonical migration status', () => {
 });
 
 describe('canonical lifecycle guidance', () => {
+  it('approves repaired ANALYZE rebase intent without repeating the revision loop', async () => {
+    const f = await createGuidanceFixture('DESIGN');
+    try {
+      f.artifacts.metadata.baseline.stale = true;
+      await f.save();
+      const current = path.join(f.paths.currentSpecs, 'MOD-002', 'spec.md');
+      const original = await fs.readFile(current, 'utf8');
+      await fs.unlink(current);
+      const rebase = await runCLI(['rebase', '--change', f.changeId], { cwd: f.tempDir });
+      expect(rebase.exitCode, rebase.stdout + rebase.stderr).toBe(0);
+      await fs.writeFile(current, original);
+      const analysisPath = path.join(f.artifacts.changeDir, 'analysis.yaml');
+      const analysis = parse(await fs.readFile(analysisPath, 'utf8'));
+      analysis.revision = 2;
+      analysis.problem = '重新确认 Current 恢复后仍需新增能力';
+      await fs.writeFile(analysisPath, stringify(analysis));
+      const status = await runCLI(['status', '--change', f.changeId, '--json'], { cwd: f.tempDir });
+      expect(status.exitCode, status.stdout + status.stderr).toBe(0);
+      const guidance = JSON.parse(status.stdout);
+      expect(guidance.analysisSummary).toMatchObject({ complete: true, approved: false });
+      expect(guidance.nextCommand).toBe(`codespec approve --change ${f.changeId} --stage analyze`);
+      const approval = await runCLI(guidance.nextCommand.split(' ').slice(1), { cwd: f.tempDir });
+      expect(approval.exitCode, approval.stdout + approval.stderr).toBe(0);
+      const approved = JSON.parse((await runCLI(['status', '--change', f.changeId, '--json'], { cwd: f.tempDir })).stdout);
+      expect(approved.nextAction.action).toBe('transition');
+      const transition = await runCLI(['transition', '--change', f.changeId, '--to', 'DESIGN', '--reason', 'analyze approved'], { cwd: f.tempDir });
+      expect(transition.exitCode, transition.stdout + transition.stderr).toBe(0);
+      expect(parse(await fs.readFile(path.join(f.artifacts.changeDir, 'metadata.yaml'), 'utf8')).change).toMatchObject({ revision: 2, status: 'DESIGN' });
+    } finally { f.cleanup(); }
+  });
+
   it('keeps an ANALYZE rebase conflict on the analysis editing route', async () => {
     const f = await createGuidanceFixture('DESIGN');
     try {
