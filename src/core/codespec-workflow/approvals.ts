@@ -16,6 +16,7 @@ import type { ApprovalRecord, ApprovalStage, ChangeMetadata, ChangeStatus } from
 import { parseCurrentTasks, projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from './current-change-yaml.js';
 import { parseChangeMetadata } from './schemas.js';
 import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
+import { captureBaseline } from './baseline.js';
 
 export interface ChangeContent {
   design: string;
@@ -180,20 +181,38 @@ export async function approveChangeStage(
     const metadataPath = path.join(currentWorkspace.codespecDir, fresh.metadata.artifacts.metadata);
     const originalMetadata = await fs.readFile(metadataPath, 'utf8');
     if (!isDeepStrictEqual(parseChangeMetadata(parseYaml(originalMetadata)), fresh.metadata)) throw new Error('Approval conflict: metadata changed during load');
-    const originals = new Map<string, string>([[currentWorkspace.paths.changeIndex, await fs.readFile(currentWorkspace.paths.changeIndex, 'utf8')]]);
+    const originals = new Map<string, string | null>([[currentWorkspace.paths.changeIndex, await fs.readFile(currentWorkspace.paths.changeIndex, 'utf8')]]);
     for (const name of ['analysis', 'proposal', 'design', 'spec', 'tasks', 'verification'] as const) {
       const relative = fresh.metadata.artifacts[name];
       if (relative) originals.set(path.join(currentWorkspace.codespecDir, relative), fresh[name]!);
     }
+    const read = async (file: string) => fs.readFile(file, 'utf8').catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    });
+    const candidate = stage === 'analyze' ? projectPendingAnalysis(fresh) : fresh;
+    const baselineSpecs: Record<string, string> = {};
+    const confirmsAnalysis = stage === 'analyze' && !fresh.metadata.artifacts.proposal;
+    if (confirmsAnalysis) {
+      for (const { module } of parseAnalysisDocument(parseYaml(candidate.analysis!)).modules) {
+        const file = path.join(currentWorkspace.paths.currentSpecs, module, 'spec.md');
+        const source = await read(file);
+        originals.set(file, source);
+        baselineSpecs[module] = source ?? '';
+      }
+    }
     const checkInputs = async () => {
       for (const [file, before] of originals) {
-        if (await fs.readFile(file, 'utf8') !== before) throw new Error(`Approval conflict: input changed during approval: ${file}`);
+        if (await read(file) !== before) throw new Error(`Approval conflict: input changed during approval: ${file}`);
       }
     };
-    const candidate = stage === 'analyze' ? projectPendingAnalysis(fresh) : fresh;
     const gate = await validateExitGate(currentWorkspace, candidate);
     if (!gate.ok) throw new Error(`无法确认${stageLabel(stage)}：阶段门禁未通过：${gate.errors.join('；')}`);
     const next = approveStage(candidate, stage);
+    // A fresh human analysis approval confirms intent against this Current,
+    // including assumptions re-examined after an ANALYZE rebase. Persist its
+    // baseline with the receipt, never by silently rewriting authored Previous.
+    if (confirmsAnalysis) next.baseline = await captureBaseline(currentWorkspace, next, baselineSpecs);
     let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
     let committed = false;
     try {

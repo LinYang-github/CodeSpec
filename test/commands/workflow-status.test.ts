@@ -8,6 +8,8 @@ import path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { registerStore } from '../../src/core/store/registry.js';
 import { getGlobalDataDir } from '../../src/core/global-config.js';
+import { captureBaseline } from '../../src/core/codespec-workflow/baseline.js';
+import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
 
 describe('canonical migration status', () => {
   it('accepts a selected root on the executable migration entry', async () => {
@@ -41,6 +43,54 @@ describe('canonical migration status', () => {
 });
 
 describe('canonical lifecycle guidance', () => {
+  it('advances explicitly reconfirmed assumption baselines through DESIGN without a rebase loop', async () => {
+    const f = await createGuidanceFixture('ANALYZE');
+    try {
+      const analysis = parse(f.artifacts.analysis!);
+      analysis.assumptions = [{ id: 'ASSUMPTION-001', statement: '当前行为适用于本次需求', status: 'CONFIRMED', requirements: ['MOD-002-REQ-001'] }];
+      f.artifacts.analysis = stringify(analysis);
+      f.artifacts.metadata.approvals.analyze = createPendingApprovals(1).analyze;
+      await f.save();
+      f.artifacts.metadata.baseline = await captureBaseline(await loadWorkspace(f.codespecDir), f.artifacts.metadata);
+      await f.save();
+      const run = async (args: string[]) => {
+        const result = await runCLI(args, { cwd: f.tempDir });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        return result;
+      };
+      await run(['approve', '--change', f.changeId, '--stage', 'analyze']);
+      await run(['transition', '--change', f.changeId, '--to', 'DESIGN', '--reason', 'analyze approved']);
+      const current = path.join(f.paths.currentSpecs, 'MOD-002', 'spec.md');
+      await fs.writeFile(current, (await fs.readFile(current, 'utf8')).replace('支持 A+B', '支持 A+B（漂移）'));
+      const metadataPath = path.join(f.artifacts.changeDir, 'metadata.yaml');
+      const markStale = async () => {
+        const metadata = parse(await fs.readFile(metadataPath, 'utf8'));
+        metadata.baseline.stale = true;
+        await fs.writeFile(metadataPath, stringify(metadata));
+      };
+      await markStale();
+      await run(['rebase', '--change', f.changeId]);
+      expect(parse(await fs.readFile(metadataPath, 'utf8')).change).toMatchObject({ status: 'ANALYZE', revision: 2 });
+      analysis.revision = 2;
+      analysis.assumptions[0].statement = '已核对漂移后的 Current，确认该假设仍成立';
+      await fs.writeFile(path.join(f.artifacts.changeDir, 'analysis.yaml'), stringify(analysis));
+      await run(['approve', '--change', f.changeId, '--stage', 'analyze']);
+      await run(['transition', '--change', f.changeId, '--to', 'DESIGN', '--reason', 'reconfirmed assumption']);
+      const status = JSON.parse((await run(['status', '--change', f.changeId, '--json'])).stdout);
+      expect(status.nextAction.action).not.toBe('rebase');
+      const confirmed = parse(await fs.readFile(metadataPath, 'utf8'));
+      expect(confirmed.change).toMatchObject({ status: 'DESIGN', revision: 2 });
+      expect(confirmed.baseline.stale).toBe(false);
+      expect(confirmed.baseline.modules['MOD-002'].requirements['MOD-002-REQ-001']).not.toBe(f.artifacts.metadata.baseline.modules['MOD-002'].requirements['MOD-002-REQ-001']);
+      // A subsequent, genuinely unreviewed drift must still require rebase.
+      await fs.writeFile(current, (await fs.readFile(current, 'utf8')).replace('（漂移）', '（再次漂移）'));
+      await markStale();
+      expect(JSON.parse((await run(['status', '--change', f.changeId, '--json'])).stdout).nextAction.action).toBe('rebase');
+      await run(['rebase', '--change', f.changeId]);
+      expect(parse(await fs.readFile(metadataPath, 'utf8')).change).toMatchObject({ status: 'ANALYZE', revision: 3 });
+    } finally { f.cleanup(); }
+  });
+
   it('approves repaired ANALYZE rebase intent without repeating the revision loop', async () => {
     const f = await createGuidanceFixture('DESIGN');
     try {

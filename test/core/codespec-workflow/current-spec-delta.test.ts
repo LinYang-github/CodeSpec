@@ -5,6 +5,16 @@ import { projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval 
 import { currentMarkdown, h3Snapshot, requirementMarkdown, richDelta } from '../../helpers/rich-requirement.js';
 
 describe('canonical rich Requirement deltas', () => {
+  it.each([
+    '### Implementation of MOD-002-REQ-006\n\nOnly change display.',
+    '```markdown\n## Example heading\n\n### MOD-002-REQ-006：Example only\n\n**New**\n```',
+  ])('round-trips ordinary inline design headings and fenced examples: %s', (content) => {
+    const document = delta.parseCurrentSpecDelta(richDelta());
+    document.inlineDesign = [{ title: '设计说明', content }];
+    expect(delta.validateCurrentSpecDelta(document)).toEqual([]);
+    expect(delta.parseCurrentSpecDelta(delta.renderCurrentSpecDelta(document))).toEqual(document);
+  });
+
   it('preserves inline design separately from Requirement actions and binds it to approvals', () => {
     const source = richDelta().replace('## 工程文件增量', '## 设计说明\n\n保持既有接口，只更新提示。\n\n## SDD 分级依据\n\n单模块低风险修复。\n\n## 归档影响分析\n\n```yaml\noutcome: none\nreferences: []\nverification: []\n```\n\n## 工程文件增量');
     const parsed = delta.parseCurrentSpecDelta(source);

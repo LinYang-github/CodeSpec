@@ -203,19 +203,19 @@ describe('approval transaction ownership', () => {
     } finally { f.cleanup(); }
   });
 
-  it('rolls back the receipt when analysis changes while metadata is being published', async () => {
+  it.each(['analysis', 'Current'])('rolls back the receipt and baseline when %s changes while metadata is being published', async (input) => {
     const f = await pendingAnalysis();
     try {
       const metadata = await fs.readFile(f.metadataPath, 'utf8');
-      const analysisPath = path.join(f.changeDir, 'analysis.yaml');
-      const author = f.artifacts.analysis!.replace('Requested behavior is supported', 'A changed acceptance condition');
+      const analysisPath = input === 'analysis' ? path.join(f.changeDir, 'analysis.yaml') : path.join(f.paths.currentSpecs, 'MOD-002', 'spec.md');
+      const author = `${await fs.readFile(analysisPath, 'utf8')}\n<!-- concurrent author change -->\n`;
       const link = fs.link;
       let injected = false;
       vi.spyOn(fs, 'link').mockImplementation(async (from, to) => {
         await link(from, to);
         if (!injected && to === f.metadataPath) { injected = true; await fs.writeFile(analysisPath, author); }
       });
-      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/input changed.*analysis.yaml/);
+      await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/input changed.*(?:analysis.yaml|spec.md)/);
       expect(injected).toBe(true);
       expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
       expect(await fs.readFile(analysisPath, 'utf8')).toBe(author);

@@ -26,6 +26,20 @@ type Token = ReturnType<typeof markdown.parse>[number];
 const actions = ['ADDED', 'MODIFIED', 'REMOVED'] as const;
 const fileHeaders = ['文件', '模块编号', '变更', '作用', '关联需求 / 场景 / 测试用例'];
 
+function hasInlineRequirementSemantics(content: string): boolean {
+  const tokens = markdown.parse(content, {});
+  return tokens.some((token, index) => {
+    if (token.level !== 0) return false;
+    const inline = tokens[index + 1];
+    if (token.type === 'heading_open') {
+      return ['h1', 'h2'].includes(token.tag) || /^(?:MOD-\d{3}-REQ-\d{3}(?:$|[\s：:-])|Scenario:)/u.test(inline?.content.trim() ?? '');
+    }
+    const children = inline?.children?.filter((child) => child.type !== 'text' || child.content !== '') ?? [];
+    return token.type === 'paragraph_open' && children.length === 3 && children[0]?.type === 'strong_open'
+      && children[2]?.type === 'strong_close' && ['Previous', 'New', 'Reason'].includes(children[1]!.content);
+  });
+}
+
 /** H2 actions contain repeated Previous/New/Reason paragraphs, never an outer H3. */
 export function parseCurrentSpecDelta(content: string): CurrentSpecDeltaDocument {
   const lines = content.replace(/\r\n?/gu, '\n').split('\n');
@@ -82,13 +96,7 @@ export function parseCurrentSpecDelta(content: string): CurrentSpecDeltaDocument
     if (section && INLINE_DESIGN_SECTIONS.has(section)) {
       if (!document.requirements.length || document.inlineDesign?.some((item) => item.title === section)) throw new Error(`Invalid or duplicate inline design section: ${section}`);
       const start = ++index;
-      while (index < blocks.length && !heading(index, 'h2')) {
-        const block = blocks[index]!;
-        if (block.label || (block.token.type === 'heading_open' && /MOD-\d{3}-REQ-\d{3}|^Scenario:/u.test(block.tokens[1]!.content))) {
-          throw new Error('Inline design must not contain Requirement action semantics or snapshots');
-        }
-        index += 1;
-      }
+      while (index < blocks.length && !heading(index, 'h2')) index += 1;
       (document.inlineDesign ??= []).push({ title: section, content: blocks.slice(start, index).map((block) => block.content).join('\n\n') });
       continue;
     }
@@ -158,7 +166,7 @@ export function validateCurrentSpecDelta(document: CurrentSpecDeltaDocument): st
   for (const section of document.inlineDesign ?? []) {
     if (!INLINE_DESIGN_SECTIONS.has(section.title) || designTitles.has(section.title)) issues.push(`Invalid or duplicate inline design section: ${section.title}`);
     designTitles.add(section.title);
-    if (/^##\s|^\*\*(?:Previous|New|Reason)\*\*\s*$|^#{1,6}\s+(?:MOD-\d{3}-REQ-\d{3}|Scenario:)/mu.test(section.content)) issues.push('Inline design must not contain Requirement action semantics or snapshots');
+    if (hasInlineRequirementSemantics(section.content)) issues.push('Inline design must not contain Requirement action semantics or snapshots');
   }
   if (!document.title.trim() || !/^MOD-\d{3}$/u.test(document.module) || document.version !== 1) issues.push('Invalid rich delta title, module or version');
   if (!document.requirements.length) issues.push('Rich delta requires at least one Requirement');
