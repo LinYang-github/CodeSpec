@@ -331,6 +331,25 @@ describe('six-artifact canonical Requirement archive', () => {
     } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
   });
 
+  it.each(['Current semantic edit', 'invalid metadata YAML', 'deleted analysis'])('identifies the exact raw snapshot path before parsing: %s', async (mutation) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      const prepared = await prepareArchive(await preflightArchive(await loadWorkspace(fixture.codespecDir), fixture.changeId));
+      const file = mutation === 'Current semantic edit' ? path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md')
+        : path.join(artifacts.changeDir, mutation === 'invalid metadata YAML' ? 'metadata.yaml' : 'analysis.yaml');
+      if (mutation === 'deleted analysis') await fs.unlink(file);
+      else await fs.writeFile(file, mutation === 'invalid metadata YAML' ? 'change: [broken YAML'
+        : (await fs.readFile(file, 'utf8')).replace('得到 A', '作者修改 THEN'));
+      const before = snapshotDirectory(fixture.codespecDir);
+      const failure = await commitArchive(prepared).catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toMatch(/^ARCHIVE CONFLICT:/);
+      expect((failure as Error).message).toContain(file);
+      await expectRestoredWithSafetyRecords(fixture.paths, before);
+    } finally { fixture.cleanup(); }
+  });
+
   it('revalidates Previous against live Current immediately before installation', async () => {
     const fixture = await createCurrentArchiveFixture();
     try {
@@ -340,7 +359,7 @@ describe('six-artifact canonical Requirement archive', () => {
       const edited = renderCurrentSpecification({ ...fixture.current, requirements: [requirement('MOD-002-REQ-001', ['X']), fixture.current.requirements[1]] });
       const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
       await fs.writeFile(currentPath, edited);
-      await expect(commitArchive(prepared)).rejects.toThrow(/ARCHIVE CONFLICT.*MOD-002-REQ-001/);
+      await expect(commitArchive(prepared)).rejects.toThrow(`ARCHIVE CONFLICT: ${path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md')}`);
       expect(await fs.readFile(currentPath, 'utf8')).toBe(edited);
     } finally { fixture.cleanup(); }
   });

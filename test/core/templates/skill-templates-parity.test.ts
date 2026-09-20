@@ -14,9 +14,9 @@ import { STORE_SELECTION_GUIDANCE } from '../../../src/core/templates/workflows/
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const EXPECTED_GENERATED_SKILL_CONTENT_HASHES: Record<string, string> = {
-  'codespec-workflow': 'ad769b53b38a89a62a8457e5dff3a99a894eb2f1e939b3b4f8fa6b13eca802ea',
-  'codespec-rebase-change': '5b74c552ec60152a3dc5dbf5f414f465d6485a8fe1a3ec81425b42876423a77c',
-  'codespec-archive-change': '2bc01d70290acf5d2088f03968923d9f2847ccdec4f86a8b970c69d95cc60ba2',
+  'codespec-workflow': '4d6c74f54a8ab8ae3d5c031949390be360d470c2ae05f6f54286dc7f55ac3a35',
+  'codespec-rebase-change': 'd47337faeffe41a3f8057a0d2117ada2963cb6e4d4fdf88d0c59e15fb25629d8',
+  'codespec-archive-change': '6f1b4a2d54751f01f8fba0697d1a61e0183517a0ce5e7d44cf95b2ba8bd9472d',
 };
 
 function stripGeneratedVersion(content: string): string {

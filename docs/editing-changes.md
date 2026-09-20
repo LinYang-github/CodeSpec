@@ -35,9 +35,9 @@ codespec status --change CHG-20260915-001 --json
 
 **DESIGN route:** Current changed, but the approved intent still holds. Core refreshes only affected Requirement `Previous` snapshots and preserves `New`, `Reason` and action.
 
-**ANALYZE route:** Current invalidates an assumption, module ownership, Requirement disposition or AC. Review the returned conflicts in `analysis.yaml` before requesting approval again.
+**ANALYZE route:** Current invalidates an assumption, module ownership, Requirement disposition or AC. Review the `Rebase decision` section appended to `design.md`, then revise `analysis.yaml` to resolve the conflicts before requesting approval again. Core retains the old analysis revision, baseline and `Previous` snapshots for that review; this route does not refresh them.
 
-Both routes increment revision and invalidate downstream verification. Rebase reads Current as the only baseline; it does not import archived Change text.
+Both routes increment the Change revision, append the decision to `design.md` and invalidate downstream verification. Rebase reads Current as the only baseline; it does not import archived Change text.
 
 ## Migrate an active five-artifact Change
 

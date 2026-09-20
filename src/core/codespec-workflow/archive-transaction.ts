@@ -212,8 +212,35 @@ async function treeDigest(file: string): Promise<string> {
 
 async function checkTreeSnapshots(trees: ReadonlyMap<string, string>): Promise<void> {
   for (const [file, expected] of trees) {
-    if (await treeDigest(file) !== expected) throw new Error(`ARCHIVE CONFLICT: ${file} changed after preflight; rerun archive`);
+    try {
+      if (await treeDigest(file) !== expected) throw new Error('changed after preflight; rerun archive');
+    } catch (error) {
+      throw new Error(`ARCHIVE CONFLICT: ${file}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
+}
+
+/** Compare captured bytes before any semantic reread can hide the changed path. */
+async function checkCanonicalSnapshots(plan: ArchivePlan): Promise<string | null> {
+  const { workspace, artifacts, richDelta } = plan;
+  if (!richDelta) throw new Error('Canonical archive delta is missing');
+  const currentPath = path.join(workspace.paths.currentSpecs, richDelta.module, 'spec.md');
+  let live: string | null;
+  try { live = await readCurrentDeltaBaseline(workspace, richDelta.module); }
+  catch (error) { throw new Error(`ARCHIVE CONFLICT: ${currentPath}: ${String(error)}`); }
+  if ((live ?? '') !== plan.snapshot.current.get(richDelta.module)) throw new Error(`ARCHIVE CONFLICT: ${currentPath} changed or disappeared after its preflight read`);
+  const snapshots = new Map<string, string>([[workspace.paths.changeIndex, plan.snapshot.index]]);
+  for (const key of ['metadata', 'analysis', 'design', 'spec', 'tasks', 'verification'] as const) {
+    snapshots.set(path.join(workspace.codespecDir, artifacts.metadata.artifacts[key]!),
+      key === 'metadata' ? plan.snapshot.metadata : key === 'verification' ? plan.snapshot.verification! : artifacts[key]!);
+  }
+  for (const [file, expected] of snapshots) {
+    let raw: string;
+    try { raw = await fs.readFile(file, 'utf8'); }
+    catch (error) { throw new Error(`ARCHIVE CONFLICT: ${file}: ${String(error)}`); }
+    if (raw !== expected) throw new Error(`ARCHIVE CONFLICT: ${file} changed after its preflight read`);
+  }
+  return live;
 }
 
 function requirementBlock(spec: string, id: string): string | undefined {
@@ -276,6 +303,7 @@ function ensureArchiveGates(artifacts: ChangeArtifacts): void {
 }
 
 export async function preflightArchive(workspace: WorkspaceContext, changeId: string, verificationOverride?: string): Promise<ArchivePlan> {
+  const metadataRaw = await fs.readFile(path.join(workspace.paths.changes, changeId, 'metadata.yaml'), 'utf8');
   const loaded = await loadChangeArtifacts(workspace.paths, changeId);
   const artifacts = verificationOverride === undefined ? loaded : { ...loaded, verification: verificationOverride };
   // Parse according to the artifact contract before checking receipts, so a
@@ -299,7 +327,6 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
     if (issues.length) throw new Error(`Current Specification ${module} 校验失败：${issues.join('; ')}`);
   }
   if (await exists(path.join(workspace.paths.archivedChanges, changeId))) throw new Error(`Archive destination already exists: ${changeId}`);
-  const metadataPath = path.join(workspace.codespecDir, artifacts.metadata.artifacts.metadata);
   const indexRaw = await fs.readFile(workspace.paths.changeIndex, 'utf8');
   const trees = new Map<string, string>();
   for (const file of [
@@ -312,7 +339,7 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
   ]) trees.set(file, await treeDigest(file));
   return {
     changeId: changeId as ContractArchivePlan['changeId'], ready: true, conflict: false, reasons: [], workspace, artifacts, deltas, current, archiveImpact, richDelta,
-    snapshot: { metadata: await fs.readFile(metadataPath, 'utf8'), current: new Map(current), index: indexRaw, trees, verification: loaded.verification },
+    snapshot: { metadata: metadataRaw, current: new Map(current), index: indexRaw, trees, verification: loaded.verification },
   };
 }
 
@@ -542,16 +569,9 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     await acquireArchiveIndexLock(workspace.paths, transactionId); ownsIndexLock = true;
     // Re-read Current under the archive lock; Previous is never validated
     // against an archived Change or a previously prepared projection.
-    const live = await readCurrentDeltaBaseline(workspace, delta.module);
+    const live = await checkCanonicalSnapshots(plan);
     const conflicts = validateCurrentSpecDeltaAgainstCurrent(currentSpecDeltaBaseline(live, delta), delta);
     if (conflicts.length) throw new Error(conflicts.join('; '));
-    if ((live ?? '') !== plan.snapshot.current.get(delta.module)) throw new Error(`ARCHIVE CONFLICT: ${path.join(workspace.paths.currentSpecs, delta.module, 'spec.md')} changed after its preflight read`);
-    const latestArtifacts = await loadChangeArtifacts(workspace.paths, plan.changeId);
-    for (const key of ['analysis', 'design', 'spec', 'tasks', 'metadata', 'verification'] as const) {
-      const changed = key === 'metadata' ? JSON.stringify(latestArtifacts.metadata) !== JSON.stringify(artifacts.metadata)
-        : key === 'verification' ? latestArtifacts.verification !== plan.snapshot.verification : latestArtifacts[key] !== artifacts[key];
-      if (changed) throw new Error(`ARCHIVE CONFLICT: ${path.join(workspace.codespecDir, artifacts.metadata.artifacts[key]!)} changed after its preflight read`);
-    }
     await checkTreeSnapshots(plan.snapshot.trees);
     if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${workspace.paths.changeIndex} changed after preflight`);
     const files: Array<{ target: string; before: string | null; after: string | null }> = [];
@@ -570,7 +590,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     for (const filename of artifactFiles) {
       const target = path.join(archivedPath, filename);
       await add(target, filename === 'metadata.yaml' ? stringifyYaml(metadataForPersistence(archivedMetadata))
-        : filename === 'verification.yaml' ? artifacts.verification : await fs.readFile(path.join(artifacts.changeDir, filename), 'utf8'));
+        : artifacts[filename.split('.')[0] as 'analysis' | 'design' | 'spec' | 'tasks' | 'verification']!);
       steps.set(target, 'archived-change');
     }
     const index = await loadChangeIndex(workspace.paths);
@@ -605,6 +625,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     // Source deletion is journalled file by file. Only an empty Change
     // directory is removed after commit, preserving concurrent author files.
     for (const filename of artifactFiles) await add(path.join(artifacts.changeDir, filename), null);
+    await checkCanonicalSnapshots(plan);
     await checkTreeSnapshots(plan.snapshot.trees);
     if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${workspace.paths.changeIndex} changed after preflight`);
     journal = await createArchiveJournal({

@@ -34,7 +34,7 @@ Current Specification 是唯一行为 baseline。已有 Requirement 使用精确
 
 ### revise、rebase、migrate 与 archive
 
-已批准产物发生语义改变后运行 `codespec revise --change "<CHG-ID>" --reason "intent changed"`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 `codespec rebase --change "<CHG-ID>"`：只刷新 affected Requirement 的 Previous，保留 New/Reason/action；意图仍成立回 DESIGN，assumption、ownership、disposition 或 AC 冲突回 ANALYZE。五件套活动 Change 运行 `codespec migrate --change "<CHG-ID>"`，补齐 OPEN 的 Q-MIGRATION-001 后重新审批。
+已批准产物发生语义改变后运行 `codespec revise --change "<CHG-ID>" --reason "intent changed"`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 `codespec rebase --change "<CHG-ID>"`，在 `design.md` 的 Rebase decision 查看路由：意图仍成立回 DESIGN，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；assumption、ownership、disposition 或 AC 冲突回 ANALYZE，保留旧 analysis revision、baseline 和 Previous，先人工修订 `analysis.yaml`，不要重复 rebase。五件套活动 Change 运行 `codespec migrate --change "<CHG-ID>"`，补齐 OPEN 的 Q-MIGRATION-001 后重新审批。
 
 archive 通过 Requirement-level merge 应用明确的 ADDED/MODIFIED/REMOVED，保留未列出的 Current Requirements，并按工程文件 path 合并。六件套保存到 immutable `codespec/archive/changes/<CHG-ID>/`，事务提交后移除活动 Change。历史五件套不回写。
 
@@ -60,6 +60,6 @@ canonical spec.md 和 Current Specification 的每个 Scenario 都必须包含 E
 2. 只有在 Core 报告 baseline 过期、存在不可安全合并的多 Change 关系或用户明确要求重建基线时才执行 rebase。
 3. 调用 `codespec rebase --change "<CHG-ID>"`。不要自行修改 metadata、revision、baseline、tasks、verification 或 archive 标记。
 4. 若 Core 报告冲突或上下文不明确，列出冲突并停止，请用户裁决；不得猜测合并结果。
-5. 成功后重新运行 status，读取 Core 返回的 route：意图仍有效时回 DESIGN，意图或 Requirement 冲突时回 ANALYZE。确认 revision 已递增且受影响的 Previous 已刷新，然后回到 `codespec-workflow`。
+5. 成功后重新运行 status，读取 `design.md` 中追加的 Rebase decision。两条 route 都递增 Change revision：DESIGN 表示意图仍有效，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；ANALYZE 表示意图或 Requirement 冲突，保留旧 analysis revision、baseline 和 Previous，先人工修订 `analysis.yaml` 解决冲突，不要重复 rebase。然后回到 `codespec-workflow`。
 
 rebase 只负责恢复可开发状态；它不实现代码、不写 Current Specification，也不执行归档。

@@ -5,6 +5,7 @@ import { parse, stringify } from 'yaml';
 import { createGuidanceFixture } from '../helpers/workflow-guidance.js';
 import { createPendingApprovals } from '../../src/core/codespec-workflow/approvals.js';
 import path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { registerStore } from '../../src/core/store/registry.js';
 import { getGlobalDataDir } from '../../src/core/global-config.js';
 
@@ -40,6 +41,62 @@ describe('canonical migration status', () => {
 });
 
 describe('canonical lifecycle guidance', () => {
+  it('keeps an ANALYZE rebase conflict on the analysis editing route', async () => {
+    const f = await createGuidanceFixture('DESIGN');
+    try {
+      f.artifacts.metadata.baseline.stale = true;
+      await f.save();
+      await fs.unlink(path.join(f.paths.currentSpecs, 'MOD-002', 'spec.md'));
+      const rebase = await runCLI(['rebase', '--change', f.changeId], { cwd: f.tempDir });
+      expect(rebase.exitCode, rebase.stdout + rebase.stderr).toBe(0);
+      const rebased = parse(await fs.readFile(path.join(f.artifacts.changeDir, 'metadata.yaml'), 'utf8'));
+      expect(rebased.change).toMatchObject({ status: 'ANALYZE', revision: 2 });
+      expect(rebased.baseline.stale).toBe(true);
+      expect(parse(await fs.readFile(path.join(f.artifacts.changeDir, 'analysis.yaml'), 'utf8')).revision).toBe(1);
+      expect(await fs.readFile(path.join(f.artifacts.changeDir, 'design.md'), 'utf8')).toContain('Rebase decision (revision 2)');
+      for (const args of [['status'], ['instructions', 'analyze']]) {
+        const result = await runCLI([...args, '--change', f.changeId, '--json'], { cwd: f.tempDir });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        const guidance = JSON.parse(result.stdout);
+        expect(guidance.nextAction).toMatchObject({ action: 'edit_analysis', path: f.artifacts.metadata.artifacts.analysis });
+        expect(guidance.gateErrors.length).toBeGreaterThan(0);
+        const before = await snapshotFiles(f.codespecDir);
+        const next = await runCLI(guidance.nextCommand.split(' ').slice(1), { cwd: f.tempDir });
+        expect(next.exitCode, next.stdout + next.stderr).toBe(0);
+        expect(await snapshotFiles(f.codespecDir)).toEqual(before);
+      }
+    } finally { f.cleanup(); }
+  });
+
+  it.each([false, true])('checks PLAN entry before recommending an approved DESIGN transition (empty tasks=%s)', async (empty) => {
+    const f = await createGuidanceFixture('DESIGN');
+    try {
+      if (empty) {
+        const tasks = parse(f.artifacts.tasks!);
+        tasks.tasks = [];
+        f.artifacts.tasks = stringify(tasks);
+        await f.save();
+      }
+      for (const args of [['status'], ['instructions', 'design']]) {
+        const result = await runCLI([...args, '--change', f.changeId, '--json'], { cwd: f.tempDir });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        const guidance = JSON.parse(result.stdout);
+        expect(guidance.nextAction.action).toBe(empty ? 'edit_tasks' : 'transition');
+        if (empty) {
+          expect(guidance.nextAction.path).toBe(f.artifacts.metadata.artifacts.tasks);
+          expect(guidance.traceGaps.join(' ')).toContain('AC-001');
+          expect(guidance.gateErrors.length).toBeGreaterThan(0);
+        }
+        const argv = guidance.nextCommand.match(/"[^"]*"|\S+/g).slice(1).map((part: string) => part.replace(/^"|"$/g, ''));
+        const before = await snapshotFiles(f.codespecDir);
+        const next = await runCLI(argv, { cwd: f.tempDir });
+        expect(next.exitCode, next.stdout + next.stderr).toBe(0);
+        if (empty) expect(await snapshotFiles(f.codespecDir)).toEqual(before);
+        if (!empty) break;
+      }
+    } finally { f.cleanup(); }
+  });
+
   it('reports reviewable analysis and an executable approval then transition command', async () => {
     const f = await createGuidanceFixture();
     try {

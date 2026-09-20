@@ -4,7 +4,7 @@ import type { WorkspaceContext } from '../../core/codespec-workflow/loaders.js';
 import { parseAnalysisDocument } from '../../core/codespec-workflow/analysis.js';
 import { validateAnalysisAgainstWorkspace } from '../../core/codespec-workflow/analysis-consistency.js';
 import { isApprovalCurrent } from '../../core/codespec-workflow/approvals.js';
-import { validateExitGate } from '../../core/codespec-workflow/gates.js';
+import { validateEntryGate, validateExitGate } from '../../core/codespec-workflow/gates.js';
 import { validateChangeTraceability } from '../../core/codespec-workflow/traceability.js';
 import { CHANGE_MIGRATION_GUIDANCE } from '../../core/codespec-workflow/change-migration.js';
 
@@ -19,14 +19,16 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
   const gate = needsMigration
     ? { errors: [`analysis.yaml: 活动五件套 Change 必须显式迁移。${CHANGE_MIGRATION_GUIDANCE}`], warnings: [] }
     : await validateExitGate(workspace, artifacts, state);
+  const planEntry = state === 'DESIGN' && isApprovalCurrent('design', artifacts)
+    ? await validateEntryGate(workspace, artifacts, 'PLAN') : null;
   const currentCommands = Object.values(metadata.requirements).flat()
     .filter((ref) => !metadata.requirements.added.some((added) => added.id === ref.id))
     .map((ref) => `codespec show ${ref.module} --type spec --requirement ${ref.id} --json`);
   const traceGaps: string[] = [];
   const traceWarnings: string[] = [];
-  if (analysis && ['PLAN', 'VERIFY', 'ARCHIVE'].includes(state)) {
+  if (analysis && (planEntry || ['PLAN', 'VERIFY', 'ARCHIVE'].includes(state))) {
     try {
-      const trace = validateChangeTraceability(artifacts, state !== 'PLAN');
+      const trace = validateChangeTraceability(artifacts, !planEntry && state !== 'PLAN');
       traceGaps.push(...trace.issues);
       traceWarnings.push(...trace.warnings ?? []);
     } catch (error) { traceGaps.push(error instanceof Error ? error.message : String(error)); }
@@ -36,12 +38,15 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
   if (needsMigration) {
     nextCommand = `codespec migrate --change ${id}`;
     nextAction = { action: 'migrate', path: metadata.artifacts.metadata, description: '将活动五件套迁移到 ANALYZE，随后人工补齐需求澄清。' };
+  } else if (analysis && state === 'ANALYZE' && analysisErrors.length) {
+    nextCommand = `codespec instructions analyze --change ${id} --json`;
+    nextAction = { action: 'edit_analysis', path: metadata.artifacts.analysis!, description: '人工修订 analysis.yaml：先检查 design.md 中的 Rebase decision（如有），解决分析冲突、revision 缺项和 OPEN question，确认或拒绝 PROPOSED assumption，再继续审批。此命令只读取指导，不编辑文件；未解决分析冲突时不要重复 rebase。' };
   } else if (metadata.baseline.stale) {
     nextCommand = `codespec rebase --change ${id}`;
     nextAction = { action: 'rebase', path: metadata.artifacts.spec, description: '用 Current 执行 semantic rebase，并按返回的 ANALYZE 或 DESIGN route 继续。' };
-  } else if (analysis && state === 'ANALYZE' && analysisErrors.length) {
-    nextCommand = `codespec instructions analyze --change ${id} --json`;
-    nextAction = { action: 'edit_analysis', path: metadata.artifacts.analysis!, description: '人工编辑 analysis.yaml：解决 OPEN question，确认或拒绝 PROPOSED assumption，并补齐门禁缺项。此命令只读取指导，不编辑文件。' };
+  } else if (planEntry && planEntry.errors.length) {
+    nextCommand = `codespec instructions design --change ${id} --json`;
+    nextAction = { action: 'edit_tasks', path: metadata.artifacts.tasks, description: '人工补齐 tasks.yaml 的任务图和 AC 追踪缺口，并解决列出的 PLAN 入口门禁。此命令只读取指导，不编辑文件；入口满足后才能进入 PLAN。' };
   } else if (gate.errors.length === 0 && ['ANALYZE', 'DESIGN', 'PLAN'].includes(state)) {
     const stage = state === 'ANALYZE' ? 'analyze' : state === 'DESIGN' ? 'design' : 'plan';
     if (!isApprovalCurrent(stage, artifacts)) {
@@ -68,7 +73,7 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
     } : null,
     openQuestions: analysis?.openQuestions.filter((question) => question.status === 'OPEN') ?? [],
     assumptions: analysis?.assumptions ?? [],
-    gateErrors: gate.errors, gateWarnings: [...new Set([...gate.warnings, ...traceWarnings])],
+    gateErrors: [...new Set([...gate.errors, ...planEntry?.errors ?? []])], gateWarnings: [...new Set([...gate.warnings, ...planEntry?.warnings ?? [], ...traceWarnings])],
     traceGaps, currentCommands,
     deltaBoundary: { requirementIds: analysis?.requirements.map((requirement) => requirement.id) ?? [], baseline: 'Current', fields: ['Previous', 'New', 'Reason'], actions: ['ADDED', 'MODIFIED', 'REMOVED'] },
     nextCommand, nextAction,
