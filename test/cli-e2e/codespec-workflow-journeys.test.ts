@@ -79,7 +79,7 @@ describe('canonical CodeSpec workflow journeys', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toContain('archive_preflight_failed');
-      await expect(fs.readdir(fixture.paths.archivedChanges)).resolves.toEqual([]);
+      await expect(fs.access(fixture.paths.archivedChanges)).rejects.toThrow();
     } finally {
       fixture.cleanup();
     }

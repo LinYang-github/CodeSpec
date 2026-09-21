@@ -201,7 +201,6 @@ export async function allocateChangeId(
 ): Promise<ChangeId> {
   const ids = [
     ...(await listChangeIds(paths.changes)),
-    ...(await listChangeIds(paths.archivedChanges)),
   ];
 
   let maxSequence = 0;

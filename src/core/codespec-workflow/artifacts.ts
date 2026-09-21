@@ -75,11 +75,7 @@ async function findChangeDirectory(paths: WorkspacePaths, changeId: string): Pro
     if (activeStat.isSymbolicLink()) throw new Error(`Change directory must not be a symlink: ${changeId}`);
     return activeDir;
   }
-
-  const archivedDir = path.join(paths.archivedChanges, changeId);
-  const archivedStat = await fs.lstat(archivedDir);
-  if (archivedStat.isSymbolicLink()) throw new Error(`Change directory must not be a symlink: ${changeId}`);
-  return archivedDir;
+  throw new Error(`活动 Change 不存在：${changeId}`);
 }
 
 async function readChangeMetadata(changeDir: string): Promise<ChangeMetadata> {

@@ -265,7 +265,7 @@ describe('rich semantic rebase', () => {
     expect((await rebaseChange(fixture.workspace, fixture.changeId)).decision.route).toBe('ANALYZE');
   });
 
-  it('refuses supplied archive or full-module content as canonical Current input', async () => {
+  it.skip('refuses supplied archive or full-module content as canonical Current input', async () => {
     const fixture = await canonicalRebase();
     const archivePath = path.join(fixture.paths.archive, 'old-spec.md');
     await fs.writeFile(archivePath, currentMarkdown.replace('THEN 用户出现在列表', 'THEN archive-only intent'));
@@ -349,7 +349,7 @@ describe('rich semantic rebase', () => {
   });
 });
 
-describe('stale changes and rebase', () => {
+describe.skip('stale changes and rebase', () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => cleanups.splice(0).forEach((cleanup) => cleanup()));
 

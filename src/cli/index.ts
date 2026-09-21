@@ -949,10 +949,11 @@ program
       const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
       let ids = options.requirements?.split(',').map((item) => item.trim()).filter(Boolean) ?? [];
       if (!ids.length) {
-        const entries = await fs.readdir(workspace.paths.archivedChanges, { withFileTypes: true }).catch(() => []);
+        const archivedChanges = path.join(workspace.codespecDir, 'archive', 'changes');
+        const entries = await fs.readdir(archivedChanges, { withFileTypes: true }).catch(() => []);
         for (const entry of entries) {
           if (!entry.isDirectory() || !/^CHG-\d{8}-\d{3}$/.test(entry.name)) continue;
-          const raw = await fs.readFile(path.join(workspace.paths.archivedChanges, entry.name, 'metadata.yaml'), 'utf8').catch(() => '');
+          const raw = await fs.readFile(path.join(archivedChanges, entry.name, 'metadata.yaml'), 'utf8').catch(() => '');
           try {
             const metadata = parseYaml(raw) as any;
             ids.push(...Object.values(metadata?.requirements ?? {}).flat().map((item: any) => item.id).filter(Boolean));

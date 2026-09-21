@@ -449,7 +449,7 @@ async function loadUiWorkspacePaths(projectRoot: string): Promise<UiWorkspacePat
       business: toPosixPath(path.relative(projectRoot, paths.business)),
       changes: relativePrefix(projectRoot, paths.changes),
       specs: relativePrefix(projectRoot, paths.currentSpecs),
-      archivedChanges: relativePrefix(projectRoot, paths.archivedChanges),
+      archivedChanges: relativePrefix(projectRoot, path.join(codespecDir, 'archive', 'changes')),
     };
   } catch {
     return DEFAULT_UI_PATHS;

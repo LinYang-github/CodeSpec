@@ -20,6 +20,25 @@ import {
 } from '../../helpers/codespec-workflow.js';
 
 describe('codespec workflow loaders', () => {
+  it('rejects archive history paths from a canonical code-spec workspace', () => {
+    expect(() => parseWorkspaceConfig({
+      version: 1,
+      schema: 'code-spec',
+      project: { name: 'current-only' },
+      paths: {
+        business: 'business.yaml',
+        changes: 'changes',
+        change_index: 'changes/index.yaml',
+        specs: 'specs',
+        archive: 'archive',
+      },
+      workflow: { multiple_active_changes: true },
+      requirements: { id_format: '{module}-REQ-{sequence:03d}' },
+      changes: { id_format: 'CHG-{date}-{sequence:03d}' },
+      archive: { update_index: true, require_verification: true, conflict_strategy: 'optimistic' },
+    })).toThrow(/archive/i);
+  });
+
   it('loads the current graph from business.yaml and module interface.yaml files', async () => {
     const fixture = await createWorkflowFixture({ configOverrides: { paths: { business: 'business.yaml' } } });
     afterEach(fixture.cleanup);
@@ -103,9 +122,7 @@ describe('codespec workflow loaders', () => {
           business: 'catalog/business.md',
           changes: 'active-changes',
           change_index: 'nav/index.yaml',
-          archive: 'records',
           specs: 'records/specs',
-          archived_changes: 'records/changes',
         },
       },
     });
@@ -276,20 +293,16 @@ describe('codespec workflow loaders', () => {
     expect(artifacts.analysis).toContain('problem: Recover a declined payment without losing the order');
   });
 
-  it('loads historical archived five-artifact Changes without rewriting metadata', async () => {
+  it('does not resolve a Change from archive history', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
     await writeChangeArtifacts(fixture);
     const activeDir = path.join(fixture.paths.changes, fixture.changeId);
     const archivedDir = path.join(fixture.paths.archivedChanges, fixture.changeId);
-    const before = await fs.readFile(path.join(activeDir, 'metadata.yaml'), 'utf8');
+    await fs.mkdir(path.dirname(archivedDir), { recursive: true });
     await fs.rename(activeDir, archivedDir);
 
-    const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
-
-    expect(artifacts.changeDir).toBe(archivedDir);
-    expect(artifacts.analysis).toBeNull();
-    await expect(fs.readFile(path.join(archivedDir, 'metadata.yaml'), 'utf8')).resolves.toBe(before);
+    await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toThrow(/活动 Change 不存在/);
   });
 
   it('does not downgrade a declared but missing analysis artifact to null', async () => {
@@ -314,7 +327,6 @@ describe('codespec workflow loaders', () => {
     ].join('\n'));
     const workspace = await loadWorkspace(fixture.codespecDir);
     expect(path.relative(fixture.codespecDir, workspace.paths.currentSpecs)).toBe('specs');
-    expect(path.relative(fixture.codespecDir, workspace.paths.archivedChanges)).toBe(path.join('archive', 'changes'));
   });
 
   it('loads an explicitly declared design.md at Level 1 instead of forcing inline design', async () => {

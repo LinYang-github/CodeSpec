@@ -8,10 +8,8 @@ export interface WorkspacePaths {
   configuration: string;
   changes: string;
   changeIndex: string;
-  archive: string;
   currentSpecs: string;
   transactions: string;
-  archivedChanges: string;
 }
 
 function resolveConfiguredPath(codespecDir: string, configuredPath: string, label: string): string {
@@ -47,17 +45,11 @@ export function getWorkspacePaths(codespecDir: string, config: WorkspaceConfig):
     ),
     changes: resolveConfiguredPath(codespecDir, config.paths.changes, 'changes'),
     changeIndex: resolveConfiguredPath(codespecDir, config.paths.change_index, 'change_index'),
-    archive: resolveConfiguredPath(codespecDir, config.paths.archive ?? 'archive', 'archive'),
     currentSpecs: resolveConfiguredPath(codespecDir, config.paths.specs, 'specs'),
     transactions: resolveConfiguredPath(
       codespecDir,
       config.paths.transactions ?? '.transactions',
       'transactions'
-    ),
-    archivedChanges: resolveConfiguredPath(
-      codespecDir,
-      config.paths.archived_changes ?? 'archive/changes',
-      'archived_changes'
     ),
   };
 }

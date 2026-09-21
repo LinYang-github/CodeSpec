@@ -11,7 +11,10 @@ import { cleanupTempPath } from './temp-cleanup.js';
 export interface WorkflowFixture {
   tempDir: string;
   codespecDir: string;
-  paths: ReturnType<typeof getWorkspacePaths>;
+  paths: ReturnType<typeof getWorkspacePaths> & {
+    archive: string;
+    archivedChanges: string;
+  };
   workspace: {
     codespecDir: string;
     config: WorkspaceConfig;
@@ -31,9 +34,7 @@ const DEFAULT_CONFIG: WorkspaceConfig = parseWorkspaceConfig({
     business: 'business.md',
     changes: 'changes',
     change_index: 'changes/index.yaml',
-    archive: 'archive',
     specs: 'specs',
-    archived_changes: 'archive/changes',
   },
   workflow: { multiple_active_changes: true },
   requirements: { id_format: '{module}-REQ-{sequence:03d}' },
@@ -218,12 +219,14 @@ export async function createWorkflowFixture(options?: {
     } : {}),
     ...options?.configOverrides,
   });
-  const paths = getWorkspacePaths(codespecDir, config);
+  const paths = {
+    ...getWorkspacePaths(codespecDir, config),
+    archive: path.join(codespecDir, 'archive'),
+    archivedChanges: path.join(codespecDir, 'archive', 'changes'),
+  };
 
   await fs.mkdir(paths.changes, { recursive: true });
-  await fs.mkdir(paths.archive, { recursive: true });
   await fs.mkdir(paths.currentSpecs, { recursive: true });
-  await fs.mkdir(paths.archivedChanges, { recursive: true });
   await fs.mkdir(path.dirname(paths.business), { recursive: true });
   await fs.mkdir(path.dirname(paths.changeIndex), { recursive: true });
   if (options?.v1) {

@@ -135,6 +135,25 @@ async function validateCurrentModuleLayout(workspace: WorkspaceContext, moduleId
         throw new Error(`当前模块目录 ${moduleId} 只能包含 spec.md、interface.yaml、api.yaml：${entry.name}`);
       }
       if (entry.isSymbolicLink()) throw new Error(`当前模块文件不得是软链接：${moduleId}/${entry.name}`);
+      if (!entry.isFile()) throw new Error(`当前模块文件必须是普通文件：${moduleId}/${entry.name}`);
+    }
+  }
+}
+
+/** Existing module sources cannot be reconstructed by an archive. */
+async function validateCurrentArchiveSources(workspace: WorkspaceContext): Promise<void> {
+  const business = parseBusinessRegistry(parseYaml(await fs.readFile(workspace.paths.business, 'utf8')));
+  await validateCurrentModuleLayout(workspace, business.modules.map((module) => module.id));
+  for (const module of business.modules) {
+    for (const filename of ['spec.md', 'interface.yaml'] as const) {
+      const file = path.join(workspace.paths.currentSpecs, module.id, filename);
+      const stat = await fs.lstat(file).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!stat) {
+        throw new Error(`当前模块 ${module.id} 缺少 ${filename}，无法归档`);
+      }
     }
   }
 }
@@ -306,8 +325,10 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
   const metadataRaw = await fs.readFile(path.join(workspace.paths.changes, changeId, 'metadata.yaml'), 'utf8');
   const loaded = await loadChangeArtifacts(workspace.paths, changeId);
   const artifacts = verificationOverride === undefined ? loaded : { ...loaded, verification: verificationOverride };
-  // Parse according to the artifact contract before checking receipts, so a
-  // whole Current document cannot reach the canonical module write path.
+  if (artifacts.metadata.artifacts.proposal || !artifacts.metadata.artifacts.analysis || !artifacts.metadata.artifacts.design) {
+    throw new Error('归档仅支持六件套 Current Change');
+  }
+  await validateCurrentArchiveSources(workspace);
   const { impact: archiveImpact, deltas, richDelta, current, issues: impactIssues } = await validateChangeArchiveImpact(workspace, artifacts);
   if (impactIssues.length) {
     const conflicts = impactIssues.filter((issue) => issue.startsWith('ARCHIVE CONFLICT:'));
@@ -315,11 +336,10 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
     throw new Error(`归档影响映射校验失败：${impactIssues.join('; ')}`);
   }
   ensureArchiveGates(artifacts);
-  if (!artifacts.metadata.artifacts.proposal) {
-    const errors = await validateCurrentVerificationArtifacts(workspace, artifacts);
-    if (errors.length) throw new Error(`当前 Change 验证预检失败：${errors.join('; ')}`);
-  }
-  const regressionIssues = richDelta ? [] : validateArchiveRegressionEvidence(archiveImpact, parseVerificationDocument(artifacts.verification));
+  const errors = await validateCurrentVerificationArtifacts(workspace, artifacts);
+  if (errors.length) throw new Error(`当前 Change 验证预检失败：${errors.join('; ')}`);
+  if (!richDelta) throw new Error('归档仅支持六件套 Current Change');
+  const regressionIssues: string[] = [];
   if (regressionIssues.length) throw new Error(regressionIssues.join('; '));
   await validateRelations(workspace, artifacts.metadata);
   for (const [module, content] of richDelta ? [] : current) {
@@ -348,6 +368,8 @@ function validatePreparedCurrentSpec(module: string, spec: string): void {
 
 export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive> {
   if (plan.richDelta) return prepareCurrentArchive(plan);
+  throw new Error('归档仅支持六件套 Current Change');
+  /* c8 ignore start -- retained temporarily for the next source cleanup. */
   const changedModules = new Set(plan.deltas.map((delta) => delta.module));
   const specs = new Map([...plan.current].filter(([module]) => changedModules.has(module as RequirementDelta['module'])));
   for (const delta of plan.deltas) specs.set(delta.module, applyDelta(specs.get(delta.module) ?? '', delta));
@@ -366,6 +388,7 @@ export async function prepareArchive(plan: ArchivePlan): Promise<PreparedArchive
   archivedMetadata.change.status = 'ARCHIVED';
   archivedMetadata.archive.archived_at = new Date().toISOString();
   return { plan, specs, archivedMetadata };
+  /* c8 ignore stop */
 }
 
 async function prepareCurrentArchive(plan: ArchivePlan): Promise<PreparedArchive> {
@@ -422,6 +445,8 @@ async function copyTree(source: string, destination: string): Promise<void> {
 
 export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveResult> {
   if (prepared.plan.richDelta) return commitCurrentArchive(prepared);
+  throw new Error('归档仅支持六件套 Current Change');
+  /* c8 ignore start -- retained temporarily for the next source cleanup. */
   const { plan, specs } = prepared;
   const token = `.archive-${plan.changeId}-${process.pid}-${Date.now()}`;
   const stage = path.join(plan.workspace.paths.transactions, token);
@@ -487,12 +512,12 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     for (const [module] of specs) await install(`current-spec:${module}`, path.join(stage, 'specs', module), path.join(plan.workspace.paths.currentSpecs, module));
     await install('change-index', path.join(stage, 'index.yaml'), plan.workspace.paths.changeIndex);
     await fs.rm(plan.artifacts.changeDir, { recursive: true, force: true });
-    await fs.rm(plan.workspace.paths.archive, { recursive: true, force: true });
+    await fs.rm(path.join(plan.workspace.codespecDir, 'archive'), { recursive: true, force: true });
     committed = true;
     const staleChanges = await detectStaleChanges(plan.workspace, plan.deltas.map((d) => d.id));
     return { changeId: plan.changeId, archivedPath, staleChanges, requirementIds: plan.deltas.map((d) => d.id) };
   } catch (error) {
-    if (committed) throw new Error(`${error instanceof Error ? error.message : String(error)} (archive committed; stale scan requires manual retry)`);
+    if (committed) throw new Error(`${String(error)} (archive committed; stale scan requires manual retry)`);
     const rollbackErrors: string[] = [];
     for (const dest of installed) await fs.rm(dest, { recursive: true, force: true }).catch((rollbackError) => rollbackErrors.push(`remove ${dest}: ${String(rollbackError)}`));
     for (let i = destinations.length - 1; i >= 0; i -= 1) {
@@ -506,12 +531,13 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     const suffix = rollbackErrors.length
       ? ` (rollback incomplete; recovery stage preserved: ${stage}; backup preserved: ${backup}; ${rollbackErrors.join('; ')})`
       : ' (transaction rolled back)';
-    throw new Error(`${error instanceof Error ? error.message : String(error)}${suffix}`);
+    throw new Error(`${String(error)}${suffix}`);
   } finally {
     if (rollbackComplete || committed) { await fs.rm(stage, { recursive: true, force: true }).catch(() => undefined); await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined); }
     try { if (ownsIndexLock) await releaseArchiveIndexLock(plan.workspace.paths, transactionId); }
     finally { if (ownsLock) await fs.rm(lock, { recursive: true, force: true }).catch(() => undefined); }
   }
+  /* c8 ignore stop */
 }
 
 async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveResult> {
@@ -559,7 +585,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${workspace.paths.changeIndex} changed after preflight`);
     journal = await createArchiveJournal({
       paths: workspace.paths, transactionId, files,
-      cleanupAfterCommit: [workspace.paths.archive],
+      cleanupAfterCommit: [path.join(workspace.codespecDir, 'archive')],
       cleanupEmptyAfterCommit: [artifacts.changeDir], ownerPid: process.pid,
     });
     await installArchiveJournal(journal, async (target) => { await archiveTestHooks?.beforeCommitStep?.(steps.get(target) ?? 'active-change'); });

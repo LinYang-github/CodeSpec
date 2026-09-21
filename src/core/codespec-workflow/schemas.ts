@@ -144,7 +144,19 @@ const workspaceConfigSchema = z
       commands: z.partialRecord(controlledVerificationKindSchema, verificationCommandDeclarationSchema),
     }).strict().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((config, context) => {
+    if (config.schema !== 'code-spec') return;
+    for (const field of ['archive', 'archived_changes'] as const) {
+      if (config.paths[field] !== undefined) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['paths', field],
+          message: `code-spec 不支持历史归档路径 ${field}`,
+        });
+      }
+    }
+  });
 
 const businessModuleSchema = z
   .object({

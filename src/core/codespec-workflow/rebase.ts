@@ -98,7 +98,9 @@ function decideRebase(
 
 export async function rebaseChange(workspace: WorkspaceContext, changeId: string, currentSpecs: string[] = []): Promise<RebaseResult> {
   const initial = await loadChangeArtifacts(workspace.paths, changeId);
-  if (initial.metadata.artifacts.proposal) return rebaseLegacyChange(workspace, changeId, currentSpecs);
+  if (initial.metadata.artifacts.proposal || !initial.metadata.artifacts.analysis || !initial.metadata.artifacts.design) {
+    throw new Error('重基线仅支持六件套 Current Change');
+  }
   return withChangeIndexLock(workspace.paths, async () => {
     const artifacts = await loadChangeArtifacts(workspace.paths, changeId);
     const metadata = artifacts.metadata;
