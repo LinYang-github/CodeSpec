@@ -1156,7 +1156,11 @@ async function openArchiveConfirmation(candidate) {
     const actions = element('div', 'card-actions archive-confirmation-actions');
     const confirmButton = button('确认归档', 'primary-button', async () => {
       try {
-        const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, { method: 'POST' });
+        const result = await api(`/api/archive/${encodeURIComponent(preview.changeId)}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ confirmationToken: preview.confirmationToken }),
+        });
         index = result.index;
         backdrop.remove();
         navigateTo(returnScreen);

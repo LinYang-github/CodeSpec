@@ -1,5 +1,6 @@
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -73,6 +74,16 @@ function archivePreview(plan: Awaited<ReturnType<typeof preflightArchive>>, proj
   };
 }
 
+async function readJsonBody(request: import('node:http').IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.from(chunk));
+  const text = Buffer.concat(chunks).toString('utf8');
+  if (!text) return {};
+  const value = JSON.parse(text);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_json_body');
+  return value as Record<string, unknown>;
+}
+
 export async function startUiServer(options: {
   projectRoot: string;
   assetsDir: string;
@@ -80,6 +91,7 @@ export async function startUiServer(options: {
   revealDocument?: (filePath: string) => Promise<void>;
 }): Promise<UiServer> {
   let index = await buildUiIndex(options.projectRoot);
+  const pendingArchives = new Map<string, { changeId: string; expiresAt: number; plan: Awaited<ReturnType<typeof preflightArchive>> }>();
   const assetsDir = path.resolve(options.assetsDir);
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
@@ -121,13 +133,28 @@ export async function startUiServer(options: {
         return;
       }
       try {
-        const workspace = await loadWorkspace(path.join(options.projectRoot, 'codespec'));
-        const plan = await preflightArchive(workspace, changeId);
         if (request.method === 'GET') {
-          sendJson(response, 200, archivePreview(plan, options.projectRoot));
+          const workspace = await loadWorkspace(path.join(options.projectRoot, 'codespec'));
+          const plan = await preflightArchive(workspace, changeId);
+          const confirmationToken = randomUUID();
+          pendingArchives.set(confirmationToken, { changeId, expiresAt: Date.now() + 5 * 60_000, plan });
+          sendJson(response, 200, { ...archivePreview(plan, options.projectRoot), confirmationToken });
           return;
         }
-        const result = await commitArchive(await prepareArchive(plan));
+        const body = await readJsonBody(request);
+        const token = typeof body.confirmationToken === 'string' ? body.confirmationToken : undefined;
+        if (token === undefined) {
+          sendJson(response, 409, { error: 'archive_confirmation_required' });
+          return;
+        }
+        const pending = pendingArchives.get(token);
+        if (!pending || pending.changeId !== changeId || pending.expiresAt <= Date.now()) {
+          pendingArchives.delete(token);
+          sendJson(response, 409, { error: 'archive_confirmation_required' });
+          return;
+        }
+        pendingArchives.delete(token);
+        const result = await commitArchive(await prepareArchive(pending.plan));
         index = await buildUiIndex(options.projectRoot);
         sendJson(response, 200, { result, index });
       } catch (error) {
