@@ -258,6 +258,7 @@ const changeMetadataSchema = z
         created_at: isoDateTime.nullable(),
         commit: z.string().regex(/^[0-9a-f]{7,64}$/u).nullable().optional().default(null),
         working_tree_fingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u).optional().default(`sha256:${'0'.repeat(64)}`),
+        current_fingerprint: z.string().regex(/^[0-9a-f]{64}$/u),
         stale: z.boolean(),
         modules: z.record(businessModuleIdSchema, moduleBaselineSchema),
       })

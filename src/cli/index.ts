@@ -960,7 +960,7 @@ program
           } catch { /* malformed archive is reported by archive validation */ }
         }
       }
-      const stale = await detectStaleChanges(workspace, [...new Set(ids)]);
+      const stale = await detectStaleChanges(workspace);
       console.log(JSON.stringify({ stale }, null, 2));
     } catch (error) {
       failWithError(error, { enabled: true, fallbackCode: 'stale_error' });

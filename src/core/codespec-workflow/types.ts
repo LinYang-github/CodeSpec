@@ -114,6 +114,7 @@ export interface ChangeMetadata {
     created_at: string | null;
     commit: string | null;
     working_tree_fingerprint: string;
+    current_fingerprint: string;
     stale: boolean;
     modules: Record<
       BusinessModuleId,

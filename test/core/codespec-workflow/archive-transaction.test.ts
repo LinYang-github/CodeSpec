@@ -14,7 +14,7 @@ import type { ArchiveImpact } from '../../../src/core/codespec-workflow/archive-
 import { ensureCliBuilt, runCLI } from '../../helpers/run-cli.js';
 import { createArchiveJournal } from '../../../src/core/codespec-workflow/transaction-journal.js';
 import { parseCurrentSpecification, renderCurrentSpecification } from '../../../src/core/codespec-workflow/current-spec-model.js';
-import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
+import { loadChangeArtifacts, loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { createCurrentArchiveFixture, modification, requirement, writeCanonicalChange } from '../../helpers/current-archive.js';
 import { snapshotDirectory } from '../../helpers/fs-snapshot.js';
 import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
@@ -91,6 +91,20 @@ async function expectRestoredWithSafetyRecords(paths: WorkspacePaths, before: Ma
 }
 
 describe('six-artifact canonical Requirement archive', () => {
+  it('marks every other active Change stale after archive', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      await writeCanonicalChange(fixture, modification());
+      const secondChangeId = 'CHG-20260901-002';
+      await writeCanonicalChange(fixture, modification(), secondChangeId);
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      await archiveChange(workspace, fixture.changeId);
+      expect((await loadChangeArtifacts(workspace.paths, secondChangeId)).metadata.baseline.stale).toBe(true);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it.each(['after-index-lock'])('recovers an interrupted child-process archive at %s and releases only its abandoned index lock before retry', async (boundary) => {
     const fixture = await createCurrentArchiveFixture();
     await ensureCliBuilt();

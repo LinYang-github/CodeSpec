@@ -11,11 +11,13 @@ import type { WorkspaceContext } from './loaders.js';
 import { parseAnalysisDocument } from './analysis.js';
 import { findCurrentRequirement, hashRequirementSnapshot, parseCurrentSpecification } from './current-spec-model.js';
 import { parseCurrentSpec } from './current-spec-parser.js';
+import { readCurrentState } from './current-state.js';
 
 export interface Baseline {
   created_at: string;
   commit: string | null;
   working_tree_fingerprint: string;
+  current_fingerprint: string;
   stale: boolean;
   modules: ChangeMetadata['baseline']['modules'];
 }
@@ -52,6 +54,7 @@ export async function captureRepositoryBaseline(projectRoot: string): Promise<Pi
 }
 export async function captureBaseline(workspace: WorkspaceContext, metadata: ChangeMetadata, authoredSpecs: Record<string, string> = {}): Promise<Baseline> {
   const repository = await captureRepositoryBaseline(path.dirname(workspace.codespecDir));
+  const current = await readCurrentState(workspace);
   const analysis = metadata.artifacts.analysis && !metadata.artifacts.proposal
     ? parseAnalysisDocument(parseYaml(await fs.readFile(path.join(workspace.codespecDir, metadata.artifacts.analysis), 'utf8')))
     : undefined;
@@ -100,5 +103,5 @@ export async function captureBaseline(workspace: WorkspaceContext, metadata: Cha
     }
     modules[selected.module] = { outcome: selected.outcome, latest_change, requirement_ids, spec_hash: digest(analysis ? JSON.stringify(requirements) : content), requirements };
   }
-  return { created_at: new Date().toISOString(), ...repository, stale: false, modules };
+  return { created_at: new Date().toISOString(), ...repository, current_fingerprint: current.fingerprint, stale: false, modules };
 }

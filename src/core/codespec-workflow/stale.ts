@@ -5,10 +5,11 @@ import { parseChangeMetadata } from './schemas.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ChangeMetadata } from './types.js';
 import { metadataForPersistence } from './metadata-persistence.js';
+import { readCurrentState } from './current-state.js';
 
 const active = new Set(['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE']);
-export async function detectStaleChanges(workspace: WorkspaceContext, archivedRequirementIds: string[]): Promise<string[]> {
-  const affected: string[] = []; const archived = new Set(archivedRequirementIds);
+export async function detectStaleChanges(workspace: WorkspaceContext): Promise<string[]> {
+  const affected: string[] = []; const current = await readCurrentState(workspace);
   let entries;
   try { entries = await fs.readdir(workspace.paths.changes, { withFileTypes: true }); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error; }
@@ -19,8 +20,7 @@ export async function detectStaleChanges(workspace: WorkspaceContext, archivedRe
     catch (error) { throw new Error(`Cannot assess canonical Change ${entry.name}: ${error instanceof Error ? error.message : String(error)}`); }
     if (metadata.change.id !== entry.name) throw new Error(`Change directory ${entry.name} does not match metadata change.id ${metadata.change.id}`);
     if (!active.has(metadata.change.status)) continue;
-    const ids = Object.values(metadata.requirements).flat().map((item) => item.id);
-    if (!ids.some((id) => archived.has(id))) continue;
+    if (metadata.baseline.current_fingerprint === current.fingerprint) continue;
     metadata.baseline.stale = true;
     metadata.change.updated_at = new Date().toISOString();
     const temporary = `${file}.${process.pid}.tmp`; await fs.writeFile(temporary, stringifyYaml(metadataForPersistence(metadata))); await fs.rename(temporary, file);

@@ -8,10 +8,12 @@ import { loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import { hashRequirementSnapshot, parseRequirementSnapshot } from '../../../src/core/codespec-workflow/current-spec-model.js';
 import { createWorkflowFixture } from '../../helpers/codespec-workflow.js';
 import { currentMarkdown, requirementMarkdown } from '../../helpers/rich-requirement.js';
+import { createCurrentArchiveFixture } from '../../helpers/current-archive.js';
+import { readCurrentState } from '../../../src/core/codespec-workflow/current-state.js';
 
 describe('canonical Requirement semantic baselines', () => {
   async function setup() {
-    const fixture = await createWorkflowFixture();
+    const fixture = await createWorkflowFixture({ v1: true });
     afterEach(fixture.cleanup);
     const metadata = fixture.metadataAt('DESIGN');
     delete metadata.artifacts.proposal;
@@ -66,4 +68,23 @@ describe('canonical Requirement semantic baselines', () => {
 
 it('keeps the Task 6 absence marker independent of the snapshot refresh path', () => {
   expect(hashAbsentRequirement('MOD-001-REQ-001')).toBe('32f1160ca43cbba82071e8b1179166961629d05cf963e2b5d7ce823e0dac76dd');
+});
+
+describe('complete Current-state fingerprint', () => {
+  it.each([
+    ['interface.yaml', (fixture: Awaited<ReturnType<typeof createCurrentArchiveFixture>>) => path.join(fixture.paths.currentSpecs, 'MOD-002', 'interface.yaml')],
+    ['api.yaml', (fixture: Awaited<ReturnType<typeof createCurrentArchiveFixture>>) => path.join(fixture.paths.currentSpecs, 'MOD-002', 'api.yaml')],
+    ['business.yaml', (fixture: Awaited<ReturnType<typeof createCurrentArchiveFixture>>) => fixture.paths.business],
+    ['configuration.yaml', (fixture: Awaited<ReturnType<typeof createCurrentArchiveFixture>>) => fixture.paths.configuration],
+  ])('changes the fingerprint when %s changes', async (_name, resolveFile) => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const before = await readCurrentState(workspace);
+      await fs.appendFile(resolveFile(fixture), '\n# changed\n');
+      expect((await readCurrentState(workspace)).fingerprint).not.toBe(before.fingerprint);
+    } finally {
+      fixture.cleanup();
+    }
+  });
 });

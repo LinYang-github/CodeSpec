@@ -514,7 +514,7 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
     await fs.rm(plan.artifacts.changeDir, { recursive: true, force: true });
     await fs.rm(path.join(plan.workspace.codespecDir, 'archive'), { recursive: true, force: true });
     committed = true;
-    const staleChanges = await detectStaleChanges(plan.workspace, plan.deltas.map((d) => d.id));
+    const staleChanges = await detectStaleChanges(plan.workspace);
     return { changeId: plan.changeId, archivedPath, staleChanges, requirementIds: plan.deltas.map((d) => d.id) };
   } catch (error) {
     if (committed) throw new Error(`${String(error)} (archive committed; stale scan requires manual retry)`);
@@ -593,7 +593,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     committed = true;
     await recoverPendingTransactions(workspace.paths, journal.transactionId);
     const requirementIds = delta.requirements.map((entry) => entry.id);
-    return { changeId: plan.changeId, archivedPath, requirementIds, staleChanges: await detectStaleChanges(workspace, requirementIds) };
+    return { changeId: plan.changeId, archivedPath, requirementIds, staleChanges: await detectStaleChanges(workspace) };
   } catch (error) {
     if (committed) throw new Error(`${error instanceof Error ? error.message : String(error)} (archive committed; recovery or stale scan requires retry)`);
     if (journal) {

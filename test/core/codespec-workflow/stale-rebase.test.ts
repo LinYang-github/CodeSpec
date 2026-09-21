@@ -20,7 +20,7 @@ vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal
 afterEach(() => vi.restoreAllMocks());
 
 async function canonicalRebase(action: 'ADDED' | 'MODIFIED' | 'REMOVED' = 'MODIFIED', assumption = false) {
-  const fixture = await createWorkflowFixture();
+  const fixture = await createWorkflowFixture({ v1: true });
   afterEach(fixture.cleanup);
   const dir = path.join(fixture.paths.changes, fixture.changeId);
   const file = (name: string) => path.join(dir, name);

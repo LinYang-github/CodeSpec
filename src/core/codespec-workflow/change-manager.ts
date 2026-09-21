@@ -105,6 +105,7 @@ async function buildMetadata(
     baseline: {
       created_at: timestamp,
       ...repositoryBaseline,
+      current_fingerprint: '0'.repeat(64),
       stale: false,
       modules: {},
     },
