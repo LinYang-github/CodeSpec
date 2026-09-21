@@ -57,12 +57,10 @@ import { transitionChange } from '../core/codespec-workflow/state-machine.js';
 import { approveChangeStage } from '../core/codespec-workflow/approvals.js';
 import { migrateLegacyWorkspace } from '../core/codespec-workflow/migration.js';
 import { migrateActiveChangeAnalysis } from '../core/codespec-workflow/change-migration.js';
-import { detectStaleChanges } from '../core/codespec-workflow/stale.js';
 import { archiveChange, commitArchive, preflightArchive, prepareArchive } from '../core/codespec-workflow/archive-transaction.js';
 import { parseVerificationDocument } from '../core/codespec-workflow/verification.js';
 import { allocateRequirementIds } from '../core/codespec-workflow/requirement-allocator.js';
 import type { ApprovalStage, ChangeStatus } from '../core/codespec-workflow/types.js';
-import { parse as parseYaml } from 'yaml';
 import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
 import { maybeShowCompletionTip } from '../core/completion-tip.js';
 import { COMMON_FLAGS } from '../core/completions/shared-flags.js';
@@ -671,7 +669,6 @@ program
   .option('--all', '校验全部 Change 和 Spec')
   .option('--changes', '校验全部 Change')
   .option('--specs', '校验全部 Spec')
-  .option('--archived', '校验已归档 Change 的任务是否全部完成（用于提交前 lint）')
   .option('--type <type>', '条目类型不明确时指定：change|spec')
   .option('--strict', '启用严格校验模式')
   .option('--json', '以 JSON 输出校验结果')
@@ -679,7 +676,7 @@ program
   .option('--no-interactive', '禁用交互式提示')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
-  .action(async (itemName?: string, options?: { all?: boolean; changes?: boolean; specs?: boolean; archived?: boolean; type?: string; strict?: boolean; json?: boolean; noInteractive?: boolean; concurrency?: string; store?: string; storePath?: string }) => {
+  .action(async (itemName?: string, options?: { all?: boolean; changes?: boolean; specs?: boolean; type?: string; strict?: boolean; json?: boolean; noInteractive?: boolean; concurrency?: string; store?: string; storePath?: string }) => {
     try {
       const validateCommand = new ValidateCommand();
       await validateCommand.execute(itemName, options);
@@ -822,15 +819,14 @@ program
   .command('rebase')
   .description('对过期的 canonical Change 执行语义 rebase')
   .requiredOption('--change <id>', 'Canonical Change ID')
-  .option('--current-spec <path>', '当前 Spec 路径', (value, previous: string[] = []) => [...previous, value], [])
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   .addOption(hiddenStorePathOption())
-  .action(async (options: { change: string; currentSpec: string[]; store?: string; storePath?: string }) => {
+  .action(async (options: { change: string; store?: string; storePath?: string }) => {
     try {
       const root = await resolveRootForCommand(options, { json: true });
       if (!root) return;
       const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
-      const result = await rebaseChange(workspace, options.change, options.currentSpec);
+      const result = await rebaseChange(workspace, options.change);
       console.log(JSON.stringify(result, null, 2));
     } catch (error) {
       failWithError(error, { enabled: true, fallbackCode: 'rebase_error' });
@@ -932,38 +928,6 @@ program
       console.log(JSON.stringify({ changeId: options.change, status: result.change.status }, null, 2));
     } catch (error) {
       failWithError(error, { enabled: true, fallbackCode: 'abandon_error' });
-      process.exit(1);
-    }
-  });
-
-program
-  .command('detect-stale')
-  .description('检测与已归档 Requirement 重叠的活动 Change')
-  .option('--requirements <ids>', '逗号分隔的已归档 Requirement ID；默认使用全部已归档 Change')
-  .option('--store <id>', STORE_OPTION_DESCRIPTION)
-  .addOption(hiddenStorePathOption())
-  .action(async (options: { requirements?: string; store?: string; storePath?: string }) => {
-    try {
-      const root = await resolveRootForCommand(options, { json: true });
-      if (!root) return;
-      const workspace = await loadWorkspace(path.join(root.path, 'codespec'));
-      let ids = options.requirements?.split(',').map((item) => item.trim()).filter(Boolean) ?? [];
-      if (!ids.length) {
-        const archivedChanges = path.join(workspace.codespecDir, 'archive', 'changes');
-        const entries = await fs.readdir(archivedChanges, { withFileTypes: true }).catch(() => []);
-        for (const entry of entries) {
-          if (!entry.isDirectory() || !/^CHG-\d{8}-\d{3}$/.test(entry.name)) continue;
-          const raw = await fs.readFile(path.join(archivedChanges, entry.name, 'metadata.yaml'), 'utf8').catch(() => '');
-          try {
-            const metadata = parseYaml(raw) as any;
-            ids.push(...Object.values(metadata?.requirements ?? {}).flat().map((item: any) => item.id).filter(Boolean));
-          } catch { /* malformed archive is reported by archive validation */ }
-        }
-      }
-      const stale = await detectStaleChanges(workspace);
-      console.log(JSON.stringify({ stale }, null, 2));
-    } catch (error) {
-      failWithError(error, { enabled: true, fallbackCode: 'stale_error' });
       process.exit(1);
     }
   });

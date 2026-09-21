@@ -61,18 +61,6 @@ export class ValidateCommand {
 
     const interactive = isInteractive(options);
 
-    // Archived-task linting is its own scope: it checks task completion of
-    // already-archived changes, not delta specs (whose operations are already
-    // applied). Handled before the other bulk flags so `--archived` is explicit
-    // and never alters an existing invocation's behavior (#205).
-    if (options.archived) {
-      await this.runArchivedTaskValidation(root, {
-        json: !!options.json,
-        noInteractive: resolveNoInteractive(options),
-      });
-      return;
-    }
-
     // Handle bulk flags first
     if (bulk) {
       await this.runBulkValidation(root, {

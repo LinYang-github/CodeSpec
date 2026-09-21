@@ -302,6 +302,19 @@ describe('codespec CLI e2e basics', () => {
   });
 
   describe('archive requires interactive human confirmation', () => {
+    it('does not register legacy archive and rebase options', async () => {
+      const archived = await runCLI(['validate', '--archived']);
+      const stale = await runCLI(['detect-stale']);
+      const rebase = await runCLI(['rebase', '--change', 'CHG-20260901-001', '--current-spec', 'codespec/specs/MOD-001/spec.md']);
+
+      expect(archived.exitCode).toBe(1);
+      expect(archived.stderr).toMatch(/unknown option/i);
+      expect(stale.exitCode).toBe(1);
+      expect(stale.stderr).toMatch(/unknown command/i);
+      expect(rebase.exitCode).toBe(1);
+      expect(rebase.stderr).toMatch(/unknown option/i);
+    });
+
     // runCLI closes the child's stdin, which is exactly how an AI agent or a
     // CI script invokes the CLI.
     async function prepareChange(options: { tasksComplete?: boolean } = {}): Promise<string> {

@@ -96,7 +96,7 @@ function decideRebase(
   return { strategy: 'semantic-rebase', route, reason: conflicts.size ? [...conflicts].join(' ') : 'Approved intent remains valid; refresh affected Requirement Previous snapshots from live Current.', current_specs: currentPaths, decisions };
 }
 
-export async function rebaseChange(workspace: WorkspaceContext, changeId: string, currentSpecs: string[] = []): Promise<RebaseResult> {
+export async function rebaseChange(workspace: WorkspaceContext, changeId: string): Promise<RebaseResult> {
   const initial = await loadChangeArtifacts(workspace.paths, changeId);
   if (initial.metadata.artifacts.proposal || !initial.metadata.artifacts.analysis || !initial.metadata.artifacts.design) {
     throw new Error('重基线仅支持六件套 Current Change');
@@ -126,9 +126,6 @@ export async function rebaseChange(workspace: WorkspaceContext, changeId: string
       for (const assumption of analysis.assumptions) for (const id of assumption.requirements) modules.add(id.slice(0, id.indexOf('-REQ-')));
     }
     const currentPaths = [...modules].sort().map((module) => path.join(workspace.paths.currentSpecs, module, 'spec.md'));
-    for (const supplied of currentSpecs) {
-      if (!currentPaths.includes(path.resolve(supplied))) throw new Error('Canonical rebase only accepts configured live Current specification paths');
-    }
     const current = new Map<string, CurrentSpecification>();
     const contents: Record<string, string> = {};
     for (const module of [...modules].sort()) {
