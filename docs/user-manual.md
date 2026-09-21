@@ -159,7 +159,7 @@ AI 会检查归档门禁、验证证据和 Spec 影响，然后给出需要你�
 所有 SDD 等级使用同一套生命周期：
 
 ```text
-ANALYZE → DESIGN → PLAN → IMPLEMENT → VERIFY → ARCHIVE → ARCHIVED
+ANALYZE → DESIGN → PLAN → IMPLEMENT → VERIFY → ARCHIVE → 删除活动 Change
 ```
 
 `ABANDONED` 是活动 Change 的终止分支。SDD 等级不会改变生命周期顺序，只会改变每个阶段所需的产物、验证证据和门禁强度。
@@ -281,7 +281,6 @@ codespec rebase --change CHG-20260906-001
 | 查看下一步指导 | `codespec instructions --change <id>` |
 | 校验 Change | `codespec validate <id> --type change` |
 | 校验全部内容 | `codespec validate --all` |
-| 校验已归档任务 | `codespec validate --archived` |
 | 启动 UI | `codespec ui` |
 | 归档 Change | `codespec archive <id>` |
 | 迁移旧工作区 | `codespec migrate --json` |

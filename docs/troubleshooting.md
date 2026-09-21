@@ -93,7 +93,6 @@ Validation checks your specs and changes for structural problems. Read the messa
 codespec validate <name>           # validate one item
 codespec validate --all            # validate everything
 codespec validate --all --strict   # stricter checks, good for CI
-codespec validate --archived       # fail if archived changes have unchecked tasks
 ```
 
 Common causes are a missing required section (like a spec with no scenarios) or a malformed delta header. Fix the file and re-run. The [CLI reference](cli.md#codespec-validate) documents the output format.

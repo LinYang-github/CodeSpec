@@ -35,16 +35,12 @@ describe('canonical code-spec legacy rejection', () => {
 
   it('accepts reordered indented canonical YAML structurally', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codespec-indented-'));
-    fs.mkdirSync(path.join(root, 'codespec', 'archive', 'specs'), { recursive: true });
-    fs.mkdirSync(path.join(root, 'codespec', 'archive', 'changes'), { recursive: true });
     fs.mkdirSync(path.join(root, 'codespec', 'changes'), { recursive: true });
     fs.writeFileSync(path.join(root, 'codespec', 'business.md'), '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Demo | Demo module | Demo work | demo |\n');
     fs.writeFileSync(path.join(root, 'codespec', 'changes', 'index.yaml'), 'version: 1\nchanges: []\n');
     fs.writeFileSync(path.join(root, 'codespec', 'config.yaml'), [
       'paths:',
-      '  archived_changes: archive/changes',
-      '  specs: archive/specs',
-      '  archive: archive',
+      '  specs: specs',
       '  change_index: changes/index.yaml',
       '  changes: changes',
       '  business: business.md',

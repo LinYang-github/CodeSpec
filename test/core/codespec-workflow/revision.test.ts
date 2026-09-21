@@ -155,10 +155,7 @@ describe('semantic revision transaction', () => {
     expect(artifacts.metadata.verification).toEqual({ requirements_verified: false, tests_passed: false, build_passed: false, lint_passed: false, verified_at: null });
     expect(artifacts.metadata.archive.ready).toBe(false);
     expect(artifacts.metadata.gates.verify.satisfied).toBe(false);
-    expect(artifacts.metadata.baseline.modules['MOD-001'].requirement_ids).toEqual(['MOD-001-REQ-001']);
-    expect(artifacts.metadata.baseline.modules['MOD-001'].requirements).toEqual({
-      'MOD-001-REQ-001': '32f1160ca43cbba82071e8b1179166961629d05cf963e2b5d7ce823e0dac76dd',
-    });
+    expect(artifacts.metadata.baseline.current_fingerprint).toMatch(/^[a-f0-9]{64}$/u);
     expect(parseYaml(artifacts.verification)).toEqual({ version: 1, testCases: [] });
     expect(parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes[0]).toMatchObject({ id: fixture.changeId, status: route });
     if (route !== 'ANALYZE') {

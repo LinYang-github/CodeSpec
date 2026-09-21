@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { renderCanonicalWorkspaceConfig } from '../../../src/core/codespec-workflow/default-config.js';
 
 const read = (file: string) => readFileSync(file, 'utf8');
 const root = process.cwd();
@@ -49,7 +50,7 @@ describe('canonical code-spec schema and templates', () => {
   });
 
   it('documents the canonical workspace and multiple active Changes', () => {
-    const config = read(`${root}/codespec/config.yaml`);
+    const config = renderCanonicalWorkspaceConfig('template-test');
     const docs = ['docs/overview.md', 'docs/workflows.md', 'docs/concepts.md', 'docs/cli.md']
       .map((file) => read(`${root}/${file}`)).join('\n');
     expect(config).toContain('multiple_active_changes: true');

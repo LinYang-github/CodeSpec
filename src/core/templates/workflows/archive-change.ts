@@ -12,7 +12,7 @@ ${STORE_SELECTION_GUIDANCE}
 4. UI Change 必须具备真实工程启动命令和浏览器 E2E 标识；归档时 Core 会重新启动工程、等待配置快照中的服务就绪并执行浏览器 E2E。缺少任一条件或执行失败都不得归档。非 UI Change 按既定验证证据执行。
 5. 展示待归档摘要后停止，要求用户在交互式终端运行 \`codespec archive "<CHG-ID>"\` 并亲自确认。不得替用户调用归档，也不得使用 \`--yes\`、\`--json\` 或其他自动化方式绕过确认。确认后 Core 才按 preflightArchive()、prepareArchive()、commitArchive() 和 archiveTransaction() 的顺序执行。
 6. 事务失败时不得保留半完成的 Current Specification 或半移动的 Change；输出失败原因和恢复动作，保留原始 Change 供再次处理。
-7. 成功后检查 \`codespec/archive/changes/<CHG-ID>/\` 的六件套和 Current，汇总 Requirement merge、验证证据和已确认的警告。Current 保留 \`specs/<模块>/{spec.md,interface.yaml,api.yaml}\` 及根级 \`business.yaml\`、\`configuration.yaml\`。活动 Change 已移除，不能再用活动 status 查询它。
+7. 成功后检查 Current Specification，汇总 Requirement merge、验证证据和已确认的警告。Current 保留 \`specs/<模块>/{spec.md,interface.yaml,api.yaml}\` 及根级 \`business.yaml\`、\`configuration.yaml\`。活动 Change 已移除，不能再用活动 status 查询它。
 
 **唯一写入边界**：Current Specification 只能由 Core archive transaction 写入。Skill 不直接编辑 Spec、Change metadata 或 archive 目录。`;
 

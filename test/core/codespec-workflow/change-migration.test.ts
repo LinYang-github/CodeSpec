@@ -141,7 +141,10 @@ describe('active Change analysis migration', () => {
   it.each(['archived', 'terminal', 'six', 'proposal', 'missing', 'extra', 'undeclared-analysis', 'missing-declaration', 'extra-declaration', 'foreign-path', 'symlink', 'legacy-schema'])('rejects %s before writing anything', async (kind) => {
     const f = await prepared();
     const metadata = parseYaml(await fs.readFile(f.file('metadata.yaml'), 'utf8'));
-    if (kind === 'archived') await fs.rename(f.dir, path.join(f.paths.archivedChanges, f.changeId));
+    if (kind === 'archived') {
+      metadata.change.status = 'ARCHIVED';
+      await fs.writeFile(f.file('metadata.yaml'), stringifyYaml(metadata));
+    }
     else {
       if (kind === 'terminal') metadata.change.status = 'ABANDONED';
       if (kind === 'six' || kind === 'undeclared-analysis') {

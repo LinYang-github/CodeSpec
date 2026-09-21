@@ -28,7 +28,7 @@ CodeSpec changes are written as **deltas**: `ADDED`, `MODIFIED`, `REMOVED`. A de
 
 This is exactly what brownfield work needs. You're rarely building from nothing. You're adding a field, fixing a redirect, tightening a timeout. A delta lets you specify that one change precisely without first writing a 40-page spec of everything around it.
 
-So your `codespec/specs/` directory doesn't start full and complete. It starts nearly empty and accumulates. Each archived Change merges its delta in. The spec for `auth/` becomes thorough only after you've made several auth changes, which is exactly when you want it thorough.
+So your `codespec/specs/` directory doesn't start full and complete. It starts nearly empty and accumulates. Each completed Change merges its delta in. The spec for `auth/` becomes thorough only after you've made several auth changes, which is exactly when you want it thorough.
 
 If you want the deeper mechanics, see [Concepts: Delta Specs](concepts.md#delta-specs).
 

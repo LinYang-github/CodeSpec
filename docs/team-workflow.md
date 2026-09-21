@@ -48,7 +48,7 @@ A reviewer who disagrees with the *approach* can say so against the proposal, ch
 
 ## When to archive
 
-Archiving folds a change's deltas into `codespec/specs/` and moves the change folder to `codespec/archive/changes/YYYY-MM-DD-<name>/`. Because the Current Specification is the **shared source of truth**, the timing matters on a team. Two workable conventions:
+Archiving folds a change's deltas into `codespec/specs/` and removes the active Change. Because the Current Specification is the **shared source of truth**, the timing matters on a team. Git history preserves the completed Change. Two workable conventions:
 
 - **Archive after the PR merges (recommended).** The branch carries the active change; once it's merged to your main branch, archive there (often a tiny follow-up commit or a scheduled cleanup). This keeps the shared `specs/` moving forward only with work that actually shipped.
 - **Archive inside the PR.** Simpler for small teams: the same PR that adds the code also syncs and archives. The tradeoff is that your `specs/` diff and your code diff land together, which can make the PR noisier.

@@ -187,7 +187,7 @@ npm uninstall -g @hrhy-ai/codespec   # or: pnpm rm -g / yarn global remove / bun
 rm -rf codespec/
 ```
 
-Think before you do this: `codespec/specs/` and `codespec/archive/changes/` are your record of how the system behaves and why it changed. If you might want that history, keep the folder (or keep it in git) even after uninstalling.
+Think before you do this: `codespec/specs/` is your record of how the system behaves. Keep the project Git history if you need the decisions behind earlier changes.
 
 **3. Remove generated AI tool files (optional).** CodeSpec writes skill and command files into per-tool directories like `.claude/skills/codespec-*/`, `.cursor/commands/codespec-*`, and so on. Delete the `codespec-*` skills and `codespec-*` commands for whichever tools you configured. The exact paths per tool are listed in [Supported Tools](supported-tools.md).
 

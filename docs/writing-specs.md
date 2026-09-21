@@ -79,7 +79,7 @@ This ADDED example shows the canonical Markdown structure:
 
 If Current contains REQ-001 and REQ-002, and this Change modifies only REQ-001, its `spec.md` contains only REQ-001. Copying REQ-002 would claim an unrelated change and may fail the delta boundary check.
 
-The next Change for REQ-001 reads the version produced by the previous archive. It does not copy the previous Change or the full module. See [Current Specification and history](concepts.md#current-specification-and-history) for merge behavior.
+The next Change for REQ-001 reads the version produced by the previous archive. It does not copy the previous Change or the full module. See [Current Specification](concepts.md#current-specification) for merge behavior.
 
 ## Legacy `spec-driven` authoring
 

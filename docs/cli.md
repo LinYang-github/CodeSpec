@@ -84,7 +84,7 @@ Initialize CodeSpec in your project. Creates the folder structure and configures
 
 Default behavior uses global config defaults: profile `core`, delivery `both`, and the canonical `workflow`, `rebase`, and `archive` entries.
 
-For `schema: code-spec`, initialization creates `business.yaml`, `configuration.yaml` and Current module files. `new change` creates the [six canonical artifacts](concepts.md#canonical-artifacts). Canonical archive preserves them under `codespec/archive/changes/<CHG-ID>/` before removing the active Change. Generic `spec-driven` schemas retain their own artifact contract.
+For `schema: code-spec`, initialization creates `business.yaml`, `configuration.yaml` and Current module files. `new change` creates the [six canonical artifacts](concepts.md#canonical-artifacts). Canonical archive updates Current Specification and removes the active Change. Generic `spec-driven` schemas retain their own artifact contract.
 
 ```
 codespec init [path] [options]
@@ -268,9 +268,9 @@ codespec store setup team-context --path ~/codespec/team-context --no-init-git -
 ### `codespec store register`
 
 Register an existing local store folder. During the stores beta, a root may be
-registered before any changes exist, specs have been applied, or changes have
-been archived; canonical workspaces use `codespec/changes/`, `codespec/specs/`, and
-`codespec/archive/changes/`. Generic `spec-driven` stores may retain historical paths.
+registered before any changes exist or specs have been applied; canonical workspaces
+use `codespec/changes/` and `codespec/specs/`. Generic `spec-driven` stores may
+retain historical paths.
 A config-only repo that declares `store: <id>` remains a pointer to another
 store and is not registered as a store root unless that pointer is removed.
 
@@ -568,14 +568,11 @@ A change with zero spec deltas fails validation unless its `.codespec.yaml` decl
 | `--all` | Validate all changes and specs |
 | `--changes` | Validate all changes |
 | `--specs` | Validate all specs |
-| `--archived` | Validate that archived changes have all tasks completed (for pre-commit linting) |
 | `--type <type>` | Specify type when name is ambiguous: `change` or `spec` |
 | `--strict` | Enable strict validation mode |
 | `--json` | Output as JSON |
 | `--concurrency <n>` | Max parallel validations (default: 6, or `CODESPEC_CONCURRENCY` env) |
 | `--no-interactive` | Disable prompts |
-
-`--archived` is its own scope: it does not validate spec deltas (already applied at archive time), it verifies that every change under `changes/archive/` has all of its `tasks.md` checkboxes ticked, exiting non-zero if any are unchecked. This catches changes that were archived with unfinished work — handy in a pre-commit hook.
 
 **Examples:**
 
@@ -595,8 +592,6 @@ codespec validate --all --json
 # Strict validation with increased parallelism
 codespec validate --all --strict --concurrency 12
 
-# Fail if any archived change still has unchecked tasks
-codespec validate --archived
 ```
 
 **Output (text):**
@@ -720,7 +715,7 @@ codespec archive CHG-20260915-001
 
 **Gate:** current analyze/design/plan approvals, passing verification, valid delta and unchanged Previous snapshots.
 
-**Write:** applies the [Requirement merge](concepts.md#current-specification-and-history), saves six artifacts in immutable history and removes the active Change.
+**Write:** applies the [Requirement merge](concepts.md#current-specification), then removes the active Change. Git history preserves the Change artifacts and decisions.
 
 **Confirmation:** `--yes` cannot bypass the first human confirmation. `--json` and non-TTY automation cannot complete canonical archive.
 
@@ -728,7 +723,7 @@ codespec archive CHG-20260915-001
 
 The archive flags and slug examples below apply to `spec-driven` Changes.
 
-### `codespec archive`
+### `codespec archive` for `spec-driven`
 
 Archive a completed change and merge delta specs into main specs.
 

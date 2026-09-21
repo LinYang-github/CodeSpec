@@ -68,7 +68,7 @@ describe('buildUiIndex', () => {
     await fs.mkdir(path.join(codespec, 'specs', 'MOD-002'), { recursive: true });
     await fs.writeFile(path.join(codespec, 'config.yaml'), [
       'version: 1', 'schema: code-spec', 'project:', '  name: graph-ui', 'paths:',
-      '  business: business.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  archive: archive', '  specs: specs', '  archived_changes: archive/changes',
+      '  business: business.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  specs: specs',
       'workflow:', '  multiple_active_changes: true', 'requirements:', "  id_format: '{module}-REQ-{sequence:03d}'", 'changes:', "  id_format: 'CHG-{date}-{sequence:03d}'", 'archive:', '  update_index: true', '  require_verification: true', '  conflict_strategy: optimistic', '',
     ].join('\n'));
     await fs.writeFile(path.join(codespec, 'business.yaml'), [
@@ -162,64 +162,30 @@ describe('buildUiIndex', () => {
     );
   });
 
-  it('groups archive Spec snapshots separately from archived Change history', async () => {
+  it('does not project old archive directories into the canonical UI', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
-    await fs.mkdir(path.join(root, 'codespec', 'archive', 'specs', 'cli-init'), { recursive: true });
     await fs.mkdir(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init'), { recursive: true });
     await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init'), { recursive: true });
-    await fs.mkdir(path.join(root, 'codespec', 'changes', 'archive', '2025-08-07-legacy-change'), { recursive: true });
-    await fs.writeFile(path.join(root, 'codespec', 'archive', 'specs', 'cli-init', 'spec.md'), '# CLI 初始化规范');
-    await fs.writeFile(path.join(root, 'codespec', 'archive', 'specs', 'README.md'), '# 归档说明');
     await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'proposal.md'), '# 初始化命令');
     await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init', 'spec.md'), '# 历史规格');
     await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'proposal.md'), '# 当前变更');
     await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'tasks.md'), '# 任务');
     await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init', 'spec.md'), '# 当前规格');
     await fs.writeFile(path.join(root, 'codespec', 'changes', 'index.yaml'), 'changes: []\n');
-    await fs.writeFile(path.join(root, 'codespec', 'changes', 'archive', '2025-08-07-legacy-change', 'proposal.md'), '# 旧归档');
 
     const index = await buildUiIndex(root);
-    const archive = index as typeof index & {
-      archive: { currentSpecs: Array<{ relativePath: string }>; legacySpecSnapshots: Array<{ relativePath: string }>; history: Array<{ relativePath: string }>; historyCount: number };
-    };
-
-    expect(archive.archive.currentSpecs.map((document) => document.relativePath)).toEqual([]);
-    expect(archive.archive.legacySpecSnapshots.map((document) => document.relativePath)).toEqual([
-      'codespec/archive/specs/cli-init/spec.md',
-    ]);
-    expect(archive.archive.history.map((document) => document.relativePath)).toEqual([
-      'codespec/archive/changes/2025-08-06-add-init-command/proposal.md',
-      'codespec/archive/changes/2025-08-06-add-init-command/specs/cli-init/spec.md',
-      'codespec/changes/archive/2025-08-07-legacy-change/proposal.md',
-    ]);
-    expect(archive.archive.historyCount).toBe(2);
-    expect((index as typeof index & { changes: Array<{ id: string; documents: Array<{ relativePath: string }> }> }).changes.map((change) => ({
-      id: change.id,
-      documents: change.documents.map((document) => ({ relativePath: document.relativePath })),
-    }))).toEqual([
-      {
-        id: 'CHG-20260903-001',
-        documents: [
-          { relativePath: 'codespec/changes/CHG-20260903-001/proposal.md' },
-          { relativePath: 'codespec/changes/CHG-20260903-001/specs/cli-init/spec.md' },
-          { relativePath: 'codespec/changes/CHG-20260903-001/tasks.md' },
-        ],
-      },
-    ]);
-    expect((archive.archive as typeof archive.archive & { historyChanges: Array<{ id: string }> }).historyChanges.map((change) => ({ id: change.id }))).toEqual([
-      { id: '2025-08-06-add-init-command' },
-      { id: '2025-08-07-legacy-change' },
-    ]);
+    expect(index.archive.currentSpecs).toEqual([]);
+    expect(index.changes.map((change) => change.id)).toEqual(['CHG-20260903-001']);
+    expect(index.allChanges).toEqual(index.changes);
   });
 
-  it('exposes SDD level for active and archived Change groups', async () => {
+  it('exposes SDD level for active Change groups', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
     await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-20260906-001'), { recursive: true });
-    await fs.mkdir(path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260905-001'), { recursive: true });
     await fs.writeFile(
       path.join(root, 'codespec', 'changes', 'CHG-20260906-001', 'metadata.yaml'),
       [
@@ -255,8 +221,6 @@ describe('buildUiIndex', () => {
       ].join('\n')
     );
     await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260906-001', 'proposal.md'), '# 当前变更');
-    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260905-001', 'metadata.yaml'), 'change:\n  sdd_level: 1\n');
-    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260905-001', 'proposal.md'), '# 已归档变更');
 
     const index = await buildUiIndex(root);
 
@@ -280,20 +244,13 @@ describe('buildUiIndex', () => {
         gateReasons: expect.arrayContaining(['ARCHIVE 门禁尚未满足', '存在未完成任务', '缺少 lint 验证证据']),
       }),
     ]);
-    expect(index.archive.historyChanges).toEqual([
-      expect.objectContaining({ id: 'CHG-20260905-001', sddLevel: 1 }),
-    ]);
   });
 
-  it('exposes canonical requirement IDs and merges active and archived Change rows', async () => {
+  it('exposes canonical requirement IDs for active Change rows', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
     const activeChange = path.join(root, 'codespec', 'changes', 'CHG-20260909-001');
-    const archivedChange = path.join(root, 'codespec', 'archive', 'changes', 'CHG-20260909-001');
-    await Promise.all([
-      fs.mkdir(activeChange, { recursive: true }),
-      fs.mkdir(archivedChange, { recursive: true }),
-    ]);
+    await fs.mkdir(activeChange, { recursive: true });
     await fs.writeFile(path.join(activeChange, 'metadata.yaml'), [
       'change:',
       '  id: CHG-20260909-001',
@@ -318,18 +275,6 @@ describe('buildUiIndex', () => {
       '',
     ].join('\n'));
     await fs.writeFile(path.join(activeChange, 'proposal.md'), '# 新增注册功能');
-    await fs.writeFile(path.join(archivedChange, 'metadata.yaml'), [
-      'change:',
-      '  id: CHG-20260909-001',
-      '  title: 历史注册功能',
-      '  status: ARCHIVED',
-      'requirements:',
-      '  added:',
-      '    - id: MOD-001-REQ-999',
-      '',
-    ].join('\n'));
-    await fs.writeFile(path.join(archivedChange, 'proposal.md'), '# 历史注册功能');
-
     const index = await buildUiIndex(root);
 
     expect(index.changes).toEqual([
@@ -337,14 +282,6 @@ describe('buildUiIndex', () => {
         id: 'CHG-20260909-001',
         modules: ['MOD-001'],
         requirements: ['MOD-001-REQ-001', 'MOD-001-REQ-002', 'MOD-001-REQ-003'],
-      }),
-    ]);
-    expect(index.archive.historyChanges).toEqual([
-      expect.objectContaining({
-        id: 'CHG-20260909-001',
-        title: '历史注册功能',
-        status: 'ARCHIVED',
-        requirements: ['MOD-001-REQ-999'],
       }),
     ]);
     expect(index.allChanges).toEqual([
@@ -400,13 +337,12 @@ describe('buildUiIndex', () => {
     ]);
   });
 
-  it('uses configured specs and archived changes paths as the archive data source', async () => {
+  it('uses configured current-spec paths without reading an archive path', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
 
     await fs.mkdir(path.join(root, 'codespec', 'current-specs', 'cli-init'), { recursive: true });
     await fs.mkdir(path.join(root, 'codespec', 'meta'), { recursive: true });
-    await fs.mkdir(path.join(root, 'codespec', 'history', 'CHG-20260906-001'), { recursive: true });
     await fs.writeFile(
       path.join(root, 'codespec', 'config.yaml'),
       [
@@ -418,9 +354,7 @@ describe('buildUiIndex', () => {
         '  business: meta/business.md',
         '  changes: changes',
         '  change_index: changes/index.yaml',
-        '  archive: archive',
         '  specs: current-specs',
-        '  archived_changes: history',
         'workflow:',
         '  multiple_active_changes: true',
         'requirements:',
@@ -436,24 +370,16 @@ describe('buildUiIndex', () => {
     );
     await fs.writeFile(path.join(root, 'codespec', 'meta', 'business.md'), '# 业务\n\n| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |\n| --- | --- | --- | --- | --- |\n| MOD-001 | 账户 | 管理账户 | 管理用户 | 登录；权限 |\n');
     await fs.writeFile(path.join(root, 'codespec', 'current-specs', 'cli-init', 'spec.md'), '# 当前 CLI 规范');
-    await fs.writeFile(path.join(root, 'codespec', 'history', 'CHG-20260906-001', 'proposal.md'), '# 已归档变更');
 
     const index = await buildUiIndex(root);
 
     expect(index.archive.currentSpecs.map((document) => document.relativePath)).toEqual([
       'codespec/current-specs/cli-init/spec.md',
     ]);
-    expect(index.archive.history.map((document) => document.relativePath)).toEqual([
-      'codespec/history/CHG-20260906-001/proposal.md',
-    ]);
-    expect(index.archive.historyChanges.map((change) => change.id)).toEqual(['CHG-20260906-001']);
     expect(index.businessDocument?.relativePath).toBe('codespec/meta/business.md');
     expect(index.businessModules.map((module) => module.id)).toEqual(['MOD-001']);
     expect(index.documents.find((document) => document.relativePath === 'codespec/current-specs/cli-init/spec.md')).toMatchObject({
       category: '当前 Spec',
-    });
-    expect(index.documents.find((document) => document.relativePath === 'codespec/history/CHG-20260906-001/proposal.md')).toMatchObject({
-      category: '归档 Change',
     });
   });
 

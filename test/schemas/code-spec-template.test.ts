@@ -10,10 +10,10 @@ describe('code-spec spec template', () => {
       path.join(repoRoot, 'schemas/code-spec/templates/spec.md'),
       'utf8',
     );
-    const scenarios = template.split('#### Scenario:').slice(1);
+    const scenarios = template.split(/#{4,5} Scenario:/u).slice(1);
 
     expect(scenarios.length).toBeGreaterThan(0);
-    expect(scenarios.every(scenario => scenario.includes('- **ERROR**'))).toBe(true);
+    expect(scenarios.every(scenario => scenario.includes('- ERROR'))).toBe(true);
   });
 
   it('declares ERROR as a code-spec protocol token', () => {

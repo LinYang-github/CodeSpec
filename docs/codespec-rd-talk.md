@@ -295,8 +295,7 @@ tasks.md ─── SP-## 实施追踪投影
 Code + tests + verification.md ─── 实现结果与新鲜证据
   ↓
 archive transaction
-  ├─ codespec/specs/<MODULE>/spec.md     Current Specification
-  └─ codespec/archive/changes/<CHG-ID>/          不可变 Change 历史
+  └─ codespec/specs/<MODULE>/spec.md     Current Specification
 ```
 
 **讲解提示**
@@ -318,8 +317,8 @@ archive transaction
 | 分析与设计 | 选择复用列表数据、现有格式化和 i18n；不新增 API、路由或数据写入。 | `design.md` 的决策和非目标。 |
 | 计划与实施 | 用三个 `SP-##` 跟踪详情入口、空值/i18n 集成和 fresh verification。 | `tasks.md` 与 metadata 任务状态。 |
 | 验证 | 覆盖 `SCN-001` 打开弹窗、`SCN-002` 关闭弹窗，并记录 e2e、单元测试、build、lint。 | `verification.md`，所有 Exit status 为 `0`。 |
-| 人工归档 | 所有 Gate 满足后归档。 | `archive/changes/CHG-20260903-001/` 与 `archive/history.yaml`。 |
-| Current Spec | 用户详情行为成为 `MOD-001` 的正式契约。 | `archive/specs/MOD-001/spec.md`。 |
+| 人工归档 | 所有 Gate 满足后归档。 | Current Specification 更新，活动 Change 删除。 |
+| Current Spec | 用户详情行为成为 `MOD-001` 的正式契约。 | `specs/MOD-001/spec.md`。 |
 
 **讲解提示**
 
@@ -376,4 +375,4 @@ archive transaction
 - 生命周期、Core 与 Superpowers 边界：`docs/workflows.md`。
 - 三 Skill 收敛回归：`test/core/templates/codespec-workflow.test.ts`。
 - canonical 运行时旅程和归档人工确认：`test/cli-e2e/codespec-workflow-journeys.test.ts`。
-- 真实业务案例：`/Users/wanglinan/Documents/01_工作/02_AI/01_project/aegis-auth/web/codespec/archive/changes/CHG-20260903-001/`。
+- 真实业务案例：项目 Git 历史中的 `CHG-20260903-001`。

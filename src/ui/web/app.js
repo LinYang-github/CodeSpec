@@ -9,11 +9,10 @@ const rebuild = document.querySelector('#rebuild');
 const projectName = document.querySelector('#project-name');
 const sidebar = document.querySelector('#sidebar');
 const sidebarToggle = document.querySelector('#sidebar-toggle');
-const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ARCHIVED'];
+const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'];
 let index;
 let currentScreen = { type: 'overview' };
 let commandHelperOpen = false;
-let currentChangeOptions = {};
 let currentChangeReturnScreen;
 let documentReturnScreen;
 
@@ -190,7 +189,6 @@ function renderCommandHelper() {
 }
 
 function statusLabel(status) {
-  if (status === 'ARCHIVED') return '已归档';
   if (status === 'ABANDONED') return '生命周期失败';
   return text(status, '状态未知');
 }
@@ -200,7 +198,6 @@ function levelLabel(level) {
 }
 
 function statusClass(status) {
-  if (status === 'ARCHIVED') return 'status-success';
   if (status === 'ARCHIVE') return 'status-ready';
   if (status === 'ABANDONED') return 'status-danger';
   return 'status-progress';
@@ -232,17 +229,9 @@ function emptyState(message) {
   return element('div', 'empty-state', message);
 }
 
-function isArchivedChange(change) {
-  return change.status === 'ARCHIVED'
-    || Boolean(change.archiveState?.archivedAt)
-    || (change.documents ?? []).some((document) => document.category === '归档 Change'
-      || document.relativePath.includes('/archive/changes/'));
-}
-
 function activeChangesForModule(moduleId) {
   return (index.allChanges ?? []).filter((change) => (change.modules ?? []).includes(moduleId)
-    && change.status !== 'ABANDONED'
-    && !isArchivedChange(change));
+    && change.status !== 'ABANDONED');
 }
 
 function openBusinessChangesModal(module, changes) {
@@ -276,7 +265,7 @@ function openBusinessChangesModal(module, changes) {
         type: 'change',
         changeId: change.id,
         ...(firstDocument ? { activeDocumentId: firstDocument.id } : {}),
-      }, { changeOptions: { archived: false } });
+      });
     });
     const itemHeading = element('div', 'business-change-modal-item-heading');
     itemHeading.append(
@@ -701,9 +690,8 @@ function renderChangeRow(change, position) {
   row.append(element('td', 'change-table-created-at', formatDateTime(changeCreatedAt(change))));
   const status = element('td', 'change-table-status');
   status.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
-  const archived = isArchivedChange(change);
-  const reason = archived ? null : archiveReasonFor(change);
-  if (!archived) status.append(element('span', reason ? 'disabled-reason' : 'gate-success', reason ?? '可归档'));
+  const reason = archiveReasonFor(change);
+  status.append(element('span', reason ? 'disabled-reason' : 'gate-success', reason ?? '可归档'));
   row.append(status);
   const actions = element('td', 'change-table-actions');
   const firstDocument = firstChangeDocument(change);
@@ -711,10 +699,10 @@ function renderChangeRow(change, position) {
     type: 'change',
     changeId: change.id,
     ...(firstDocument ? { activeDocumentId: firstDocument.id } : {}),
-  }, { changeOptions: { archived: isArchivedChange(change) } })));
+  })));
   const archiveButton = button('归档', 'table-action archive-action', () => openArchiveConfirmation(archiveCandidateFor(change)));
   archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
-  if (archived || reason) {
+  if (reason) {
     archiveButton.disabled = true;
     if (reason) archiveButton.title = reason;
   }
@@ -772,7 +760,7 @@ function firstChangeDocument(change) {
   return orderedChangeDocuments(change)[0] ?? null;
 }
 
-function renderChangeDetail(change, options = currentChangeOptions, returnScreen = currentChangeReturnScreen) {
+function renderChangeDetail(change, returnScreen = currentChangeReturnScreen) {
   documentReturnScreen = undefined;
   const fallbackReturnScreen = currentScreen.type === 'module'
     || currentScreen.type === 'changes'
@@ -785,8 +773,6 @@ function renderChangeDetail(change, options = currentChangeOptions, returnScreen
     : null;
   const view = document.createElement('div');
   view.classList.add('detail-view');
-  const archived = options.archived === true || change.status === 'ARCHIVED';
-  if (archived) view.classList.add('archived-detail-view');
   const header = element('div', 'section-header detail-section-header');
   const summaryRow = element('div', 'detail-summary-row');
   summaryRow.append(
@@ -1256,7 +1242,7 @@ function renderCurrentScreen() {
   }
 }
 
-function navigateTo(screen, { changeOptions } = {}) {
+function navigateTo(screen) {
   documentReturnScreen = undefined;
   const nextScreen = copyScreen(screen);
   if (nextScreen.type === 'change'
@@ -1266,13 +1252,10 @@ function navigateTo(screen, { changeOptions } = {}) {
     nextScreen.activeDocumentId = currentScreen.activeDocumentId;
   }
   if (nextScreen.type === 'change') {
-    const sameChange = currentScreen.type === 'change' && currentScreen.changeId === nextScreen.changeId;
-    currentChangeOptions = changeOptions ?? (sameChange ? currentChangeOptions : {});
     currentChangeReturnScreen = currentChangeReturnScreen ?? (currentScreen.type === 'change'
       ? undefined
       : copyScreen(currentScreen));
   } else {
-    currentChangeOptions = {};
     currentChangeReturnScreen = undefined;
   }
   currentScreen = nextScreen;

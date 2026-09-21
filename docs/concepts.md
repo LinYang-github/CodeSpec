@@ -47,15 +47,13 @@ Use `analysis.yaml` to record requirement clarification in ANALYZE. Use Current 
 
 **Freshness:** evidence must match the Change revision and artifact identity. Task completion alone is not passing evidence.
 
-## Current Specification and history
+## Current Specification
 
 **`codespec/specs/<MOD-ID>/spec.md`:** the complete accepted Requirement baseline. A later Change reads this Current version, even when the same business requirement appeared in an earlier Change.
 
-**`codespec/archive/changes/<CHG-ID>/`:** immutable history of the six artifacts. It explains earlier decisions; it is not the baseline for new deltas.
-
 **Requirement merge:** archive replaces a MODIFIED Requirement in place, removes a REMOVED Requirement and appends ADDED Requirements in delta order. Unlisted Requirements retain their order and behavior. Engineering files merge by path.
 
-Only the archive transaction writes Current. It preserves the six artifacts in history, updates the index and removes the active Change after commit. Later Changes do not rewrite that history.
+Only the archive transaction writes Current. It removes the active Change after commit. Git history records the accepted change and its earlier decisions.
 
 ## Acceptance Criterion traceability
 
@@ -130,7 +128,7 @@ For the default `code-spec` schema, each current module keeps exactly three file
 codespec/specs/<module>/{spec.md,interface.yaml,api.yaml}
 ```
 
-The root also contains `business.yaml` and `configuration.yaml`. `interface.yaml` is the relationship source. `api.yaml` and business projections derive from the complete graph. For active and archived Change files, see [Canonical artifacts](#canonical-artifacts) and [Current Specification and history](#current-specification-and-history).
+The root also contains `business.yaml` and `configuration.yaml`. `interface.yaml` is the relationship source. `api.yaml` and business projections derive from the complete graph. For active Change files, see [Canonical artifacts](#canonical-artifacts) and [Current Specification](#current-specification).
 
 **Changes** are proposed modifications — they live in separate folders until you're ready to merge them.
 
@@ -295,7 +293,7 @@ Packaging a change as a folder has several benefits:
 
 2. **Parallel work.** Multiple changes can exist simultaneously without conflicting. Work on `add-dark-mode` while `fix-auth-bug` is also in progress.
 
-3. **Clean history.** Canonical Changes move to `codespec/archive/changes/` with full context preserved. Generic `spec-driven` documentation may use its historical archive path.
+3. **Clean active list.** Canonical archive removes completed Changes, leaving `codespec/changes/` for work in progress. Git history preserves the completed Change.
 
 4. **Review-friendly.** A change folder is easy to review — open it, read the proposal, check the design, see the spec deltas.
 
@@ -609,7 +607,7 @@ codespec/
                 └── spec.md ─────────┘
 
 
-After archive:
+After archive in legacy `spec-driven`:
 
 codespec/
 ├── specs/

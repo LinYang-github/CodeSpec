@@ -419,8 +419,8 @@ tells you which case you're in.
 - **No sync, ever — by design.** CodeSpec never clones, pulls, or pushes.
   A stale checkout shows stale specs until *you* pull; references are
   indexed live from whatever is on disk.
-- **Empty planning folders can be absent.** A new store may not have
-  `codespec/changes/`, `codespec/specs/`, or `codespec/changes/archive/` in Git
+- **Empty planning folders can be absent.** A new canonical store may not have
+  `codespec/changes/` or `codespec/specs/` in Git
   yet. That is accepted during the beta; those folders appear once normal
   commands create files for them.
 - **Pointer repos stay pointers.** A config-only repo whose

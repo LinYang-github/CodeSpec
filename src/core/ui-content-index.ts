@@ -46,7 +46,7 @@ export interface UiChangeGroup {
     verifiedAt: string | null;
     evidenceReceipt?: string;
   };
-  archiveState?: { ready: boolean; conflict: boolean; archivedAt: string | null };
+  archiveState?: { ready: boolean; conflict: boolean };
   archiveGateSatisfied?: boolean;
   gateReasons?: string[];
 }
@@ -68,10 +68,6 @@ export interface UiIndex {
   allChanges: UiChangeGroup[];
   archive: {
     currentSpecs: UiDocument[];
-    legacySpecSnapshots: UiDocument[];
-    history: UiDocument[];
-    historyCount: number;
-    historyChanges: UiChangeGroup[];
     candidates: UiArchiveCandidate[];
   };
   skipped: Array<{
@@ -164,7 +160,6 @@ interface UiWorkspacePaths {
   business: string;
   changes: string;
   specs: string;
-  archivedChanges: string;
 }
 
 const DEFAULT_UI_PATHS: UiWorkspacePaths = {
@@ -172,14 +167,11 @@ const DEFAULT_UI_PATHS: UiWorkspacePaths = {
   business: 'codespec/business.md',
   changes: 'codespec/changes/',
   specs: 'codespec/specs/',
-  archivedChanges: 'codespec/archive/changes/',
 };
 
 function getCategory(relativePath: string, source: UiSource, uiPaths: UiWorkspacePaths): string {
   if (source === 'superpowers-plans') return 'Superpowers Plans';
   if (relativePath === uiPaths.business) return '业务说明';
-  if (relativePath.startsWith(uiPaths.archivedChanges) || relativePath.startsWith('codespec/changes/archive/')) return '归档 Change';
-  if (relativePath.startsWith('codespec/archive/specs/')) return '归档 Spec';
   if (relativePath.startsWith(uiPaths.changes)) return '活动 Change';
   if (relativePath.startsWith(uiPaths.specs)) return '当前 Spec';
   return '其他 CodeSpec 文件';
@@ -237,18 +229,6 @@ function groupChangeDocuments(documents: UiDocument[], prefix: string): UiChange
     groups.set(id, group);
   }
   return [...groups.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([id, groupedDocuments]) => toChangeGroup(id, groupedDocuments));
-}
-
-function mergeChangeGroups(groups: UiChangeGroup[]): UiChangeGroup[] {
-  const merged = new Map<string, UiDocument[]>();
-  for (const group of groups) {
-    const documents = merged.get(group.id) ?? [];
-    documents.push(...group.documents);
-    merged.set(group.id, documents);
-  }
-  return [...merged.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([id, groupedDocuments]) => toChangeGroup(id, groupedDocuments));
 }
@@ -345,7 +325,7 @@ function getChangeMetadata(documents: UiDocument[]): {
       ...(asString(change?.title) === undefined ? {} : { title: asString(change?.title) }),
       ...(mode === 'feature' || mode === 'bugfix' || mode === 'refactor' ? { mode } : {}),
       ...(level === 1 || level === 2 || level === 3 ? { sddLevel: level } : {}),
-      ...(typeof status === 'string' && ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ARCHIVED', 'ABANDONED'].includes(status)
+      ...(typeof status === 'string' && ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE', 'ABANDONED'].includes(status)
         ? { status: status as ChangeStatus }
         : {}),
       ...(confirmedModules === undefined ? {} : { modules: confirmedModules }),
@@ -365,7 +345,6 @@ function getChangeMetadata(documents: UiDocument[]): {
         archiveState: {
           ready,
           conflict,
-          archivedAt: asString(archive?.archived_at) ?? null,
         },
       } : {}),
       ...(asBoolean(archiveGate?.satisfied) === undefined ? {} : { archiveGateSatisfied: asBoolean(archiveGate?.satisfied) }),
@@ -418,20 +397,7 @@ function getArchiveGroups(documents: UiDocument[], uiPaths: UiWorkspacePaths): U
   const currentSpecs = documents.filter((document) =>
     document.relativePath.startsWith(uiPaths.specs) && /\/spec\.md$/u.test(document.relativePath)
   );
-  const legacySpecSnapshots = documents.filter((document) =>
-    /^codespec\/archive\/specs\/[^/]+\/spec\.md$/u.test(document.relativePath)
-  );
-  const historyPrefixes = [...new Set([uiPaths.archivedChanges, 'codespec/changes/archive/'])];
-  const history = documents.filter((document) => historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix)));
-  const historyChanges = mergeChangeGroups(historyPrefixes.flatMap((prefix) => groupChangeDocuments(documents, prefix)));
-  return { currentSpecs, legacySpecSnapshots, history, historyCount: historyChanges.length, historyChanges, candidates: [] };
-}
-
-function mergeChangeProjections(active: UiChangeGroup[], archived: UiChangeGroup[]): UiChangeGroup[] {
-  const merged = new Map<string, UiChangeGroup>();
-  for (const change of archived) merged.set(change.id, change);
-  for (const change of active) merged.set(change.id, change);
-  return [...merged.values()].sort((left, right) => left.id.localeCompare(right.id));
+  return { currentSpecs, candidates: [] };
 }
 
 function relativePrefix(projectRoot: string, directory: string): string {
@@ -449,7 +415,6 @@ async function loadUiWorkspacePaths(projectRoot: string): Promise<UiWorkspacePat
       business: toPosixPath(path.relative(projectRoot, paths.business)),
       changes: relativePrefix(projectRoot, paths.changes),
       specs: relativePrefix(projectRoot, paths.currentSpecs),
-      archivedChanges: relativePrefix(projectRoot, path.join(codespecDir, 'archive', 'changes')),
     };
   } catch {
     return DEFAULT_UI_PATHS;
@@ -556,15 +521,10 @@ export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   skipped.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   const businessDocument = documents.find((document) => document.relativePath === uiPaths.business);
-  const historyPrefixes = [...new Set([uiPaths.archivedChanges, 'codespec/changes/archive/'])];
-
-  const changes = groupChangeDocuments(
-    documents.filter((document) => !historyPrefixes.some((prefix) => document.relativePath.startsWith(prefix))),
-    uiPaths.changes
-  );
+  const changes = groupChangeDocuments(documents, uiPaths.changes);
   const archive = getArchiveGroups(documents, uiPaths);
   archive.candidates = changes.map(getArchiveCandidate);
-  const allChanges = mergeChangeProjections(changes, archive.historyChanges);
+  const allChanges = changes;
 
   return {
     documents,

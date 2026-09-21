@@ -48,7 +48,7 @@ Current Specification 是唯一行为 baseline。已有 Requirement 使用精确
 
 已批准产物发生语义改变后运行 \`codespec revise --change "<CHG-ID>" --reason "intent changed"\`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 \`codespec rebase --change "<CHG-ID>"\`，在 \`design.md\` 的 Rebase decision 查看路由：意图仍成立回 DESIGN，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；assumption、ownership、disposition 或 AC 冲突回 ANALYZE，保留旧 analysis revision、baseline 和 Previous，先人工修订 \`analysis.yaml\`，不要重复 rebase。五件套活动 Change 运行 \`codespec migrate --change "<CHG-ID>"\`，补齐 OPEN 的 Q-MIGRATION-001 后重新审批。
 
-archive 通过 Requirement-level merge 应用明确的 ADDED/MODIFIED/REMOVED，保留未列出的 Current Requirements，并按工程文件 path 合并。六件套保存到 immutable \`codespec/archive/changes/<CHG-ID>/\`，事务提交后移除活动 Change。历史五件套不回写。
+archive 通过 Requirement-level merge 应用明确的 ADDED/MODIFIED/REMOVED，保留未列出的 Current Requirements，并按工程文件 path 合并。事务提交后移除活动 Change；变更历史由 Git 提交记录保存。
 
 ### 执行前解析并注入上下文
 

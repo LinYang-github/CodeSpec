@@ -6,7 +6,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     description: '对过期的 canonical Change 执行语义 rebase',
     flags: [
       { name: 'change', description: 'canonical Change ID', takesValue: true },
-      { name: 'current-spec', description: '当前 Spec 路径', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
@@ -32,7 +31,20 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   {
     name: 'migrate',
     description: '将旧版 CodeSpec 工作区转换为当前规格 v1 文件结构',
-    flags: [{ name: 'json', description: '以 JSON 输出' }],
+    flags: [
+      { name: 'change', description: '迁移指定的活动 canonical Change', takesValue: true },
+      COMMON_FLAGS.store,
+      { name: 'json', description: '以 JSON 输出' },
+    ],
+  },
+  {
+    name: 'revise',
+    description: '根据已批准产物的语义变更递增 revision 并回退生命周期',
+    flags: [
+      { name: 'change', description: 'canonical Change ID', takesValue: true },
+      { name: 'reason', description: '人类可读的修订原因', takesValue: true },
+      COMMON_FLAGS.store,
+    ],
   },
   {
     name: 'abandon',
@@ -40,14 +52,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     flags: [
       { name: 'change', description: 'canonical Change ID', takesValue: true },
       { name: 'reason', description: '放弃 Change 的原因', takesValue: true },
-      COMMON_FLAGS.store,
-    ],
-  },
-  {
-    name: 'detect-stale',
-    description: '检测与已归档 Requirement 重叠的活动 Change',
-    flags: [
-      { name: 'requirements', description: '逗号分隔的已归档 Requirement ID；默认使用全部已归档 Change', takesValue: true },
       COMMON_FLAGS.store,
     ],
   },
@@ -176,10 +180,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
       {
         name: 'specs',
         description: '校验全部 Spec',
-      },
-      {
-        name: 'archived',
-        description: '校验已归档 Change 的任务是否全部完成（用于提交前 lint）',
       },
       COMMON_FLAGS.type,
       COMMON_FLAGS.strict,

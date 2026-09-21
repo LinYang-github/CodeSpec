@@ -238,7 +238,7 @@ function artifactsFor(
         created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-01T00:00:00.000Z',
       },
       impact: { summary: 'Require explicit approval', mode: 'feature', scope: 'single-module', affected_areas: [] },
-      baseline: { created_at: null, stale: false, modules: {} },
+      baseline: { created_at: null, current_fingerprint: '0000000000000000000000000000000000000000000000000000000000000000', stale: false, modules: {} },
       relations: { depends_on: [], related_to: [], conflicts_with: [], supersedes: [] },
       gates: {
         analyze: { required: true, satisfied: true }, design: { required: true, satisfied: true },

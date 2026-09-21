@@ -17,6 +17,8 @@ describe('codespec-archive-change template', () => {
     expect(instructions).not.toContain('archive --yes');
     expect(instructions).not.toContain('codespec-sync-specs');
     expect(instructions).not.toContain('同步 Spec workflow');
+    expect(instructions).not.toContain('codespec/archive/changes');
+    expect(instructions).toContain('活动 Change 已移除');
   });
 
   it('uses the same archive-only contract for the command surface', () => {

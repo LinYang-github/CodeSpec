@@ -116,7 +116,7 @@ A spec that describes only what's changing, using `ADDED`, `MODIFIED`, and `REMO
 
 ### Where do archived changes go?
 
-To `codespec/archive/changes/YYYY-MM-DD-<name>/`, with all Change artifacts preserved. The Change moves out of your active list. A Change that explicitly declares `retire_capabilities: true` can also delete a capability spec when it removes that capability's final requirement.
+Canonical archive updates `codespec/specs/` and removes the active Change. Git history preserves its artifacts and decisions. A Change that explicitly declares `retire_capabilities: true` can also delete a capability spec when it removes that capability's final requirement.
 
 ## Configuration and customization
 

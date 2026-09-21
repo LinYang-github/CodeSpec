@@ -2,7 +2,7 @@
 
 使用 `codespec-workflow` 澄清需求、审阅设计和计划，再实现 Change。
 
-默认 Schema 是 `code-spec`。新 Change 使用 `CHG-YYYYMMDD-NNN` ID，并创建[六个 canonical 产物](concepts.md#canonical-artifacts)。归档按 Requirement 合并 Current，并将六件套保存到 `codespec/archive/changes/<CHG-ID>/`。
+默认 Schema 是 `code-spec`。新 Change 使用 `CHG-YYYYMMDD-NNN` ID，并创建[六个 canonical 产物](concepts.md#canonical-artifacts)。归档按 Requirement 合并 Current，然后移除活动 Change；变更历史由 Git 保存。
 
 从以下页面开始：
 

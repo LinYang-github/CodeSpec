@@ -26,12 +26,20 @@ async function loadCanonicalWorkspace() {
   await writeBusinessFile(
     fixture,
     [
-      '# Business',
-      '',
-      '| Module ID | Module Name | Description | Responsibilities | Keywords |',
-      '| --- | --- | --- | --- | --- |',
-      '| MOD-001 | Order Management | Owns orders | Continue orders | orders, checkout |',
-      '| MOD-002 | Billing | Owns billing | Capture payments | billing, payments |',
+      'version: 1',
+      'modules:',
+      '  - id: MOD-001',
+      '    name: Order Management',
+      '    status: ACTIVE',
+      '    inputs: []',
+      '    outputs: []',
+      '    relatedModules: []',
+      '  - id: MOD-002',
+      '    name: Billing',
+      '    status: ACTIVE',
+      '    inputs: []',
+      '    outputs: []',
+      '    relatedModules: []',
     ].join('\n')
   );
 
@@ -40,16 +48,12 @@ async function loadCanonicalWorkspace() {
 }
 
 describe('codespec workflow change management', () => {
-  it('allocates the next Change sequence across active and archived Changes', async () => {
+  it('allocates the next Change sequence across active Changes', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
 
     await fs.mkdir(path.join(fixture.paths.changes, 'CHG-20260901-001'), { recursive: true });
-    await fs.mkdir(path.join(fixture.paths.archivedChanges, 'CHG-20260901-002'), {
-      recursive: true,
-    });
-
-    await expect(allocateChangeId(fixture.paths, '20260901')).resolves.toBe('CHG-20260901-003');
+    await expect(allocateChangeId(fixture.paths, '20260901')).resolves.toBe('CHG-20260901-002');
   });
 
   it('atomically creates exactly six declared canonical artifacts with a draft analysis', async () => {

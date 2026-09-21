@@ -32,6 +32,7 @@ function validMetadata() {
     },
     baseline: {
       created_at: '2026-09-01T00:00:00.000Z',
+      current_fingerprint: '0000000000000000000000000000000000000000000000000000000000000000',
       stale: false,
       modules: {
         'MOD-001': {
@@ -153,11 +154,10 @@ describe('codespec workflow contracts', () => {
       project: { name: 'demo' },
       paths: {
         business: 'business.md',
+        configuration: 'configuration.yaml',
         changes: 'changes',
         change_index: 'changes/index.yaml',
-        archive: 'archive',
-        specs: 'archive/specs',
-        archived_changes: 'archive/changes',
+        specs: 'specs',
       },
       workflow: { multiple_active_changes: true },
       requirements: { id_format: '{module}-REQ-{sequence:03d}' },
@@ -170,7 +170,7 @@ describe('codespec workflow contracts', () => {
     });
 
     expect(getWorkspacePaths('/tmp/project/codespec', config).currentSpecs).toBe(
-      path.join('/tmp/project/codespec', 'archive', 'specs')
+      path.join('/tmp/project/codespec', 'specs')
     );
     expect(paths.currentSpecs).toBe(path.join(workspace.codespecDir, 'specs'));
   });
@@ -184,19 +184,16 @@ describe('codespec workflow contracts', () => {
     const { paths, workspace } = fixture;
     afterEach(fixture.cleanup);
 
-    expect(paths.archive).toBe(path.join(workspace.codespecDir, 'archive'));
-
     const config = parseWorkspaceConfig({
       version: 1,
       schema: 'code-spec',
       project: { name: 'demo' },
       paths: {
         business: '../business.md',
+        configuration: 'configuration.yaml',
         changes: 'changes',
         change_index: 'changes/index.yaml',
-        archive: 'archive',
-        specs: 'archive/specs',
-        archived_changes: 'archive/changes',
+        specs: 'specs',
       },
       workflow: { multiple_active_changes: true },
       requirements: { id_format: '{module}-REQ-{sequence:03d}' },

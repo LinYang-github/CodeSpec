@@ -104,7 +104,7 @@ setup/register: `{ "store": {id, root, metadata_path?}, "registry": {path, regis
 `no_codespec_root`, `no_root_with_registered_stores`, `no_registered_stores`, `unknown_store`, `store_identity_mismatch`, `unhealthy_store_root`, `store_path_not_supported`, `invalid_store_pointer`, `initiative_option_removed`, `areas_option_removed`; pass-through: `invalid_store_id`, `invalid_store_registry`, `invalid_store_metadata`.
 
 ### CodeSpec-root health (error, no fix)
-`codespec_store_root_missing`, `codespec_store_root_not_directory`, `codespec_root_missing`, `codespec_root_not_directory`, `codespec_config_missing`, `codespec_config_not_file`, `codespec_specs_not_directory`, `codespec_changes_not_directory`, `codespec_archive_not_directory`. During the stores beta, `codespec/specs/`, `codespec/changes/`, and `codespec/changes/archive/` may be absent in a healthy root; they are only health errors when present but not directories.
+`codespec_store_root_missing`, `codespec_store_root_not_directory`, `codespec_root_missing`, `codespec_root_not_directory`, `codespec_config_missing`, `codespec_config_not_file`, `codespec_specs_not_directory`, `codespec_changes_not_directory`. During the stores beta, `codespec/specs/` and `codespec/changes/` may be absent in a healthy root; they are only health errors when present but not directories.
 
 ### Store registry/identity/state
 `invalid_store_id`, `invalid_store_registry`, `invalid_store_metadata`, `store_registry_busy`, `store_not_found`, `no_store_registry`, `store_registry_changed`, `store_metadata_missing`, `store_metadata_id_mismatch`, `store_metadata_invalid`, `store_id_conflict`, `store_path_conflict`, `store_already_registered` (info).

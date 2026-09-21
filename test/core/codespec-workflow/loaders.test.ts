@@ -107,9 +107,14 @@ describe('codespec workflow loaders', () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
     await writeBusinessFile(fixture, [
-      '| Module ID | Module Name | Description | Responsibilities | Keywords |',
-      '| --- | --- | --- | --- | --- |',
-      '| MOD-001 | 工作流 | 管理变更 | 需求管理 | 变更 |',
+      'version: 1',
+      'modules:',
+      '  - id: MOD-001',
+      '    name: 工作流',
+      '    status: ACTIVE',
+      '    inputs: []',
+      '    outputs: []',
+      '    relatedModules: []',
     ].join('\n'));
     const workspace = await loadWorkspace(fixture.codespecDir);
     expect(workspace.config.schema).toBe('code-spec');
@@ -119,7 +124,7 @@ describe('codespec workflow loaders', () => {
     const fixture = await createWorkflowFixture({
       configOverrides: {
         paths: {
-          business: 'catalog/business.md',
+          business: 'catalog/business.yaml',
           changes: 'active-changes',
           change_index: 'nav/index.yaml',
           specs: 'records/specs',
@@ -133,11 +138,14 @@ describe('codespec workflow loaders', () => {
     await writeBusinessFile(
       fixture,
       [
-        '# Business',
-        '',
-        '| Module ID | Module Name | Description | Responsibilities | Keywords |',
-        '| --- | --- | --- | --- | --- |',
-        '| MOD-001 | User Management | Owns user accounts | Manage accounts; Reset passwords | users, identity |',
+        'version: 1',
+        'modules:',
+        '  - id: MOD-001',
+        '    name: User Management',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
       ].join('\n')
     );
     await fs.writeFile(
@@ -180,69 +188,42 @@ describe('codespec workflow loaders', () => {
     await writeBusinessFile(
       fixture,
       [
-        '# Business',
-        '',
-        '| Module ID | Module Name | Description | Responsibilities | Keywords |',
-        '| --- | --- | --- | --- | --- |',
-        '| MOD-001 | User Management | Owns user accounts | Manage accounts | users |',
-        '| MOD-001 | Order Management | Owns orders | Manage orders | orders |',
+        'version: 1',
+        'modules:',
+        '  - id: MOD-001',
+        '    name: User Management',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
+        '  - id: MOD-001',
+        '    name: Order Management',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
       ].join('\n')
     );
 
-    await expect(loadBusinessRegistry(fixture.paths)).rejects.toThrow(/duplicate.*MOD-001/i);
+    await expect(loadBusinessRegistry(fixture.paths)).rejects.toThrow(/unique/i);
   });
 
-  it('accepts localized or custom business table headers', async () => {
+  it('accepts a canonical YAML business registry', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
 
-    for (const header of [
-      '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
-      '| Module ID | Module Name | Description | Responsibilities | Keywords |',
-      '| 域 | 名称 | 说明 | 工作 | 标签 |',
-    ]) {
-      await writeBusinessFile(
-        fixture,
-        [
-          '# Business',
-          '',
-          header,
-          '| --- | --- | --- | --- | --- |',
-          '| MOD-001 | 账户 | 账户域 | 管理账户 | 账户 |',
-        ].join('\n')
-      );
-
-      await expect(loadBusinessRegistry(fixture.paths)).resolves.toMatchObject({
-        modules: [expect.objectContaining({ id: 'MOD-001' })],
-      });
-    }
+    await writeBusinessFile(fixture, 'version: 1\nmodules:\n  - id: MOD-001\n    name: 账户\n    status: ACTIVE\n    inputs: []\n    outputs: []\n    relatedModules: []\n');
+    await expect(loadBusinessRegistry(fixture.paths)).resolves.toMatchObject({
+      modules: [expect.objectContaining({ id: 'MOD-001' })],
+    });
   });
 
   it('rejects empty registries without parsing headers or fenced examples as modules', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
 
-    for (const content of [
-      [
-        '# 业务',
-        '',
-        '| 模块 ID | 模块名称 | 描述 | 职责 | 关键词 |',
-        '| --- | --- | --- | --- | --- |',
-      ].join('\n'),
-      [
-        '# 业务',
-        '',
-        '示例：',
-        '```markdown',
-        '| MOD-001 | 账户 | 账户域 | 管理账户 | 账户 |',
-        '```',
-      ].join('\n'),
-    ]) {
-      await writeBusinessFile(fixture, content);
-      await expect(loadBusinessRegistry(fixture.paths)).rejects.toBeInstanceOf(
-        EmptyBusinessRegistryError
-      );
-    }
+    await writeBusinessFile(fixture, 'version: 1\nmodules: []\n');
+    await expect(loadBusinessRegistry(fixture.paths)).rejects.toBeInstanceOf(EmptyBusinessRegistryError);
   });
 
   it('keeps malformed non-header business rows invalid', async () => {
@@ -252,9 +233,14 @@ describe('codespec workflow loaders', () => {
     await writeBusinessFile(
       fixture,
       [
-        '| 自定义 ID | 名称 | 描述 | 职责 | 关键词 |',
-        '| --- | --- | --- | --- | --- |',
-        '| MOD-01 | 账户 | 账户域 | 管理账户 | 账户 |',
+        'version: 1',
+        'modules:',
+        '  - id: MOD-01',
+        '    name: 账户',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
       ].join('\n')
     );
 

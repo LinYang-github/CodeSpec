@@ -242,7 +242,7 @@ You: /codespec:archive
 
 AI:  Archiving add-dark-mode...
      ✓ Merged the delta into codespec/specs/ui/spec.md
-     ✓ Moved to codespec/archive/changes/2025-01-24-add-dark-mode/
+     ✓ Removed the active Change
      Done! Ready for the next feature.
 ```
 

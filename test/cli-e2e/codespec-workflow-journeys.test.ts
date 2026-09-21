@@ -177,16 +177,4 @@ describe('canonical CodeSpec workflow journeys', () => {
     } finally { fixture.cleanup(); }
   });
 
-  it('exposes an explicit legacy workspace migration command', async () => {
-    const fixture = await createWorkflowFixture();
-    try {
-      const result = await runCLI(['migrate', '--json'], { cwd: fixture.tempDir });
-      expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout)).toMatchObject({ status: 'migrated' });
-      await expect(fs.readFile(path.join(fixture.codespecDir, 'business.yaml'), 'utf8')).resolves.toContain('version: 1');
-      await expect(fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md'), 'utf8')).resolves.toContain('规格版本：** legacy');
-    } finally {
-      fixture.cleanup();
-    }
-  });
 });
