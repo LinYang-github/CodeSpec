@@ -152,7 +152,7 @@ async function installOwnedEntry(paths: WorkspacePaths, directory: string, entry
  * normal recovery/archive never garbage-collects it.
  */
 async function retainDisplacedInodes(paths: WorkspacePaths, directory: string, manifest: JournalManifest, committed: boolean): Promise<void> {
-  const escrow = path.join(paths.archive, '.recovery-escrow', manifest.transactionId);
+  const escrow = path.join(paths.transactions, '.recovery-escrow', manifest.transactionId);
   const retained: Array<{ phase: string; target: string; file: string; expectedChecksum: string | null }> = [];
   for (const [index, entry] of manifest.entries.entries()) {
     for (const phase of ['installation', 'recovery']) {
@@ -306,7 +306,7 @@ export async function recoverPendingTransactions(paths: WorkspacePaths, ownedTra
     if (error.code === 'ENOENT') return [];
     throw error;
   });
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.filter((item) => !item.name.startsWith('.')).sort((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory()) throw new Error(`Archive transaction entry must be a directory: ${entry.name}`);
     await withIndexLockMutation(paths, async () => {
       const directory = path.join(paths.transactions, entry.name);

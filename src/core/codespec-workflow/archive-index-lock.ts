@@ -52,7 +52,8 @@ export async function acquireTransactionIndexLock(paths: WorkspacePaths, transac
     const migration = transactionId.startsWith('migrate-');
     const staged = migration
       ? path.join(`${paths.changeIndex}.lock-ledger`, `.migration-owner-${randomUUID()}`)
-      : path.join(paths.archive, '.archive.lock', 'index-owner.json');
+      : path.join(paths.transactions, '.archive.lock', 'index-owner.json');
+    await fs.mkdir(path.dirname(staged), { recursive: true });
     const handle = await fs.open(staged, 'wx');
     try { await handle.writeFile(JSON.stringify(owner), 'utf8'); await handle.sync(); }
     finally { await handle.close(); }

@@ -76,7 +76,7 @@ describe('active Change analysis migration', () => {
       expect((await exited)[0], stderr).toBe(77);
       const recovered = await loadWorkspace(f.codespecDir);
       await expect(fs.access(indexLock)).rejects.toThrow();
-      expect(await fs.readdir(f.paths.transactions).catch(() => [])).toEqual([]);
+      expect((await fs.readdir(f.paths.transactions).catch(() => [])).filter((name) => !name.startsWith('.'))).toEqual([]);
       // A different workflow can acquire and release the recovered index.
       await expect(withChangeIndexLock(f.paths, async () => 'index-writer-succeeded')).resolves.toBe('index-writer-succeeded');
       if (boundary !== 'committed') {
@@ -176,7 +176,7 @@ describe('active Change analysis migration', () => {
     await expect(migrate(f.workspace, f.changeId)).rejects.toThrow(/injected migration failure/);
     expect(await snapshotFiles(f.dir)).toEqual(before);
     expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(index);
-    expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+    expect((await fs.readdir(f.paths.transactions)).filter((name) => !name.startsWith('.'))).toEqual([]);
   });
 
   it('preserves concurrent author edits while rolling back owned writes', async () => {
@@ -199,7 +199,7 @@ describe('active Change analysis migration', () => {
     try {
       await migrate(f.workspace, f.changeId);
       await handle.writeFile('late author metadata');
-      const escrow = await snapshotFiles(path.join(f.paths.archive, '.recovery-escrow'));
+      const escrow = await snapshotFiles(path.join(f.paths.transactions, '.recovery-escrow'));
       expect(Object.values(escrow).some((text) => text.startsWith('late author metadata'))).toBe(true);
       expect(Object.values(escrow).some((text) => text.includes('manual-only'))).toBe(true);
       expect(parseYaml(await fs.readFile(f.file('metadata.yaml'), 'utf8')).change.revision).toBe(2);

@@ -2,12 +2,14 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { parse as parseYaml } from 'yaml';
 
 import { buildUiIndex, findUiDocument, searchUiIndex, type UiIndex } from './ui-content-index.js';
 import { commitArchive, prepareArchive, preflightArchive } from './codespec-workflow/archive-transaction.js';
 import { loadChangeArtifacts, loadWorkspace } from './codespec-workflow/loaders.js';
 import { transitionChange } from './codespec-workflow/state-machine.js';
 import { parseVerificationDocument } from './codespec-workflow/verification.js';
+import { parseCurrentVerification } from './codespec-workflow/current-change-yaml.js';
 
 export interface UiServer {
   url: string;
@@ -32,6 +34,28 @@ function safeArchiveError(error: unknown, projectRoot: string): string {
 }
 
 function archivePreview(plan: Awaited<ReturnType<typeof preflightArchive>>, projectRoot: string): Record<string, unknown> {
+  if (plan.richDelta) {
+    const verification = parseCurrentVerification(parseYaml(plan.artifacts.verification));
+    return {
+      changeId: plan.changeId,
+      ready: plan.ready,
+      conflict: plan.conflict,
+      reasons: plan.reasons,
+      sddLevel: plan.artifacts.metadata.change.sdd_level,
+      status: plan.artifacts.metadata.change.status,
+      title: plan.artifacts.metadata.change.title,
+      mode: 'current-spec',
+      requirements: plan.richDelta.requirements.map(({ id }) => id),
+      modules: [plan.richDelta.module],
+      archiveTarget: path.relative(projectRoot, path.join(plan.workspace.paths.currentSpecs, plan.richDelta.module)),
+      currentVerification: {
+        changeRevision: verification.changeRevision,
+        testCases: verification.testCases.length,
+      },
+      archiveImpact: plan.archiveImpact,
+    };
+  }
+  const evidence = parseVerificationDocument(plan.artifacts.verification);
   return {
     changeId: plan.changeId,
     ready: plan.ready,
@@ -43,8 +67,8 @@ function archivePreview(plan: Awaited<ReturnType<typeof preflightArchive>>, proj
     mode: plan.artifacts.metadata.change.mode,
     requirements: plan.deltas.map((delta) => delta.id),
     modules: [...plan.current.keys()],
-    archiveTarget: path.relative(projectRoot, path.join(plan.workspace.paths.archivedChanges, plan.changeId)),
-    verificationReceipt: parseVerificationDocument(plan.artifacts.verification).receipt,
+    archiveTarget: path.relative(projectRoot, plan.workspace.paths.currentSpecs),
+    verificationReceipt: evidence.receipt,
     archiveImpact: plan.archiveImpact,
   };
 }

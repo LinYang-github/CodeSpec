@@ -160,7 +160,7 @@ function validateAcceptanceTraceability(artifacts: ChangeArtifacts, requireEvide
   for (const id of requirements.keys()) if (!analysis.acceptanceCriteria.some((ac) => ac.requirements.some((ref) => ref === id))) issues.push(`Requirement ${id} has no acceptance criterion`);
   return { valid: !issues.length, issues, warnings, traceRows: rows, links: {
     Goal: analysis.goals.map((goal) => goal.id), 'Acceptance Criterion': [...criteria.keys()], Requirement: [...requirements.keys()], Scenario: [...scenarios.keys()], Task: tasks.tasks.map((task) => task.id), Test: [...tests.keys()], Evidence: rows.map((row) => row.evidence_id),
-    'Current Spec': [...new Set(delta.requirements.map((entry) => `specs/${entry.module}/spec.md`))], Archive: [`archive/changes/${artifacts.changeId}`],
+    'Current Spec': [...new Set(delta.requirements.map((entry) => `specs/${entry.module}/spec.md`))],
   } };
 }
 

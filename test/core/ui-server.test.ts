@@ -7,6 +7,7 @@ import { stringify } from 'yaml';
 import { startUiServer } from '../../src/core/ui-server.js';
 import { recordFreshVerification } from '../../src/core/codespec-workflow/verification.js';
 import { createWorkflowFixture } from '../helpers/codespec-workflow.js';
+import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../helpers/current-archive.js';
 
 describe('startUiServer', () => {
   const tempRoots: string[] = [];
@@ -183,10 +184,33 @@ describe('startUiServer', () => {
       status: 'ARCHIVE',
       modules: ['MOD-002'],
       requirements: ['MOD-002-REQ-001'],
-      archiveTarget: `codespec/archive/changes/${fixture.changeId}`,
+      archiveTarget: 'codespec/specs',
       archiveImpact: { outcome: 'none', references: [], verification: [] },
     });
     expect(typeof preview.verificationReceipt).toBe('string');
+  });
+
+  it('returns current-spec archive preview without legacy Verification markdown', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));
+    tempRoots.push(fixture.tempDir, assetsDir);
+    await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html>');
+    await writeCanonicalChange(fixture, modification());
+
+    const server = await startUiServer({ projectRoot: fixture.tempDir, assetsDir, port: 0 });
+    servers.push(server);
+    const response = await fetch(`${server.url}/api/archive/${fixture.changeId}`);
+    const preview = await response.json() as Record<string, unknown>;
+
+    expect(response.status, JSON.stringify(preview)).toBe(200);
+    expect(preview).toMatchObject({
+      changeId: fixture.changeId,
+      mode: 'current-spec',
+      modules: ['MOD-002'],
+      requirements: ['MOD-002-REQ-001'],
+      currentVerification: { changeRevision: 1, testCases: 3 },
+    });
+    expect(preview).not.toHaveProperty('verificationReceipt');
   });
 
   it('rejects an ineligible current-spec Change with 409 and does not commit', async () => {

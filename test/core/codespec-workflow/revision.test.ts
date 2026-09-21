@@ -124,7 +124,7 @@ describe('semantic revision transaction', () => {
       await handle.truncate(0);
       await handle.writeFile('late author tasks\n');
       expect(await fs.readFile(target, 'utf8')).toBe(published);
-      const escrow = path.join(f.paths.archive, '.recovery-escrow');
+      const escrow = path.join(f.paths.transactions, '.recovery-escrow');
       const transactions = await fs.readdir(escrow);
       expect(transactions).toHaveLength(1);
       const dir = path.join(escrow, transactions[0]);

@@ -13,6 +13,7 @@ import { runCLI } from '../helpers/run-cli.js';
 import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../helpers/current-archive.js';
 import { parse, stringify } from 'yaml';
 import { approveStage } from '../../src/core/codespec-workflow/approvals.js';
+import { verificationArtifactIdentity } from '../../src/core/codespec-workflow/verification.js';
 
 describe('canonical CodeSpec workflow journeys', () => {
   it('creates a feature Change, resumes it through verification, and preserves one Change for revision', async () => {
@@ -125,8 +126,8 @@ describe('canonical CodeSpec workflow journeys', () => {
 
       await archiveChange(await loadWorkspace(fixture.codespecDir), created.changeId);
       await expect(fs.access(created.changeDir)).rejects.toThrow();
-      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId, 'analysis.yaml'))).resolves.toBeUndefined();
-      await expect(fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8')).resolves.toContain(created.changeId);
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId, 'analysis.yaml'))).rejects.toThrow();
+      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
       await expect(fs.readFile(fixture.paths.business, 'utf8')).resolves.toContain('version: 1');
       await expect(buildUiIndex(fixture.tempDir)).resolves.toMatchObject({ currentSpecGraph: expect.any(Object) });
     } finally {
@@ -163,8 +164,12 @@ describe('canonical CodeSpec workflow journeys', () => {
         }], remove: [] }, configurationChanges: { upsert: [], remove: [] },
       }];
       artifacts.tasks = stringify(tasks);
+      const verification = parse(artifacts.verification);
+      verification.artifactIdentity = verificationArtifactIdentity(artifacts);
+      artifacts.verification = stringify(verification);
       artifacts.metadata = approveStage(artifacts, 'plan');
       await fs.writeFile(path.join(artifacts.changeDir, 'tasks.yaml'), artifacts.tasks);
+      await fs.writeFile(path.join(artifacts.changeDir, 'verification.yaml'), artifacts.verification);
       await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
       const result = await runCLI(['archive', fixture.changeId, '--json', '--yes'], { cwd: fixture.tempDir });
       expect(result.stdout).toContain('archive_confirmation_required');

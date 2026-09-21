@@ -33,9 +33,6 @@ describe('canonical clarification closed loop in one process', () => {
     const unrelatedBefore = unrelatedBytes(currentBefore);
     const untouchedModule = snapshotDirectory(path.join(fixture.paths.currentSpecs, 'MOD-001'));
     let previous: CurrentSpecRequirement = fixture.current.requirements[0];
-    let firstHistory: Map<string, string> | undefined;
-    let firstHistoryPath = '';
-    let firstId = '';
     try {
       process.chdir(fixture.tempDir);
       await fs.writeFile(fixture.paths.configuration, stringifyYaml({ version: 1, profiles: [{ id: 'test', services: [] }] }));
@@ -43,7 +40,6 @@ describe('canonical clarification closed loop in one process', () => {
         const baselineBytes = await fs.readFile(currentPath, 'utf8');
         const workspace = await loadWorkspace(fixture.codespecDir);
         const created = await newCanonicalChange(workspace, { title: `Independent change ${round}`, summary: `Request ${round}`, mode: 'feature' });
-        if (round === 2) expect(created.changeId).not.toBe(firstId);
         const load = () => loadChangeArtifacts(workspace.paths, created.changeId);
         const write = (name: string, content: string) => fs.writeFile(path.join(created.changeDir, name), content);
         const transition = async (target: Parameters<typeof transitionChange>[2]) => {
@@ -90,7 +86,7 @@ describe('canonical clarification closed loop in one process', () => {
         expect(parseCurrentSpecDelta(spec).requirements).toHaveLength(1);
         expect(parseCurrentSpecDelta(spec).requirements[0].previous).toEqual(previous);
         expect(spec).not.toContain('MOD-002-REQ-002');
-        if (round === 2) for (const forbidden of [firstId, 'Delta exclusive to round 1', 'Reason exclusive to round 1']) expect(spec).not.toContain(forbidden);
+        if (round === 2) for (const forbidden of ['Delta exclusive to round 1', 'Reason exclusive to round 1']) expect(spec).not.toContain(forbidden);
         await expect(transitionChange(workspace, await load(), 'PLAN', 'Missing design approval')).rejects.toThrow(/确认|approval/i);
         await approveChangeStage(workspace, await load(), 'design');
         await transition('PLAN');
@@ -123,12 +119,8 @@ describe('canonical clarification closed loop in one process', () => {
         expect(await fs.readFile(currentPath, 'utf8')).toBe(baselineBytes);
         const archived = await archiveChange(workspace, created.changeId);
         expect(archived.requirementIds).toEqual(['MOD-002-REQ-001']);
-        expect(archived.archivedPath).toBe(path.join(fixture.paths.archivedChanges, created.changeId));
-        expect((await fs.readdir(archived.archivedPath)).sort()).toEqual(artifactNames);
-        expect(await fs.readFile(path.join(archived.archivedPath, 'spec.md'), 'utf8')).toBe(spec);
-        expect(await fs.readFile(path.join(archived.archivedPath, 'analysis.yaml'), 'utf8')).toBe(stringifyYaml(analysis));
-        expect(await fs.readFile(path.join(archived.archivedPath, 'verification.yaml'), 'utf8')).toBe(verified.verification);
-        expect(parseYaml(await fs.readFile(path.join(archived.archivedPath, 'metadata.yaml'), 'utf8')).change.status).toBe('ARCHIVED');
+        expect(archived.archivedPath).toBe(path.join(fixture.paths.currentSpecs, 'MOD-002'));
+        await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
         await expect(fs.access(created.changeDir)).rejects.toThrow();
         expect(parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([]);
         const currentBytes = await fs.readFile(currentPath, 'utf8');
@@ -142,10 +134,8 @@ describe('canonical clarification closed loop in one process', () => {
         expect(current.engineeringFiles[1]).toEqual(fixture.current.engineeringFiles[1]);
         expect(snapshotDirectory(path.join(fixture.paths.currentSpecs, 'MOD-001'))).toEqual(untouchedModule);
         previous = current.requirements[0];
-        if (round === 1) { firstId = created.changeId; firstHistoryPath = archived.archivedPath; firstHistory = snapshotDirectory(firstHistoryPath); }
-        else expect(snapshotDirectory(firstHistoryPath)).toEqual(firstHistory);
       }
-      expect((await fs.readdir(fixture.paths.archivedChanges)).filter((name) => name.startsWith('CHG-'))).toHaveLength(2);
+      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
     } finally { process.chdir(originalCwd); fixture.cleanup(); }
   }, 30_000);
 });

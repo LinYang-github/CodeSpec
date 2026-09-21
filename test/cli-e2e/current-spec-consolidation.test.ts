@@ -26,7 +26,7 @@ describe('current-spec consolidation CLI journey', () => {
     }
   });
 
-  it('records all approvals, merges current specs, and preserves the six-artifact Change history', async () => {
+  it('records all approvals, merges current specs, and removes archive history', async () => {
     const fixture = await createCurrentArchiveFixture();
     try {
       const created = await createCanonicalChange(fixture.workspace, {
@@ -37,8 +37,8 @@ describe('current-spec consolidation CLI journey', () => {
       await archiveChange(await loadWorkspace(fixture.codespecDir), created.changeId);
 
       await expect(fs.access(created.changeDir)).rejects.toThrow();
-      expect((await fs.readdir(path.join(fixture.paths.archivedChanges, created.changeId))).sort()).toEqual(['analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml']);
-      await expect(fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8')).resolves.toContain(created.changeId);
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
+      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
       await expect(buildUiIndex(fixture.tempDir)).resolves.toMatchObject({ currentSpecGraph: expect.any(Object) });
     } finally {
       fixture.cleanup();

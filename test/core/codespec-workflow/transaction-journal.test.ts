@@ -222,7 +222,7 @@ describe('archive transaction journal', () => {
       await recoverPendingTransactions(paths);
       expect(edited).toBe(true);
       expect(await fs.readFile(target, 'utf8')).toBe(outcome === 'rolled-back' ? 'before\n' : 'after\n');
-      const escrow = path.join(paths.archive, '.recovery-escrow', journal.transactionId);
+      const escrow = path.join(paths.transactions, '.recovery-escrow', journal.transactionId);
       const phase = outcome === 'rolled-back' ? 'recovery' : 'installation';
       const retained = path.join(escrow, phase, '0', 'displaced');
       expect(await fs.readFile(retained, 'utf8').catch((error: NodeJS.ErrnoException) => {
@@ -287,7 +287,7 @@ describe('archive transaction journal', () => {
       expect(await firstRecovery).toBe('recovered');
       expect(second).toBe('busy');
       expect(await fs.readFile(target, 'utf8')).toBe('before\n');
-      expect(await fs.readFile(path.join(paths.archive, '.recovery-escrow', journal.transactionId, 'recovery', '0', 'displaced'), 'utf8')).toBe('after\n');
+      expect(await fs.readFile(path.join(paths.transactions, '.recovery-escrow', journal.transactionId, 'recovery', '0', 'displaced'), 'utf8')).toBe('after\n');
       await expect(fs.access(journal.directory)).rejects.toThrow();
     } finally { resume(); await firstRecovery; }
   }, 10_000);
@@ -421,7 +421,6 @@ describe('archive transaction journal', () => {
 
   it('preserves a live archive index owner even when there is no pending journal', async () => {
     const { paths } = await setupTarget();
-    await fs.mkdir(path.join(paths.archive, '.archive.lock'), { recursive: true });
     await fs.mkdir(paths.changes, { recursive: true });
     await acquireArchiveIndexLock(paths, 'archive-live-index');
     const lock = `${paths.changeIndex}.lock`;
@@ -447,7 +446,6 @@ describe('archive transaction journal', () => {
 
   it('preserves a replacement live owner that appears during index lock release', async () => {
     const { paths } = await setupTarget();
-    await fs.mkdir(path.join(paths.archive, '.archive.lock'), { recursive: true });
     await fs.mkdir(paths.changes, { recursive: true });
     await acquireArchiveIndexLock(paths, 'archive-old-index');
     const lock = `${paths.changeIndex}.lock`;
@@ -464,7 +462,6 @@ describe('archive transaction journal', () => {
 
   it('serializes two stale recyclers with live reacquisition so a third workflow never enters the live lock', async () => {
     const { paths } = await setupTarget();
-    await fs.mkdir(path.join(paths.archive, '.archive.lock'), { recursive: true });
     await fs.mkdir(paths.changes, { recursive: true });
     const child = spawn(process.execPath, ['-e', 'process.exit(0)']);
     const deadPid = child.pid!;

@@ -32,7 +32,6 @@ import {
   type ArchiveImpact,
 } from './archive-impact.js';
 import type { ArchivePlan as ContractArchivePlan, ChangeMetadata, RequirementDelta } from './types.js';
-import { metadataForPersistence } from './metadata-persistence.js';
 
 export interface ArchivePlan extends ContractArchivePlan {
   workspace: WorkspaceContext;
@@ -179,6 +178,7 @@ async function processAlive(pid: number): Promise<boolean> {
 
 async function acquireArchiveLock(lock: string): Promise<void> {
   try {
+    await fs.mkdir(path.dirname(lock), { recursive: true });
     await fs.mkdir(lock);
     try { await fs.writeFile(path.join(lock, '.owner.json'), JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() })); }
     catch (error) { await fs.rm(lock, { recursive: true, force: true }); throw error; }
@@ -326,16 +326,12 @@ export async function preflightArchive(workspace: WorkspaceContext, changeId: st
     const issues = validateCurrentSpec(content, module);
     if (issues.length) throw new Error(`Current Specification ${module} 校验失败：${issues.join('; ')}`);
   }
-  if (await exists(path.join(workspace.paths.archivedChanges, changeId))) throw new Error(`Archive destination already exists: ${changeId}`);
   const indexRaw = await fs.readFile(workspace.paths.changeIndex, 'utf8');
   const trees = new Map<string, string>();
   for (const file of [
     artifacts.changeDir,
     ...[...current.keys()].map((module) => path.join(workspace.paths.currentSpecs, module)),
-    path.join(workspace.paths.archive, 'README.md'),
-    path.join(workspace.paths.archive, 'history.yaml'),
-    ...(richDelta ? [workspace.paths.currentSpecs, workspace.paths.business, workspace.paths.configuration,
-      path.join(workspace.paths.archivedChanges, changeId)] : []),
+    ...(richDelta ? [workspace.paths.currentSpecs, workspace.paths.business, workspace.paths.configuration] : []),
   ]) trees.set(file, await treeDigest(file));
   return {
     changeId: changeId as ContractArchivePlan['changeId'], ready: true, conflict: false, reasons: [], workspace, artifacts, deltas, current, archiveImpact, richDelta,
@@ -426,17 +422,16 @@ async function copyTree(source: string, destination: string): Promise<void> {
 
 export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveResult> {
   if (prepared.plan.richDelta) return commitCurrentArchive(prepared);
-  const { plan, specs, archivedMetadata } = prepared;
+  const { plan, specs } = prepared;
   const token = `.archive-${plan.changeId}-${process.pid}-${Date.now()}`;
-  const stage = path.join(plan.workspace.paths.archive, token);
-  const archivedPath = path.join(plan.workspace.paths.archivedChanges, plan.changeId);
-  const backup = path.join(plan.workspace.paths.archive, `${token}-backup`);
-  const lock = path.join(plan.workspace.paths.archive, '.archive.lock');
+  const stage = path.join(plan.workspace.paths.transactions, token);
+  const archivedPath = plan.workspace.paths.currentSpecs;
+  const backup = path.join(plan.workspace.paths.transactions, `${token}-backup`);
+  const lock = path.join(plan.workspace.paths.transactions, '.archive.lock');
   const transactionId = `archive-${plan.changeId}-legacy-${process.pid}-${Date.now()}`;
   const destinations = [
     ...[...specs.keys()].map((module) => path.join(plan.workspace.paths.currentSpecs, module)),
-    archivedPath, plan.workspace.paths.changeIndex, plan.artifacts.changeDir,
-    path.join(plan.workspace.paths.archive, 'README.md'), path.join(plan.workspace.paths.archive, 'history.yaml'),
+    plan.workspace.paths.changeIndex, plan.artifacts.changeDir,
   ];
   const moved: string[] = [];
   const installed: string[] = [];
@@ -479,54 +474,20 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
       else await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, 'spec.md'), content);
     }
-    await copyTree(plan.artifacts.changeDir, path.join(stage, 'change'));
-    await fs.writeFile(path.join(stage, 'change', 'metadata.yaml'), stringifyYaml(metadataForPersistence(archivedMetadata)));
     const index = await loadChangeIndex(plan.workspace.paths);
     const nextIndex = { version: 1, changes: index.entries.filter((entry) => entry.id !== plan.changeId) };
     await fs.writeFile(path.join(stage, 'index.yaml'), stringifyYaml(nextIndex));
-    const readExisting = async (file: string) => fs.readFile(file, 'utf8').catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
-      throw error;
-    });
-    const existingReadme = await readExisting(path.join(plan.workspace.paths.archive, 'README.md'));
-    const existingHistory = await readExisting(path.join(plan.workspace.paths.archive, 'history.yaml'));
-    const parsedHistory = existingHistory.trim() ? parseYaml(existingHistory) : { version: 1, records: [] };
-    if (!parsedHistory || typeof parsedHistory !== 'object' || Array.isArray(parsedHistory) || (parsedHistory as any).version !== 1 || !Array.isArray((parsedHistory as any).records) || (parsedHistory as any).records.some((record: any) => !record || !/^CHG-\d{8}-\d{3}$/u.test(record.change) || record.status !== 'ARCHIVED' || typeof record.archived_at !== 'string' || Number.isNaN(Date.parse(record.archived_at)))) {
-      throw new Error('归档历史必须使用 canonical version 1 records Schema');
-    }
-    const priorSpecs = (parsedHistory as { records: Array<{ current_specs?: Array<{ module: string; revision: number }> }> }).records.flatMap((record) => record.current_specs ?? []);
-    if (priorSpecs.some((spec) => !spec || !/^MOD-\d{3}$/u.test(spec.module) || !Number.isSafeInteger(spec.revision) || spec.revision < 1)) throw new Error('归档历史包含无效的 Current Specification revision');
-    const archiveRecord = {
-      change: plan.changeId,
-      status: 'ARCHIVED',
-      archived_at: archivedMetadata.archive.archived_at,
-      change_revision: plan.artifacts.metadata.change.revision,
-      archive_impact: plan.archiveImpact,
-      evidence_id: parseVerificationDocument(plan.artifacts.verification).receipt,
-      current_specs: [...specs].map(([module, content]) => ({
-        module,
-        revision: Math.max(0, ...priorSpecs.filter((spec) => spec.module === module).map((spec) => spec.revision)) + 1,
-        content_hash: createHash('sha256').update(content).digest('hex'),
-      })),
-    };
-    const mergedHistory = { version: 1, records: [...(parsedHistory as any).records, archiveRecord] };
-    await fs.writeFile(path.join(stage, 'README.md'), `${existingReadme}${existingReadme && !existingReadme.endsWith('\n') ? '\n' : ''}\n## Archived ${plan.changeId}\n\nStatus: ARCHIVED\n`);
-    await fs.writeFile(path.join(stage, 'history.yaml'), stringifyYaml(mergedHistory));
     await checkTreeSnapshots(plan.snapshot.trees);
     if (await fs.readFile(plan.workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) {
       throw new Error(`ARCHIVE CONFLICT: ${plan.workspace.paths.changeIndex} changed after preflight`);
     }
-    if (await exists(archivedPath)) throw new Error(`Archive destination already exists: ${plan.changeId}`);
     await fs.mkdir(backup, { recursive: true });
     for (const [i, dest] of destinations.entries()) if (await exists(dest)) { await fs.rename(dest, path.join(backup, String(i))); moved.push(dest); }
-    await fs.mkdir(path.dirname(archivedPath), { recursive: true });
     const install = async (step: string, source: string, destination: string) => { await archiveTestHooks?.beforeCommitStep?.(step); await fs.rename(source, destination); installed.push(destination); };
     for (const [module] of specs) await install(`current-spec:${module}`, path.join(stage, 'specs', module), path.join(plan.workspace.paths.currentSpecs, module));
-    await install('archived-change', path.join(stage, 'change'), archivedPath);
     await install('change-index', path.join(stage, 'index.yaml'), plan.workspace.paths.changeIndex);
-    await install('archive-readme', path.join(stage, 'README.md'), path.join(plan.workspace.paths.archive, 'README.md'));
-    await install('archive-history', path.join(stage, 'history.yaml'), path.join(plan.workspace.paths.archive, 'history.yaml'));
     await fs.rm(plan.artifacts.changeDir, { recursive: true, force: true });
+    await fs.rm(plan.workspace.paths.archive, { recursive: true, force: true });
     committed = true;
     const staleChanges = await detectStaleChanges(plan.workspace, plan.deltas.map((d) => d.id));
     return { changeId: plan.changeId, archivedPath, staleChanges, requirementIds: plan.deltas.map((d) => d.id) };
@@ -554,11 +515,11 @@ export async function commitArchive(prepared: PreparedArchive): Promise<ArchiveR
 }
 
 async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveResult> {
-  const { plan, projection, archivedMetadata } = prepared;
+  const { plan, projection } = prepared;
   const { workspace, artifacts, richDelta: delta } = plan;
   if (!projection || !delta) throw new Error('Canonical archive projection is missing');
-  const archivedPath = path.join(workspace.paths.archivedChanges, plan.changeId);
-  const lock = path.join(workspace.paths.archive, '.archive.lock');
+  const archivedPath = path.join(workspace.paths.currentSpecs, delta.module);
+  const lock = path.join(workspace.paths.transactions, '.archive.lock');
   const transactionId = `archive-${plan.changeId}-${process.pid}-${Date.now()}`;
   let ownsLock = false;
   let ownsIndexLock = false;
@@ -587,41 +548,9 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     await add(workspace.paths.business, projection.business);
     await add(workspace.paths.configuration, projection.configuration);
     const artifactFiles = ['metadata.yaml', 'analysis.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml'];
-    for (const filename of artifactFiles) {
-      const target = path.join(archivedPath, filename);
-      await add(target, filename === 'metadata.yaml' ? stringifyYaml(metadataForPersistence(archivedMetadata))
-        : artifacts[filename.split('.')[0] as 'analysis' | 'design' | 'spec' | 'tasks' | 'verification']!);
-      steps.set(target, 'archived-change');
-    }
     const index = await loadChangeIndex(workspace.paths);
     await add(workspace.paths.changeIndex, stringifyYaml({ version: 1, changes: index.entries.filter((entry) => entry.id !== plan.changeId) }));
     steps.set(workspace.paths.changeIndex, 'change-index');
-    const readmePath = path.join(workspace.paths.archive, 'README.md');
-    const historyPath = path.join(workspace.paths.archive, 'history.yaml');
-    const readme = await readOptional(readmePath) ?? '';
-    const rawHistory = await readOptional(historyPath);
-    const history = rawHistory?.trim() ? parseYaml(rawHistory) : { version: 1, records: [] };
-    if (history?.version !== 1 || !Array.isArray(history.records) || history.records.some((record: { change?: string; status?: string; archived_at?: string }) =>
-      !record || !/^CHG-\d{8}-\d{3}$/u.test(record.change ?? '') || record.status !== 'ARCHIVED' || !record.archived_at || Number.isNaN(Date.parse(record.archived_at)))) {
-      throw new Error('归档历史必须使用 canonical version 1 records Schema');
-    }
-    const priorSpecs = history.records.flatMap((record: { current_specs?: Array<{ module: string; revision: number }> }) => record.current_specs ?? []);
-    if (priorSpecs.some((spec: { module: string; revision: number }) => !spec || !/^MOD-\d{3}$/u.test(spec.module) || !Number.isSafeInteger(spec.revision) || spec.revision < 1)) {
-      throw new Error('归档历史包含无效的 Current Specification revision');
-    }
-    history.records.push({
-      change: plan.changeId, status: 'ARCHIVED', archived_at: archivedMetadata.archive.archived_at,
-      change_revision: artifacts.metadata.change.revision, archive_impact: plan.archiveImpact,
-      current_specs: [{
-        module: delta.module,
-        revision: Math.max(0, ...priorSpecs.filter((spec: { module: string }) => spec.module === delta.module).map((spec: { revision: number }) => spec.revision)) + 1,
-        content_hash: createHash('sha256').update(prepared.specs.get(delta.module)!).digest('hex'),
-      }],
-    });
-    await add(readmePath, `${readme}${readme && !readme.endsWith('\n') ? '\n' : ''}\n## Archived ${plan.changeId}\n\nStatus: ARCHIVED\n`);
-    steps.set(readmePath, 'archive-readme');
-    await add(historyPath, stringifyYaml(history));
-    steps.set(historyPath, 'archive-history');
     // Source deletion is journalled file by file. Only an empty Change
     // directory is removed after commit, preserving concurrent author files.
     for (const filename of artifactFiles) await add(path.join(artifacts.changeDir, filename), null);
@@ -630,6 +559,7 @@ async function commitCurrentArchive(prepared: PreparedArchive): Promise<ArchiveR
     if (await fs.readFile(workspace.paths.changeIndex, 'utf8') !== plan.snapshot.index) throw new Error(`ARCHIVE CONFLICT: ${workspace.paths.changeIndex} changed after preflight`);
     journal = await createArchiveJournal({
       paths: workspace.paths, transactionId, files,
+      cleanupAfterCommit: [workspace.paths.archive],
       cleanupEmptyAfterCommit: [artifacts.changeDir], ownerPid: process.pid,
     });
     await installArchiveJournal(journal, async (target) => { await archiveTestHooks?.beforeCommitStep?.(steps.get(target) ?? 'active-change'); });

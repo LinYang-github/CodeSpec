@@ -59,7 +59,6 @@ describe('immutable index lock mutation generations', () => {
       return 'first-work-complete';
     };
     const first = (kind === 'workflow directory' ? withChangeIndexLock(fixture.paths, work) : (async () => {
-      await fs.mkdir(path.join(fixture.paths.archive, '.archive.lock'), { recursive: true });
       await acquireArchiveIndexLock(fixture.paths, 'archive-release-contention');
       const value = await work();
       await releaseArchiveIndexLock(fixture.paths, 'archive-release-contention');

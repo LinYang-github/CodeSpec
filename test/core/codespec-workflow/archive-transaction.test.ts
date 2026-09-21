@@ -30,7 +30,7 @@ interface ExpectedEscrow {
 }
 
 async function expectedEscrowAtFailure(paths: WorkspacePaths): Promise<ExpectedEscrow> {
-  const pending = await fs.readdir(paths.transactions);
+  const pending = (await fs.readdir(paths.transactions)).filter((entry) => !entry.startsWith('.'));
   expect(pending).toHaveLength(1);
   const manifest = parse(await fs.readFile(path.join(paths.transactions, pending[0], 'journal.yaml'), 'utf8'));
   const retained: ExpectedEscrow['retained'] = [];
@@ -74,8 +74,8 @@ async function expectRestoredWithSafetyRecords(paths: WorkspacePaths, before: Ma
     addFile(relative(`${ownerPath}.released`), bytes);
   }
   expect(new Set(tokens).size).toBe(generations.length);
-  if (escrow) {
-    const root = path.join(paths.archive, '.recovery-escrow');
+  if (escrow && escrow.retained.length) {
+    const root = path.join(paths.transactions, '.recovery-escrow');
     expect(await fs.readdir(root)).toEqual([escrow.transactionId]);
     const directory = path.join(root, escrow.transactionId);
     const manifest = await fs.readFile(path.join(directory, 'manifest.yaml'), 'utf8');
@@ -143,7 +143,7 @@ describe('six-artifact canonical Requirement archive', () => {
       expect(parseCurrentSpecification(await fs.readFile(current, 'utf8')).requirements).toEqual(fixture.current.requirements);
       await expect(archiveChange(recovered, fixture.changeId)).resolves.toMatchObject({ changeId: fixture.changeId });
       await expect(fs.access(indexLock)).rejects.toThrow();
-      expect(await fs.readdir(fixture.paths.transactions)).toEqual([]);
+      expect((await fs.readdir(fixture.paths.transactions)).filter((entry) => !entry.startsWith('.'))).toEqual([]);
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
       await exited;
@@ -181,9 +181,8 @@ describe('six-artifact canonical Requirement archive', () => {
       await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
       await archiveChange(await loadWorkspace(fixture.codespecDir), fixture.changeId);
       expect(await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8')).toContain('fresh UI run');
-      const verification = parse(await fs.readFile(path.join(fixture.paths.archivedChanges, fixture.changeId, 'verification.yaml'), 'utf8'));
-      expect(verification.testCases[0].summary).toContain('fresh UI run');
-      expect(verification.changeRevision).toBe(1);
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId))).rejects.toThrow();
+      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
     } finally { fixture.cleanup(); }
   });
 
@@ -199,10 +198,10 @@ describe('six-artifact canonical Requirement archive', () => {
       const workspace = await loadWorkspace(fixture.codespecDir);
       const firstResult = await archiveChange(workspace, fixture.changeId);
       expect(firstResult.requirementIds).toEqual(['MOD-002-REQ-001']);
-      expect(firstResult.archivedPath).toBe(path.join(fixture.paths.archivedChanges, fixture.changeId));
+      expect(firstResult.archivedPath).toBe(path.join(fixture.paths.currentSpecs, 'MOD-002'));
       const afterFirst = parseCurrentSpecification(await fs.readFile(currentPath, 'utf8'));
       expect(afterFirst.requirements[1]).toEqual(fixture.current.requirements[1]);
-      const escrowRoot = path.join(fixture.paths.archive, '.recovery-escrow');
+      const escrowRoot = path.join(fixture.paths.transactions, '.recovery-escrow');
       const firstEscrow = path.join(escrowRoot, (await fs.readdir(escrowRoot))[0]);
       const escrowManifest = parse(await fs.readFile(path.join(firstEscrow, 'manifest.yaml'), 'utf8'));
       const savedCurrent = escrowManifest.retained.find((entry: { phase: string; target: string }) => entry.phase === 'installation' && entry.target === 'specs/MOD-002/spec.md');
@@ -219,18 +218,14 @@ describe('six-artifact canonical Requirement archive', () => {
       expect(final.requirements[0].scenarios.map((entry) => entry.title)).toEqual(['A', 'B', 'C', 'E']);
       expect(final.requirements[1]).toEqual(fixture.current.requirements[1]);
       expect(final.engineeringFiles[1]).toEqual(fixture.current.engineeringFiles[1]);
-      expect(await fs.readFile(historic, 'utf8')).toBe(historicContent);
+      await expect(fs.access(historic)).rejects.toThrow();
       expect(await fs.readFile(currentPath, 'utf8')).not.toContain('Archived prose');
       expect(await fs.readFile(currentPath, 'utf8')).not.toContain('Escrow author bytes');
       expect(await fs.readFile(escrowFile, 'utf8')).toBe(escrowAuthorBytes);
       expect(parse(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([]);
       for (const artifacts of [first, second]) {
-        const archivedDir = path.join(fixture.paths.archivedChanges, artifacts.changeId);
-        expect((await fs.readdir(archivedDir)).sort()).toEqual(['analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml']);
-        expect(await fs.readFile(path.join(archivedDir, 'analysis.yaml'), 'utf8')).toBe(artifacts.analysis);
-        expect(await fs.readFile(path.join(archivedDir, 'spec.md'), 'utf8')).toBe(artifacts.spec);
-        expect(parse(await fs.readFile(path.join(archivedDir, 'metadata.yaml'), 'utf8')).change.status).toBe('ARCHIVED');
         await expect(fs.access(artifacts.changeDir)).rejects.toThrow();
+        await expect(fs.access(path.join(fixture.paths.archivedChanges, artifacts.changeId))).rejects.toThrow();
       }
     } finally { fixture.cleanup(); }
   });
@@ -258,7 +253,7 @@ describe('six-artifact canonical Requirement archive', () => {
     } finally { fixture.cleanup(); }
   });
 
-  it.each(['archived-change', 'change-index', 'archive-history'])('restores Current, six active artifacts, index and journal after failure at %s', async (step) => {
+  it.each(['current-spec:MOD-002', 'change-index'])('restores Current, six active artifacts, index and journal after failure at %s', async (step) => {
     const fixture = await createCurrentArchiveFixture();
     try {
       await writeCanonicalChange(fixture, modification());
@@ -274,7 +269,7 @@ describe('six-artifact canonical Requirement archive', () => {
         }
       } });
       await expect(archiveChange(workspace, fixture.changeId)).rejects.toThrow(/injected canonical installation failure.*rolled back/);
-      expect(sawMergedCurrent).toBe(true);
+      expect(sawMergedCurrent).toBe(step !== 'current-spec:MOD-002');
       expect(expectedEscrow).toBeDefined();
       await expectRestoredWithSafetyRecords(fixture.paths, before, expectedEscrow);
     } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
@@ -321,13 +316,13 @@ describe('six-artifact canonical Requirement archive', () => {
       const currentPath = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
       const authorEdit = renderCurrentSpecification({ ...fixture.current, title: 'concurrent author edit' });
       __setArchiveTestHooksForTests({ beforeCommitStep: async (step) => {
-        if (step === 'archived-change') await fs.writeFile(currentPath, authorEdit);
+        if (step === 'change-index') await fs.writeFile(currentPath, authorEdit);
       } });
       await expect(archiveChange(workspace, fixture.changeId)).rejects.toThrow(/rollback incomplete/);
       expect(await fs.readFile(currentPath, 'utf8')).toBe(authorEdit);
       expect(await fs.readFile(path.join(artifacts.changeDir, 'analysis.yaml'), 'utf8')).toBe(artifacts.analysis);
       await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId, 'metadata.yaml'))).rejects.toThrow();
-      expect(await fs.readdir(fixture.paths.transactions)).toHaveLength(1);
+      expect((await fs.readdir(fixture.paths.transactions)).filter((entry) => !entry.startsWith('.'))).toHaveLength(1);
     } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
   });
 
@@ -524,33 +519,30 @@ describe('transactional CodeSpec archive', () => {
       await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** err\n');
       await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
       await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '# Current\n');
-      const lock = path.join(fixture.paths.archive, '.archive.lock');
-      await fs.mkdir(lock);
+      const lock = path.join(fixture.paths.transactions, '.archive.lock');
+      await fs.mkdir(lock, { recursive: true });
       await fs.writeFile(path.join(lock, '.owner.json'), JSON.stringify({ pid: 999999, started_at: '2026-09-05T00:00:00.000Z' }));
       await expect(archiveChange(fixture.workspace, fixture.changeId)).resolves.toMatchObject({ changeId: fixture.changeId });
     } finally { fixture.cleanup(); }
   });
 
-  it.each(['current-spec:MOD-002', 'archived-change', 'archive-history'])('restores Current, active Change, and history if installation fails at %s', async (step) => {
+  it.each(['current-spec:MOD-002', 'change-index'])('restores Current and active Change if installation fails at %s', async (step) => {
     const fixture = await createWorkflowFixture();
     try {
       const metadata = ready(fixture); metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
       await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** err\n');
       const currentFile = path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md');
       await fs.mkdir(path.dirname(currentFile), { recursive: true }); await fs.writeFile(currentFile, '# Current\n');
-      const historyFile = path.join(fixture.paths.archive, 'history.yaml');
-      await fs.writeFile(historyFile, 'version: 1\nrecords: []\n');
       const metadataFile = path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml');
       const originalMetadata = await fs.readFile(metadataFile, 'utf8');
       __setArchiveTestHooksForTests({ beforeCommitStep: (current) => { if (current === step) throw new Error('injected installation failure'); } });
       await expect(archiveChange(fixture.workspace, fixture.changeId)).rejects.toThrow(/injected installation failure.*rolled back/);
       expect(await fs.readFile(currentFile, 'utf8')).toBe('# Current\n');
-      expect(await fs.readFile(historyFile, 'utf8')).toBe('version: 1\nrecords: []\n');
       expect(await fs.readFile(metadataFile, 'utf8')).toBe(originalMetadata);
       await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId))).rejects.toThrow();
     } finally { __setArchiveTestHooksForTests(null); fixture.cleanup(); }
   });
-  it('supersedes A with B in Current specs, preserves the old Change, and binds history to the resulting specs', async () => {
+  it('supersedes A with B in Current specs and removes archive history', async () => {
     const fixture = await createWorkflowFixture();
     try {
       const oldBody = 'A rule\n#### Scenario: SCN-001 A\n- **GIVEN** x\n- **WHEN** y\n- **THEN** a\n- **ERROR** err\n';
@@ -585,13 +577,10 @@ describe('transactional CodeSpec archive', () => {
       expect(parseCurrentSpec(await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md'), 'utf8')).requirements).toEqual([]);
       const currentB = await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8');
       expect(parseCurrentSpec(currentB).requirements.map((requirement) => requirement.id)).toEqual(['MOD-002-REQ-001']);
-      expect(await fs.readFile(historic)).toEqual(historicBytes);
-      expect(await fs.readFile(path.join(fixture.paths.archivedChanges, fixture.changeId, 'spec.md'), 'utf8')).toBe(delta);
-      const history = parse(await fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8'));
-      expect(history.records[0]).toMatchObject({
-        change: fixture.changeId, change_revision: 1, evidence_id: evidence.receipt, archive_impact: impact,
-        current_specs: expect.arrayContaining([{ module: 'MOD-002', revision: 1, content_hash: createHash('sha256').update(currentB).digest('hex') }]),
-      });
+      expect(evidence.receipt).toMatch(/^[a-f0-9]{64}$/u);
+      await expect(fs.access(historic)).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId, 'spec.md'))).rejects.toThrow();
+      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
     } finally { fixture.cleanup(); }
   });
   it('rejects a spec edited after verification even when the Change revision was not incremented', async () => {
@@ -655,20 +644,18 @@ describe('transactional CodeSpec archive', () => {
     } finally { fixture.cleanup(); }
   });
 
-  it('preserves existing archive README and history while appending the new record', async () => {
+  it('cleans existing archive README and history instead of appending a new record', async () => {
     const fixture = await createWorkflowFixture();
     try {
       const metadata = ready(fixture); metadata.requirements.added = [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }];
       await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
       await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), '# Current\n');
       await setup(fixture, metadata, '## ADDED\n### MOD-002-REQ-001 title\n**New**\ntext\n#### Scenario: SCN-001 test\n**GIVEN** x\n**WHEN** y\n**THEN** z\n**ERROR** z-error\n');
+      await fs.mkdir(fixture.paths.archive, { recursive: true });
       await fs.writeFile(path.join(fixture.paths.archive, 'README.md'), '# Existing archive\nKeep this chapter.\n');
       await fs.writeFile(path.join(fixture.paths.archive, 'history.yaml'), stringify({ version: 1, records: [{ change: 'CHG-20260831-001', status: 'ARCHIVED', archived_at: '2026-08-31T00:00:00.000Z' }] }));
       await archiveChange(fixture.workspace, fixture.changeId);
-      await expect(fs.readFile(path.join(fixture.paths.archive, 'README.md'), 'utf8')).resolves.toContain('Keep this chapter.');
-      const history = await fs.readFile(path.join(fixture.paths.archive, 'history.yaml'), 'utf8');
-      expect(history).toContain('CHG-20260831-001'); expect(history).toContain(fixture.changeId);
-      expect(history).toContain('outcome: none');
+      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
       const current = await fs.readFile(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'), 'utf8');
       expect(current).toContain('- **ERROR** z-error');
       expect(parseCurrentSpec(current).requirements[0].scenarios[0].error).toEqual(['z-error']);

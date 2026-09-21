@@ -98,7 +98,7 @@ describe('rich semantic rebase', () => {
       await handle.writeFile('late author write after rebase returned');
       await handle.sync();
       expect((await handle.stat()).nlink).toBeGreaterThan(0);
-      const escrowRoot = path.join(fixture.paths.archive, '.recovery-escrow');
+      const escrowRoot = path.join(fixture.paths.transactions, '.recovery-escrow');
       const directories = await fs.readdir(escrowRoot);
       const escrow = path.join(escrowRoot, directories.find((name) => name.startsWith('rebase-'))!);
       const manifest = parseYaml(await fs.readFile(path.join(escrow, 'manifest.yaml'), 'utf8'));
@@ -113,7 +113,7 @@ describe('rich semantic rebase', () => {
       await handle.close();
       await recoverPendingTransactions(fixture.paths);
       expect(await fs.readFile(saved, 'utf8')).toBe('late author write after rebase returned');
-      expect(await fs.readdir(fixture.paths.transactions)).toEqual([]);
+      expect((await fs.readdir(fixture.paths.transactions)).filter((name) => !name.startsWith('.'))).toEqual([]);
     } finally { await handle.close(); }
   });
 
@@ -296,7 +296,7 @@ describe('rich semantic rebase', () => {
       spy.mockRestore();
       expect(await Promise.all(files.map((file) => fs.readFile(file, 'utf8')))).toEqual(before);
       expect((await fs.readdir(path.dirname(fixture.file('metadata.yaml')))).filter((name) => name.endsWith('.tmp'))).toEqual([]);
-      expect(await fs.readdir(fixture.paths.transactions)).toEqual([]);
+      expect((await fs.readdir(fixture.paths.transactions)).filter((name) => !name.startsWith('.'))).toEqual([]);
     }
   });
 

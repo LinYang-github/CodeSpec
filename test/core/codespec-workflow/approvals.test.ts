@@ -154,7 +154,7 @@ describe('approval transaction ownership', () => {
       const author = 'late author bytes after approval\n';
       await handle.truncate(0);
       await handle.write(author, 0, 'utf8');
-      const escrow = path.join(f.paths.archive, '.recovery-escrow');
+      const escrow = path.join(f.paths.transactions, '.recovery-escrow');
       const transactions = await fs.readdir(escrow);
       expect(transactions).toHaveLength(1);
       const root = path.join(escrow, transactions[0]);
@@ -163,7 +163,7 @@ describe('approval transaction ownership', () => {
       const retained = manifest.retained.find((entry: { target: string; phase: string }) => entry.target.endsWith('/metadata.yaml') && entry.phase === 'installation');
       expect(await fs.readFile(path.join(root, retained.file), 'utf8')).toBe(author);
       expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(saved);
-      expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+      expect((await fs.readdir(f.paths.transactions)).filter((name) => !name.startsWith('.'))).toEqual([]);
     } finally { await handle.close(); f.cleanup(); }
   });
 
@@ -180,8 +180,8 @@ describe('approval transaction ownership', () => {
       await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/rollback conflict|ownership/i);
       expect(injected).toBe(true);
       expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(author);
-      expect(await fs.readdir(f.paths.transactions)).toHaveLength(1);
-      const escrow = path.join(f.paths.archive, '.recovery-escrow');
+      expect((await fs.readdir(f.paths.transactions)).filter((name) => !name.startsWith('.'))).toHaveLength(1);
+      const escrow = path.join(f.paths.transactions, '.recovery-escrow');
       expect(await fs.readdir(escrow)).toHaveLength(1);
     } finally { f.cleanup(); }
   });
@@ -199,7 +199,7 @@ describe('approval transaction ownership', () => {
       await expect(approveChangeStage(f.workspace, f.artifacts, 'analyze')).rejects.toThrow(/injected approval commit failure/);
       expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
       expect(await fs.readFile(f.paths.changeIndex, 'utf8')).toBe(index);
-      expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+      expect((await fs.readdir(f.paths.transactions)).filter((name) => !name.startsWith('.'))).toEqual([]);
     } finally { f.cleanup(); }
   });
 
@@ -219,7 +219,7 @@ describe('approval transaction ownership', () => {
       expect(injected).toBe(true);
       expect(await fs.readFile(f.metadataPath, 'utf8')).toBe(metadata);
       expect(await fs.readFile(analysisPath, 'utf8')).toBe(author);
-      expect(await fs.readdir(f.paths.transactions)).toEqual([]);
+      expect((await fs.readdir(f.paths.transactions)).filter((name) => !name.startsWith('.'))).toEqual([]);
     } finally { f.cleanup(); }
   });
 });
