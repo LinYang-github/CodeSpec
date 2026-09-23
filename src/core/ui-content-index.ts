@@ -10,7 +10,8 @@ import { parseAnalysisDocument } from './codespec-workflow/analysis.js';
 import { parseCurrentTasks, parseCurrentVerification } from './codespec-workflow/current-change-yaml.js';
 import { parseCurrentSpecDelta } from './codespec-workflow/current-spec-delta.js';
 import { loadCurrentSpecGraph } from './codespec-workflow/current-spec-graph-loader.js';
-import { parseBusinessRegistry } from './codespec-workflow/current-spec-yaml.js';
+import { parseCurrentSpecification } from './codespec-workflow/current-spec-model.js';
+import { parseBusinessRegistry, parseModuleApi, parseModuleInterface } from './codespec-workflow/current-spec-yaml.js';
 import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
 import type { CurrentSpecGraph } from './codespec-workflow/current-spec-graph.js';
 import type { ChangeMode, ChangeStatus, SddLevel } from './codespec-workflow/types.js';
@@ -207,11 +208,11 @@ function getYamlLabels(content: string): string[] {
   }
 }
 
-function getStructuredContent(content: string, contentType: UiContentType, filePath: string, isChangeDocument: boolean): unknown {
+function getStructuredContent(content: string, contentType: UiContentType, filePath: string, isChangeDocument: boolean, isCurrentSpecDocument: boolean): unknown {
   const name = path.basename(filePath);
-  if (isChangeDocument && contentType === 'markdown' && name === 'spec.md') {
+  if (contentType === 'markdown' && name === 'spec.md' && (isChangeDocument || isCurrentSpecDocument)) {
     try {
-      return parseCurrentSpecDelta(content);
+      return isChangeDocument ? parseCurrentSpecDelta(content) : parseCurrentSpecification(content);
     } catch {
       return undefined;
     }
@@ -219,6 +220,8 @@ function getStructuredContent(content: string, contentType: UiContentType, fileP
   if (contentType !== 'yaml' || !new Set(['analysis.yaml', 'api.yaml', 'interface.yaml', 'metadata.yaml', 'tasks.yaml', 'verification.yaml']).has(name)) return undefined;
   try {
     const value = parseYaml(content);
+    if (isCurrentSpecDocument && name === 'api.yaml') return parseModuleApi(value);
+    if (isCurrentSpecDocument && name === 'interface.yaml') return parseModuleInterface(value);
     if (name === 'analysis.yaml') return parseAnalysisDocument(value);
     if (name === 'tasks.yaml') return parseCurrentTasks(value);
     if (name === 'verification.yaml') return parseCurrentVerification(value);
@@ -506,7 +509,11 @@ async function collectFiles(
         title: getTitle(content, filePath, contentType),
         labels: contentType === 'yaml' ? getYamlLabels(content) : [],
         content,
-        structuredContent: getStructuredContent(content, contentType, filePath, source === 'codespec' && relativePath.startsWith(uiPaths.changes)),
+        structuredContent: getStructuredContent(
+          content, contentType, filePath,
+          source === 'codespec' && relativePath.startsWith(uiPaths.changes),
+          source === 'codespec' && relativePath.startsWith(uiPaths.specs),
+        ),
         modifiedAt: stats.mtime.toISOString(),
       });
     } catch {

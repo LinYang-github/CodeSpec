@@ -45,6 +45,7 @@ describe("current specification YAML contracts", () => {
         {
           id: "REL-CHG-20260907-001-01",
           kind: "http",
+          name: "创建用户",
           fromModule: "MOD-001",
           toModule: "MOD-002",
           path: "/api/users",
@@ -60,6 +61,7 @@ describe("current specification YAML contracts", () => {
 
     expect(parsed.relations[0]).toMatchObject({
       kind: "http",
+      name: "创建用户",
       path: "/api/users",
       method: "POST",
     });

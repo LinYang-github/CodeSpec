@@ -309,6 +309,11 @@ function moduleDocuments(moduleId) {
 }
 
 const MODULE_DOCUMENT_ORDER = ['spec.md', 'api.yaml', 'interface.yaml'];
+const MODULE_VIEW_LABELS = {
+  'spec.md': ['需求、场景与测试用例', '当前业务规则'],
+  'api.yaml': ['访问路径', '接口地址、方式与参数'],
+  'interface.yaml': ['业务协作', '业务流程与数据流向'],
+};
 
 function moduleDocumentOrder(left, right) {
   const leftName = left.relativePath.split('/').at(-1) ?? '';
@@ -318,21 +323,6 @@ function moduleDocumentOrder(left, right) {
   return (leftPosition < 0 ? MODULE_DOCUMENT_ORDER.length : leftPosition)
     - (rightPosition < 0 ? MODULE_DOCUMENT_ORDER.length : rightPosition)
     || left.relativePath.localeCompare(right.relativePath);
-}
-
-async function copyDocumentPath(document, control) {
-  try {
-    await navigator.clipboard.writeText(document.relativePath);
-    control.textContent = '✓';
-    control.title = '已复制路径';
-  } catch {
-    control.textContent = '!';
-    control.title = '复制失败';
-  }
-  setTimeout(() => {
-    control.textContent = '⧉';
-    control.title = '复制文件路径';
-  }, 1200);
 }
 
 async function copyChangeId(changeId, control) {
@@ -346,57 +336,63 @@ async function copyChangeId(changeId, control) {
   setTimeout(() => { control.textContent = label; }, 1200);
 }
 
-function createDocumentTab(document, label, activate) {
-  const item = element('div', 'document-tab-item');
-  const tab = button(label, 'document-tab', () => activate(document, tab));
-  const copy = button('⧉', 'document-tab-copy', () => copyDocumentPath(document, copy));
-  copy.setAttribute('aria-label', `复制 ${label} 的文件路径`);
-  copy.title = '复制文件路径';
-  item.append(tab, copy);
-  return { item, tab };
-}
-
-function activateDocumentTab(tabs, activeTab) {
-  for (const item of tabs.children) item.classList.remove('active');
-  for (const tab of tabs.querySelectorAll('.document-tab')) tab.classList.remove('active');
-  activeTab.classList.add('active');
-  activeTab.closest('.document-tab-item')?.classList.add('active');
-}
-
 function renderModuleDocumentPanel(moduleId) {
   const documents = moduleDocuments(moduleId);
   const module = moduleDefinition(moduleId);
   const panel = element('section', 'document-panel module-document-panel');
   const documentHeader = element('div', 'document-panel-header');
-  documentHeader.append(element('h3', '', module ? `${module.id} · ${module.name}` : moduleId));
+  documentHeader.append(element('h3', '', module?.name ?? moduleId));
   panel.append(documentHeader);
   if (!documents.length) {
-    panel.append(emptyState('暂无模块文档。'));
+    panel.append(emptyState('暂无业务内容。'));
     return panel;
   }
-  const tabs = element('nav', 'document-tabs');
-  const content = element('div', 'document-content');
+  const views = MODULE_DOCUMENT_ORDER.map((name) => ({
+    name,
+    document: documents.find((doc) => documentName(doc) === name),
+  }));
+  const tabs = element('nav', 'change-stage-tabs module-view-tabs');
+  tabs.setAttribute('aria-label', '查看业务内容');
+  tabs.setAttribute('role', 'tablist');
+  const content = element('div', 'document-content module-view-content');
+  content.id = 'module-view-content';
+  content.setAttribute('role', 'tabpanel');
   const activeDocumentId = currentScreen.type === 'module' ? currentScreen.activeDocumentId : undefined;
-  const activate = async (doc, activeTab) => {
-    currentScreen.activeDocumentId = doc.id;
-    activateDocumentTab(tabs, activeTab);
-    const detail = await api(`/api/documents/${doc.id}`);
+  const tabButtons = new Map();
+  let requestNumber = 0;
+  const activate = async (view) => {
+    currentScreen.activeDocumentId = view.document?.id;
+    for (const [name, control] of tabButtons) {
+      control.classList.toggle('active', name === view.name);
+      control.setAttribute('aria-selected', String(name === view.name));
+    }
+    const ownRequest = ++requestNumber;
+    if (!view.document) {
+      content.replaceChildren(element('p', 'analysis-error', `${MODULE_VIEW_LABELS[view.name][0]}内容缺失，无法显示。`));
+      return;
+    }
+    const detail = await api(`/api/documents/${view.document.id}`);
+    if (ownRequest !== requestNumber) return;
     content.replaceChildren();
-    renderDocument(detail, content);
+    renderModuleDocument(detail, content, moduleId, views.find((item) => item.name === 'interface.yaml')?.document?.structuredContent);
   };
-  const tabButtons = [];
-  documents.forEach((doc, position) => {
-    const { item, tab } = createDocumentTab(doc, doc.relativePath.split('/').at(-1) ?? doc.title, activate);
-    tab.classList.add('module-document-tab');
-    if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
-    if (tab.classList.contains('active')) item.classList.add('active');
-    tabButtons.push(tab);
-    tabs.append(item);
-  });
-  const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? documents[0];
-  const activeTab = tabButtons[documents.indexOf(activeDocument)];
+  for (const view of views) {
+    const [label, description] = MODULE_VIEW_LABELS[view.name];
+    const tab = button('', 'change-stage-tab module-view-tab', () => activate(view));
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', content.id);
+    tab.append(
+      element('span', 'change-stage-tab-title', label),
+      element('span', 'change-stage-tab-status', view.document ? description : '内容缺失'),
+    );
+    tabButtons.set(view.name, tab);
+    tabs.append(tab);
+  }
+  const activeView = views.find((view) => view.document?.id === activeDocumentId)
+    ?? views.find((view) => view.document)
+    ?? views[0];
   panel.append(tabs, content);
-  activate(activeDocument, activeTab).catch(showError);
+  activate(activeView).catch(showError);
   return panel;
 }
 
@@ -1069,24 +1065,27 @@ function renderSpecStage(detail) {
   }
   const content = element('div', 'spec-requirements');
   for (const change of requirements) {
-    const requirement = change.next ?? change.previous;
-    const testCount = requirement.scenarios.reduce((count, scenario) => count + scenario.testCases.length, 0);
-    const disclosure = element('details', 'spec-requirement');
-    const summary = element('summary', 'spec-requirement-summary');
-    summary.append(
-      element('span', 'spec-change-badge', requirementActionLabels[change.action]),
-      element('strong', '', requirement.title),
-      element('small', '', `${requirement.scenarios.length} 个场景 · ${testCount} 个测试用例`),
-    );
-    const body = element('div', 'spec-requirement-body');
-    if (change.reason) body.append(element('p', 'spec-requirement-reason', `原因：${change.reason}`));
-    const scenarios = element('div', 'spec-scenario-list');
-    for (const scenario of requirement.scenarios) scenarios.append(renderSpecScenario(scenario));
-    body.append(scenarios);
-    disclosure.append(summary, body);
-    content.append(disclosure);
+    content.append(renderRequirementCard(change.next ?? change.previous, change));
   }
   return documentSection('需求、场景与测试用例', content);
+}
+
+function renderRequirementCard(requirement, change) {
+  const testCount = requirement.scenarios.reduce((count, scenario) => count + scenario.testCases.length, 0);
+  const disclosure = element('details', 'spec-requirement');
+  const summary = element('summary', 'spec-requirement-summary');
+  if (change) summary.append(element('span', 'spec-change-badge', requirementActionLabels[change.action]));
+  summary.append(
+    element('strong', '', requirement.title),
+    element('small', '', `${requirement.scenarios.length} 个场景 · ${testCount} 个测试用例`),
+  );
+  const body = element('div', 'spec-requirement-body');
+  if (change?.reason) body.append(element('p', 'spec-requirement-reason', `原因：${change.reason}`));
+  const scenarios = element('div', 'spec-scenario-list');
+  for (const scenario of requirement.scenarios) scenarios.append(renderSpecScenario(scenario));
+  body.append(scenarios);
+  disclosure.append(summary, body);
+  return disclosure;
 }
 
 function renderSpecScenario(scenario) {
@@ -1138,6 +1137,177 @@ function renderSpecScenario(scenario) {
     card.append(tests);
   }
   return card;
+}
+
+function businessModuleName(moduleId) {
+  return moduleDefinition(moduleId)?.name ?? `未找到业务（${moduleId}）`;
+}
+
+const MODULE_VIEW_EXAMPLES = {
+  'api.yaml': [{ path: '/api/orders', inputModules: ['销售业务'], outputModules: ['通知业务'] }],
+  'interface.yaml': [
+    {
+      kind: 'http', name: '创建订单', fromModule: '销售业务', toModule: '订单业务', method: 'POST', path: '/api/orders',
+      input: '下单信息', output: '订单编号', errors: '信息不完整时拒绝创建订单',
+    },
+    {
+      kind: 'event', fromModule: '订单业务', toModule: '通知业务', event: '订单已创建',
+      input: '订单编号与联系人', output: '通知任务', errors: '发送失败时记录并重试',
+      triggeredBy: [{ method: 'POST', path: '/api/orders' }],
+    },
+  ],
+};
+
+function moduleApiRelations(routes, relations, moduleId) {
+  const paths = new Set(routes.map((route) => route.path));
+  return relations
+    .filter((relation) => relation.kind === 'http' && relation.toModule === moduleId && paths.has(relation.path))
+    .sort((left, right) => left.path.localeCompare(right.path)
+      || left.method.localeCompare(right.method)
+      || left.fromModule.localeCompare(right.fromModule));
+}
+
+function renderModuleApiTable(relations, moduleName) {
+  const wrapper = element('div', 'document-table-scroll');
+  const table = element('table', 'document-data-table module-api-table');
+  const head = element('thead');
+  const heading = element('tr');
+  for (const label of ['接口名称', '接口地址', '请求方式', '入参', '返参', '调用业务']) {
+    const cell = element('th', '', label);
+    cell.scope = 'col';
+    heading.append(cell);
+  }
+  head.append(heading);
+  const body = element('tbody');
+  for (const relation of relations) {
+    const row = element('tr');
+    row.append(
+      element('td', '', relation.name ?? '未填写'),
+      element('td', '', relation.path),
+      element('td', '', relation.method),
+      element('td', '', relation.input),
+      element('td', '', relation.output),
+      element('td', '', moduleName(relation.fromModule)),
+    );
+    body.append(row);
+  }
+  table.append(head, body);
+  wrapper.append(table);
+  return wrapper;
+}
+
+function renderModuleProcessStep(relation, direction, moduleName) {
+  const peerId = direction === 'incoming' ? relation.fromModule : relation.toModule;
+  const card = element('section', 'module-process-step');
+  card.append(
+    element('strong', 'module-process-peer', moduleName(peerId)),
+    element('span', 'module-process-kind', relation.kind === 'http'
+      ? `${relation.name ? `${relation.name} · ` : ''}${relation.method} ${relation.path}`
+      : `事件 ${relation.event}`),
+  );
+  const facts = element('dl', 'spec-scenario-steps');
+  facts.append(
+    element('dt', '', direction === 'incoming' ? '传入本业务' : '本业务传出'),
+    element('dd', '', relation.input),
+    element('dt', '', direction === 'incoming' ? '本业务产出' : '对方业务产出'),
+    element('dd', '', relation.output),
+    element('dt', '', '异常处理'),
+    element('dd', '', relation.errors),
+  );
+  if (relation.kind === 'event' && relation.triggeredBy?.length) {
+    facts.append(
+      element('dt', '', '触发方式'),
+      element('dd', '', relation.triggeredBy.map((trigger) => `${trigger.method} ${trigger.path}`).join('、')),
+    );
+  }
+  card.append(facts);
+  return card;
+}
+
+function renderModuleProcessDiagram(relations, moduleName, moduleId) {
+  const incoming = relations.filter((relation) => relation.toModule === moduleId);
+  const outgoing = relations.filter((relation) => relation.fromModule === moduleId);
+  const diagram = element('figure', 'module-process-diagram');
+  diagram.append(element('figcaption', 'module-process-title', '业务流程图'));
+  const canvas = element('div', 'module-process-canvas');
+  const incomingLane = element('div', 'module-process-lane');
+  incomingLane.append(element('h4', '', '传入本业务'));
+  for (const relation of incoming) incomingLane.append(renderModuleProcessStep(relation, 'incoming', moduleName));
+  if (!incoming.length) incomingLane.append(element('p', 'module-process-empty', '暂无传入关系'));
+  const current = element('div', 'module-process-current');
+  current.append(element('small', '', '当前业务'), element('strong', '', moduleName(moduleId)));
+  const outgoingLane = element('div', 'module-process-lane');
+  outgoingLane.append(element('h4', '', '由本业务传出'));
+  for (const relation of outgoing) outgoingLane.append(renderModuleProcessStep(relation, 'outgoing', moduleName));
+  if (!outgoing.length) outgoingLane.append(element('p', 'module-process-empty', '暂无传出关系'));
+  const incomingArrow = element('span', 'module-process-arrow', incoming.length ? '→' : '');
+  const outgoingArrow = element('span', 'module-process-arrow', outgoing.length ? '→' : '');
+  incomingArrow.setAttribute('aria-hidden', 'true');
+  outgoingArrow.setAttribute('aria-hidden', 'true');
+  canvas.append(incomingLane, incomingArrow, current, outgoingArrow, outgoingLane);
+  diagram.append(
+    canvas,
+    element('p', 'module-process-note', '箭头表示业务交接方向；不同关系的上下排列不表示执行先后。'),
+  );
+  return diagram;
+}
+
+function renderModuleExample(name) {
+  const disclosure = element('details', 'module-example');
+  disclosure.append(element('summary', '', '查看示例'));
+  const body = element('div', 'module-example-body');
+  body.append(element('p', 'module-example-note', '以下是演示内容，不属于当前业务。'));
+  const namesAsWritten = (value) => value;
+  body.append(name === 'api.yaml'
+    ? renderModuleApiTable(moduleApiRelations(
+      MODULE_VIEW_EXAMPLES['api.yaml'], MODULE_VIEW_EXAMPLES['interface.yaml'], '订单业务',
+    ), namesAsWritten)
+    : renderModuleProcessDiagram(MODULE_VIEW_EXAMPLES[name], namesAsWritten, '订单业务'));
+  disclosure.append(body);
+  return disclosure;
+}
+
+function renderModuleDocument(detail, target, moduleId, interfaceData) {
+  const name = documentName(detail);
+  const data = detail.structuredContent;
+  if (!data) {
+    target.append(element('p', 'analysis-error', '业务内容格式有误，无法显示。'));
+    return;
+  }
+  if (name === 'spec.md') {
+    if (!data.requirements.length) {
+      target.append(emptyState('暂无当前需求。'));
+      return;
+    }
+    const content = element('div', 'spec-requirements');
+    for (const requirement of data.requirements) content.append(renderRequirementCard(requirement));
+    target.append(documentSection('需求、场景与测试用例', content));
+    return;
+  }
+  if (name === 'api.yaml') {
+    const content = element('div', 'module-view-section');
+    if (!data.routes.length) content.append(emptyState('暂无接口记录。'));
+    else if (!interfaceData) content.append(element('p', 'analysis-error', '业务协作内容缺失或格式有误，无法显示接口记录。'));
+    else {
+      const relations = moduleApiRelations(data.routes, interfaceData.relations, moduleId);
+      content.append(relations.length
+        ? renderModuleApiTable(relations, businessModuleName)
+        : emptyState('当前访问路径没有可展示的 HTTP 接口记录。'));
+    }
+    content.append(renderModuleExample(name));
+    target.append(documentSection('访问路径', content));
+    return;
+  }
+  if (name === 'interface.yaml') {
+    const content = element('div', 'module-view-section');
+    content.append(data.relations.length
+      ? renderModuleProcessDiagram(data.relations, businessModuleName, moduleId)
+      : emptyState('暂无业务协作关系。'));
+    content.append(renderModuleExample(name));
+    target.append(documentSection('业务协作', content));
+    return;
+  }
+  throw new Error(`未知业务内容文件：${name}`);
 }
 
 function renderTaskStage(data, changeStatus, target) {
@@ -1537,15 +1707,21 @@ function renderSearchSuggestions(documents, query) {
   for (const doc of visibleDocuments) {
     const change = changeByDocumentId.get(doc.id);
     const stage = change ? changeStageForDocument(doc) : null;
+    const moduleContent = doc.category === '当前 Spec' && MODULE_DOCUMENT_ORDER.includes(documentName(doc));
+    const moduleId = moduleContent ? doc.relativePath.split('/').at(-2) : null;
     const option = button('', 'search-suggestion', async () => {
       closeSearchSuggestions();
       if (change && stage) navigateTo({ type: 'change', changeId: change.id, stage });
+      else if (moduleContent) navigateTo({ type: 'module', moduleId, activeDocumentId: doc.id });
       else await openDocument(doc, copyScreen(currentScreen));
     });
     option.setAttribute('role', 'option');
     option.append(
-      element('strong', '', change ? `${text(change.title, '未命名 Change')} · ${lifecycleDescriptions[stage]}` : text(doc.title, doc.relativePath.split('/').at(-1))),
-      element('small', '', change ? '变更内容' : doc.relativePath),
+      element('strong', '', change
+        ? `${text(change.title, '未命名 Change')} · ${lifecycleDescriptions[stage]}`
+        : moduleContent ? `${businessModuleName(moduleId)} · ${MODULE_VIEW_LABELS[documentName(doc)][0]}`
+          : text(doc.title, doc.relativePath.split('/').at(-1))),
+      element('small', '', change ? '变更内容' : moduleContent ? '业务内容' : doc.relativePath),
     );
     searchSuggestions.append(option);
   }

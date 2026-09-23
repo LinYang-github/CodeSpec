@@ -54,6 +54,7 @@ const canonicalRoutePathSchema = z.string().min(1).superRefine((value, context) 
 const httpRelationSchema = z.object({
   id: relationIdSchema,
   kind: z.literal('http'),
+  name: nonEmptyString.optional(),
   fromModule: moduleIdSchema,
   toModule: moduleIdSchema,
   path: canonicalRoutePathSchema,

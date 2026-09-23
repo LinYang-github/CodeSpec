@@ -112,7 +112,7 @@ describe('CodeSpec UI web shell', () => {
     expect(script).not.toContain('BUSINESS MANAGEMENT');
     expect(script).not.toContain('业务总览');
     expect(script).not.toContain('业务关系');
-    expect(script).toContain('module-document-tab');
+    expect(script).toContain('module-view-tab');
     expect(script).toContain("element('button', 'tree-node', '业务管理')");
     expect(script).toContain("element('button', 'tree-node', '变更管理')");
     expect(script).toContain('renderAllChangesWorkspace');
@@ -255,23 +255,26 @@ describe('CodeSpec UI web shell', () => {
     expect(archiveFlow).not.toContain('showError(error)');
   });
 
-  it('keeps document tabs in one horizontally scrollable row on narrow screens', async () => {
+  it('keeps content cards in one horizontally scrollable row on narrow screens', async () => {
     const styles = await fs.readFile(path.join(webRoot, 'styles.css'), 'utf8');
 
-    const tabsRule = styles.slice(styles.indexOf('.document-tabs {'), styles.indexOf('.document-tab {'));
+    const tabsRule = styles.slice(styles.indexOf('.change-stage-tabs {'), styles.indexOf('.change-stage-tab {'));
     expect(tabsRule).toContain('flex-wrap: nowrap;');
     expect(tabsRule).toContain('overflow-x: auto;');
     expect(tabsRule).toContain('overflow-y: hidden;');
   });
 
-  it('shows Change content by stage while keeping module document controls', async () => {
+  it('shows Change content by stage and module content by user-facing cards', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 
     expect(script).toContain('renderDocumentReaderControls');
     expect(script).toContain('structured-view');
     expect(script).toContain('source-view');
-    expect(script).toContain('document-tab-copy');
-    expect(script).toContain('复制文件路径');
+    expect(script).toContain("'spec.md': ['需求、场景与测试用例', '当前业务规则']");
+    expect(script).toContain("'api.yaml': ['访问路径', '接口地址、方式与参数']");
+    expect(script).toContain("'interface.yaml': ['业务协作', '业务流程与数据流向']");
+    expect(script).not.toContain('document-tab-copy');
+    expect(script).not.toContain('复制文件路径');
     expect(script).not.toContain('在文件管理器中定位');
     expect(script).not.toContain('/api/reveal/');
     expect(script).not.toContain("element('p', 'document-path'");
@@ -301,10 +304,11 @@ describe('CodeSpec UI web shell', () => {
   it('keeps the module document workspace grounded in indexed records', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 
-    expect(script).toContain("element('h3', '', module ? `${module.id} · ${module.name}` : moduleId)");
-    expect(script).toContain("emptyState('暂无模块文档。')");
+    expect(script).toContain("element('h3', '', module?.name ?? moduleId)");
+    expect(script).toContain("emptyState('暂无业务内容。')");
     expect(script).toContain('moduleDocumentOrder');
     expect(script).toContain("document.category === '当前 Spec'");
+    expect(script).toContain('renderModuleDocument(detail, content, moduleId,');
     expect(script).toContain("button('详情'");
   });
 

@@ -7,7 +7,7 @@ import { buildUiIndex, findUiDocument, searchUiIndex } from '../../src/core/ui-c
 import { parseBusinessModules } from '../../src/core/ui-content-index.js';
 import { renderInitialAnalysis } from '../../src/core/codespec-workflow/analysis.js';
 import { renderInitialCurrentTasks, renderInitialCurrentVerification } from '../../src/core/codespec-workflow/current-change-layout.js';
-import { richDelta } from '../helpers/rich-requirement.js';
+import { currentMarkdown, richDelta } from '../helpers/rich-requirement.js';
 
 describe('buildUiIndex', () => {
   const tempRoots: string[] = [];
@@ -173,6 +173,47 @@ describe('buildUiIndex', () => {
         expect.objectContaining({ relativePath: 'codespec/specs/MOD-001/interface.yaml', structuredContent: expect.any(Object) }),
       ])
     );
+  });
+
+  it('provides current requirement, route, and relation data for business views', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const moduleDir = path.join(root, 'codespec', 'specs', 'MOD-002');
+    await fs.mkdir(moduleDir, { recursive: true });
+    await fs.writeFile(path.join(moduleDir, 'spec.md'), `${currentMarkdown.trimEnd()}\n\n### 最近验证摘要\n\n- 验证通过；TAP version 13
+# Subtest: 创建用户
+ok 1 - 创建用户
+  ---
+  duration_ms: 10
+  ...\n`);
+    await fs.writeFile(path.join(moduleDir, 'api.yaml'), [
+      'version: 1', 'module: MOD-002', 'routes:',
+      '  - path: /api/users', '    inputModules: [MOD-001]', '    outputModules: [MOD-003]', '',
+    ].join('\n'));
+    await fs.writeFile(path.join(moduleDir, 'interface.yaml'), [
+      'version: 1', 'module: MOD-002', 'relations:',
+      '  - id: REL-CHG-20260907-001-01', '    kind: http',
+      '    name: 新增用户',
+      '    fromModule: MOD-001', '    toModule: MOD-002',
+      '    path: /api/users', '    method: POST',
+      '    input: 用户管理请求', '    output: 用户资料', '    errors: 参数不合法时不创建用户',
+      '    requirements: [MOD-002-REQ-006]', '    scenarios: [MOD-002-REQ-006-SCN-001]', '',
+    ].join('\n'));
+
+    const index = await buildUiIndex(root);
+    const document = (name: string) => index.documents.find((item) => item.relativePath === `codespec/specs/MOD-002/${name}`);
+    expect(document('spec.md')?.structuredContent).toMatchObject({
+      requirements: [
+        { title: '新增用户', scenarios: [{ title: '有效提交', testCases: [{ title: '提交用户' }] }] },
+        { title: '无关需求' },
+      ],
+    });
+    expect(document('api.yaml')?.structuredContent).toMatchObject({
+      routes: [{ path: '/api/users', inputModules: ['MOD-001'], outputModules: ['MOD-003'] }],
+    });
+    expect(document('interface.yaml')?.structuredContent).toMatchObject({
+      relations: [{ kind: 'http', name: '新增用户', method: 'POST', input: '用户管理请求', output: '用户资料' }],
+    });
   });
 
   it('reads analysis.yaml as structured content while preserving the source document', async () => {
