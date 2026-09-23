@@ -5,7 +5,7 @@ import { parse, stringify } from 'yaml';
 import { createCurrentArchiveFixture, modification, requirement, writeCanonicalChange } from '../../helpers/current-archive.js';
 import { validateExitGate } from '../../../src/core/codespec-workflow/gates.js';
 import { validateChangeTraceability } from '../../../src/core/codespec-workflow/traceability.js';
-import { verificationArtifactIdentity, validateCurrentVerificationArtifacts, validateVerificationEvidence } from '../../../src/core/codespec-workflow/verification.js';
+import { verificationArtifactIdentity, validateCurrentVerificationArtifacts } from '../../../src/core/codespec-workflow/verification.js';
 import { renderCurrentSpecDelta } from '../../../src/core/codespec-workflow/current-spec-delta.js';
 import { preflightArchive } from '../../../src/core/codespec-workflow/archive-transaction.js';
 import { approveStage } from '../../../src/core/codespec-workflow/approvals.js';
@@ -50,7 +50,8 @@ describe('acceptance criterion gates', () => {
       for (const field of ['requirements', 'scenarios', 'testCases', 'verificationPlan']) merged[field] = [...new Set(tasks.tasks.flatMap((task: Record<string, unknown[]>) => task[field]))];
       tasks.tasks = [merged]; artifacts.tasks = stringify(tasks);
       const evidence = parse(artifacts.verification); evidence.testCases = evidence.testCases.filter((record: { testCase: string }) => record.testCase.startsWith('MOD-002-REQ-001'));
-      evidence.artifactIdentity = verificationArtifactIdentity(artifacts); artifacts.verification = stringify(evidence);
+      evidence.artifactIdentity = verificationArtifactIdentity(artifacts);
+      artifacts.verification = stringify(evidence);
       const warnings: string[] = [];
       expect(await validateCurrentVerificationArtifacts(fixture.workspace, artifacts, warnings)).toEqual([]);
       expect(warnings.join('\n')).toMatch(/AC-002.*evidence/);
@@ -73,7 +74,8 @@ describe('acceptance criterion gates', () => {
       if (fault === 'verification-revision') evidence.changeRevision = 2;
       if (fault === 'duplicate-ac-requirement') analysis.acceptanceCriteria[0].requirements.push('MOD-002-REQ-001');
       artifacts.tasks = stringify(tasks); artifacts.analysis = stringify(analysis);
-      evidence.artifactIdentity = verificationArtifactIdentity(artifacts); artifacts.verification = stringify(evidence);
+      if (fault !== 'missing-revision') evidence.artifactIdentity = verificationArtifactIdentity(artifacts);
+      artifacts.verification = stringify(evidence);
       expect(await validateCurrentVerificationArtifacts(fixture.workspace, artifacts)).not.toEqual([]);
     } finally { fixture.cleanup(); }
   });
@@ -98,7 +100,7 @@ describe('acceptance criterion gates', () => {
       const trace = validateChangeTraceability(artifacts);
       expect(trace.issues).toEqual([]);
       expect(trace.links['Acceptance Criterion']).toEqual(['AC-001']);
-      expect(validateVerificationEvidence(artifacts)).toEqual([]);
+      expect(await validateCurrentVerificationArtifacts(fixture.workspace, artifacts)).toEqual([]);
       expect((await validateExitGate(fixture.workspace, artifacts, 'PLAN')).errors).toEqual([]);
     } finally { fixture.cleanup(); }
   });

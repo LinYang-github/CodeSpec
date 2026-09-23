@@ -60,7 +60,7 @@ export interface CurrentArchiveMergeInput {
   interfaces: Map<string, ModuleInterface>;
   configuration: ConfigurationSnapshot;
   moduleDeltas: CurrentTasks['moduleDeltas'];
-  moduleRegistrations?: CurrentTasks['moduleRegistrations'];
+  moduleRegistrations: CurrentTasks['moduleRegistrations'];
 }
 
 export interface CurrentArchiveMergeResult {
@@ -79,11 +79,11 @@ function interfaceFor(interfaces: Map<string, ModuleInterface>, module: string):
 /** Applies only approved typed deltas, then regenerates all derived business and API documents. */
 export function mergeCurrentModuleDeltas(input: CurrentArchiveMergeInput): CurrentArchiveMergeResult {
   const registrations = new Map(input.business.modules.map((module) => [module.id, { id: module.id, name: module.name, status: module.status }]));
-  for (const registration of input.moduleRegistrations?.upsert ?? []) {
+  for (const registration of input.moduleRegistrations.upsert) {
     const previous = registrations.get(registration.id);
     registrations.set(registration.id, { id: registration.id, name: registration.name, status: previous?.status ?? 'ACTIVE' });
   }
-  for (const module of input.moduleRegistrations?.retire ?? []) {
+  for (const module of input.moduleRegistrations.retire) {
     const current = registrations.get(module);
     if (!current) throw new Error(`Cannot retire an unregistered module: ${module}`);
     registrations.set(module, { ...current, status: 'RETIRED' });

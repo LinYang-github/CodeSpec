@@ -11,7 +11,6 @@ import { captureBaseline } from './baseline.js';
 import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
 import { parseCurrentTasks } from './current-change-yaml.js';
 import type { WorkspaceContext } from './loaders.js';
-import { metadataForPersistence } from './metadata-persistence.js';
 import { incrementRevision } from './state-machine.js';
 import { parseChangeMetadata } from './schemas.js';
 import type { ApprovalStage } from './types.js';
@@ -39,16 +38,15 @@ export async function reviseChange(workspace: WorkspaceContext, changeId: string
       throw new Error('Revision 冲突：加载期间 metadata 已变更。');
     }
     originals.set(metadataPath, metadataSource);
-    for (const name of ['analysis', 'proposal', 'design', 'spec', 'tasks', 'verification'] as const) {
+    for (const name of ['analysis', 'design', 'spec', 'tasks', 'verification'] as const) {
       const relative = metadata.artifacts[name];
-      if (relative) originals.set(artifactPath(relative), artifacts[name]!);
+      originals.set(artifactPath(relative), artifacts[name]);
     }
     originals.set(workspace.paths.changeIndex, await fs.readFile(workspace.paths.changeIndex, 'utf8'));
-    if (metadata.change.status === 'ARCHIVED' || metadata.change.status === 'ABANDONED') {
+    if (metadata.change.status === 'ABANDONED') {
       throw new Error(`不能修订终态 Change：${metadata.change.status}`);
     }
-    const canonical = !metadata.artifacts.proposal;
-    const stages: ApprovalStage[] = canonical ? ['analyze', 'design', 'plan'] : ['design', 'plan'];
+    const stages: ApprovalStage[] = ['analyze', 'design', 'plan'];
     const current = new Set<ApprovalStage>();
     let stale: ApprovalStage | undefined;
     for (const stage of stages) {
@@ -71,14 +69,14 @@ export async function reviseChange(workspace: WorkspaceContext, changeId: string
     for (const stage of [...invalidatedApprovals, 'implement', 'verify', 'archive'] as const) next.gates[stage].satisfied = false;
     next.tasks = { total: 0, completed: 0, items: {} };
     next.verification = { requirements_verified: false, tests_passed: false, build_passed: false, lint_passed: false, verified_at: null };
-    next.archive = { ready: false, conflict: false, archived_at: null };
+    next.archive = { ready: false, conflict: false };
 
     const revised = { ...artifacts, metadata: next };
-    if (canonical && (route === 'ANALYZE' || current.has('analyze'))) {
-      const analysis = parseAnalysisDocument(parseYaml(artifacts.analysis!));
+    if (route === 'ANALYZE' || current.has('analyze')) {
+      const analysis = parseAnalysisDocument(parseYaml(artifacts.analysis));
       revised.analysis = stringifyYaml({ ...analysis, revision: next.change.revision });
     }
-    if (canonical && route === 'PLAN') {
+    if (route === 'PLAN') {
       revised.tasks = stringifyYaml({ ...parseCurrentTasks(parseYaml(artifacts.tasks)), changeRevision: next.change.revision });
     }
     // Revision fields participate in receipts. Carry only unchanged, current
@@ -89,9 +87,14 @@ export async function reviseChange(workspace: WorkspaceContext, changeId: string
           ...metadata.approvals[stage], revision: next.change.revision,
           content_hash: approvalContentHash(stage, revised),
         };
+      } else if (!invalidatedApprovals.includes(stage)) {
+        next.approvals[stage] = {
+          ...metadata.approvals[stage],
+          revision: next.change.revision,
+        };
       }
     }
-    if (canonical && (await validateAnalysisAgainstWorkspace(workspace, revised)).length === 0) {
+    if ((await validateAnalysisAgainstWorkspace(workspace, revised)).length === 0) {
       next.baseline = await captureBaseline(workspace, next);
     }
 
@@ -101,10 +104,10 @@ export async function reviseChange(workspace: WorkspaceContext, changeId: string
       ? index.entries.map((item) => item.id === changeId ? entry : item)
       : [...index.entries, entry];
     const writes = new Map<string, string>();
-    writes.set(artifactPath(metadata.artifacts.metadata), stringifyYaml(metadataForPersistence(next)));
-    if (revised.analysis !== artifacts.analysis) writes.set(artifactPath(metadata.artifacts.analysis!), revised.analysis!);
+    writes.set(artifactPath(metadata.artifacts.metadata), stringifyYaml(next));
+    if (revised.analysis !== artifacts.analysis) writes.set(artifactPath(metadata.artifacts.analysis), revised.analysis);
     if (revised.tasks !== artifacts.tasks) writes.set(artifactPath(metadata.artifacts.tasks), revised.tasks);
-    writes.set(artifactPath(metadata.artifacts.verification), canonical ? stringifyYaml({ version: 1, testCases: [] }) : '# Verification\n');
+    writes.set(artifactPath(metadata.artifacts.verification), stringifyYaml({ version: 1, testCases: [] }));
     writes.set(workspace.paths.changeIndex, stringifyYaml({ version: 1, changes: entries }));
 
     const checkReadOnlyInputs = async () => {

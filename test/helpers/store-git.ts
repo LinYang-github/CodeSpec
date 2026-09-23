@@ -19,8 +19,6 @@ export function createHealthyCodeSpecRoot(root: string, configName = 'config.yam
   if (DEFAULT_CODESPEC_SCHEMA === 'code-spec') {
     fs.mkdirSync(path.join(codespecRoot, 'changes'), { recursive: true });
     fs.mkdirSync(path.join(codespecRoot, '.transactions'), { recursive: true });
-    fs.mkdirSync(path.join(codespecRoot, 'archive', 'specs'), { recursive: true });
-    fs.mkdirSync(path.join(codespecRoot, 'archive', 'changes'), { recursive: true });
     fs.writeFileSync(path.join(codespecRoot, configName), renderCanonicalWorkspaceConfig('store-fixture'));
     fs.writeFileSync(path.join(codespecRoot, 'business.yaml'), [
       'version: 1',

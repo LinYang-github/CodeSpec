@@ -33,18 +33,13 @@ const taskSchema = z.object({
   id: z.string().regex(/^CHG-\d{8}-\d{3}-TASK-\d{2,3}$/u),
   title: nonEmpty,
   status: z.enum(['PENDING', 'IN_PROGRESS', 'DONE']),
-  acceptanceCriteria: acceptanceIds.optional(),
+  acceptanceCriteria: acceptanceIds,
   module: moduleId.optional(),
   requirements: z.array(requirementId).min(1),
   scenarios: z.array(scenarioId).min(1),
   testCases: z.array(testCaseId).min(1),
   plannedFiles: z.array(repositoryRelativePath).min(1),
-  // The v1 contract uses an array because one implementation task may cover
-  // multiple runners/cases. Accept the original single-object form while
-  // normalizing it to the canonical array for all consumers.
-  verificationPlan: z.union([verificationPlanSchema, z.array(verificationPlanSchema).min(1)]).transform((value) =>
-    Array.isArray(value) ? value : [value]
-  ),
+  verificationPlan: z.array(verificationPlanSchema).min(1),
 }).strict();
 
 const moduleRegistrationSchema = z.object({
@@ -83,7 +78,7 @@ const configurationChangeKeySchema = z.object({
 
 const currentTasksSchema = z.object({
   version: z.literal(1),
-  changeRevision: z.number().int().positive().optional(),
+  changeRevision: z.number().int().positive(),
   tasks: z.array(taskSchema),
   moduleDeltas: z.array(z.object({
     module: moduleId,
@@ -131,10 +126,9 @@ const currentTasksSchema = z.object({
 });
 
 const verificationCaseSchema = z.object({
-  acceptanceCriteria: acceptanceIds.optional(),
-  testCase: testCaseId.optional(),
-  id: testCaseId.optional(),
-  result: z.enum(['PASS', 'FAIL', 'BLOCKED', 'SKIPPED']).default('PASS'),
+  acceptanceCriteria: acceptanceIds,
+  testCase: testCaseId,
+  result: z.enum(['PASS', 'FAIL', 'BLOCKED', 'SKIPPED']),
   testFile: nonEmpty,
   testId: nonEmpty,
   command: nonEmpty,
@@ -142,32 +136,15 @@ const verificationCaseSchema = z.object({
   services: z.array(nonEmpty),
   browser: nonEmpty,
   exitCode: z.number().int(),
-  gitRevision: z.string().regex(/^[0-9a-f]{7,64}$/u).optional(),
-  commit: z.string().regex(/^[0-9a-f]{7,64}$/u).optional(),
-  treeFingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u).optional(),
-  workingTreeFingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u).optional(),
+  gitRevision: z.string().regex(/^[0-9a-f]{7,64}$/u),
+  treeFingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
   executedAt: z.string().datetime({ offset: true }),
   summary: nonEmpty,
   cleanupSucceeded: z.boolean(),
-}).strict().superRefine((record, context) => {
-  if (!record.testCase && !record.id) context.addIssue({ code: 'custom', path: ['testCase'], message: 'testCase or id is required' });
-  if (record.testCase && record.id && record.testCase !== record.id) context.addIssue({ code: 'custom', path: ['id'], message: 'testCase and id must match' });
-  if (!record.gitRevision && !record.commit) context.addIssue({ code: 'custom', path: ['gitRevision'], message: 'gitRevision or commit is required' });
-  if (record.gitRevision && record.commit && record.gitRevision !== record.commit) context.addIssue({ code: 'custom', path: ['commit'], message: 'gitRevision and commit must match' });
-  if (!record.treeFingerprint && !record.workingTreeFingerprint) context.addIssue({ code: 'custom', path: ['treeFingerprint'], message: 'treeFingerprint or workingTreeFingerprint is required' });
-  if (record.treeFingerprint && record.workingTreeFingerprint && record.treeFingerprint !== record.workingTreeFingerprint) context.addIssue({ code: 'custom', path: ['workingTreeFingerprint'], message: 'treeFingerprint and workingTreeFingerprint must match' });
-}).transform((record) => {
-  const { id: _id, commit: _commit, workingTreeFingerprint: _workingTreeFingerprint, ...canonical } = record;
-  return {
-    ...canonical,
-    testCase: record.testCase ?? record.id!,
-    gitRevision: record.gitRevision ?? record.commit!,
-    treeFingerprint: record.treeFingerprint ?? record.workingTreeFingerprint!,
-  };
-});
+}).strict();
 const currentVerificationSchema = z.object({
   version: z.literal(1),
-  changeRevision: z.number().int().positive().optional(),
+  changeRevision: z.number().int().positive(),
   artifactIdentity: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   testCases: z.array(verificationCaseSchema),
 }).strict().superRefine((document, context) => {

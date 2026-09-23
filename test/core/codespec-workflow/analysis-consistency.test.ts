@@ -10,7 +10,6 @@ import {
 import { loadChangeArtifacts, loadWorkspace } from '../../../src/core/codespec-workflow/loaders.js';
 import {
   createWorkflowFixture,
-  writeBusinessFile,
   writeChangeArtifacts,
 } from '../../helpers/codespec-workflow.js';
 
@@ -156,24 +155,6 @@ describe('analysis workspace consistency', () => {
     );
   });
 
-  it('does not search archive history when determining whether an ADDED Requirement exists', async () => {
-    const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
-    await writeAnalysis(fixture, analysis(), {
-      modules: {
-        candidates: [{ module: 'MOD-001', outcome: 'OWNED', reason: '订单模块负责支付反馈' }],
-        confirmed: [{ module: 'MOD-001', outcome: 'OWNED', reason: '订单模块负责支付反馈' }],
-        dependencies: [],
-      },
-      requirements: { added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }], modified: [], removed: [] },
-    });
-    const archiveSpec = path.join(fixture.paths.archive, 'specs', 'MOD-001');
-    await fs.mkdir(archiveSpec, { recursive: true });
-    await fs.writeFile(path.join(archiveSpec, 'spec.md'), currentSpec('MOD-001-REQ-001'));
-    const { workspace, artifacts } = await loadFixtureArtifacts(fixture);
-
-    await expect(validateAnalysisAgainstWorkspace(workspace, artifacts)).resolves.toEqual([]);
-  });
-
   it('reports change and revision identity before metadata projection drift', async () => {
     const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
     await writeAnalysis(fixture, analysis({ change: 'CHG-20260901-002', revision: 2 }), {
@@ -184,19 +165,10 @@ describe('analysis workspace consistency', () => {
     await expect(validateAnalysisAgainstWorkspace(workspace, artifacts)).resolves.toEqual([
       'analysis.yaml.change: expected CHG-20260901-002 to equal metadata.change.id CHG-20260901-001',
       'analysis.yaml.revision: expected 2 to equal metadata.change.revision',
+      'requirements[0].id: ADDED Requirement MOD-001-REQ-001 must be actively reserved exclusively by Change CHG-20260901-001',
       'metadata.modules: must exactly equal the projection derived from analysis.yaml',
       'metadata.requirements: must exactly equal the projection derived from analysis.yaml',
     ]);
   });
 
-  it('requires an active historical five-artifact Change to migrate before leaving ANALYZE', async () => {
-    const fixture = await createWorkflowFixture(); afterEach(fixture.cleanup);
-    await writeBusinessFile(fixture, '# Business\n\n| Module ID | Module Name | Description | Responsibilities | Keywords |\n| --- | --- | --- | --- | --- |\n| MOD-001 | Orders | Owns orders | Orders | orders |\n');
-    await writeChangeArtifacts(fixture);
-    const { workspace, artifacts } = await loadFixtureArtifacts(fixture);
-
-    await expect(validateAnalysisAgainstWorkspace(workspace, artifacts)).resolves.toEqual([
-      'analysis.yaml: active five-artifact Change must be migrated before ANALYZE can complete',
-    ]);
-  });
 });

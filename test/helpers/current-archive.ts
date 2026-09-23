@@ -71,7 +71,7 @@ export async function writeCanonicalChange(fixture: WorkflowFixture, delta: Curr
   });
   Object.assign(metadata, projectAnalysisMetadata(analysis));
   const artifacts: ChangeArtifacts = {
-    changeId, changeDir, metadata, proposal: '', analysis: stringify(analysis),
+    changeId, changeDir, metadata, analysis: stringify(analysis),
     design: `# 设计\n\n${delta.requirements.map((entry) => entry.id).join('\n')}\n\n## SDD 分级依据\n\n单模块需求。\n\n## 归档影响分析\n\n\`\`\`yaml\noutcome: none\nreferences: []\nverification: []\n\`\`\`\n`,
     spec: renderCurrentSpecDelta(delta),
     tasks: stringify({ version: 1, changeRevision: 1, tasks: [], moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] } }),

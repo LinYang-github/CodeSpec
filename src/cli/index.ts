@@ -55,10 +55,7 @@ import { reviseChange } from '../core/codespec-workflow/revision.js';
 import { loadWorkspace, loadChangeArtifacts } from '../core/codespec-workflow/loaders.js';
 import { transitionChange } from '../core/codespec-workflow/state-machine.js';
 import { approveChangeStage } from '../core/codespec-workflow/approvals.js';
-import { migrateLegacyWorkspace } from '../core/codespec-workflow/migration.js';
-import { migrateActiveChangeAnalysis } from '../core/codespec-workflow/change-migration.js';
-import { archiveChange, commitArchive, preflightArchive, prepareArchive } from '../core/codespec-workflow/archive-transaction.js';
-import { parseVerificationDocument } from '../core/codespec-workflow/verification.js';
+import { commitConfirmedArchive, preflightArchive, prepareArchive } from '../core/codespec-workflow/archive-transaction.js';
 import { allocateRequirementIds } from '../core/codespec-workflow/requirement-allocator.js';
 import type { ApprovalStage, ChangeStatus } from '../core/codespec-workflow/types.js';
 import { maybeShowTelemetryNotice, trackCommand, shutdown } from '../telemetry/index.js';
@@ -552,53 +549,25 @@ program
         if (!changeName || !/^CHG-\d{8}-\d{3}$/u.test(changeName)) throw new Error('canonical code-spec 归档要求明确指定 CHG-YYYYMMDD-NNN Change ID。');
         if (options?.skipSpecs || options?.noValidate || options?.validate === false) throw new Error('canonical code-spec 不能跳过 Spec 更新或归档校验。');
         const currentArtifacts = await loadChangeArtifacts(workspace.paths, changeName);
-        if (!currentArtifacts.metadata.artifacts.proposal) {
-          const prepared = await prepareArchive(await preflightArchive(workspace, changeName));
-          const delta = prepared.plan.richDelta!;
-          const preview = {
-            changeId: changeName, revision: currentArtifacts.metadata.change.revision, mode: 'current-spec',
-            modules: prepared.affectedModules, archiveImpact: prepared.plan.archiveImpact,
-            requirements: delta.requirements.map(({ id, action }) => ({ id, action })),
-            engineeringFiles: delta.engineeringFiles.map(({ path, change }) => ({ path, change })),
-          };
-          if (options?.json) {
-            failWithError(archiveConfirmationError, {
-              enabled: true,
-              payload: { archive: null, preflight: preview },
-              fallbackCode: 'archive_confirmation_required',
-            });
-            return;
-          }
-          if (!isInteractiveTerminal()) throw archiveConfirmationError;
-          console.log('当前规格归档预检（尚未写入）：');
-          console.log(JSON.stringify(preview, null, 2));
-          if (!await confirmPrompt({ message: `确认按上述当前规格事务归档 Change "${changeName}"？`, default: false })) {
-            console.log('已取消归档。'); return;
-          }
-          const result = await archiveChange(workspace, changeName);
-          console.log(`已归档 ${result.changeId}`);
-          return;
-        }
         const prepared = await prepareArchive(await preflightArchive(workspace, changeName));
-        const evidence = parseVerificationDocument(prepared.plan.artifacts.verification);
+        const delta = prepared.plan.richDelta!;
         const preview = {
-          changeId: changeName,
-          revision: prepared.plan.artifacts.metadata.change.revision,
-          archiveImpact: prepared.plan.archiveImpact,
-          modules: [...prepared.specs.keys()],
-          evidence: { receipt: evidence.receipt, verifiedAt: evidence.verified_at, regressionCommands: evidence.commands.filter((command) => command.kind === 'archive-regression') },
+          changeId: changeName, revision: currentArtifacts.metadata.change.revision, mode: 'current-spec',
+          modules: prepared.affectedModules, archiveImpact: prepared.plan.archiveImpact,
+          requirements: delta.requirements.map(({ id, action }) => ({ id, action })),
+          engineeringFiles: delta.engineeringFiles.map(({ path, change }) => ({ path, change })),
         };
         if (options?.json) {
           failWithError(archiveConfirmationError, { enabled: true, payload: { archive: null, preflight: preview }, fallbackCode: 'archive_confirmation_required' });
           return;
         }
-        console.log('归档预检（尚未写入）：');
-        console.log(JSON.stringify(preview, null, 2));
         if (!isInteractiveTerminal()) throw archiveConfirmationError;
-        if (!await confirmPrompt({ message: `确认按上述映射和验证证据归档 Change "${changeName}"？`, default: false })) {
+        console.log('当前规格归档预检（尚未写入）：');
+        console.log(JSON.stringify(preview, null, 2));
+        if (!await confirmPrompt({ message: `确认按上述当前规格事务归档 Change "${changeName}"？`, default: false })) {
           console.log('已取消归档。'); return;
         }
-        const result = await commitArchive(prepared);
+        const result = await commitConfirmedArchive(prepared);
         console.log(`已归档 ${result.changeId}`);
         return;
       }
@@ -700,7 +669,7 @@ program
   // spec-only flags
   .option('--requirements', '仅 JSON：只显示 Requirement（排除场景）')
   .option('--no-scenarios', '仅 JSON：排除场景内容')
-  .option('-r, --requirement <id>', '显示 Current 的稳定 Requirement ID；legacy Spec 的 JSON 仍支持从 1 开始的索引')
+  .option('-r, --requirement <id>', '显示 Current 的稳定 Requirement ID')
   .option('--store <id>', STORE_OPTION_DESCRIPTION)
   // Explicit registration required: allowUnknownOption would otherwise
   // silently swallow --store-path instead of rejecting it deliberately.
@@ -881,32 +850,6 @@ program
       }, null, 2));
     } catch (error) {
       failWithError(error, { enabled: true, fallbackCode: 'approval_error' });
-      process.exit(1);
-    }
-  });
-
-program
-  .command('migrate')
-  .description('迁移旧版工作区，或将活动五件套 Change 迁移到 analysis.yaml')
-  .option('--change <id>', '迁移指定的活动 canonical Change')
-  .option('--store <id>', STORE_OPTION_DESCRIPTION)
-  .addOption(hiddenStorePathOption())
-  .option('--json', '以 JSON 输出')
-  .action(async (options: { change?: string; json?: boolean; store?: string; storePath?: string }) => {
-    try {
-      const root = await resolveRootForCommand(options, { json: Boolean(options.json) });
-      if (!root) return;
-      if (options.change) {
-        const result = await migrateActiveChangeAnalysis(await loadWorkspace(path.join(root.path, 'codespec')), options.change);
-        if (options.json) console.log(JSON.stringify(result, null, 2));
-        else console.log(`已迁移 Change：${result.changeId}（5 → 6 artifacts，ANALYZE）\n${result.message}`);
-        return;
-      }
-      await migrateLegacyWorkspace(path.join(root.path, 'codespec'));
-      if (options.json) console.log(JSON.stringify({ status: 'migrated', path: path.join(root.path, 'codespec') }, null, 2));
-      else console.log(`已迁移 CodeSpec 工作区：${path.join(root.path, 'codespec')}`);
-    } catch (error) {
-      failWithError(error, { enabled: Boolean(options.json), fallbackCode: 'migration_failed' });
       process.exit(1);
     }
   });

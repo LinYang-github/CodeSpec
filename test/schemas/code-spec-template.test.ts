@@ -21,4 +21,19 @@ describe('code-spec spec template', () => {
 
     expect(schema).toContain('GIVEN WHEN THEN ERROR');
   });
+
+  it('declares exactly the six canonical Change artifacts', () => {
+    const schema = fs.readFileSync(path.join(repoRoot, 'schemas/code-spec/schema.yaml'), 'utf8');
+    const templates = fs.readdirSync(path.join(repoRoot, 'schemas/code-spec/templates')).sort();
+
+    expect(schema).toContain('requires: [metadata, analysis, design, spec, tasks, verification]');
+    expect(templates).toEqual([
+      'analysis.yaml',
+      'design.md',
+      'metadata.yaml',
+      'spec.md',
+      'tasks.yaml',
+      'verification.yaml',
+    ]);
+  });
 });

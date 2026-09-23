@@ -41,6 +41,29 @@ async function pendingAnalysis() {
 }
 
 describe('approval transaction ownership', () => {
+  it('approves analysis for a registered module before its first archive without creating Current files', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const workspace = await loadWorkspace(fixture.codespecDir);
+      const created = await createCanonicalChange(workspace, { title: 'First module feature', summary: 'Add the first accepted behavior', mode: 'feature' });
+      const moduleDirectory = path.join(fixture.paths.currentSpecs, 'MOD-001');
+      await fs.rm(moduleDirectory, { recursive: true });
+      const [requirementId] = await allocateRequirementIds(workspace, created.changeId, 'MOD-001', 1);
+      const analysis = analysisDocument({
+        change: created.changeId,
+        modules: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Owns the first behavior' }],
+        requirements: [{ id: requirementId, action: 'ADDED', reason: 'Add the first behavior' }],
+        acceptanceCriteria: [{ id: 'AC-001', statement: 'First behavior is supported', priority: 'MUST', requirements: [requirementId] }],
+      });
+      await fs.writeFile(path.join(created.changeDir, 'analysis.yaml'), stringifyYaml(analysis));
+
+      const approved = await approveChangeStage(workspace, await loadChangeArtifacts(fixture.paths, created.changeId), 'analyze');
+      expect(approved.approvals.analyze.status).toBe('approved');
+      expect(approved.requirements.added).toEqual([{ id: requirementId, module: 'MOD-001' }]);
+      await expect(fs.access(moduleDirectory)).rejects.toThrow();
+    } finally { fixture.cleanup(); }
+  });
+
   it('rejects an unreserved ADDED Requirement before publishing the derived projection', async () => {
     const f = await pendingAnalysis();
     try {
@@ -226,7 +249,7 @@ describe('approval transaction ownership', () => {
 
 function artifactsFor(
   status: 'ANALYZE' | 'DESIGN' | 'PLAN',
-  overrides: Partial<Pick<ChangeArtifacts, 'proposal' | 'design' | 'spec' | 'tasks'>> = {}
+  overrides: Partial<Pick<ChangeArtifacts, 'analysis' | 'design' | 'spec' | 'tasks'>> = {}
 ): ChangeArtifacts {
   return {
     changeId: 'CHG-20260901-001',
@@ -239,7 +262,6 @@ function artifactsFor(
       },
       impact: { summary: 'Require explicit approval', mode: 'feature', scope: 'single-module', affected_areas: [] },
       baseline: { created_at: null, current_fingerprint: '0000000000000000000000000000000000000000000000000000000000000000', stale: false, modules: {} },
-      relations: { depends_on: [], related_to: [], conflicts_with: [], supersedes: [] },
       gates: {
         analyze: { required: true, satisfied: true }, design: { required: true, satisfied: true },
         plan: { required: true, satisfied: true }, implement: { required: true, satisfied: true },
@@ -254,20 +276,19 @@ function artifactsFor(
       modules: { candidates: [], confirmed: [], dependencies: [] },
       requirements: { added: [], modified: [], removed: [] },
       artifacts: {
-        metadata: 'changes/CHG-20260901-001/metadata.yaml', proposal: 'changes/CHG-20260901-001/proposal.md',
+        analysis: 'changes/CHG-20260901-001/analysis.yaml', metadata: 'changes/CHG-20260901-001/metadata.yaml',
         design: 'changes/CHG-20260901-001/design.md', spec: 'changes/CHG-20260901-001/spec.md',
-        tasks: 'changes/CHG-20260901-001/tasks.md', verification: 'changes/CHG-20260901-001/verification.md',
+        tasks: 'changes/CHG-20260901-001/tasks.yaml', verification: 'changes/CHG-20260901-001/verification.yaml',
       },
       tasks: { total: 1, completed: 0, items: { 'SP-01': { title: 'Implement approval gate', status: 'TODO' } } },
       verification: { requirements_verified: false, tests_passed: false, build_passed: false, lint_passed: false, verified_at: null },
-      archive: { ready: false, conflict: false, archived_at: null },
+      archive: { ready: false, conflict: false },
     },
-    analysis: null,
-    proposal: '# Proposal\n\nScope',
+    analysis: stringifyYaml(analysisDocument()),
     design: '# Design\n\nApproved design',
     spec: '## ADDED\n\nRequirement',
-    tasks: '# Tasks\n\n- [ ] SP-01 Implement approval gate',
-    verification: '# Verification',
+    tasks: 'version: 1\nchangeRevision: 1\ntasks: []\nmoduleDeltas: []\nmoduleRegistrations: { upsert: [], retire: [] }\n',
+    verification: 'version: 1\nchangeRevision: 1\ntestCases: []\n',
     ...overrides,
   };
 }
@@ -312,6 +333,7 @@ function canonicalArtifacts(
     spec: richDelta().replaceAll('MOD-002', 'MOD-001').replaceAll('REQ-006', 'REQ-001'),
     tasks: [
       'version: 1',
+      'changeRevision: 1',
       'tasks: []',
       'moduleDeltas: []',
       'moduleRegistrations:',
@@ -321,11 +343,9 @@ function canonicalArtifacts(
     ].join('\n'),
   });
   artifacts.analysis = stringifyYaml(analysis);
-  artifacts.proposal = '';
   artifacts.metadata.artifacts = {
     ...artifacts.metadata.artifacts,
     analysis: 'changes/CHG-20260901-001/analysis.yaml',
-    proposal: undefined,
     tasks: 'changes/CHG-20260901-001/tasks.yaml',
     verification: 'changes/CHG-20260901-001/verification.yaml',
   };
@@ -333,7 +353,7 @@ function canonicalArtifacts(
 }
 
 describe('workflow approvals', () => {
-  it('creates three pending approval receipts and normalizes legacy two-receipt metadata in memory', () => {
+  it('creates and requires all three pending approval receipts', () => {
     expect(createPendingApprovals(3)).toEqual({
       schema_version: 1,
       analyze: { status: 'pending', revision: 3, content_hash: '', approved_at: null },
@@ -341,17 +361,9 @@ describe('workflow approvals', () => {
       plan: { status: 'pending', revision: 3, content_hash: '', approved_at: null },
     });
 
-    const legacy = artifactsFor('DESIGN').metadata;
-    const parsed = parseChangeMetadata({
-      ...legacy,
-      approvals: {
-        schema_version: 1,
-        design: legacy.approvals.design,
-        plan: legacy.approvals.plan,
-      },
-    });
-
-    expect(parsed.approvals.analyze).toEqual({ status: 'pending', revision: 1, content_hash: '', approved_at: null });
+    const metadata = artifactsFor('DESIGN').metadata;
+    const { analyze: _analyze, ...twoReceipts } = metadata.approvals;
+    expect(() => parseChangeMetadata({ ...metadata, approvals: twoReceipts })).toThrow(/analyze/i);
   });
 
   it('hashes canonical analyze approval by semantic analysis rather than YAML layout', () => {
@@ -390,18 +402,19 @@ describe('workflow approvals', () => {
       '  - id: CHG-20260901-001-TASK-01',
       '    title: Add payment failure feedback',
       '    status: PENDING',
+      '    acceptanceCriteria: [AC-001]',
       '    requirements: [MOD-001-REQ-001]',
       '    scenarios: [MOD-001-REQ-001-SCN-001]',
       '    testCases: [MOD-001-REQ-001-SCN-001-TC-UI-01]',
       '    plannedFiles: [src/payment-feedback.ts]',
       '    verificationPlan:',
-      '      testCase: MOD-001-REQ-001-SCN-001-TC-UI-01',
-      '      runner: vitest',
-      '      command: pnpm vitest run',
-      '      profile: test',
-      '      services: []',
-      '      prepare: pnpm install',
-      '      cleanup: pnpm cleanup',
+      '      - testCase: MOD-001-REQ-001-SCN-001-TC-UI-01',
+      '        runner: vitest',
+      '        command: pnpm vitest run',
+      '        profile: test',
+      '        services: []',
+      '        prepare: pnpm install',
+      '        cleanup: pnpm cleanup',
     ].join('\n')) };
     const executionUpdate = { ...statusOnly, tasks: statusOnly.tasks.replace('status: PENDING', 'status: IN_PROGRESS') };
     const definitionUpdate = { ...statusOnly, tasks: statusOnly.tasks.replace('title: Add payment failure feedback', 'title: Add localized payment failure feedback') };
@@ -430,7 +443,6 @@ describe('workflow approvals', () => {
         metadata: {
           artifacts: {
             analysis: path.join('changes', fixture.changeId, 'analysis.yaml'),
-            proposal: undefined,
             tasks: path.join('changes', fixture.changeId, 'tasks.yaml'),
             verification: path.join('changes', fixture.changeId, 'verification.yaml'),
           },
@@ -439,8 +451,8 @@ describe('workflow approvals', () => {
         } as never,
       });
       await fs.writeFile(path.join(changeDir, 'analysis.yaml'), stringifyYaml(analysis));
-      await fs.writeFile(path.join(changeDir, 'tasks.yaml'), 'version: 1\ntasks: []\nmoduleDeltas: []\nmoduleRegistrations: { upsert: [], retire: [] }\n');
-      await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\ntestCases: []\n');
+      await fs.writeFile(path.join(changeDir, 'tasks.yaml'), 'version: 1\nchangeRevision: 1\ntasks: []\nmoduleDeltas: []\nmoduleRegistrations: { upsert: [], retire: [] }\n');
+      await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\nchangeRevision: 1\ntestCases: []\n');
       const workspace = await loadWorkspace(fixture.codespecDir);
       await allocateRequirementIds(workspace, fixture.changeId as `CHG-${string}`, 'MOD-001', 1);
       const artifacts = await loadChangeArtifacts(workspace.paths, fixture.changeId);
@@ -479,48 +491,17 @@ describe('workflow approvals', () => {
     }
   });
 
-  it('keeps legacy metadata two-stage after recording a design approval', async () => {
-    const fixture = await createWorkflowFixture({ configOverrides: { schema: 'spec-driven' } });
-    try {
-      await writeChangeArtifacts(fixture, {
-        metadata: {
-          change: { status: 'DESIGN' },
-          gates: { design: { required: true, satisfied: true } },
-          modules: {
-            candidates: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Orders own feedback' }],
-            confirmed: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Orders own feedback' }],
-            dependencies: [],
-          },
-          requirements: { added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }], modified: [], removed: [] },
-        },
-        design: '# Design\n\n## SDD 分级依据\n\nMOD-001-REQ-001\n',
-      });
-      const workspace = await loadWorkspace(fixture.codespecDir);
-      const artifacts = await loadChangeArtifacts(workspace.paths, fixture.changeId);
-
-      await approveChangeStage(workspace, artifacts, 'design');
-
-      const persisted = parseYaml(await fs.readFile(path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml'), 'utf8')) as {
-        approvals: Record<string, unknown>;
-      };
-      expect(persisted.approvals.design).toMatchObject({ status: 'approved' });
-      expect(persisted.approvals).not.toHaveProperty('analyze');
-    } finally {
-      fixture.cleanup();
-    }
-  });
-
   it('classifies semantic task-plan changes separately from locator-only changes', () => {
     const before = {
       design: '# 设计\n',
       spec: richDelta().replaceAll('REQ-006', 'REQ-001'),
       tasks: [
-        'version: 1', 'tasks:', '  - id: CHG-20260901-001-TASK-01', '    title: 新增用户页面', '    status: PENDING',
+        'version: 1', 'changeRevision: 1', 'tasks:', '  - id: CHG-20260901-001-TASK-01', '    title: 新增用户页面', '    status: PENDING', '    acceptanceCriteria: [AC-001]',
         '    requirements: [MOD-002-REQ-001]', '    scenarios: [MOD-002-REQ-001-SCN-001]', '    testCases: [MOD-002-REQ-001-SCN-001-TC-UI-01]',
-        '    plannedFiles: [src/pages/Users.tsx]', '    verificationPlan:', '      testCase: MOD-002-REQ-001-SCN-001-TC-UI-01', '      runner: playwright', '      command: pnpm playwright test', '      profile: test', '      services: [user-service]', '      prepare: pnpm dev:test', '      cleanup: pnpm dev:test:stop',
+        '    plannedFiles: [src/pages/Users.tsx]', '    verificationPlan:', '      - testCase: MOD-002-REQ-001-SCN-001-TC-UI-01', '        runner: playwright', '        command: pnpm playwright test', '        profile: test', '        services: [user-service]', '        prepare: pnpm dev:test', '        cleanup: pnpm dev:test:stop',
         'moduleDeltas: []', 'moduleRegistrations: { upsert: [], retire: [] }', '',
       ].join('\n'),
-      verification: 'version: 1\ntestCases: []\n',
+      verification: 'version: 1\nchangeRevision: 1\ntestCases: []\n',
     };
 
     expect(classifyArtifactChange(before, {
@@ -541,10 +522,21 @@ describe('workflow approvals', () => {
   it('blocks PLAN to IMPLEMENT after the approved plan changes', () => {
     const planned = artifactsFor('PLAN');
     const approved = approveStage(planned, 'plan', '2026-09-07T00:00:00.000Z');
+    const tasks = parseYaml(planned.tasks);
+    tasks.tasks.push({
+      id: 'CHG-20260901-001-TASK-01', title: 'Additional work', status: 'PENDING',
+      acceptanceCriteria: ['AC-001'], requirements: ['MOD-001-REQ-001'],
+      scenarios: ['MOD-001-REQ-001-SCN-001'], testCases: ['MOD-001-REQ-001-SCN-001-TC-UI-01'],
+      plannedFiles: ['src/payment-feedback.ts'],
+      verificationPlan: [{
+        testCase: 'MOD-001-REQ-001-SCN-001-TC-UI-01', runner: 'vitest', command: 'pnpm vitest run',
+        profile: 'test', services: [], prepare: 'pnpm install', cleanup: 'pnpm cleanup',
+      }],
+    });
     const changedPlan = {
       ...planned,
       metadata: approved,
-      tasks: `${planned.tasks}\n- [ ] SP-02 Additional work`,
+      tasks: stringifyYaml(tasks),
     };
 
     expect(() => assertTransitionApproval(changedPlan, 'IMPLEMENT'))
@@ -557,22 +549,24 @@ describe('workflow approvals', () => {
       spec: richDelta().replaceAll('REQ-006', 'REQ-001'),
       tasks: [
         'version: 1',
+        'changeRevision: 1',
         'tasks:',
         '  - id: CHG-20260901-001-TASK-01',
         '    title: 新增用户页面',
         '    status: PENDING',
+        '    acceptanceCriteria: [AC-001]',
         '    requirements: [MOD-002-REQ-001]',
         '    scenarios: [MOD-002-REQ-001-SCN-001]',
         '    testCases: [MOD-002-REQ-001-SCN-001-TC-UI-01]',
         '    plannedFiles: [src/pages/UserManagementPage.tsx]',
         '    verificationPlan:',
-        '      testCase: MOD-002-REQ-001-SCN-001-TC-UI-01',
-        '      runner: playwright',
-        '      command: pnpm playwright test',
-        '      profile: test',
-        '      services: [user-service]',
-        '      prepare: pnpm dev:test',
-        '      cleanup: pnpm dev:test:stop',
+        '      - testCase: MOD-002-REQ-001-SCN-001-TC-UI-01',
+        '        runner: playwright',
+        '        command: pnpm playwright test',
+        '        profile: test',
+        '        services: [user-service]',
+        '        prepare: pnpm dev:test',
+        '        cleanup: pnpm dev:test:stop',
         'moduleDeltas: []',
         'moduleRegistrations: { upsert: [], retire: [] }',
         '',
@@ -581,7 +575,6 @@ describe('workflow approvals', () => {
     current.metadata.artifacts = {
       ...current.metadata.artifacts,
       analysis: 'changes/CHG-20260901-001/analysis.yaml',
-      proposal: undefined,
       tasks: 'changes/CHG-20260901-001/tasks.yaml',
       verification: 'changes/CHG-20260901-001/verification.yaml',
     };
@@ -600,13 +593,13 @@ describe('workflow approvals', () => {
       design: '# 设计\n',
       spec: richDelta().replaceAll('REQ-006', 'REQ-001'),
       tasks: [
-        'version: 1', 'tasks:', '  - id: CHG-20260901-001-TASK-01', '    title: 新增用户页面', '    status: PENDING',
+        'version: 1', 'changeRevision: 1', 'tasks:', '  - id: CHG-20260901-001-TASK-01', '    title: 新增用户页面', '    status: PENDING', '    acceptanceCriteria: [AC-001]',
         '    requirements: [MOD-002-REQ-001]', '    scenarios: [MOD-002-REQ-001-SCN-001]', '    testCases: [MOD-002-REQ-001-SCN-001-TC-UI-01]',
-        '    plannedFiles: [src/pages/UserManagementPage.tsx]', '    verificationPlan:', '      testCase: MOD-002-REQ-001-SCN-001-TC-UI-01', '      runner: playwright', '      command: pnpm playwright test', '      profile: test', '      services: [user-service]', '      prepare: pnpm dev:test', '      cleanup: pnpm dev:test:stop',
+        '    plannedFiles: [src/pages/UserManagementPage.tsx]', '    verificationPlan:', '      - testCase: MOD-002-REQ-001-SCN-001-TC-UI-01', '        runner: playwright', '        command: pnpm playwright test', '        profile: test', '        services: [user-service]', '        prepare: pnpm dev:test', '        cleanup: pnpm dev:test:stop',
         'moduleDeltas: []', 'moduleRegistrations: { upsert: [], retire: [] }', '',
       ].join('\n'),
     });
-    current.metadata.artifacts = { ...current.metadata.artifacts, analysis: 'changes/CHG-20260901-001/analysis.yaml', proposal: undefined, tasks: 'changes/CHG-20260901-001/tasks.yaml', verification: 'changes/CHG-20260901-001/verification.yaml' };
+    current.metadata.artifacts = { ...current.metadata.artifacts, analysis: 'changes/CHG-20260901-001/analysis.yaml', tasks: 'changes/CHG-20260901-001/tasks.yaml', verification: 'changes/CHG-20260901-001/verification.yaml' };
     current.analysis = stringifyYaml(analysisDocument());
 
     const approved = approveStage(current, 'plan', '2026-09-07T00:00:00.000Z');

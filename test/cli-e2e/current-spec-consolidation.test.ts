@@ -10,12 +10,12 @@ import { createWorkflowFixture } from '../helpers/codespec-workflow.js';
 import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../helpers/current-archive.js';
 
 describe('current-spec consolidation CLI journey', () => {
-  it('starts from the v1 five-file workspace layout and exposes its current graph', async () => {
+  it('starts from the current workspace layout and exposes its current graph', async () => {
     const fixture = await createWorkflowFixture({ v1: true });
     try {
       expect(path.basename(fixture.paths.business)).toBe('business.yaml');
       expect(path.basename(fixture.paths.configuration)).toBe('configuration.yaml');
-      expect(path.basename(fixture.paths.transactions)).toBe('transactions');
+      expect(path.basename(fixture.paths.transactions)).toBe('.transactions');
 
       const index = await buildUiIndex(fixture.tempDir);
       expect(index.currentSpecGraph).toBeTruthy();
@@ -37,8 +37,7 @@ describe('current-spec consolidation CLI journey', () => {
       await archiveChange(await loadWorkspace(fixture.codespecDir), created.changeId);
 
       await expect(fs.access(created.changeDir)).rejects.toThrow();
-      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
-      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.codespecDir, 'archive'))).rejects.toThrow();
       await expect(buildUiIndex(fixture.tempDir)).resolves.toMatchObject({ currentSpecGraph: expect.any(Object) });
     } finally {
       fixture.cleanup();

@@ -1,6 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { stringify as stringifyYaml } from 'yaml';
 
 import { getWorkspacePaths } from '../../src/core/codespec-workflow/paths.js';
@@ -8,13 +10,12 @@ import { parseWorkspaceConfig } from '../../src/core/codespec-workflow/schemas.j
 import type { ChangeMetadata, WorkspaceConfig } from '../../src/core/codespec-workflow/types.js';
 import { cleanupTempPath } from './temp-cleanup.js';
 
+const execFileAsync = promisify(execFile);
+
 export interface WorkflowFixture {
   tempDir: string;
   codespecDir: string;
-  paths: ReturnType<typeof getWorkspacePaths> & {
-    archive: string;
-    archivedChanges: string;
-  };
+  paths: ReturnType<typeof getWorkspacePaths>;
   workspace: {
     codespecDir: string;
     config: WorkspaceConfig;
@@ -121,13 +122,6 @@ function buildMetadata(
       modules: {},
       ...overrides?.baseline,
     },
-    relations: {
-      depends_on: [],
-      related_to: [],
-      conflicts_with: [],
-      supersedes: [],
-      ...overrides?.relations,
-    },
     gates: {
       analyze: { required: true, satisfied: false },
       design: { required: true, satisfied: false },
@@ -139,6 +133,7 @@ function buildMetadata(
     },
     approvals: {
       schema_version: 1,
+      analyze: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
       design: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
       plan: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
       ...overrides?.approvals,
@@ -156,13 +151,13 @@ function buildMetadata(
       ...overrides?.requirements,
     },
     artifacts: {
+      analysis: path.relative(
+        fixture.paths.codespecDir,
+        path.join(fixture.paths.changes, fixture.changeId, 'analysis.yaml')
+      ),
       metadata: path.relative(
         fixture.paths.codespecDir,
         path.join(fixture.paths.changes, fixture.changeId, 'metadata.yaml')
-      ),
-      proposal: path.relative(
-        fixture.paths.codespecDir,
-        path.join(fixture.paths.changes, fixture.changeId, 'proposal.md')
       ),
       design: path.relative(
         fixture.paths.codespecDir,
@@ -174,11 +169,11 @@ function buildMetadata(
       ),
       tasks: path.relative(
         fixture.paths.codespecDir,
-        path.join(fixture.paths.changes, fixture.changeId, 'tasks.md')
+        path.join(fixture.paths.changes, fixture.changeId, 'tasks.yaml')
       ),
       verification: path.relative(
         fixture.paths.codespecDir,
-        path.join(fixture.paths.changes, fixture.changeId, 'verification.md')
+        path.join(fixture.paths.changes, fixture.changeId, 'verification.yaml')
       ),
       ...overrides?.artifacts,
     },
@@ -199,7 +194,6 @@ function buildMetadata(
     archive: {
       ready: false,
       conflict: false,
-      archived_at: null,
       ...overrides?.archive,
     },
   };
@@ -214,11 +208,7 @@ export async function createWorkflowFixture(options?: {
   const codespecDir = path.join(tempDir, 'codespec');
   const v1 = options?.v1 ?? true;
   const config = mergeWorkspaceConfig(DEFAULT_CONFIG, options?.configOverrides);
-  const paths = {
-    ...getWorkspacePaths(codespecDir, config),
-    archive: path.join(codespecDir, 'archive'),
-    archivedChanges: path.join(codespecDir, 'archive', 'changes'),
-  };
+  const paths = getWorkspacePaths(codespecDir, config);
 
   await fs.mkdir(paths.changes, { recursive: true });
   await fs.mkdir(paths.currentSpecs, { recursive: true });
@@ -246,6 +236,11 @@ export async function createWorkflowFixture(options?: {
   }
   await fs.writeFile(paths.changeIndex, 'version: 1\nchanges: []\n');
   await fs.writeFile(path.join(codespecDir, 'config.yaml'), stringifyYaml(config));
+  await execFileAsync('git', ['init', '--quiet'], { cwd: tempDir });
+  await execFileAsync('git', ['config', 'user.email', 'codespec-tests@example.com'], { cwd: tempDir });
+  await execFileAsync('git', ['config', 'user.name', 'CodeSpec Tests'], { cwd: tempDir });
+  await execFileAsync('git', ['add', '.'], { cwd: tempDir });
+  await execFileAsync('git', ['commit', '--quiet', '-m', 'Initialize fixture'], { cwd: tempDir });
 
   const changeId = 'CHG-20260901-001';
 
@@ -310,7 +305,7 @@ export async function writeChangeArtifacts(
   fixture: WorkflowFixture,
   options?: {
     metadata?: Partial<ChangeMetadata>;
-    proposal?: string;
+    analysis?: string;
     design?: string;
     spec?: string;
     tasks?: string;
@@ -327,7 +322,22 @@ export async function writeChangeArtifacts(
   );
 
   await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata));
-  await fs.writeFile(path.join(changeDir, 'proposal.md'), options?.proposal ?? '# Proposal\n');
+  await fs.writeFile(path.join(changeDir, 'analysis.yaml'), options?.analysis ?? stringifyYaml({
+    version: 1,
+    change: fixture.changeId,
+    revision: metadata.change.revision,
+    problem: 'Describe the requested behavior',
+    goals: [],
+    nonGoals: [],
+    scope: { in: [], out: [] },
+    actors: [],
+    constraints: [],
+    assumptions: [],
+    openQuestions: [],
+    acceptanceCriteria: [],
+    modules: [],
+    requirements: [],
+  }));
   await fs.writeFile(path.join(changeDir, 'design.md'), options?.design ?? `# Design
 
 ## 归档影响分析
@@ -339,9 +349,19 @@ verification: []
 \`\`\`
 `);
   await fs.writeFile(path.join(changeDir, 'spec.md'), options?.spec ?? '# Spec\n');
-  await fs.writeFile(path.join(changeDir, 'tasks.md'), options?.tasks ?? '# Tasks\n');
+  await fs.writeFile(path.join(changeDir, 'tasks.yaml'), options?.tasks ?? stringifyYaml({
+    version: 1,
+    changeRevision: metadata.change.revision,
+    tasks: [],
+    moduleDeltas: [],
+    moduleRegistrations: { upsert: [], retire: [] },
+  }));
   await fs.writeFile(
-    path.join(changeDir, 'verification.md'),
-    options?.verification ?? '# Verification\n'
+    path.join(changeDir, 'verification.yaml'),
+    options?.verification ?? stringifyYaml({
+      version: 1,
+      changeRevision: metadata.change.revision,
+      testCases: [],
+    })
   );
 }

@@ -14,7 +14,7 @@ function renderProposeWorkflow(input: string): string {
 
 默认 \`code-spec\` schema 的工件与依赖顺序由 \`codespec status --change "<name>" --json\` 的实际输出决定：
 - \`metadata.yaml\`（Change 控制数据与状态权威）
-- \`metadata.yaml\`（变更目标、模块影响与状态）
+- \`analysis.yaml\`（需求澄清、验收标准与模块裁决）
 - \`design.md\`（技术设计）
 - \`spec.md\`（需求增量）
 - \`tasks.yaml\`（CHG-YYYYMMDD-NNN-TASK-## 任务与追踪关系）

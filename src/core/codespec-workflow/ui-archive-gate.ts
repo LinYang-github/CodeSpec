@@ -140,6 +140,14 @@ export async function runUiArchiveGate(
   }
   const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
   const plans = requireUiPlans(tasks);
+  const analysis = parseAnalysisDocument(parseYaml(artifacts.analysis));
+  const acceptanceByTest = new Map(plans.map((plan) => [
+    plan.testCase,
+    acceptanceCriteriaForTest(tasks, analysis, plan.testCase),
+  ]));
+  for (const [testCase, acceptanceCriteria] of acceptanceByTest) {
+    if (!acceptanceCriteria.length) throw new Error(`UI 验证计划缺少验收条件关联：${testCase}`);
+  }
   const cwd = path.dirname(workspace.codespecDir);
   const runCommand = hooks.runCommand ?? commandResult;
   const runServer = hooks.startServer ?? startServer;
@@ -177,7 +185,7 @@ export async function runUiArchiveGate(
     const executedAt = new Date().toISOString();
     records.push({
       testCase: plan.testCase,
-      ...(artifacts.metadata.artifacts.analysis ? { acceptanceCriteria: acceptanceCriteriaForTest(tasks, parseAnalysisDocument(parseYaml(artifacts.analysis!)), plan.testCase) } : {}),
+      acceptanceCriteria: acceptanceByTest.get(plan.testCase),
       result: failed ? 'FAIL' : 'PASS',
       testFile: tasks.tasks.find((task) => task.verificationPlan.some((candidate) => candidate.testCase === plan.testCase))?.plannedFiles[0] ?? 'unknown',
       testId: plan.testCase,
@@ -199,7 +207,11 @@ export async function runUiArchiveGate(
   }
 
   if (firstFailure) throw firstFailure;
-  const verification = parseCurrentVerification({ version: 1, changeRevision: artifacts.metadata.change.revision,
-    ...(artifacts.metadata.artifacts.analysis ? { artifactIdentity: verificationArtifactIdentity(artifacts) } : {}), testCases: records });
+  const verification = parseCurrentVerification({
+    version: 1,
+    changeRevision: artifacts.metadata.change.revision,
+    artifactIdentity: verificationArtifactIdentity(artifacts),
+    testCases: records,
+  });
   return { passed: true, verification, outputSummary: output.join('\n').slice(0, 4000) };
 }

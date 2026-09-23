@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 import { getGlobalDataDir, registerStore } from '../../src/core/index.js';
 import { runCLI } from '../helpers/run-cli.js';
@@ -101,6 +102,11 @@ describe('legacy command groups are removed', () => {
       path.join(initiativeDir, 'initiative.yaml'),
       'version: 1\nid: billing-launch\ntitle: Billing Launch\n'
     );
+    execFileSync('git', ['init', '--quiet'], { cwd: storeRoot });
+    execFileSync('git', ['config', 'user.email', 'codespec-tests@example.com'], { cwd: storeRoot });
+    execFileSync('git', ['config', 'user.name', 'CodeSpec Tests'], { cwd: storeRoot });
+    execFileSync('git', ['add', '.'], { cwd: storeRoot });
+    execFileSync('git', ['commit', '--quiet', '-m', 'Initialize fixture'], { cwd: storeRoot });
     await registerStore({ id: 'team-context', localPath: storeRoot, globalDataDir });
 
     // An unrelated store, so `store remove` runs without touching the first.
@@ -127,14 +133,14 @@ describe('legacy command groups are removed', () => {
     // update exits 1 here (no project) — asserted so a future auto-init
     // behavior cannot silently start writing into this fixture.
     expect((await runCLI(['update'], { cwd: projectDir, env })).exitCode).toBe(1);
+    const created = await runCLI(['new', 'change', 'survival-check', '--store', 'team-context', '--json'], {
+      cwd: projectDir,
+      env,
+    });
+    expect(created.exitCode).toBe(0);
+    const changeId = JSON.parse(created.stdout).change.id;
     expect(
-      (await runCLI(['new', 'change', 'survival-check', '--store', 'team-context', '--json'], {
-        cwd: projectDir,
-        env,
-      })).exitCode
-    ).toBe(0);
-    expect(
-      (await runCLI(['status', '--change', 'survival-check', '--store', 'team-context', '--json'], {
+      (await runCLI(['status', '--change', changeId, '--store', 'team-context', '--json'], {
         cwd: projectDir,
         env,
       })).exitCode

@@ -96,7 +96,7 @@ export function buildArchiveProjection(input: ArchiveProjectionInput): ArchivePr
 
   for (const module of graph.business.modules) {
     const spec = input.specs.get(module.id);
-    if (spec === undefined) throw new Error(`Missing spec.md for module ${module.id}`);
+    if (spec === undefined) continue;
     const document = interfaces.get(module.id);
     if (!document) throw new Error(`Missing interface.yaml for module ${module.id}`);
     const api = graph.apis.get(module.id) ?? emptyApi(module.id);

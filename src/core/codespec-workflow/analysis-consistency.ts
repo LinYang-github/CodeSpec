@@ -52,8 +52,8 @@ export function projectAnalysisMetadata(document: AnalysisDocument): AnalysisPro
  * Only approveChangeStage persists this projection with its approval receipt.
  */
 export function projectPendingAnalysis(artifacts: ChangeArtifacts): ChangeArtifacts {
-  if (artifacts.metadata.change.status !== 'ANALYZE' || artifacts.metadata.artifacts.proposal ||
-      artifacts.analysis === null || artifacts.metadata.approvals.analyze?.status === 'approved') return artifacts;
+  if (artifacts.metadata.change.status !== 'ANALYZE' ||
+      artifacts.metadata.approvals.analyze.status === 'approved') return artifacts;
   const projection = projectAnalysisMetadata(parseAnalysisDocument(parseYaml(artifacts.analysis)));
   return { ...artifacts, metadata: { ...artifacts.metadata, ...projection } };
 }
@@ -100,12 +100,6 @@ export async function validateAnalysisAgainstWorkspace(
   workspace: WorkspaceContext,
   artifacts: ChangeArtifacts,
 ): Promise<string[]> {
-  if (artifacts.analysis === null) {
-    return workspace.config.schema === 'code-spec' && isActiveChange(workspace, artifacts)
-      ? ['analysis.yaml: active five-artifact Change must be migrated before ANALYZE can complete']
-      : [];
-  }
-
   let document: AnalysisDocument;
   try {
     document = parseAnalysisDocument(parseYaml(artifacts.analysis));
@@ -132,7 +126,7 @@ export async function validateAnalysisAgainstWorkspace(
 
   const currentByModule = new Map<string, Promise<{ ids: Set<string>; error?: string }>>();
   const reservations = new Map<string, Set<string>>();
-  const requireReservation = !artifacts.metadata.artifacts.proposal && isActiveChange(workspace, artifacts);
+  const requireReservation = isActiveChange(workspace, artifacts);
   if (requireReservation && document.requirements.some((requirement) => requirement.action === 'ADDED')) {
     // Read persisted allocation ownership, not the pending derived projection:
     // previewing analysis must never turn a made-up ID into a reservation.
@@ -140,7 +134,7 @@ export async function validateAnalysisAgainstWorkspace(
       if (!entry.isDirectory() || !/^CHG-\d{8}-\d{3}$/u.test(entry.name)) continue;
       const metadata = parseChangeMetadata(parseYaml(await fs.readFile(path.join(workspace.paths.changes, entry.name, 'metadata.yaml'), 'utf8')));
       if (metadata.change.id !== entry.name) throw new Error(`Change directory ${entry.name} does not match metadata change.id ${metadata.change.id}`);
-      if (['ARCHIVED', 'ABANDONED'].includes(metadata.change.status)) continue;
+      if (metadata.change.status === 'ABANDONED') continue;
       for (const ref of metadata.requirements.added) {
         const owners = reservations.get(ref.id) ?? new Set<string>();
         owners.add(metadata.change.id);

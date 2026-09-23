@@ -27,7 +27,7 @@ async function readOwner(file: string): Promise<{ owner: ArchiveIndexOwner; byte
   let owner: ArchiveIndexOwner;
   try { owner = JSON.parse(bytes) as ArchiveIndexOwner; } catch { return null; }
   if (owner?.version !== 1 || owner.kind !== 'codespec-archive-index-lock'
-    || !/^(?:archive|migrate)-[A-Za-z0-9._-]+$/u.test(owner.transactionId)
+    || !/^archive-[A-Za-z0-9._-]+$/u.test(owner.transactionId)
     || !Number.isSafeInteger(owner.pid) || owner.pid <= 0) return null;
   return { owner, bytes };
 }
@@ -42,17 +42,10 @@ function processAlive(pid: number): boolean {
  * A file lock still excludes existing callers that acquire with mkdir.
  */
 export async function acquireTransactionIndexLock(paths: WorkspacePaths, transactionId: string): Promise<void> {
-  if (!/^(?:archive|migrate)-[A-Za-z0-9._-]+$/u.test(transactionId)) throw new Error('Index lock transaction ID is invalid');
+  if (!/^archive-[A-Za-z0-9._-]+$/u.test(transactionId)) throw new Error('Index lock transaction ID is invalid');
   return withIndexLockMutation(paths, async () => {
     const owner: ArchiveIndexOwner = { version: 1, kind: 'codespec-archive-index-lock', transactionId, pid: process.pid };
-    // Archive already owns its outer lock directory. Migration only needs
-    // the index lock; its unique stage lives in the durable generation ledger.
-    // A crash before publication leaves no lock, and after publication the
-    // complete owner record is recoverable even before a journal exists.
-    const migration = transactionId.startsWith('migrate-');
-    const staged = migration
-      ? path.join(`${paths.changeIndex}.lock-ledger`, `.migration-owner-${randomUUID()}`)
-      : path.join(paths.transactions, '.archive.lock', 'index-owner.json');
+    const staged = path.join(paths.transactions, '.archive.lock', 'index-owner.json');
     await fs.mkdir(path.dirname(staged), { recursive: true });
     const handle = await fs.open(staged, 'wx');
     try { await handle.writeFile(JSON.stringify(owner), 'utf8'); await handle.sync(); }
@@ -61,8 +54,6 @@ export async function acquireTransactionIndexLock(paths: WorkspacePaths, transac
     catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Change 索引正忙');
       throw error;
-    } finally {
-      if (migration) await fs.unlink(staged);
     }
   });
 }

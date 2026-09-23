@@ -15,17 +15,16 @@ vi.mock('node:fs/promises', async (importOriginal) => ({ ...await importOriginal
 
 const spec = '# Orders\n\n- **模块编号：** MOD-001\n- **规格版本：** 1\n\n## MOD-001-REQ-001：Order\n\n#### Scenario: MOD-001-REQ-001-SCN-001 Submit\n- GIVEN ready\n- WHEN submit\n- THEN saved\n- ERROR retry\n\n### 测试用例\n\n#### MOD-001-REQ-001-SCN-001-TC-UI-01：Submit\n- **类型：** UI\n- **自动化测试：** `e2e/order.ts`\n- **测试标识：** `submit`\n- **最近验证：** 待验证\n\n| 步骤 | 用户操作 | 预期结果 |\n| --- | --- | --- |\n| 1 | submit | saved |\n';
 
-async function prepared(legacy = false) {
+async function prepared() {
   const fixture = await createWorkflowFixture();
   afterEach(fixture.cleanup);
   await writeChangeArtifacts(fixture, { spec, metadata: { change: { status: 'VERIFY' } } as never });
   const dir = path.join(fixture.paths.changes, fixture.changeId);
   const file = (name: string) => path.join(dir, name);
-  if (!legacy) {
+  {
     await fs.writeFile(file('spec.md'), richDelta('ADDED', spec.slice(spec.indexOf('## MOD-001')))
       .replaceAll('MOD-002', 'MOD-001').replaceAll('REQ-006', 'REQ-001').replaceAll('e2e/users.spec.ts', 'e2e/order.ts'));
     const metadata = parseYaml(await fs.readFile(file('metadata.yaml'), 'utf8'));
-    delete metadata.artifacts.proposal;
     metadata.artifacts.analysis = path.join('changes', fixture.changeId, 'analysis.yaml');
     metadata.artifacts.tasks = path.join('changes', fixture.changeId, 'tasks.yaml');
     metadata.artifacts.verification = path.join('changes', fixture.changeId, 'verification.yaml');
@@ -42,6 +41,7 @@ async function prepared(legacy = false) {
     await fs.writeFile(file('tasks.yaml'), stringifyYaml({
       version: 1, changeRevision: 1, tasks: [{
         id: `${fixture.changeId}-TASK-01`, title: 'Order feedback', status: 'PENDING',
+        acceptanceCriteria: ['AC-001'],
         requirements: ['MOD-001-REQ-001'], scenarios: ['MOD-001-REQ-001-SCN-001'],
         testCases: ['MOD-001-REQ-001-SCN-001-TC-UI-01'], plannedFiles: ['src/order.ts'],
         verificationPlan: [{ testCase: 'MOD-001-REQ-001-SCN-001-TC-UI-01', runner: 'vitest', command: 'pnpm test', profile: 'test', services: [], prepare: 'pnpm install', cleanup: 'pnpm cleanup' }],
@@ -51,14 +51,11 @@ async function prepared(legacy = false) {
   }
   const workspace = await loadWorkspace(fixture.codespecDir);
   const artifacts = await loadChangeArtifacts(workspace.paths, fixture.changeId);
-  for (const stage of legacy ? ['design', 'plan'] as const : ['analyze', 'design', 'plan'] as const) artifacts.metadata = approveStage(artifacts, stage, '2026-09-01T00:00:00.000Z');
+  for (const stage of ['analyze', 'design', 'plan'] as const) artifacts.metadata = approveStage(artifacts, stage, '2026-09-01T00:00:00.000Z');
   artifacts.metadata.verification = { requirements_verified: true, tests_passed: true, build_passed: true, lint_passed: true, verified_at: '2026-09-01T00:00:00.000Z', evidence_receipt: 'a'.repeat(64), baseline_identity: 'b'.repeat(64) };
   artifacts.metadata.archive.ready = true;
   for (const gate of Object.values(artifacts.metadata.gates)) gate.satisfied = true;
-  if (legacy) {
-    const { analyze: _analyze, ...approvals } = artifacts.metadata.approvals;
-    await fs.writeFile(file('metadata.yaml'), stringifyYaml({ ...artifacts.metadata, approvals }));
-  } else await fs.writeFile(file('metadata.yaml'), stringifyYaml(artifacts.metadata));
+  await fs.writeFile(file('metadata.yaml'), stringifyYaml(artifacts.metadata));
   const edit = async (name: string, from: string, to: string) => fs.writeFile(file(name), (await fs.readFile(file(name), 'utf8')).replace(from, to));
   return { ...fixture, workspace, file, edit };
 }
@@ -299,18 +296,6 @@ describe('semantic revision transaction', () => {
     }
   });
 
-  it('preserves legacy proposal-bearing metadata and markdown artifacts', async () => {
-    const fixture = await prepared(true);
-    await fixture.edit('design.md', '# Design', '# Revised');
-    const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
-    expect((await reviseChange(fixture.workspace, fixture.changeId, 'design changed')).route).toBe('DESIGN');
-    const persisted = parseYaml(await fs.readFile(fixture.file('metadata.yaml'), 'utf8'));
-    expect(persisted.approvals).not.toHaveProperty('analyze');
-    expect(persisted.artifacts.proposal).toContain('proposal.md');
-    expect(await fs.readFile(fixture.file('verification.md'), 'utf8')).toBe('# Verification\n');
-    expect(await fs.readFile(fixture.file('tasks.md'), 'utf8')).toBe('# Tasks\n');
-  });
-
   it.each(['', '   '])('rejects empty reasons without writing', async (reason) => {
     const fixture = await prepared();
     await fixture.edit('design.md', '# Design', '# Revised');
@@ -318,15 +303,15 @@ describe('semantic revision transaction', () => {
     await expect(reviseChange(fixture.workspace, fixture.changeId, reason)).rejects.toThrow(/reason|原因/i);
   });
 
-  it.each(['ARCHIVED', 'ABANDONED'])('rejects revision of terminal state %s', async (status) => {
+  it('rejects revision of an abandoned Change', async () => {
     const fixture = await prepared();
-    await fixture.edit('metadata.yaml', 'status: VERIFY', `status: ${status}`);
+    await fixture.edit('metadata.yaml', 'status: VERIFY', 'status: ABANDONED');
     await fixture.edit('design.md', '# Design', '# Revised');
     const { reviseChange } = await import('../../../src/core/codespec-workflow/revision.js');
-    await expect(reviseChange(fixture.workspace, fixture.changeId, 'changed')).rejects.toThrow(/ARCHIVED|ABANDONED|终态/i);
+    await expect(reviseChange(fixture.workspace, fixture.changeId, 'changed')).rejects.toThrow(/ABANDONED|终态/i);
   });
 
-  it('requires current tasks changeRevision at the canonical PLAN gate while allowing historical parsing', async () => {
+  it('requires current tasks changeRevision at the canonical PLAN gate', async () => {
     const fixture = await prepared();
     const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
     artifacts.metadata.change.status = 'PLAN';

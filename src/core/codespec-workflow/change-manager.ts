@@ -109,12 +109,6 @@ async function buildMetadata(
       stale: false,
       modules: {},
     },
-    relations: {
-      depends_on: [],
-      related_to: [],
-      conflicts_with: [],
-      supersedes: [],
-    },
     gates: {
       analyze: { required: true, satisfied: false },
       design: { required: true, satisfied: false },
@@ -157,7 +151,6 @@ async function buildMetadata(
     archive: {
       ready: false,
       conflict: false,
-      archived_at: null,
     },
   };
 }

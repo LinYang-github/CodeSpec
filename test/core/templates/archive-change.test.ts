@@ -10,7 +10,8 @@ describe('codespec-archive-change template', () => {
     expect(instructions).toContain('codespec archive "<CHG-ID>"');
     expect(instructions).toContain('preflightArchive()');
     expect(instructions).toContain('prepareArchive()');
-    expect(instructions).toContain('commitArchive()');
+    expect(instructions).toContain('commitConfirmedArchive()');
+    expect(instructions).not.toContain('commitArchive()');
     expect(instructions).toContain('Current Specification');
     expect(instructions).toContain('交互式终端');
     expect(instructions).toContain('不得替用户调用归档');
@@ -18,12 +19,14 @@ describe('codespec-archive-change template', () => {
     expect(instructions).not.toContain('codespec-sync-specs');
     expect(instructions).not.toContain('同步 Spec workflow');
     expect(instructions).not.toContain('codespec/archive/changes');
-    expect(instructions).toContain('活动 Change 已移除');
+    expect(instructions).toContain('活动 Change 已删除');
+    expect(instructions).toContain('不得创建 `codespec/archive/`');
   });
 
   it('uses the same archive-only contract for the command surface', () => {
     const command = getCodespecArchiveCommandTemplate();
-    expect(command.content).toContain('archiveTransaction()');
+    expect(command.content).toContain('commitConfirmedArchive()');
+    expect(command.content).not.toContain('commitArchive()');
     expect(command.content).not.toContain('codespec-sync-specs');
   });
 });

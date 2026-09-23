@@ -5,7 +5,7 @@ import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 function renderNewChangeWorkflow(input: string): string {
   return `开始新的 Change：创建 canonical 骨架并展示第一个待完成工件，不直接编写任何工件。
 
-默认 schema 为 \`code-spec\`。活动 Change 固定生成 \`metadata.yaml\`、\`design.md\`、\`spec.md\`、\`tasks.yaml\` 和 \`verification.yaml\`；状态与依赖以 \`codespec status --change "<name>" --json\` 的实际输出为准。PLAN 仅作为兼容旧 Change 的内部状态。
+默认 schema 为 \`code-spec\`。活动 Change 固定生成 \`metadata.yaml\`、\`analysis.yaml\`、\`design.md\`、\`spec.md\`、\`tasks.yaml\` 和 \`verification.yaml\`；状态与依赖以 \`codespec status --change "<name>" --json\` 的实际输出为准。PLAN 是计划审批阶段，不创建额外文件。
 
 ${STORE_SELECTION_GUIDANCE}
 

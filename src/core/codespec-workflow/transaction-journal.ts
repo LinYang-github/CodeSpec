@@ -6,6 +6,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { WorkspacePaths } from './paths.js';
 import { releaseArchiveIndexLock } from './archive-index-lock.js';
 import { withIndexLockMutation } from './index-lock-gate.js';
+import { assertPathWithoutSymlinks } from './path-safety.js';
 
 interface JournalEntry {
   target: string;
@@ -19,7 +20,6 @@ interface JournalManifest {
   version: 1;
   transactionId: string;
   entries: JournalEntry[];
-  cleanupAfterCommit: string[];
   cleanupEmptyAfterCommit?: string[];
   createdDirectories?: string[];
   ownerPid?: number;
@@ -29,7 +29,6 @@ export interface JournalInput {
   paths: WorkspacePaths;
   transactionId: string;
   files: Array<{ target: string; before: string | null; after: string | null }>;
-  cleanupAfterCommit?: string[];
   cleanupEmptyAfterCommit?: string[];
   ownerPid?: number;
 }
@@ -99,6 +98,7 @@ async function linkWithoutReplacing(source: string, target: string): Promise<boo
  */
 async function installOwnedEntry(paths: WorkspacePaths, directory: string, entry: JournalEntry, index: number, mode: 'install' | 'rollback' | 'commit'): Promise<boolean> {
   const target = resolveTarget(paths, entry.target);
+  await assertPathWithoutSymlinks(paths.codespecDir, target);
   const desired = mode === 'rollback' ? entry.before : entry.after;
   const recovery = path.join(directory, mode === 'install' ? 'installation' : 'recovery', String(index));
   const displaced = path.join(recovery, 'displaced');
@@ -183,7 +183,7 @@ async function retainDisplacedInodes(paths: WorkspacePaths, directory: string, m
 function assertManifest(value: unknown): JournalManifest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Archive journal is malformed');
   const manifest = value as Partial<JournalManifest>;
-  if (manifest.version !== 1 || typeof manifest.transactionId !== 'string' || !Array.isArray(manifest.entries) || !Array.isArray(manifest.cleanupAfterCommit)) {
+  if (manifest.version !== 1 || typeof manifest.transactionId !== 'string' || !Array.isArray(manifest.entries)) {
     throw new Error('Archive journal is malformed');
   }
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(manifest.transactionId)) throw new Error('Archive journal transaction ID is invalid');
@@ -195,7 +195,6 @@ function assertManifest(value: unknown): JournalManifest {
       throw new Error('Archive journal checksum is invalid');
     }
   }
-  if (manifest.cleanupAfterCommit.some((target) => typeof target !== 'string')) throw new Error('Archive journal cleanup list is invalid');
   for (const list of [manifest.cleanupEmptyAfterCommit, manifest.createdDirectories]) {
     if (list !== undefined && (!Array.isArray(list) || list.some((target) => typeof target !== 'string'))) throw new Error('Archive journal directory list is invalid');
   }
@@ -208,13 +207,16 @@ export async function createArchiveJournal(input: JournalInput): Promise<Archive
   const directory = path.join(input.paths.transactions, input.transactionId);
   if (await fs.access(directory).then(() => true).catch(() => false)) throw new Error(`Archive journal already exists: ${input.transactionId}`);
   const targets = new Set<string>();
+  for (const file of input.files) await assertPathWithoutSymlinks(input.paths.codespecDir, file.target);
+  for (const target of input.cleanupEmptyAfterCommit ?? []) {
+    await assertPathWithoutSymlinks(input.paths.codespecDir, target);
+  }
   const entries = input.files.map((file) => {
     const target = relativeTarget(input.paths, file.target);
     if (targets.has(target)) throw new Error(`Archive journal contains duplicate target: ${target}`);
     targets.add(target);
     return { target, before: file.before, after: file.after, beforeChecksum: checksum(file.before), afterChecksum: checksum(file.after) };
   });
-  const cleanupAfterCommit = (input.cleanupAfterCommit ?? []).map((target) => relativeTarget(input.paths, target));
   const cleanupEmptyAfterCommit = (input.cleanupEmptyAfterCommit ?? []).map((target) => relativeTarget(input.paths, target));
   const createdDirectories = new Set<string>();
   for (const file of input.files) {
@@ -225,7 +227,7 @@ export async function createArchiveJournal(input: JournalInput): Promise<Archive
     }
   }
   const manifest: JournalManifest = {
-    version: 1, transactionId: input.transactionId, entries, cleanupAfterCommit, cleanupEmptyAfterCommit,
+    version: 1, transactionId: input.transactionId, entries, cleanupEmptyAfterCommit,
     createdDirectories: [...createdDirectories].sort((left, right) => right.split('/').length - left.split('/').length),
     ...(input.ownerPid === undefined ? {} : { ownerPid: input.ownerPid }),
   };
@@ -292,7 +294,6 @@ async function recoverJournal(paths: WorkspacePaths, directory: string, ownedTra
     throw new Error(`ARCHIVE CONFLICT: transaction ownership lost for ${conflicts.join(', ')}; recovery journal preserved`);
   }
   if (committed) {
-    for (const relative of manifest.cleanupAfterCommit) await fs.rm(resolveTarget(paths, relative), { recursive: true, force: true });
     for (const relative of manifest.cleanupEmptyAfterCommit ?? []) await removeEmptyDirectory(resolveTarget(paths, relative));
   } else {
     for (const relative of manifest.createdDirectories ?? []) await removeEmptyDirectory(resolveTarget(paths, relative));

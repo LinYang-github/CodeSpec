@@ -174,7 +174,6 @@ describe('command completion registry', () => {
       'doctor',
       'instructions',
       'list',
-      'migrate',
       'new change',
       'rebase',
       'revise',

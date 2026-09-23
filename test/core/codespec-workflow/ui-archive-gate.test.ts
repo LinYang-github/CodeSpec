@@ -33,12 +33,17 @@ async function sharedPlansFixture(conflicting = false) {
 function artifactsFor(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>, tasks: unknown): ChangeArtifacts {
   const metadata = fixture.metadataAt('ARCHIVE');
   metadata.impact.affected_areas = ['ui'];
-  metadata.artifacts.proposal = undefined;
   return {
     changeId: fixture.changeId,
     changeDir: fixture.paths.changes,
     metadata,
-    proposal: '',
+    analysis: stringifyYaml({
+      version: 1, change: fixture.changeId, revision: 1, problem: 'UI verification',
+      goals: [], nonGoals: [], scope: { in: [], out: [] }, actors: [], constraints: [],
+      assumptions: [], openQuestions: [],
+      acceptanceCriteria: [{ id: 'AC-001', statement: 'UI flow passes', priority: 'MUST', requirements: ['MOD-002-REQ-001'] }],
+      modules: [], requirements: [],
+    }),
     design: '# Design\n',
     spec: '# Spec\n',
     tasks: stringifyYaml(tasks),
@@ -49,15 +54,17 @@ function artifactsFor(fixture: Awaited<ReturnType<typeof createWorkflowFixture>>
 function uiTasks(overrides: Record<string, unknown> = {}) {
   return {
     version: 1,
+    changeRevision: 1,
     tasks: [{
       id: 'CHG-20260907-001-TASK-01',
       title: '运行 UI E2E',
       status: 'DONE',
+      acceptanceCriteria: ['AC-001'],
       requirements: ['MOD-002-REQ-001'],
       scenarios: ['MOD-002-REQ-001-SCN-001'],
       testCases: ['MOD-002-REQ-001-SCN-001-TC-UI-01'],
       plannedFiles: ['src/pages/UserManagementPage.tsx'],
-      verificationPlan: {
+      verificationPlan: [{
         testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01',
         runner: 'playwright',
         startup: 'pnpm dev',
@@ -68,7 +75,7 @@ function uiTasks(overrides: Record<string, unknown> = {}) {
         prepare: 'pnpm e2e:prepare',
         cleanup: 'pnpm e2e:cleanup',
         ...overrides,
-      },
+      }],
     }],
     moduleDeltas: [],
     moduleRegistrations: { upsert: [], retire: [] },

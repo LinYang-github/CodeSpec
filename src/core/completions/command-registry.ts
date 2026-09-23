@@ -29,15 +29,6 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
     ],
   },
   {
-    name: 'migrate',
-    description: '将旧版 CodeSpec 工作区转换为当前规格 v1 文件结构',
-    flags: [
-      { name: 'change', description: '迁移指定的活动 canonical Change', takesValue: true },
-      COMMON_FLAGS.store,
-      { name: 'json', description: '以 JSON 输出' },
-    ],
-  },
-  {
     name: 'revise',
     description: '根据已批准产物的语义变更递增 revision 并回退生命周期',
     flags: [

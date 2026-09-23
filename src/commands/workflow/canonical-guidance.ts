@@ -4,9 +4,8 @@ import type { WorkspaceContext } from '../../core/codespec-workflow/loaders.js';
 import { parseAnalysisDocument } from '../../core/codespec-workflow/analysis.js';
 import { projectPendingAnalysis, validateAnalysisAgainstWorkspace } from '../../core/codespec-workflow/analysis-consistency.js';
 import { isApprovalCurrent } from '../../core/codespec-workflow/approvals.js';
-import { validateEntryGate, validateExitGate } from '../../core/codespec-workflow/gates.js';
+import { validateExitGate } from '../../core/codespec-workflow/gates.js';
 import { validateChangeTraceability } from '../../core/codespec-workflow/traceability.js';
-import { CHANGE_MIGRATION_GUIDANCE } from '../../core/codespec-workflow/change-migration.js';
 
 /** Read-only lifecycle advice shared by status and stage instructions. */
 export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: ChangeArtifacts) {
@@ -14,43 +13,32 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
   const { metadata } = artifacts;
   const id = metadata.change.id;
   const state = metadata.change.status;
-  const needsMigration = !metadata.artifacts.proposal && artifacts.analysis === null;
-  const analysis = artifacts.analysis === null ? null : parseAnalysisDocument(parseYaml(artifacts.analysis));
-  const analysisErrors = analysis ? await validateAnalysisAgainstWorkspace(workspace, artifacts) : [];
-  const gate = needsMigration
-    ? { errors: [`analysis.yaml: 活动五件套 Change 必须显式迁移。${CHANGE_MIGRATION_GUIDANCE}`], warnings: [] }
-    : await validateExitGate(workspace, artifacts, state);
-  const planEntry = !metadata.artifacts.analysis && state === 'DESIGN' && isApprovalCurrent('design', artifacts)
-    ? await validateEntryGate(workspace, artifacts, 'PLAN') : null;
+  const analysis = parseAnalysisDocument(parseYaml(artifacts.analysis));
+  const analysisErrors = await validateAnalysisAgainstWorkspace(workspace, artifacts);
+  const gate = await validateExitGate(workspace, artifacts, state);
   const currentCommands = Object.values(metadata.requirements).flat()
     .filter((ref) => !metadata.requirements.added.some((added) => added.id === ref.id))
     .map((ref) => `codespec show ${ref.module} --type spec --requirement ${ref.id} --json`);
   const traceGaps: string[] = [];
   const traceWarnings: string[] = [];
-  if (analysis && (planEntry || ['PLAN', 'VERIFY', 'ARCHIVE'].includes(state))) {
+  if (['PLAN', 'VERIFY', 'ARCHIVE'].includes(state)) {
     try {
-      const trace = validateChangeTraceability(artifacts, !planEntry && state !== 'PLAN');
+      const trace = validateChangeTraceability(artifacts, state !== 'PLAN');
       traceGaps.push(...trace.issues);
       traceWarnings.push(...trace.warnings ?? []);
     } catch (error) { traceGaps.push(error instanceof Error ? error.message : String(error)); }
   }
   let nextCommand = `codespec status --change ${id} --json`;
   let nextAction = { action: 'inspect_status', path: metadata.artifacts.metadata, description: '查看状态和门禁，按对应产物路径补齐内容。' };
-  if (needsMigration) {
-    nextCommand = `codespec migrate --change ${id}`;
-    nextAction = { action: 'migrate', path: metadata.artifacts.metadata, description: '将活动五件套迁移到 ANALYZE，随后人工补齐需求澄清。' };
-  } else if (analysis && state === 'ANALYZE' && analysisErrors.length) {
+  if (state === 'ANALYZE' && analysisErrors.length) {
     nextCommand = `codespec instructions analyze --change ${id} --json`;
-    nextAction = { action: 'edit_analysis', path: metadata.artifacts.analysis!, description: '人工修订 analysis.yaml：先检查 design.md 中的 Rebase decision（如有），解决分析冲突、revision 缺项和 OPEN question，确认或拒绝 PROPOSED assumption，再继续审批。此命令只读取指导，不编辑文件；未解决分析冲突时不要重复 rebase。' };
+    nextAction = { action: 'edit_analysis', path: metadata.artifacts.analysis, description: '人工修订 analysis.yaml：先检查 design.md 中的 Rebase decision（如有），解决分析冲突、revision 缺项和 OPEN question，确认或拒绝 PROPOSED assumption，再继续审批。此命令只读取指导，不编辑文件；未解决分析冲突时不要重复 rebase。' };
   // An ANALYZE rebase deliberately retains the stale baseline. Once its
   // analysis is repaired, approve that intent before attempting another rebase.
-  } else if (metadata.baseline.stale && !(analysis && state === 'ANALYZE')) {
+  } else if (metadata.baseline.stale && state !== 'ANALYZE') {
     nextCommand = `codespec rebase --change ${id}`;
     nextAction = { action: 'rebase', path: metadata.artifacts.spec, description: '用 Current 执行 semantic rebase，并按返回的 ANALYZE 或 DESIGN route 继续。' };
-  } else if (planEntry && planEntry.errors.length) {
-    nextCommand = `codespec instructions design --change ${id} --json`;
-    nextAction = { action: 'edit_tasks', path: metadata.artifacts.tasks, description: '人工补齐 tasks.yaml 的任务图和 AC 追踪缺口，并解决列出的 PLAN 入口门禁。此命令只读取指导，不编辑文件；入口满足后才能进入 PLAN。' };
-  } else if (analysis && state === 'PLAN' && gate.errors.length) {
+  } else if (state === 'PLAN' && gate.errors.length) {
     nextCommand = `codespec instructions plan --change ${id} --json`;
     nextAction = { action: 'edit_tasks', path: metadata.artifacts.tasks, description: '人工补齐 tasks.yaml 的任务图和 AC 追踪缺口；完成后请求计划审批，再进入 IMPLEMENT。此命令只读取指导，不编辑文件。' };
   } else if (gate.errors.length === 0 && ['ANALYZE', 'DESIGN', 'PLAN'].includes(state)) {
@@ -72,16 +60,16 @@ export async function canonicalGuidance(workspace: WorkspaceContext, artifacts: 
     nextAction = { action: 'request_archive', path: metadata.artifacts.verification, description: '由用户在交互式终端运行并确认归档。' };
   }
   return {
-    analysisSummary: analysis ? {
+    analysisSummary: {
       path: metadata.artifacts.analysis, problem: analysis.problem, goals: analysis.goals,
       acceptanceCriteria: analysis.acceptanceCriteria, complete: analysisErrors.length === 0,
       approved: isApprovalCurrent('analyze', artifacts),
-    } : null,
-    openQuestions: analysis?.openQuestions.filter((question) => question.status === 'OPEN') ?? [],
-    assumptions: analysis?.assumptions ?? [],
-    gateErrors: [...new Set([...gate.errors, ...planEntry?.errors ?? []])], gateWarnings: [...new Set([...gate.warnings, ...planEntry?.warnings ?? [], ...traceWarnings])],
+    },
+    openQuestions: analysis.openQuestions.filter((question) => question.status === 'OPEN'),
+    assumptions: analysis.assumptions,
+    gateErrors: [...new Set(gate.errors)], gateWarnings: [...new Set([...gate.warnings, ...traceWarnings])],
     traceGaps, currentCommands,
-    deltaBoundary: { requirementIds: analysis?.requirements.map((requirement) => requirement.id) ?? [], baseline: 'Current', fields: ['Previous', 'New', 'Reason'], actions: ['ADDED', 'MODIFIED', 'REMOVED'] },
+    deltaBoundary: { requirementIds: analysis.requirements.map((requirement) => requirement.id), baseline: 'Current', fields: ['Previous', 'New', 'Reason'], actions: ['ADDED', 'MODIFIED', 'REMOVED'] },
     nextCommand, nextAction,
   };
 }

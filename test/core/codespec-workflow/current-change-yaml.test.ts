@@ -10,15 +10,17 @@ import {
 
 const tasks = {
   version: 1,
+  changeRevision: 1,
   tasks: [{
     id: 'CHG-20260907-001-TASK-01',
     title: '实现新增用户页面',
     status: 'PENDING',
+    acceptanceCriteria: ['AC-001'],
     requirements: ['MOD-002-REQ-001'],
     scenarios: ['MOD-002-REQ-001-SCN-001'],
     testCases: ['MOD-002-REQ-001-SCN-001-TC-UI-01'],
     plannedFiles: ['src/pages/UserManagementPage.tsx'],
-    verificationPlan: {
+    verificationPlan: [{
       testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01',
       runner: 'playwright',
       command: 'pnpm playwright test e2e/user-management/add-user.spec.ts',
@@ -26,7 +28,7 @@ const tasks = {
       services: ['user-service'],
       prepare: 'pnpm dev:test',
       cleanup: 'pnpm dev:test:stop',
-    },
+    }],
   }],
   moduleDeltas: [],
   moduleRegistrations: { upsert: [], retire: [] },
@@ -34,8 +36,8 @@ const tasks = {
 
 describe('current Change YAML contracts', () => {
   it('merges shared plans with reordered services without mutating task definitions', () => {
-    const first = { ...tasks.tasks[0], verificationPlan: { ...tasks.tasks[0].verificationPlan, services: ['users', 'auth'] } };
-    const second = { ...first, id: 'CHG-20260907-001-TASK-02', verificationPlan: { ...first.verificationPlan, services: ['auth', 'users'] } };
+    const first = { ...tasks.tasks[0], verificationPlan: [{ ...tasks.tasks[0].verificationPlan[0], services: ['users', 'auth'] }] };
+    const second = { ...first, id: 'CHG-20260907-001-TASK-02', verificationPlan: [{ ...first.verificationPlan[0], services: ['auth', 'users'] }] };
     const parsed = parseCurrentTasks({ ...tasks, tasks: [first, second] });
     const merged = mergeCurrentVerificationPlans(parsed);
     expect(merged).toHaveLength(1);
@@ -44,7 +46,7 @@ describe('current Change YAML contracts', () => {
   });
 
   it.each(['runner', 'command', 'startup', 'profile', 'services', 'browser', 'prepare', 'cleanup'])('rejects conflicting shared plan field %s', (field) => {
-    const second = { ...tasks.tasks[0], id: 'CHG-20260907-001-TASK-02', verificationPlan: { ...tasks.tasks[0].verificationPlan, [field]: field === 'services' ? ['different-service'] : 'different-definition' } };
+    const second = { ...tasks.tasks[0], id: 'CHG-20260907-001-TASK-02', verificationPlan: [{ ...tasks.tasks[0].verificationPlan[0], [field]: field === 'services' ? ['different-service'] : 'different-definition' }] };
     expect(() => mergeCurrentVerificationPlans(parseCurrentTasks({ ...tasks, tasks: [tasks.tasks[0], second] }))).toThrow(/Conflicting verification plan.*MOD-002-REQ-001-SCN-001-TC-UI-01/);
   });
   it('accepts AC references and rejects duplicate trace references', () => {
@@ -72,8 +74,11 @@ describe('current Change YAML contracts', () => {
   it('records complete actual E2E execution evidence', () => {
     expect(parseCurrentVerification({
       version: 1,
+      changeRevision: 1,
       testCases: [{
         testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01',
+        acceptanceCriteria: ['AC-001'],
+        result: 'PASS',
         testFile: 'e2e/user-management/add-user.spec.ts',
         testId: 'TC-UI-01',
         command: 'pnpm playwright test e2e/user-management/add-user.spec.ts',
@@ -90,11 +95,11 @@ describe('current Change YAML contracts', () => {
     }).testCases[0]?.browser).toBe('chromium');
   });
 
-  it('normalizes multi-case verification plans and the design-contract evidence aliases', () => {
+  it('accepts multi-case verification plans and canonical evidence fields', () => {
     const parsed = parseCurrentTasks({
       ...tasks,
-      tasks: [{ ...tasks.tasks[0], verificationPlan: [tasks.tasks[0].verificationPlan, {
-        ...tasks.tasks[0].verificationPlan,
+      tasks: [{ ...tasks.tasks[0], verificationPlan: [tasks.tasks[0].verificationPlan[0], {
+        ...tasks.tasks[0].verificationPlan[0],
         testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-02',
       }] }],
     });
@@ -102,10 +107,12 @@ describe('current Change YAML contracts', () => {
 
     const verification = parseCurrentVerification({
       version: 1,
+      changeRevision: 1,
       testCases: [{
-        id: 'MOD-002-REQ-001-SCN-001-TC-UI-01', testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
+        testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', acceptanceCriteria: ['AC-001'], result: 'PASS',
+        testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
         command: 'pnpm playwright test', profile: 'test', services: ['user-service'], browser: 'chromium',
-        exitCode: 0, commit: '9ec4bf1', workingTreeFingerprint: 'sha256:f4bd3f5c3cdb8f27ab9910f241313c5c3a138f91a7be2534de45fa7b745a4365',
+        exitCode: 0, gitRevision: '9ec4bf1', treeFingerprint: 'sha256:f4bd3f5c3cdb8f27ab9910f241313c5c3a138f91a7be2534de45fa7b745a4365',
         executedAt: '2026-09-07T10:30:00+08:00', summary: '通过', cleanupSucceeded: true,
       }],
     });
@@ -121,11 +128,11 @@ describe('current Change YAML contracts', () => {
       ...tasks,
       tasks: [{
         ...tasks.tasks[0],
-        verificationPlan: {
-          ...tasks.tasks[0].verificationPlan,
+        verificationPlan: [{
+          ...tasks.tasks[0].verificationPlan[0],
           startup: 'pnpm dev --host 127.0.0.1',
           browser: 'chromium',
-        },
+        }],
       }],
     });
     expect(parsed.tasks[0]?.verificationPlan[0]).toMatchObject({

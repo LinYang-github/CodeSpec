@@ -45,16 +45,6 @@ describe('canonical Current Requirement show', () => {
     expect(result.stdout + result.stderr).toMatch(/Requirement|需求/);
   });
 
-  it('never resolves a Requirement from archive when Current is absent', async () => {
-    await fs.rm(path.join(fixture.paths.currentSpecs, 'MOD-002', 'spec.md'));
-    const archive = path.join(fixture.paths.archivedChanges, 'CHG-20260901-001');
-    await fs.mkdir(archive, { recursive: true });
-    await fs.writeFile(path.join(archive, 'spec.md'), currentMarkdown);
-    const result = run('MOD-002', '--type', 'spec', '--requirement', 'MOD-002-REQ-006', '--json');
-    expect(result.status).not.toBe(0);
-    expect(result.stdout + result.stderr).toMatch(/Current/);
-    expect(result.stdout).not.toContain('新增用户');
-  });
 });
 
 describe('top-level show command', () => {

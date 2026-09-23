@@ -21,6 +21,7 @@ function validMetadata() {
       revision: 1,
       title: 'Demo change',
       mode: 'feature',
+      sdd_level: 2,
       status: 'ANALYZE',
       created_at: '2026-09-01T00:00:00.000Z',
       updated_at: '2026-09-01T00:00:00.000Z',
@@ -29,9 +30,12 @@ function validMetadata() {
       summary: 'Introduce account recovery flow',
       mode: 'feature',
       scope: 'cross-module',
+      affected_areas: [],
     },
     baseline: {
       created_at: '2026-09-01T00:00:00.000Z',
+      commit: null,
+      working_tree_fingerprint: `sha256:${'0'.repeat(64)}`,
       current_fingerprint: '0000000000000000000000000000000000000000000000000000000000000000',
       stale: false,
       modules: {
@@ -42,12 +46,6 @@ function validMetadata() {
         },
       },
     },
-    relations: {
-      depends_on: ['CHG-20260831-002'],
-      related_to: ['CHG-20260830-001'],
-      conflicts_with: [],
-      supersedes: [],
-    },
     gates: {
       analyze: { required: true, satisfied: false },
       design: { required: true, satisfied: false },
@@ -55,6 +53,12 @@ function validMetadata() {
       implement: { required: true, satisfied: false },
       verify: { required: true, satisfied: false },
       archive: { required: true, satisfied: false },
+    },
+    approvals: {
+      schema_version: 1,
+      analyze: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
+      design: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
+      plan: { status: 'pending', revision: 1, content_hash: '', approved_at: null },
     },
     modules: {
       candidates: [
@@ -85,12 +89,12 @@ function validMetadata() {
       removed: [],
     },
     artifacts: {
+      analysis: 'changes/CHG-20260901-001/analysis.yaml',
       metadata: 'changes/CHG-20260901-001/metadata.yaml',
-      proposal: 'changes/CHG-20260901-001/proposal.md',
       design: 'changes/CHG-20260901-001/design.md',
       spec: 'changes/CHG-20260901-001/spec.md',
-      tasks: 'changes/CHG-20260901-001/tasks.md',
-      verification: 'changes/CHG-20260901-001/verification.md',
+      tasks: 'changes/CHG-20260901-001/tasks.yaml',
+      verification: 'changes/CHG-20260901-001/verification.yaml',
     },
     tasks: {
       total: 1,
@@ -112,7 +116,6 @@ function validMetadata() {
     archive: {
       ready: false,
       conflict: false,
-      archived_at: null,
     },
   };
 }
@@ -129,18 +132,18 @@ describe('codespec workflow contracts', () => {
     expect(metadata.impact.affected_areas).toEqual(['auth/login']);
   });
 
-  it('preserves missing analysis paths for historical five-artifact metadata', () => {
-    const historical = parseChangeMetadata(validMetadata());
+  it('requires exactly the six current Change artifact paths', () => {
     const sixArtifact = parseChangeMetadata({
       ...validMetadata(),
-      artifacts: {
-        ...validMetadata().artifacts,
-        analysis: 'changes/CHG-20260901-001/analysis.yaml',
-      },
     });
+    const { analysis: _analysis, ...incompleteArtifacts } = validMetadata().artifacts;
 
-    expect(historical.artifacts.analysis).toBeUndefined();
     expect(sixArtifact.artifacts.analysis).toBe('changes/CHG-20260901-001/analysis.yaml');
+    expect(() => parseChangeMetadata({ ...validMetadata(), artifacts: incompleteArtifacts })).toThrow(/analysis/i);
+    expect(() => parseChangeMetadata({
+      ...validMetadata(),
+      artifacts: { ...validMetadata().artifacts, proposal: 'changes/CHG-20260901-001/proposal.md' },
+    })).toThrow(/proposal|unrecognized/i);
   });
 
   it('accepts the canonical workspace config and resolves configured paths', async () => {
@@ -345,7 +348,7 @@ describe('codespec workflow contracts', () => {
         confirmed: [{ module: 'MOD-001', outcome: 'OWNED' }],
       },
       artifacts: {
-        verification: 'changes/CHG-20260901-001/verification.md',
+        verification: 'changes/CHG-20260901-001/verification.yaml',
       },
     });
 

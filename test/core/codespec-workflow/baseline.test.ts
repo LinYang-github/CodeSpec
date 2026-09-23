@@ -16,7 +16,6 @@ describe('canonical Requirement semantic baselines', () => {
     const fixture = await createWorkflowFixture({ v1: true });
     afterEach(fixture.cleanup);
     const metadata = fixture.metadataAt('DESIGN');
-    delete metadata.artifacts.proposal;
     metadata.artifacts.analysis = `changes/${fixture.changeId}/analysis.yaml`;
     metadata.modules.confirmed = [{ module: 'MOD-002', outcome: 'OWNED', reason: '用户管理' }];
     metadata.requirements = { added: [{ id: 'MOD-002-REQ-008', module: 'MOD-002' }], modified: [{ id: 'MOD-002-REQ-006', module: 'MOD-002' }], removed: [] };
@@ -71,6 +70,19 @@ it('keeps the Task 6 absence marker independent of the snapshot refresh path', (
 });
 
 describe('complete Current-state fingerprint', () => {
+  it('accepts a registered module before its first archive without creating Current files', async () => {
+    const fixture = await createCurrentArchiveFixture();
+    try {
+      const moduleDirectory = path.join(fixture.paths.currentSpecs, 'MOD-001');
+      await fs.rm(moduleDirectory, { recursive: true });
+      const snapshot = await readCurrentState(await loadWorkspace(fixture.codespecDir));
+      expect(snapshot.files.has('specs/MOD-001/spec.md')).toBe(false);
+      await expect(fs.access(moduleDirectory)).rejects.toThrow();
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it.each([
     ['interface.yaml', (fixture: Awaited<ReturnType<typeof createCurrentArchiveFixture>>) => path.join(fixture.paths.currentSpecs, 'MOD-002', 'interface.yaml')],
     ['api.yaml', (fixture: Awaited<ReturnType<typeof createCurrentArchiveFixture>>) => path.join(fixture.paths.currentSpecs, 'MOD-002', 'api.yaml')],

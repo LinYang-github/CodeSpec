@@ -101,7 +101,6 @@ describe('codespec workflow change management', () => {
     });
     await expect(loadChangeArtifacts(fixture.paths, created.changeId)).resolves.toMatchObject({
       analysis: expect.any(String),
-      proposal: '',
       tasks: expect.stringContaining('moduleRegistrations:'),
       verification: expect.stringContaining('testCases: []'),
     });
@@ -131,11 +130,10 @@ describe('codespec workflow change management', () => {
     const changeDir = path.join(fixture.paths.changes, created.changeId);
     const metadata = parseYaml(await fs.readFile(path.join(changeDir, 'metadata.yaml'), 'utf8')) as {
       change: { sdd_level: number };
-      artifacts: { analysis?: string; proposal?: string; design?: string; tasks: string; verification: string };
+      artifacts: { analysis: string; design: string; tasks: string; verification: string };
     };
     expect(metadata.change.sdd_level).toBe(1);
     expect(metadata.artifacts.analysis).toMatch(/analysis\.yaml$/);
-    expect(metadata.artifacts.proposal).toBeUndefined();
     expect(metadata.artifacts.tasks).toMatch(/tasks\.yaml$/);
     expect(metadata.artifacts.verification).toMatch(/verification\.yaml$/);
     await expect(fs.readFile(path.join(changeDir, 'design.md'), 'utf8')).resolves.toBeTruthy();
@@ -215,11 +213,11 @@ describe('codespec workflow change management', () => {
       path.join(secondChangeDir, 'metadata.yaml'),
       JSON.stringify(baseMetadata, null, 2)
     );
-    await fs.writeFile(path.join(secondChangeDir, 'proposal.md'), '# Proposal\n');
+    await fs.writeFile(path.join(secondChangeDir, 'analysis.yaml'), 'version: 1\n');
     await fs.writeFile(path.join(secondChangeDir, 'design.md'), '# Design\n');
     await fs.writeFile(path.join(secondChangeDir, 'spec.md'), '# Spec\n');
-    await fs.writeFile(path.join(secondChangeDir, 'tasks.md'), '# Tasks\n');
-    await fs.writeFile(path.join(secondChangeDir, 'verification.md'), '# Verification\n');
+    await fs.writeFile(path.join(secondChangeDir, 'tasks.yaml'), 'version: 1\n');
+    await fs.writeFile(path.join(secondChangeDir, 'verification.yaml'), 'version: 1\n');
 
     await expect(resolveChange(workspace, { id: 'CHG-20260901-002' })).resolves.toMatchObject({
       changeId: 'CHG-20260901-002',
@@ -263,20 +261,8 @@ describe('codespec workflow change management', () => {
     });
   });
 
-  it('rejects resuming archived or abandoned Changes', async () => {
+  it('rejects resuming an abandoned Change', async () => {
     const { fixture, workspace } = await loadCanonicalWorkspace();
-
-    await writeChangeArtifacts(fixture, {
-      metadata: {
-        change: {
-          status: 'ARCHIVED',
-        },
-      },
-    });
-
-    await expect(resumeChange(workspace, { id: fixture.changeId }, 'IMPLEMENT')).rejects.toThrow(
-      /cannot resume|ARCHIVED/i
-    );
 
     await writeChangeArtifacts(fixture, {
       metadata: {

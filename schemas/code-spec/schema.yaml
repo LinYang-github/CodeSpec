@@ -11,16 +11,21 @@ artifacts:
     description: 记录变更信息和当前状态
     template: metadata.yaml
     requires: []
+  - id: analysis
+    generates: analysis.yaml
+    description: 记录需求澄清、验收标准和模块裁决
+    template: analysis.yaml
+    requires: [metadata]
   - id: design
     generates: design.md
     description: 说明怎么实现
     template: design.md
-    requires: [metadata]
+    requires: [analysis]
   - id: spec
     generates: spec.md
     description: 记录需求变更
     template: spec.md
-    requires: [metadata]
+    requires: [analysis]
   - id: tasks
     generates: tasks.yaml
     description: 列出实现任务及完成情况
@@ -32,6 +37,6 @@ artifacts:
     template: verification.yaml
     requires: [tasks]
 apply:
-  requires: [metadata, design, spec, tasks, verification]
+  requires: [metadata, analysis, design, spec, tasks, verification]
   tracks: tasks.yaml
   instruction: 使用 metadata.yaml 作为状态权威；每个 CHG-YYYYMMDD-NNN-TASK-## 都记录任务、验证计划与回归证据。

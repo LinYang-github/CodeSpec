@@ -545,7 +545,8 @@ describe('store command', () => {
   it('registers a cloned healthy store without rewriting planning files', async () => {
     const storeRoot = mkdir('team-context');
     createHealthyCodeSpecRoot(storeRoot);
-    fs.writeFileSync(path.join(storeRoot, 'codespec', 'archive', 'specs', 'note.md'), 'keep\n');
+    const planningFile = path.join(storeRoot, 'codespec', 'business.yaml');
+    const planningBytes = fs.readFileSync(planningFile, 'utf-8');
     await writeStoreMetadataState(storeRoot, { version: 1, id: 'team-context' });
 
     const result = await runCLI(
@@ -558,7 +559,7 @@ describe('store command', () => {
     expect(payload.store.id).toBe('team-context');
     expect(payload.registry.registered).toBe(true);
     expect(payload.created_files).toEqual([]);
-    expect(fs.readFileSync(path.join(storeRoot, 'codespec', 'archive', 'specs', 'note.md'), 'utf-8')).toBe('keep\n');
+    expect(fs.readFileSync(planningFile, 'utf-8')).toBe(planningBytes);
   });
 
   it('registers a team store before any changes exist', async () => {

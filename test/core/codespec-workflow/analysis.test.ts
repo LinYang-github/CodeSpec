@@ -43,17 +43,12 @@ const completeAnalysis = {
 const complete = () => parseAnalysisDocument(completeAnalysis);
 
 describe('analysis.yaml contract', () => {
-  it('parses a complete analysis document and defaults omitted assumption requirements', () => {
-    const parsed = parseAnalysisDocument({
+  it('requires explicit assumption Requirement references', () => {
+    expect(() => parseAnalysisDocument({
       ...completeAnalysis,
       assumptions: [{ ...completeAnalysis.assumptions[0], requirements: undefined }],
-    });
-
-    expect(parsed).toMatchObject({
-      change: 'CHG-20260915-001',
-      acceptanceCriteria: [{ priority: 'MUST', requirements: ['MOD-002-REQ-006'] }],
-      assumptions: [{ requirements: [] }],
-    });
+    })).toThrow(/requirements/i);
+    expect(complete()).toMatchObject({ change: 'CHG-20260915-001' });
   });
 
   it('rejects unknown fields and duplicate stable IDs', () => {

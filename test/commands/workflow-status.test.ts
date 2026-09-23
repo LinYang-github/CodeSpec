@@ -1,46 +1,23 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createMigrationFixture, snapshotFiles } from '../helpers/change-migration.js';
 import { runCLI } from '../helpers/run-cli.js';
 import { parse, stringify } from 'yaml';
 import { createGuidanceFixture } from '../helpers/workflow-guidance.js';
 import { createPendingApprovals } from '../../src/core/codespec-workflow/approvals.js';
 import path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { registerStore } from '../../src/core/store/registry.js';
-import { getGlobalDataDir } from '../../src/core/global-config.js';
 import { captureBaseline } from '../../src/core/codespec-workflow/baseline.js';
 import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
 
-describe('canonical migration status', () => {
-  it('accepts a selected root on the executable migration entry', async () => {
-    const f = await createMigrationFixture();
-    try {
-      const env = { XDG_DATA_HOME: path.join(f.tempDir, 'data'), XDG_CONFIG_HOME: path.join(f.tempDir, 'config') };
-      await registerStore({ id: 'guidance-store', localPath: f.tempDir, globalDataDir: getGlobalDataDir({ env }) });
-      const status = await runCLI(['status', '--change', f.changeId, '--store', 'guidance-store', '--json'], { cwd: f.tempDir, env });
-      const command = JSON.parse(status.stdout).nextCommand;
-      expect(command).toBe(`codespec migrate --change ${f.changeId} --store guidance-store`);
-      const result = await runCLI([...command.split(' ').slice(1), '--json'], { cwd: f.tempDir, env });
-      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-      expect(JSON.parse(result.stdout)).toMatchObject({ fromArtifacts: 5, toArtifacts: 6, route: 'ANALYZE' });
-    } finally { f.cleanup(); }
-  });
-  it.each([false, true])('reports an exact migration command for five artifacts (batch=%s)', async (all) => {
-    const f = await createMigrationFixture();
-    afterEach(f.cleanup);
-    const before = await snapshotFiles(f.codespecDir);
-    const result = await runCLI(['status', ...(all ? ['--all'] : ['--change', f.changeId]), '--json'], { cwd: f.tempDir });
-    expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-    const output = JSON.parse(result.stdout);
-    const status = all ? output.changes[0] : output;
-    expect(status.nextCommand).toBe(`codespec migrate --change ${f.changeId}`);
-    expect(status.gateErrors.join(' ')).toMatch(/analysis.yaml/);
-    expect(status.gateErrors.join(' ')).toMatch(/rich Requirement delta/);
-    expect(await snapshotFiles(f.codespecDir)).toEqual(before);
-    const text = await runCLI(['status', ...(all ? ['--all'] : ['--change', f.changeId])], { cwd: f.tempDir });
-    expect(text.stdout).toContain(`codespec migrate --change ${f.changeId}`);
-  });
-});
+async function snapshotFiles(directory: string): Promise<Record<string, string>> {
+  const snapshot: Record<string, string> = {};
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      for (const [key, value] of Object.entries(await snapshotFiles(target))) snapshot[path.join(entry.name, key)] = value;
+    } else snapshot[entry.name] = await fs.readFile(target, 'utf8');
+  }
+  return snapshot;
+}
 
 describe('canonical lifecycle guidance', () => {
   it('advances explicitly reconfirmed assumption baselines through DESIGN without a rebase loop', async () => {
@@ -96,12 +73,17 @@ describe('canonical lifecycle guidance', () => {
     try {
       f.artifacts.metadata.baseline.stale = true;
       await f.save();
-      const current = path.join(f.paths.currentSpecs, 'MOD-002', 'spec.md');
-      const original = await fs.readFile(current, 'utf8');
-      await fs.unlink(current);
+      const currentModule = path.join(f.paths.currentSpecs, 'MOD-002');
+      const original = await snapshotFiles(currentModule);
+      await fs.rm(currentModule, { recursive: true });
       const rebase = await runCLI(['rebase', '--change', f.changeId], { cwd: f.tempDir });
       expect(rebase.exitCode, rebase.stdout + rebase.stderr).toBe(0);
-      await fs.writeFile(current, original);
+      await fs.mkdir(currentModule, { recursive: true });
+      await Promise.all(Object.entries(original).map(async ([relativePath, content]) => {
+        const target = path.join(currentModule, relativePath);
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        await fs.writeFile(target, content);
+      }));
       const analysisPath = path.join(f.artifacts.changeDir, 'analysis.yaml');
       const analysis = parse(await fs.readFile(analysisPath, 'utf8'));
       analysis.revision = 2;
@@ -127,7 +109,7 @@ describe('canonical lifecycle guidance', () => {
     try {
       f.artifacts.metadata.baseline.stale = true;
       await f.save();
-      await fs.unlink(path.join(f.paths.currentSpecs, 'MOD-002', 'spec.md'));
+      await fs.rm(path.join(f.paths.currentSpecs, 'MOD-002'), { recursive: true });
       const rebase = await runCLI(['rebase', '--change', f.changeId], { cwd: f.tempDir });
       expect(rebase.exitCode, rebase.stdout + rebase.stderr).toBe(0);
       const rebased = parse(await fs.readFile(path.join(f.artifacts.changeDir, 'metadata.yaml'), 'utf8'));

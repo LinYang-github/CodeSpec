@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateCurrentSpecGraphTraceability, validateTraceRows, validateTraceability } from '../../../src/core/codespec-workflow/traceability.js';
+import { validateCurrentSpecGraphTraceability, validateTraceRows } from '../../../src/core/codespec-workflow/traceability.js';
 import { buildCurrentSpecGraph } from '../../../src/core/codespec-workflow/current-spec-graph.js';
 import { parseModuleInterface } from '../../../src/core/codespec-workflow/current-spec-yaml.js';
 import { allocateRequirementIds } from '../../../src/core/codespec-workflow/requirement-allocator.js';
@@ -107,7 +107,7 @@ describe('traceability', () => {
           await fs.readFile(path.join(fixture.paths.changes, changeId, 'metadata.yaml'), 'utf8')
         ) as { requirements: { added: Array<{ id: string }> }; approvals: Record<string, unknown> };
         expect(metadata.requirements.added).toHaveLength(1);
-        expect(metadata.approvals).not.toHaveProperty('analyze');
+        expect(metadata.approvals.analyze).toBeDefined();
       }
       await expect(fs.access(path.join(fixture.paths.changes, 'reservations.txt'))).rejects.toMatchObject({
         code: 'ENOENT',
@@ -131,22 +131,5 @@ describe('traceability', () => {
     } finally {
       fixture.cleanup();
     }
-  });
-  it('requires equal requirement sets and task coverage', () => {
-    expect(validateTraceability({
-      modules: ['MOD-002'], changes: ['CHG-20260901-001'], requirements: ['MOD-002-REQ-017'],
-      scenarios: ['SCN-001'], tasks: [{ id: 'SP-01', requirementIds: ['MOD-002-REQ-017'] }],
-      tests: ['test/payment.test.ts'], evidence: ['RED/GREEN'], currentSpecs: ['archive/specs/MOD-002/spec.md'], archive: ['archive/changes/CHG-20260901-001'],
-      metadataRequirements: ['MOD-002-REQ-017'], designRequirements: ['MOD-002-REQ-017'], specRequirements: ['MOD-002-REQ-017'],
-      edges: {
-        moduleToChange: [['MOD-002', 'CHG-20260901-001']], changeToRequirement: [['CHG-20260901-001', 'MOD-002-REQ-017']], requirementToScenario: [['MOD-002-REQ-017', 'SCN-001']], scenarioToTask: [['SCN-001', 'SP-01']], taskToTest: [['SP-01', 'test/payment.test.ts']], testToEvidence: [['test/payment.test.ts', 'RED/GREEN']], evidenceToCurrentSpec: [['RED/GREEN', 'archive/specs/MOD-002/spec.md']], currentSpecToArchive: [['archive/specs/MOD-002/spec.md', 'archive/changes/CHG-20260901-001']]
-      },
-    })).toMatchObject({ valid: true });
-  });
-
-  it('rejects disconnected edge chains', () => {
-    const result = validateTraceability({ modules: ['MOD-002'], changes: ['CHG-20260901-001'], requirements: ['MOD-002-REQ-017'], scenarios: ['SCN-001'], tasks: [{ id: 'SP-01', requirementIds: ['MOD-002-REQ-017'] }], tests: ['t'], evidence: ['e'], currentSpecs: ['s'], archive: ['a'], metadataRequirements: ['MOD-002-REQ-017'], designRequirements: ['MOD-002-REQ-017'], specRequirements: ['MOD-002-REQ-017'], edges: { moduleToChange: [], changeToRequirement: [], requirementToScenario: [], scenarioToTask: [], taskToTest: [], testToEvidence: [], evidenceToCurrentSpec: [], currentSpecToArchive: [] } });
-    expect(result.valid).toBe(false);
-    expect(result.issues.join(' ')).toMatch(/edge|connected/i);
   });
 });

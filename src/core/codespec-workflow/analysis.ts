@@ -33,10 +33,10 @@ const assumptionSchema = z.object({
   id: z.string().regex(/^ASSUMPTION-\d{3}$/u),
   statement: nonEmpty,
   status: z.enum(['PROPOSED', 'CONFIRMED', 'REJECTED']),
-  requirements: z.array(requirementId).default([]),
+  requirements: z.array(requirementId),
 }).strict();
 const questionSchema = z.object({
-  id: z.string().regex(/^(?:QUESTION-\d{3}|Q-MIGRATION-001)$/u),
+  id: z.string().regex(/^QUESTION-\d{3}$/u),
   question: nonEmpty,
   status: z.enum(['OPEN', 'RESOLVED']),
   resolution: nonEmpty.optional(),

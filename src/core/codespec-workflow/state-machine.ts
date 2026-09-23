@@ -1,17 +1,20 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { stringify as stringifyYaml } from 'yaml';
+import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { ChangeArtifacts } from './artifacts.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ChangeMetadata, ChangeStatus } from './types.js';
 import { validateEntryGate } from './gates.js';
 import { loadChangeIndex, withChangeIndexLock } from './change-index.js';
 import { assertTransitionApproval } from './approvals.js';
-import { metadataForPersistence } from './metadata-persistence.js';
+import { parseChangeMetadata } from './schemas.js';
+import { createArchiveJournal, installArchiveJournal, markArchiveJournalCommitted, recoverPendingTransactions } from './transaction-journal.js';
 
 const EDGES: Record<ChangeStatus, readonly ChangeStatus[]> = {
   ANALYZE: ['DESIGN', 'ABANDONED'], DESIGN: ['PLAN', 'ANALYZE', 'ABANDONED'], PLAN: ['IMPLEMENT', 'DESIGN', 'ABANDONED'],
-  IMPLEMENT: ['VERIFY', 'PLAN', 'ABANDONED'], VERIFY: ['ARCHIVE', 'IMPLEMENT', 'DESIGN', 'ABANDONED'], ARCHIVE: ['ARCHIVED', 'VERIFY', 'ABANDONED'], ARCHIVED: [], ABANDONED: [],
+  IMPLEMENT: ['VERIFY', 'PLAN', 'ABANDONED'], VERIFY: ['ARCHIVE', 'IMPLEMENT', 'DESIGN', 'ABANDONED'], ARCHIVE: ['VERIFY', 'ABANDONED'], ABANDONED: [],
 };
 export function canTransition(from: ChangeStatus, to: ChangeStatus): boolean { return EDGES[from]?.includes(to) ?? false; }
 function isDesignReason(reason: string): boolean { return /spec|design|requirement|scope|goal|proposal/i.test(reason); }
@@ -23,7 +26,7 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
   if (!canTransition(from, target)) throw new Error(`无效的生命周期转换：${from} -> ${target}`);
   if (!reason.trim()) throw new Error('必须提供状态转换原因。');
   if (from === 'VERIFY' && target === 'IMPLEMENT' && isDesignReason(reason)) throw new Error('VERIFY -> IMPLEMENT 仅适用于实现失败；Spec 或设计问题应转换到 DESIGN。');
-  if (metadata.baseline.stale && target !== 'DESIGN' && target !== 'ABANDONED') throw new Error(`Change ${metadata.change.id} 已过期；请先 rebase 到 DESIGN。`);
+  if (metadata.baseline.stale && target !== 'ABANDONED') throw new Error(`Change ${metadata.change.id} 已过期；请先执行 rebase。`);
   assertTransitionApproval(artifacts, target);
   const gate = await validateEntryGate(workspace, artifacts, target);
   if (!gate.ok) throw new Error(`生命周期转换 ${from} -> ${target} 被阻塞：${gate.errors.join('；')}`);
@@ -39,9 +42,13 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
   };
   const metadataPath = path.join(workspace.codespecDir, metadata.artifacts.metadata);
   const indexPath = workspace.paths.changeIndex;
+  await recoverPendingTransactions(workspace.paths);
   await withChangeIndexLock(workspace.paths, async () => {
     const originalMetadata = await fs.readFile(metadataPath, 'utf8');
     const originalIndex = await fs.readFile(indexPath, 'utf8');
+    if (!isDeepStrictEqual(parseChangeMetadata(parseYaml(originalMetadata)), metadata)) {
+      throw new Error('Transition conflict: metadata changed during load');
+    }
     const index = await loadChangeIndex(workspace.paths);
     const nextIndex = {
       version: 1 as const,
@@ -49,19 +56,25 @@ export async function transitionChange(workspace: WorkspaceContext, artifacts: C
         ? index.entries.map((entry) => entry.id === next.change.id ? { ...entry, title: next.change.title, mode: next.change.mode, status: next.change.status, updated_at: next.change.updated_at } : entry)
         : [...index.entries, { id: next.change.id, title: next.change.title, mode: next.change.mode, status: next.change.status, updated_at: next.change.updated_at }],
     };
-    const token = `.transition-${process.pid}-${Date.now()}`;
-    const metadataTmp = `${metadataPath}${token}.tmp`;
-    const indexTmp = `${indexPath}${token}.tmp`;
+    let journal: Awaited<ReturnType<typeof createArchiveJournal>> | undefined;
+    let committed = false;
     try {
-      await fs.writeFile(metadataTmp, stringifyYaml(metadataForPersistence(next)), 'utf8');
-      await fs.writeFile(indexTmp, stringifyYaml(nextIndex), 'utf8');
-      await fs.rename(metadataTmp, metadataPath);
-      await fs.rename(indexTmp, indexPath);
+      journal = await createArchiveJournal({
+        paths: workspace.paths,
+        transactionId: `transition-${metadata.change.id}-${randomUUID()}`,
+        ownerPid: process.pid,
+        files: [
+          { target: metadataPath, before: originalMetadata, after: stringifyYaml(next) },
+          { target: indexPath, before: originalIndex, after: stringifyYaml(nextIndex) },
+        ],
+      });
+      await installArchiveJournal(journal);
+      await markArchiveJournalCommitted(journal);
+      committed = true;
+      await recoverPendingTransactions(workspace.paths, journal.transactionId);
     } catch (error) {
-      await fs.writeFile(metadataPath, originalMetadata).catch(() => undefined);
-      await fs.writeFile(indexPath, originalIndex).catch(() => undefined);
-      await fs.rm(metadataTmp, { force: true }).catch(() => undefined);
-      await fs.rm(indexTmp, { force: true }).catch(() => undefined);
+      if (committed) throw new Error(`${String(error)} (transition committed; recovery requires retry)`);
+      if (journal) await recoverPendingTransactions(workspace.paths, journal.transactionId);
       throw error;
     }
   });

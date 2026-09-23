@@ -9,7 +9,7 @@ export function renderCanonicalChangeContext(metadata: ChangeMetadata, spec = ''
   const scenarioMatches = [...spec.matchAll(/####\s+Scenario:\s*\[?((?:MOD-\d{3}-REQ-\d{3}-)?SCN-\d{3})\]?\s*[^\n]*/gu)];
   const scenarios = [...new Set(scenarioMatches.map((match) => match[1]))];
   const tasks = Object.entries(metadata.tasks.items).map(([id, task]) => `${id}:${task.status}`);
-  return `当前状态：${metadata.change.status}\n\n已解析的 Change 上下文：ID=${metadata.change.id}；status=${metadata.change.status}；mode=${metadata.change.mode}；baseline=${metadata.baseline.stale ? 'STALE' : 'CURRENT'}；Requirements=${requirements.join(',') || 'none'}；Scenarios=${scenarios.join(',') || 'none'}；Tasks=${tasks.join(',') || 'none'}；必需验证命令=requirements,test,build,lint；证据=requirements:${metadata.verification.requirements_verified},tests:${metadata.verification.tests_passed},build:${metadata.verification.build_passed},lint:${metadata.verification.lint_passed}；产物路径：metadata=${metadata.artifacts.metadata}, analysis=${metadata.artifacts.analysis ?? 'missing (migration required)'}, design=${metadata.artifacts.design ?? 'design.md'}, spec=${metadata.artifacts.spec}, tasks=${metadata.artifacts.tasks}, verification=${metadata.artifacts.verification}。`;
+  return `当前状态：${metadata.change.status}\n\n已解析的 Change 上下文：ID=${metadata.change.id}；status=${metadata.change.status}；mode=${metadata.change.mode}；baseline=${metadata.baseline.stale ? 'STALE' : 'CURRENT'}；Requirements=${requirements.join(',') || 'none'}；Scenarios=${scenarios.join(',') || 'none'}；Tasks=${tasks.join(',') || 'none'}；必需验证命令=requirements,test,build,lint；证据=requirements:${metadata.verification.requirements_verified},tests:${metadata.verification.tests_passed},build:${metadata.verification.build_passed},lint:${metadata.verification.lint_passed}；产物路径：metadata=${metadata.artifacts.metadata}, analysis=${metadata.artifacts.analysis}, design=${metadata.artifacts.design}, spec=${metadata.artifacts.spec}, tasks=${metadata.artifacts.tasks}, verification=${metadata.artifacts.verification}。`;
 }
 
 export function getStageAdapterGuidance(stage: WorkflowStage): string {
@@ -44,9 +44,9 @@ Current Specification 是唯一行为 baseline。已有 Requirement 使用精确
 
 保持 Goal → AC → Requirement → Scenario → Task → Test → Evidence 链。\`tasks.yaml\` 与 \`verification.yaml\` 使用同一 changeRevision，并声明 acceptanceCriteria。PLAN 检查到 Test，VERIFY 和 archive 检查 passing Evidence；MUST AC 缺少完整证据会阻塞，SHOULD 和 COULD 缺证据给出 warning。记录实际命令、结果和代码引用。
 
-### revise、rebase、migrate 与 archive
+### revise、rebase 与 archive
 
-已批准产物发生语义改变后运行 \`codespec revise --change "<CHG-ID>" --reason "intent changed"\`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 \`codespec rebase --change "<CHG-ID>"\`，在 \`design.md\` 的 Rebase decision 查看路由：意图仍成立回 DESIGN，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；assumption、ownership、disposition 或 AC 冲突回 ANALYZE，保留旧 analysis revision、baseline 和 Previous，先人工修订 \`analysis.yaml\`，不要重复 rebase。五件套活动 Change 运行 \`codespec migrate --change "<CHG-ID>"\`，补齐 OPEN 的 Q-MIGRATION-001 后重新审批。
+已批准产物发生语义改变后运行 \`codespec revise --change "<CHG-ID>" --reason "intent changed"\`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 \`codespec rebase --change "<CHG-ID>"\`，在 \`design.md\` 的 Rebase decision 查看路由：意图仍成立回 DESIGN，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；assumption、ownership、disposition 或 AC 冲突回 ANALYZE，保留旧 analysis revision、baseline 和 Previous，先人工修订 \`analysis.yaml\`，不要重复 rebase。
 
 archive 通过 Requirement-level merge 应用明确的 ADDED/MODIFIED/REMOVED，保留未列出的 Current Requirements，并按工程文件 path 合并。事务提交后移除活动 Change；变更历史由 Git 提交记录保存。
 

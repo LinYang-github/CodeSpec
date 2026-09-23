@@ -17,7 +17,7 @@ ${error}
 `;
 
 describe('canonical Current Specification validation', () => {
-  it('finds canonical archive specs and rejects an empty ERROR', async () => {
+  it('finds canonical Current specs and rejects an empty ERROR', async () => {
     const fixture = await createWorkflowFixture();
     try {
       await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-002'), { recursive: true });
@@ -30,9 +30,9 @@ describe('canonical Current Specification validation', () => {
       const output = JSON.parse(result.stdout);
 
       expect(result.exitCode).toBe(1);
-      expect(output.items).toHaveLength(1);
-      expect(output.items[0].valid).toBe(false);
-      expect(JSON.stringify(output.items[0].issues)).toMatch(
+      const payment = output.items.find((item: { id: string }) => item.id === 'MOD-002');
+      expect(payment.valid).toBe(false);
+      expect(JSON.stringify(payment.issues)).toMatch(
         /MOD-002-REQ-006.*SCN-001.*ERROR.*人工补写/i
       );
     } finally {
@@ -53,8 +53,7 @@ describe('canonical Current Specification validation', () => {
       const output = JSON.parse(result.stdout);
 
       expect(result.exitCode).toBe(0);
-      expect(output.items).toHaveLength(1);
-      expect(output.items[0].valid).toBe(true);
+      expect(output.items.find((item: { id: string }) => item.id === 'MOD-002').valid).toBe(true);
     } finally {
       fixture.cleanup();
     }

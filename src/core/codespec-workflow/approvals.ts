@@ -11,7 +11,6 @@ import { projectPendingAnalysis } from './analysis-consistency.js';
 import { withChangeIndexLock } from './change-index.js';
 import { validateExitGate } from './gates.js';
 import { loadWorkspace, type WorkspaceContext } from './loaders.js';
-import { metadataForPersistence } from './metadata-persistence.js';
 import type { ApprovalRecord, ApprovalStage, ChangeMetadata, ChangeStatus } from './types.js';
 import { parseCurrentTasks, projectCurrentSpecForDesignApproval, projectCurrentSpecForPlanApproval } from './current-change-yaml.js';
 import { parseChangeMetadata } from './schemas.js';
@@ -75,7 +74,6 @@ export function classifyArtifactChange(before: ChangeContent, after: ChangeConte
 }
 
 function analysisApprovalPayload(artifacts: ChangeArtifacts): unknown {
-  if (artifacts.analysis === null) throw new Error('分析审批需要 analysis.yaml。');
   return projectAnalysisForApproval(parseAnalysisDocument(parseYaml(artifacts.analysis)));
 }
 
@@ -103,32 +101,18 @@ function canonicalApprovalPayload(stage: ApprovalStage, artifacts: ChangeArtifac
 
 /** Returns the semantic receipt hash for the requested approval stage. */
 export function approvalContentHash(stage: ApprovalStage, artifacts: ChangeArtifacts): string {
-  const metadata = artifacts.metadata;
-  if (!metadata.artifacts.proposal) {
-    return createHash('sha256').update(JSON.stringify(canonicalApprovalPayload(stage, artifacts))).digest('hex');
-  }
-  if (stage === 'analyze') throw new Error('仅六产物 canonical Change 支持分析审批。');
-  const payload = stage === 'design'
-    ? {
-      proposal: normalizeContent(artifacts.proposal), design: normalizeContent(artifacts.design), spec: normalizeContent(artifacts.spec),
-      requirements: metadata.requirements, sdd_level: metadata.change.sdd_level,
-    }
-    : {
-      design: normalizeContent(artifacts.design), spec: normalizeContent(artifacts.spec), tasks: normalizeContent(artifacts.tasks),
-      requirements: metadata.requirements, task_items: metadata.tasks.items,
-    };
-  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+  return createHash('sha256').update(JSON.stringify(canonicalApprovalPayload(stage, artifacts))).digest('hex');
 }
 
 /** Only an unchanged, current user receipt may survive revision regeneration. */
 export function isApprovalCurrent(stage: ApprovalStage, artifacts: ChangeArtifacts): boolean {
   const receipt = artifacts.metadata.approvals[stage];
-  return receipt?.status === 'approved' && receipt.revision === artifacts.metadata.change.revision &&
+  return receipt.status === 'approved' && receipt.revision === artifacts.metadata.change.revision &&
     receipt.content_hash === approvalContentHash(stage, artifacts);
 }
 
 function stageForTarget(artifacts: ChangeArtifacts, target: ChangeStatus): ApprovalStage | null {
-  if (target === 'DESIGN') return artifacts.metadata.artifacts.proposal ? null : 'analyze';
+  if (target === 'DESIGN') return 'analyze';
   if (target === 'PLAN') return 'design';
   if (target === 'IMPLEMENT') return 'plan';
   return null;
@@ -141,9 +125,9 @@ function stageLabel(stage: ApprovalStage): string {
 export function assertTransitionApproval(artifacts: ChangeArtifacts, target: ChangeStatus): void {
   const stage = stageForTarget(artifacts, target);
   if (!stage) return;
-  const approval = artifacts.metadata.approvals?.[stage];
+  const approval = artifacts.metadata.approvals[stage];
   const label = stageLabel(stage);
-  if (!approval || approval.status !== 'approved') throw new Error(`${label}尚未获得用户确认；请展示${label}并等待独立确认。`);
+  if (approval.status !== 'approved') throw new Error(`${label}尚未获得用户确认；请展示${label}并等待独立确认。`);
   if (approval.revision !== artifacts.metadata.change.revision) throw new Error(`${label}确认已因 Change revision 变化而失效；请重新确认。`);
   if (approval.content_hash !== approvalContentHash(stage, artifacts)) throw new Error(`${label}内容已变更，原确认已失效；请重新确认。`);
 }
@@ -182,7 +166,7 @@ export async function approveChangeStage(
     const originalMetadata = await fs.readFile(metadataPath, 'utf8');
     if (!isDeepStrictEqual(parseChangeMetadata(parseYaml(originalMetadata)), fresh.metadata)) throw new Error('Approval conflict: metadata changed during load');
     const originals = new Map<string, string | null>([[currentWorkspace.paths.changeIndex, await fs.readFile(currentWorkspace.paths.changeIndex, 'utf8')]]);
-    for (const name of ['analysis', 'proposal', 'design', 'spec', 'tasks', 'verification'] as const) {
+    for (const name of ['analysis', 'design', 'spec', 'tasks', 'verification'] as const) {
       const relative = fresh.metadata.artifacts[name];
       if (relative) originals.set(path.join(currentWorkspace.codespecDir, relative), fresh[name]!);
     }
@@ -192,7 +176,7 @@ export async function approveChangeStage(
     });
     const candidate = stage === 'analyze' ? projectPendingAnalysis(fresh) : fresh;
     const baselineSpecs: Record<string, string> = {};
-    const confirmsAnalysis = stage === 'analyze' && !fresh.metadata.artifacts.proposal;
+    const confirmsAnalysis = stage === 'analyze';
     if (confirmsAnalysis) {
       for (const { module } of parseAnalysisDocument(parseYaml(candidate.analysis!)).modules) {
         const file = path.join(currentWorkspace.paths.currentSpecs, module, 'spec.md');
@@ -219,7 +203,7 @@ export async function approveChangeStage(
       await checkInputs();
       journal = await createArchiveJournal({
         paths: currentWorkspace.paths, transactionId: `approve-${fresh.changeId}-${randomUUID()}`, ownerPid: process.pid,
-        files: [{ target: metadataPath, before: originalMetadata, after: stringifyYaml(metadataForPersistence(next)) }],
+        files: [{ target: metadataPath, before: originalMetadata, after: stringifyYaml(next) }],
       });
       await installArchiveJournal(journal, checkInputs);
       await checkInputs();

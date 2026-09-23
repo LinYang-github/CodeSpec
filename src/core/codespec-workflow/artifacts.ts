@@ -11,8 +11,7 @@ export interface ChangeArtifacts {
   changeId: string;
   changeDir: string;
   metadata: ChangeMetadata;
-  analysis: string | null;
-  proposal: string;
+  analysis: string;
   design: string;
   spec: string;
   tasks: string;
@@ -80,25 +79,7 @@ async function findChangeDirectory(paths: WorkspacePaths, changeId: string): Pro
 
 async function readChangeMetadata(changeDir: string): Promise<ChangeMetadata> {
   const metadataPath = path.join(changeDir, 'metadata.yaml');
-
-  try {
-    return parseChangeMetadata(parseYaml(await fs.readFile(metadataPath, 'utf8')));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      const legacyMetadataPath = path.join(changeDir, '.openspec.yaml');
-      try {
-        await fs.access(legacyMetadataPath);
-        throw new Error(
-          `Legacy change metadata is unsupported for canonical code-spec loading: ${legacyMetadataPath}`
-        );
-      } catch (legacyError) {
-        if ((legacyError as NodeJS.ErrnoException).code !== 'ENOENT') {
-          throw legacyError;
-        }
-      }
-    }
-    throw error;
-  }
+  return parseChangeMetadata(parseYaml(await fs.readFile(metadataPath, 'utf8')));
 }
 
 export async function loadChangeArtifacts(
@@ -116,35 +97,26 @@ export async function loadChangeArtifacts(
   }
 
   await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.metadata, 'metadata artifact path', 'metadata.yaml');
-  const analysisPath = metadata.artifacts.analysis
-    ? await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.analysis, 'analysis artifact path', 'analysis.yaml')
-    : null;
-  const proposalPath = metadata.artifacts.proposal
-    ? await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.proposal, 'proposal artifact path', 'proposal.md')
-    : null;
-  const designPath = metadata.artifacts.design
-    ? await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.design, 'design artifact path', 'design.md')
-    : null;
+  const analysisPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.analysis, 'analysis artifact path', 'analysis.yaml');
+  const designPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.design, 'design artifact path', 'design.md');
   const specPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.spec, 'spec artifact path', 'spec.md');
-  const tasksPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.tasks, 'tasks artifact path', metadata.artifacts.proposal ? 'tasks.md' : 'tasks.yaml');
-  const verificationPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.verification, 'verification artifact path', metadata.artifacts.proposal ? 'verification.md' : 'verification.yaml');
+  const tasksPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.tasks, 'tasks artifact path', 'tasks.yaml');
+  const verificationPath = await assertCanonicalArtifactPath(changeDir, logicalChangeDir, paths.codespecDir, metadata.artifacts.verification, 'verification artifact path', 'verification.yaml');
 
-  const [analysis, proposal, spec, tasks, verification] = await Promise.all([
-    analysisPath ? fs.readFile(analysisPath, 'utf8') : Promise.resolve(null),
-    proposalPath ? fs.readFile(proposalPath, 'utf8') : Promise.resolve(''),
+  const [analysis, design, spec, tasks, verification] = await Promise.all([
+    fs.readFile(analysisPath, 'utf8'),
+    fs.readFile(designPath, 'utf8'),
     fs.readFile(specPath, 'utf8'),
     fs.readFile(tasksPath, 'utf8'),
     fs.readFile(verificationPath, 'utf8'),
   ]);
-  if (analysis !== null) parseAnalysisDocument(parseYaml(analysis));
-  const design = designPath ? await fs.readFile(designPath, 'utf8') : spec;
+  parseAnalysisDocument(parseYaml(analysis));
 
   return {
     changeId,
     changeDir,
     metadata,
     analysis,
-    proposal,
     design,
     spec,
     tasks,

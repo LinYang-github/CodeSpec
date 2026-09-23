@@ -51,7 +51,7 @@ export interface CurrentSpecRequirement {
 export interface CurrentSpecification {
   title: string;
   module: string;
-  version: 'legacy' | '1';
+  version: '1';
   requirements: CurrentSpecRequirement[];
   engineeringFiles: CurrentSpecEngineeringFile[];
 }
@@ -226,7 +226,7 @@ export function parseCurrentSpecification(content: string): CurrentSpecification
   const metadataItems = listItemsAfter(tokens, 0);
   const module = splitRequiredLabel(metadataItems.find((item) => item.startsWith('**模块编号：**')) ?? '', '**模块编号：**');
   const rawVersion = splitRequiredLabel(metadataItems.find((item) => item.startsWith('**规格版本：**')) ?? '', '**规格版本：**');
-  if (rawVersion !== 'legacy' && rawVersion !== '1') throw new Error('规格版本 must be legacy or 1');
+  if (rawVersion !== '1') throw new Error('规格版本 must be 1');
 
   const requirements: CurrentSpecRequirement[] = [];
   let engineeringFiles: CurrentSpecEngineeringFile[] = [];

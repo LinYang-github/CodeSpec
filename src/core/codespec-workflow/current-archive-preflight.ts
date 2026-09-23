@@ -8,22 +8,12 @@ import { projectAnalysisMetadata } from './analysis-consistency.js';
 import { parseCurrentSpecDelta, validateCurrentSpecDeltaAgainstCurrent } from './current-spec-delta.js';
 import { currentSpecDeltaBaseline } from './archive-projection.js';
 import { validateCurrentDesignOwnership } from './current-spec-model.js';
+import { assertPathWithoutSymlinks } from './path-safety.js';
 
 /** Reads the live module only, checking containment before following any ancestor. */
 export async function readCurrentDeltaBaseline(workspace: WorkspaceContext, module: string): Promise<string | null> {
   const file = path.resolve(workspace.paths.currentSpecs, module, 'spec.md');
-  let cursor = file;
-  while (true) {
-    const stat = await fs.lstat(cursor).catch((error: NodeJS.ErrnoException) => {
-      if (error.code === 'ENOENT') return null;
-      throw error;
-    });
-    if (stat?.isSymbolicLink()) throw new Error(`Current Specification path must not be a symlink: ${cursor}`);
-    if (cursor === path.resolve(workspace.codespecDir)) break;
-    const parent = path.dirname(cursor);
-    if (parent === cursor) throw new Error('Current Specification path escaped codespec');
-    cursor = parent;
-  }
+  await assertPathWithoutSymlinks(workspace.codespecDir, file);
   return fs.readFile(file, 'utf8').catch((error: NodeJS.ErrnoException) => {
     if (error.code === 'ENOENT') return null;
     throw error;
@@ -32,9 +22,6 @@ export async function readCurrentDeltaBaseline(workspace: WorkspaceContext, modu
 
 /** Shared DESIGN-and-later boundary for the six-artifact contract. */
 export async function validateCurrentChangeDelta(workspace: WorkspaceContext, artifacts: ChangeArtifacts) {
-  if (!artifacts.metadata.artifacts.analysis || artifacts.analysis === null) {
-    throw new Error('analysis.yaml: active five-artifact Change must be migrated before delta validation');
-  }
   let delta;
   try { delta = parseCurrentSpecDelta(artifacts.spec); }
   catch (error) { throw new Error(`ARCHIVE CONFLICT: ${error instanceof Error ? error.message : String(error)}`); }

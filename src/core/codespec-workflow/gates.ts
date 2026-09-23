@@ -2,10 +2,8 @@ import type { ChangeArtifacts } from './artifacts.js';
 import type { WorkspaceContext } from './loaders.js';
 import type { ChangeStatus } from './types.js';
 import { validateChangeTraceability } from './traceability.js';
-import { parseDeltaSpec } from './delta-parser.js';
-import { collectEmptyScenarioErrorIssues } from './scenario-parser.js';
-import { validateChangeArchiveImpact, validateArchiveRegressionEvidence } from './archive-impact.js';
-import { parseVerificationDocument, validateCurrentVerificationArtifacts, validateVerificationEvidence } from './verification.js';
+import { validateChangeArchiveImpact } from './archive-impact.js';
+import { validateCurrentVerificationArtifacts } from './verification.js';
 import { evaluateMinimumSddLevel } from './sdd-level.js';
 import { parseCurrentTasks } from './current-change-yaml.js';
 import { validateAnalysisAgainstWorkspace } from './analysis-consistency.js';
@@ -13,15 +11,6 @@ import { parse as parseYaml } from 'yaml';
 
 export interface GateResult { ok: boolean; errors: string[]; warnings: string[] }
 const result = (errors: string[]): GateResult => ({ ok: errors.length === 0, errors, warnings: [] });
-
-function validateDeltaScenarioErrors(spec: string, changeId?: string): string[] {
-  if (!/^##\s+(?:ADDED|MODIFIED|REMOVED)\b/mu.test(spec)) return [];
-  try {
-    return parseDeltaSpec(spec).entries.flatMap((entry) => collectEmptyScenarioErrorIssues(entry.id, entry.scenarios, changeId));
-  } catch (error) {
-    return [error instanceof Error ? error.message : String(error)];
-  }
-}
 
 function validateSddLevel(artifacts: ChangeArtifacts): string[] {
   const metadata = artifacts.metadata;
@@ -40,7 +29,7 @@ function validateSddLevel(artifacts: ChangeArtifacts): string[] {
     );
   }
 
-  const design = metadata.artifacts?.design ? artifacts.design : artifacts.spec;
+  const design = artifacts.design;
   if (!/^##\s+SDD 分级依据\s*$/mu.test(design)) {
     errors.push('设计产物必须包含“SDD 分级依据”章节');
   }
@@ -61,23 +50,12 @@ function validateSddLevel(artifacts: ChangeArtifacts): string[] {
 
 async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtifacts, state: ChangeStatus): Promise<GateResult> {
   const m = artifacts.metadata; const errors: string[] = []; const warnings: string[] = [];
-  const isCurrentChange = !m.artifacts?.proposal;
-  const computedGates = isCurrentChange && Boolean(m.artifacts?.analysis);
-  if (!isCurrentChange) errors.push(...validateDeltaScenarioErrors(artifacts.spec, m.change.id));
   if (state === 'ANALYZE') {
-    if (workspace.config.schema === 'spec-driven') {
-      if (!/summary/i.test(artifacts.proposal) || !/goals?/i.test(artifacts.proposal) || !/scope/i.test(artifacts.proposal)) errors.push('proposal 必须包含 summary、goals 和 scope 部分');
-      if (!m.impact.summary.trim()) errors.push('必须填写 proposal summary');
-      if (m.modules.candidates.length === 0) errors.push('必须提供模块候选项');
-      if (m.gates.analyze.required && !m.gates.analyze.satisfied) errors.push('ANALYZE 门禁尚未满足');
-    } else {
-      errors.push(...await validateAnalysisAgainstWorkspace(workspace, artifacts));
-    }
+    errors.push(...await validateAnalysisAgainstWorkspace(workspace, artifacts));
   }
   if (state === 'DESIGN') {
     errors.push(...validateSddLevel(artifacts));
     if (m.modules.confirmed.length === 0) errors.push('必须确认模块');
-    if (!computedGates && m.gates.design.required && !m.gates.design.satisfied) errors.push('DESIGN 门禁尚未满足');
     const owners = m.modules.confirmed.filter((x) => x.outcome === 'OWNED');
     const confirmed = new Set(owners.map((x) => x.module));
     const refs = [...m.requirements.added, ...m.requirements.modified, ...m.requirements.removed];
@@ -90,66 +68,35 @@ async function validateState(workspace: WorkspaceContext, artifacts: ChangeArtif
   }
   if (state === 'PLAN') {
     let currentTasks;
-    if (isCurrentChange) {
-      try { currentTasks = parseCurrentTasks(parseYaml(artifacts.tasks)); }
-      catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
-      if (currentTasks && currentTasks.changeRevision !== m.change.revision) {
-        errors.push(`tasks.yaml.changeRevision 必须等于 metadata.change.revision ${m.change.revision}`);
-      }
+    try { currentTasks = parseCurrentTasks(parseYaml(artifacts.tasks)); }
+    catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
+    if (currentTasks && currentTasks.changeRevision !== m.change.revision) {
+      errors.push(`tasks.yaml.changeRevision 必须等于 metadata.change.revision ${m.change.revision}`);
     }
-    if (isCurrentChange
-      ? !currentTasks || currentTasks.tasks.length === 0
-      : m.tasks.total === 0 || Object.keys(m.tasks.items).length === 0) errors.push('必须提供具体的任务图');
-    if (!computedGates && m.gates.plan.required && !m.gates.plan.satisfied) errors.push('PLAN 门禁尚未满足');
-    if (isCurrentChange
-      ? currentTasks?.tasks.some((task) => !task.title.trim())
-      : Object.values(m.tasks.items).some((item) => !item.title?.trim() || item.status === 'BLOCKED')) errors.push('任务图包含无效或被阻塞的任务');
-    if (!isCurrentChange || m.artifacts.analysis) {
-      try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
-    }
+    if (!currentTasks || currentTasks.tasks.length === 0) errors.push('必须提供具体的任务图');
+    if (currentTasks?.tasks.some((task) => !task.title.trim())) errors.push('任务图包含无效或被阻塞的任务');
+    try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
   }
   if (state === 'IMPLEMENT') {
-    if (computedGates) {
-      try {
-        const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
-        if (tasks.changeRevision !== m.change.revision) errors.push('tasks.yaml.changeRevision 必须等于 metadata.change.revision');
-        if (!tasks.tasks.length || tasks.tasks.some((task) => task.status !== 'DONE')) errors.push('全部任务必须为 DONE');
-        errors.push(...validateChangeTraceability(artifacts).issues);
-      } catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
-    } else {
-      if (m.tasks.total === 0 || m.tasks.completed !== m.tasks.total || Object.values(m.tasks.items).some((item) => item.status !== 'DONE')) errors.push('全部任务必须为 DONE');
-      if (m.gates.implement.required && !m.gates.implement.satisfied) errors.push('IMPLEMENT 门禁尚未满足');
-    }
+    try {
+      const tasks = parseCurrentTasks(parseYaml(artifacts.tasks));
+      if (tasks.changeRevision !== m.change.revision) errors.push('tasks.yaml.changeRevision 必须等于 metadata.change.revision');
+      if (!tasks.tasks.length || tasks.tasks.some((task) => task.status !== 'DONE')) errors.push('全部任务必须为 DONE');
+      errors.push(...validateChangeTraceability(artifacts).issues);
+    } catch (error) { errors.push(`任务 YAML 无效：${error instanceof Error ? error.message : String(error)}`); }
   }
   if (state === 'VERIFY') {
-    if (!computedGates && m.gates.verify.required && !m.gates.verify.satisfied) errors.push('VERIFY 门禁尚未满足');
-    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
-    else {
-      if (!m.verification.requirements_verified) errors.push('缺少 Requirement 验证证据');
-      if (!m.verification.tests_passed) errors.push('缺少测试验证证据');
-      if (!m.verification.build_passed) errors.push('缺少构建验证证据');
-      if (!m.verification.lint_passed) errors.push('缺少 lint 验证证据');
-      if (!m.verification.verified_at || !/PASS|status|exit_code|exit_status/i.test(artifacts.verification)) errors.push('必须提供最新的详细验证证据');
-      try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
-    }
+    errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
   }
   if (state === 'ARCHIVE') {
     if (m.gates.archive.required && !m.gates.archive.satisfied) errors.push('ARCHIVE 门禁尚未满足');
     if (m.archive.conflict) errors.push('archive conflict 必须为 false');
-    if (isCurrentChange) errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
-    else {
-      if (!m.verification.verified_at || !m.verification.requirements_verified || !m.verification.tests_passed || !m.verification.build_passed || !m.verification.lint_passed) errors.push('必须提供最新的 Requirement、测试、构建和 lint 证据');
-      try { errors.push(...validateChangeTraceability(artifacts).issues); } catch (error) { errors.push(`追踪关系校验失败：${error instanceof Error ? error.message : String(error)}`); }
-    }
+    errors.push(...await validateCurrentVerificationArtifacts(workspace, artifacts, warnings));
   }
   if (workspace.config?.schema === 'code-spec' && ['DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'].includes(state)) {
-    if (['VERIFY', 'ARCHIVE'].includes(state) && !isCurrentChange) errors.push(...validateVerificationEvidence(artifacts));
     try {
-      const check = await validateChangeArchiveImpact(workspace, artifacts, state);
+      const check = await validateChangeArchiveImpact(workspace, artifacts);
       errors.push(...check.issues);
-      if (!isCurrentChange && check.impact.outcome === 'affected' && ['VERIFY', 'ARCHIVE'].includes(state)) {
-        errors.push(...validateArchiveRegressionEvidence(check.impact, parseVerificationDocument(artifacts.verification)));
-      }
     }
     catch (error) { errors.push(error instanceof Error ? error.message : String(error)); }
   }
@@ -168,9 +115,6 @@ export async function validateEntryGate(workspace: WorkspaceContext, artifacts: 
   // entered before fresh evidence exists. The current state's exit gate is
   // the only completion check at this boundary.
   const current = await validateExitGate(workspace, artifacts);
-  // Canonical tasks are authored in PLAN and checked when leaving it.
-  // Keep the historical PLAN entry contract for pre-analysis Changes.
-  const entering = target === 'PLAN' && !artifacts.metadata.artifacts.analysis
-    ? await validateState(workspace, artifacts, target) : result([]);
+  const entering = result([]);
   return { ...result([...current.errors, ...entering.errors]), warnings: [...current.warnings, ...entering.warnings] };
 }

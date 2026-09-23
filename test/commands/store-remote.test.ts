@@ -352,10 +352,9 @@ describe('store canonical remote (3.3)', () => {
       // The "remote": a local bare-ish git repo holding a healthy store.
       const originWorktree = path.join(tempDir, 'origin-worktree');
       createHealthyCodeSpecRoot(originWorktree);
-      // Anchor every directory a healthy clone needs (the same job
-      // store setup's anchor files do).
-      fs.writeFileSync(path.join(originWorktree, 'codespec', 'archive', 'specs', '.gitkeep'), '');
-      fs.writeFileSync(path.join(originWorktree, 'codespec', 'archive', 'changes', '.gitkeep'), '');
+      // Anchor the empty Current directory needed by a healthy clone.
+      fs.mkdirSync(path.join(originWorktree, 'codespec', 'specs'), { recursive: true });
+      fs.writeFileSync(path.join(originWorktree, 'codespec', 'specs', '.gitkeep'), '');
       fs.mkdirSync(path.join(originWorktree, '.codespec-store'), { recursive: true });
       fs.writeFileSync(
         path.join(originWorktree, '.codespec-store', 'store.yaml'),
@@ -429,10 +428,10 @@ describe('store canonical remote (3.3)', () => {
       const canonical = 'https://192.0.2.9/canonical.git';
       const storeRoot = path.join(tempDir, 'doc-context');
       createHealthyCodeSpecRoot(storeRoot);
-      // Keep specs/ and archive/ tracked so the pre-existing
+      // Keep the empty Current directory tracked so the pre-existing
       // fragile-directories warning stays out of this assertion.
-      fs.writeFileSync(path.join(storeRoot, 'codespec', 'archive', 'specs', '.gitkeep'), '');
-      fs.writeFileSync(path.join(storeRoot, 'codespec', 'archive', 'changes', '.gitkeep'), '');
+      fs.mkdirSync(path.join(storeRoot, 'codespec', 'specs'), { recursive: true });
+      fs.writeFileSync(path.join(storeRoot, 'codespec', 'specs', '.gitkeep'), '');
       fs.mkdirSync(path.join(storeRoot, '.codespec-store'), { recursive: true });
       fs.writeFileSync(
         path.join(storeRoot, '.codespec-store', 'store.yaml'),

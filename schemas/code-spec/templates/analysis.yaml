@@ -1,0 +1,41 @@
+# 需求澄清是设计、Requirement delta 和验收追踪的输入。
+version: 1
+change: CHG-20260901-001
+revision: 1
+problem: 说明需要解决的问题
+goals:
+  - id: GOAL-001
+    statement: 说明本次 Change 必须达成的结果
+nonGoals:
+  - id: NON-GOAL-001
+    statement: 说明本次 Change 明确不处理的范围
+scope:
+  in: [本次修改范围]
+  out: [不在本次修改范围]
+actors: [受影响的用户或系统]
+constraints:
+  - id: CONSTRAINT-001
+    statement: 说明必须遵守的约束
+    source: 说明约束来源
+assumptions:
+  - id: ASSUMPTION-001
+    statement: 说明待确认假设
+    status: PROPOSED
+    requirements: []
+openQuestions:
+  - id: QUESTION-001
+    question: 记录必须由用户明确回答的问题
+    status: OPEN
+acceptanceCriteria:
+  - id: AC-001
+    statement: 说明可验证的验收结果
+    priority: MUST
+    requirements: [MOD-001-REQ-001]
+modules:
+  - module: MOD-001
+    outcome: OWNED
+    reason: 说明模块与本次 Change 的关系
+requirements:
+  - id: MOD-001-REQ-001
+    action: ADDED
+    reason: 说明新增或修改 Requirement 的原因

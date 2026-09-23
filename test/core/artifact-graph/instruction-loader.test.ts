@@ -23,11 +23,11 @@ describe('instruction-loader', () => {
   describe('loadTemplate', () => {
     it('should load template from schema directory', () => {
       // Uses the canonical code-spec schema.
-      const template = loadTemplate('code-spec', 'proposal.md');
+      const template = loadTemplate('code-spec', 'analysis.yaml');
 
-      expect(template).toContain('## 为什么');
-      expect(template).toContain('## 变更内容');
-      expect(template).toContain('MOD-###');
+      expect(template).toContain('problem:');
+      expect(template).toContain('acceptanceCriteria:');
+      expect(template).toContain('MOD-001-REQ-001');
     });
 
     it('should throw TemplateLoadError for non-existent template', () => {

@@ -9,6 +9,7 @@ describe('canonical code-spec schema and templates', () => {
   it('declares canonical code-spec artifacts and protocol tokens', () => {
     const schema = read(`${root}/schemas/code-spec/schema.yaml`);
     expect(schema).toContain('metadata.yaml');
+    expect(schema).toContain('analysis.yaml');
     expect(schema).toContain('tasks.yaml');
     expect(schema).toContain('verification.yaml');
     expect(schema).not.toContain('proposal.md');
@@ -32,10 +33,10 @@ describe('canonical code-spec schema and templates', () => {
       expect(content).not.toContain('skip_specs');
       expect(content).not.toContain('.codespec.yaml');
     }
-    for (const name of ['metadata', 'tasks', 'verification']) {
+    for (const name of ['analysis', 'metadata', 'tasks', 'verification']) {
       const content = read(`${root}/schemas/code-spec/templates/${name}.yaml`);
       expect(content).toMatch(/[\u4e00-\u9fff]/);
-      expect(content).toContain('Requirement ID');
+      expect(content).toMatch(/Requirement ID|MOD-001-REQ-001/);
     }
     const spec = read(`${root}/schemas/code-spec/templates/spec.md`);
     expect(spec).toContain('Previous');

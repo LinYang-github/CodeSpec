@@ -33,12 +33,13 @@ import { folderStyleNameProblem } from './id.js';
 // The legacy ArchiveCommand below remains available to generic schemas only.
 export {
   archiveChange,
-  commitArchive,
+  commitConfirmedArchive,
   prepareArchive,
   preflightArchive,
   type ArchivePlan as TransactionArchivePlan,
   type ArchiveResult as TransactionArchiveResult,
   type PreparedArchive,
+  type UiArchiveGateRunner,
 } from './codespec-workflow/archive-transaction.js';
 
 function isMissingPathError(error: unknown): boolean {

@@ -13,7 +13,7 @@ export function getVerifyChangeSkillTemplate(): SkillTemplate {
     description: 'Verify implementation matches change artifacts. Use when the user wants to validate that implementation is complete, correct, and coherent before archiving.',
     instructions: `Verify that an implementation matches the change artifacts (specs, tasks, design).
 
-For the canonical \`code-spec\` schema, use only \`metadata.yaml\`, \`design.md\`, \`spec.md\`, \`tasks.yaml\`, and \`verification.yaml\`. Read task status and verification plans from YAML; execute every planned Test Case with its declared profile/services, then write the matching structured execution records to \`verification.yaml\`. The legacy \`proposal.md\`, \`tasks.md\`, and \`verification.md\` rules below apply only when \`schemaName\` is \`spec-driven\` or when migrating an old Change.
+For the canonical \`code-spec\` schema, use exactly \`analysis.yaml\`, \`metadata.yaml\`, \`design.md\`, \`spec.md\`, \`tasks.yaml\`, and \`verification.yaml\`. Read task status and verification plans from YAML; execute every planned Test Case with its declared profile/services, then write the matching structured execution records to \`verification.yaml\`. The \`proposal.md\`, \`tasks.md\`, and \`verification.md\` rules below apply only when \`schemaName\` is \`spec-driven\`.
 
 ${STORE_SELECTION_GUIDANCE}
 

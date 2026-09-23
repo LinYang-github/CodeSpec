@@ -16,7 +16,6 @@ import type {
   RequirementId,
   WorkspaceConfig,
 } from './types.js';
-import { createPendingApprovals } from './approvals.js';
 
 const nonEmptyString = z.string().min(1);
 const isoDateTime = z.string().datetime({ offset: true });
@@ -54,7 +53,6 @@ const changeStatusSchema = z.enum([
   'IMPLEMENT',
   'VERIFY',
   'ARCHIVE',
-  'ARCHIVED',
   'ABANDONED',
 ]);
 const taskStatusSchema = z.enum(['TODO', 'IN_PROGRESS', 'DONE', 'BLOCKED']);
@@ -178,7 +176,6 @@ const moduleBaselineSchema = z
   })
   .strict();
 
-const changeRelationListSchema = z.array(changeIdSchema);
 const gateSchema = z
   .object({
     required: z.boolean(),
@@ -206,9 +203,7 @@ const approvalRecordSchema = z
 const approvalsSchema = z
   .object({
     schema_version: z.literal(1),
-    // Historical two-stage receipt sets remain readable. The transform below
-    // supplies the non-persisted pending analyze receipt until migration.
-    analyze: approvalRecordSchema.optional(),
+    analyze: approvalRecordSchema,
     design: approvalRecordSchema,
     plan: approvalRecordSchema,
   })
@@ -239,7 +234,7 @@ const changeMetadataSchema = z
         revision: z.number().int().min(1),
         title: nonEmptyString,
         mode: changeModeSchema,
-        sdd_level: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
+        sdd_level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
         status: changeStatusSchema,
         created_at: isoDateTime,
         updated_at: isoDateTime,
@@ -250,25 +245,17 @@ const changeMetadataSchema = z
         summary: nonEmptyString,
         mode: changeModeSchema,
         scope: z.enum(['single-module', 'cross-module']),
-        affected_areas: z.array(nonEmptyString).default([]),
+        affected_areas: z.array(nonEmptyString),
       })
       .strict(),
     baseline: z
       .object({
         created_at: isoDateTime.nullable(),
-        commit: z.string().regex(/^[0-9a-f]{7,64}$/u).nullable().optional().default(null),
-        working_tree_fingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u).optional().default(`sha256:${'0'.repeat(64)}`),
+        commit: z.string().regex(/^[0-9a-f]{7,64}$/u).nullable(),
+        working_tree_fingerprint: z.string().regex(/^sha256:[0-9a-f]{64}$/u),
         current_fingerprint: z.string().regex(/^[0-9a-f]{64}$/u),
         stale: z.boolean(),
         modules: z.record(businessModuleIdSchema, moduleBaselineSchema),
-      })
-      .strict(),
-    relations: z
-      .object({
-        depends_on: changeRelationListSchema,
-        related_to: changeRelationListSchema,
-        conflicts_with: changeRelationListSchema,
-        supersedes: changeRelationListSchema,
       })
       .strict(),
     gates: z
@@ -281,7 +268,7 @@ const changeMetadataSchema = z
         archive: gateSchema,
       })
       .strict(),
-    approvals: approvalsSchema.optional(),
+    approvals: approvalsSchema,
     modules: z
       .object({
         candidates: z.array(moduleSelectionSchema),
@@ -298,10 +285,9 @@ const changeMetadataSchema = z
       .strict(),
     artifacts: z
       .object({
-        analysis: relativePathString.optional(),
+        analysis: relativePathString,
         metadata: relativePathString,
-        proposal: relativePathString.optional(),
-        design: relativePathString.optional(),
+        design: relativePathString,
         spec: relativePathString,
         tasks: relativePathString,
         verification: relativePathString,
@@ -337,32 +323,18 @@ const changeMetadataSchema = z
       .object({
         ready: z.boolean(),
         conflict: z.boolean(),
-        archived_at: isoDateTime.nullable(),
       })
       .strict(),
   })
   .strict()
   .superRefine((metadata, context) => {
-    const hasDesign = Boolean(metadata.artifacts.design);
-    if (metadata.change.sdd_level > 1 && !hasDesign) {
-      context.addIssue({ code: 'custom', path: ['artifacts', 'design'], message: 'Level 2 and Level 3 require design.md' });
-    }
     for (const stage of ['analyze', 'design', 'plan'] as const) {
-      const approval = metadata.approvals?.[stage];
-      if (approval && approval.revision !== metadata.change.revision) {
+      const approval = metadata.approvals[stage];
+      if (approval.revision !== metadata.change.revision) {
         context.addIssue({ code: 'custom', path: ['approvals', stage, 'revision'], message: 'approval revision must match change.revision' });
       }
     }
-  })
-  .transform((metadata): ChangeMetadata => ({
-    ...metadata,
-    approvals: metadata.approvals
-      ? {
-        ...metadata.approvals,
-        analyze: metadata.approvals.analyze ?? createPendingApprovals(metadata.change.revision).analyze,
-      }
-      : createPendingApprovals(metadata.change.revision),
-  }));
+  });
 
 const changeIndexEntrySchema = z
   .object({

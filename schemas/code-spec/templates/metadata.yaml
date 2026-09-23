@@ -40,6 +40,7 @@ requirements:
   removed: []
 artifacts:
   metadata: changes/CHG-20260901-001/metadata.yaml
+  analysis: changes/CHG-20260901-001/analysis.yaml
   design: changes/CHG-20260901-001/design.md
   spec: changes/CHG-20260901-001/spec.md
   tasks: changes/CHG-20260901-001/tasks.yaml

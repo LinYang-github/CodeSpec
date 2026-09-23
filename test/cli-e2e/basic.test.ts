@@ -2,8 +2,12 @@ import { afterAll, describe, it, expect } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { runCLI, cliProjectRoot } from '../helpers/run-cli.js';
 import { AI_TOOLS } from '../../src/core/config.js';
+
+const execFileAsync = promisify(execFile);
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -160,6 +164,11 @@ describe('codespec CLI e2e basics', () => {
         ].join('\n'),
         'utf-8',
       );
+      await execFileAsync('git', ['init', '--quiet'], { cwd: emptyProjectDir });
+      await execFileAsync('git', ['config', 'user.email', 'codespec-tests@example.com'], { cwd: emptyProjectDir });
+      await execFileAsync('git', ['config', 'user.name', 'CodeSpec Tests'], { cwd: emptyProjectDir });
+      await execFileAsync('git', ['add', '.'], { cwd: emptyProjectDir });
+      await execFileAsync('git', ['commit', '--quiet', '-m', 'Initialize fixture'], { cwd: emptyProjectDir });
 
       const created = await runCLI(['new', 'change', 'language-check', '--json'], {
         cwd: emptyProjectDir,

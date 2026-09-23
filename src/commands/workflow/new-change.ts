@@ -160,8 +160,8 @@ export async function newChangeCommand(name: string | undefined, options: NewCha
           }),
         };
 
-    // README.md is a legacy/spec-driven convenience file. Canonical code-spec
-    // Changes must remain the strict five-file contract.
+    // README.md is a spec-driven convenience file. Canonical code-spec
+    // Changes must remain the strict six-file contract.
     if (options.description && result.kind === 'legacy') {
       const { promises: fs } = await import('fs');
       const readmePath = path.join(result.value.changeDir, 'README.md');

@@ -15,8 +15,9 @@ describe('current verification policy', () => {
   it('keeps only the newest human-readable verification summary in a prepared spec', () => {
     const verification = parseCurrentVerification({
       version: 1,
+      changeRevision: 1,
       testCases: [{
-        testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', result: 'PASS', testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
+        testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', acceptanceCriteria: ['AC-001'], result: 'PASS', testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
         command: 'pnpm playwright test', profile: 'test', services: ['user-service'], browser: 'chromium', exitCode: 0,
         gitRevision: '9ec4bf1', treeFingerprint: 'sha256:f4bd3f5c3cdb8f27ab9910f241313c5c3a138f91a7be2534de45fa7b745a4365',
         executedAt: '2026-09-07T10:30:00+08:00', summary: '新用户出现在用户列表', cleanupSucceeded: true,
@@ -32,20 +33,23 @@ describe('current verification policy', () => {
   it('requires every planned test case to have a successful matching execution record', () => {
     const tasks = parseCurrentTasks({
       version: 1,
+      changeRevision: 1,
       tasks: [{
         id: 'CHG-20260907-001-TASK-01', title: '新增用户', status: 'DONE',
+        acceptanceCriteria: ['AC-001'],
         requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'],
         testCases: ['MOD-002-REQ-001-SCN-001-TC-UI-01'], plannedFiles: ['e2e/users.spec.ts'],
-        verificationPlan: {
+        verificationPlan: [{
           testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', runner: 'playwright', command: 'pnpm playwright test',
           profile: 'test', services: ['user-service'], prepare: 'pnpm dev:test', cleanup: 'pnpm dev:test:stop',
-        },
+        }],
       }], moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] },
     });
     const verification = parseCurrentVerification({
       version: 1,
+      changeRevision: 1,
       testCases: [{
-        testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
+        testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', acceptanceCriteria: ['AC-001'], testFile: 'e2e/users.spec.ts', testId: 'TC-UI-01',
         result: 'PASS', command: 'pnpm playwright test', profile: 'test', services: ['user-service'], browser: 'chromium',
         exitCode: 0, gitRevision: '9ec4bf1',
         treeFingerprint: 'sha256:f4bd3f5c3cdb8f27ab9910f241313c5c3a138f91a7be2534de45fa7b745a4365',
@@ -57,7 +61,7 @@ describe('current verification policy', () => {
     expect(validateCurrentVerificationPlan(tasks, verification, baseline)).toEqual([]);
     expect(validateCurrentVerificationPlan(tasks, { ...verification, changeRevision: 2 }, { ...baseline, revision: 1 }))
       .toContainEqual(expect.stringMatching(/revision/i));
-    expect(validateCurrentVerificationPlan(tasks, parseCurrentVerification({ version: 1, testCases: [] }), baseline))
+    expect(validateCurrentVerificationPlan(tasks, parseCurrentVerification({ version: 1, changeRevision: 1, testCases: [] }), baseline))
       .toContainEqual(expect.stringMatching(/missing verification record/i));
     expect(validateCurrentVerificationPlan(tasks, parseCurrentVerification({
       ...verification,
@@ -91,7 +95,6 @@ describe('current verification policy', () => {
       metadata.baseline.commit = '9ec4bf1';
       metadata.artifacts = {
         ...metadata.artifacts,
-        proposal: undefined,
         tasks: `changes/${fixture.changeId}/tasks.yaml`,
         verification: `changes/${fixture.changeId}/verification.yaml`,
       };
@@ -106,10 +109,10 @@ describe('current verification policy', () => {
           acceptanceCriteria: ['AC-001'],
           requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'],
           testCases: ['MOD-002-REQ-001-SCN-001-TC-UI-01'], plannedFiles: ['e2e/users.spec.ts'],
-          verificationPlan: {
+          verificationPlan: [{
             testCase: 'MOD-002-REQ-001-SCN-001-TC-UI-01', runner: 'playwright', command: 'pnpm playwright test e2e/users.spec.ts',
             profile: 'test', services: ['users'], prepare: 'pnpm dev:test', cleanup: 'pnpm dev:test:stop',
-          },
+          }],
         }],
         moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] },
       }));
@@ -138,7 +141,7 @@ describe('current verification policy', () => {
       const tasks = parseYaml(artifacts.tasks); const evidence = parseYaml(artifacts.verification);
       tasks.tasks = [1, 2, 3].map((index) => {
         const scenario = `MOD-002-REQ-001-SCN-00${index}`; const testCase = `${scenario}-TC-UI-01`;
-        return { ...tasks.tasks[0], id: `${fixture.changeId}-TASK-0${index}`, scenarios: [scenario], testCases: [testCase], verificationPlan: { ...tasks.tasks[0].verificationPlan, testCase } };
+        return { ...tasks.tasks[0], id: `${fixture.changeId}-TASK-0${index}`, scenarios: [scenario], testCases: [testCase], verificationPlan: [{ ...tasks.tasks[0].verificationPlan[0], testCase }] };
       });
       artifacts.tasks = stringifyYaml(tasks);
       artifacts.verification = stringifyYaml({ ...evidence, artifactIdentity: verificationArtifactIdentity(artifacts), testCases: tasks.tasks.map((task: { testCases: string[] }) => ({ ...evidence.testCases[0], testCase: task.testCases[0] })) });
@@ -149,45 +152,17 @@ describe('current verification policy', () => {
   });
 
   it('records a v1 verification plan as structured verification.yaml evidence', async () => {
-    const fixture = await createWorkflowFixture({ v1: true });
+    const fixture = await createCurrentArchiveFixture();
     try {
-      const metadata = fixture.metadataAt('VERIFY');
-      metadata.artifacts = {
-        ...metadata.artifacts,
-        proposal: undefined,
-        tasks: `changes/${fixture.changeId}/tasks.yaml`,
-        verification: `changes/${fixture.changeId}/verification.yaml`,
-      };
-      const changeDir = path.join(fixture.paths.changes, fixture.changeId);
-      await fs.mkdir(changeDir, { recursive: true });
-      await fs.writeFile(path.join(changeDir, 'metadata.yaml'), stringifyYaml(metadata));
-      await fs.writeFile(path.join(changeDir, 'design.md'), '# 设计\n');
-      await fs.writeFile(path.join(changeDir, 'spec.md'), '# 用户管理\n- **模块编号：** MOD-002\n- **规格版本：** 1\n');
-      await fs.writeFile(path.join(changeDir, 'tasks.yaml'), stringifyYaml({
-        version: 1,
-        tasks: [{
-          id: `${fixture.changeId}-TASK-001`, title: '执行测试', status: 'DONE', module: 'MOD-002',
-          requirements: ['MOD-002-REQ-001'], scenarios: ['MOD-002-REQ-001-SCN-001'],
-          testCases: ['MOD-002-REQ-001-SCN-001-TC-API-01'], plannedFiles: ['test/users.spec.ts'],
-          verificationPlan: [{
-            testCase: 'MOD-002-REQ-001-SCN-001-TC-API-01', runner: 'node', command: 'node -e "process.exit(0)"',
-            profile: 'test', services: [], prepare: 'none', cleanup: 'none',
-          }],
-        }],
-        moduleDeltas: [], moduleRegistrations: { upsert: [], retire: [] },
-      }));
-      await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\ntestCases: []\n');
-      await fs.writeFile(fixture.paths.configuration, stringifyYaml({
-        version: 1,
-        profiles: [{ id: 'test', services: [] }],
-      }));
-
-      const evidence = await recordFreshVerification(fixture.workspace, fixture.changeId, [{
-        testCase: 'MOD-002-REQ-001-SCN-001-TC-API-01', command: 'node -e "process.exit(0)"', testFile: 'test/users.spec.ts', testId: 'TC-API-01',
-      }]);
+      const artifacts = await writeCanonicalChange(fixture, modification());
+      artifacts.metadata.change.status = 'VERIFY';
+      await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringifyYaml(artifacts.metadata));
+      const tasks = parseYaml(artifacts.tasks);
+      const commands = tasks.tasks.flatMap((task: { verificationPlan: Array<{ testCase: string; command: string }> }) => task.verificationPlan);
+      const evidence = await recordFreshVerification(fixture.workspace, fixture.changeId, commands);
       expect(evidence.status).toBe('PASS');
-      expect(parseCurrentVerification(parseYaml(await fs.readFile(path.join(changeDir, 'verification.yaml'), 'utf8'))).testCases[0]?.testCase)
-        .toBe('MOD-002-REQ-001-SCN-001-TC-API-01');
+      expect(parseCurrentVerification(parseYaml(await fs.readFile(path.join(artifacts.changeDir, 'verification.yaml'), 'utf8'))).testCases)
+        .toHaveLength(3);
     } finally {
       fixture.cleanup();
     }

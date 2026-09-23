@@ -7,7 +7,6 @@ import { archiveChange } from '../../src/core/codespec-workflow/archive-transact
 import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
 import { resolveChange } from '../../src/core/codespec-workflow/change-resolver.js';
 import { canTransition } from '../../src/core/codespec-workflow/state-machine.js';
-import { detectStaleChanges } from '../../src/core/codespec-workflow/stale.js';
 import { buildUiIndex } from '../../src/core/ui-content-index.js';
 import { runCLI } from '../helpers/run-cli.js';
 import { createCurrentArchiveFixture, modification, writeCanonicalChange } from '../helpers/current-archive.js';
@@ -23,9 +22,9 @@ describe('canonical CodeSpec workflow journeys', () => {
         title: '登录功能', summary: '支持用户登录', mode: 'feature',
       });
       expect(created.changeId).toMatch(/^CHG-\d{8}-\d{3}$/);
-      expect(await fs.readdir(created.changeDir)).toEqual(expect.arrayContaining([
-        'metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml',
-      ]));
+      expect((await fs.readdir(created.changeDir)).sort()).toEqual([
+        'analysis.yaml', 'design.md', 'metadata.yaml', 'spec.md', 'tasks.yaml', 'verification.yaml',
+      ]);
       expect(canTransition('ANALYZE', 'DESIGN')).toBe(true);
       expect(canTransition('VERIFY', 'IMPLEMENT')).toBe(true);
       expect(canTransition('VERIFY', 'DESIGN')).toBe(true);
@@ -49,26 +48,6 @@ describe('canonical CodeSpec workflow journeys', () => {
     }
   });
 
-  it('detects a stale baseline before archive and keeps canonical paths isolated', async () => {
-    const fixture = await createWorkflowFixture();
-    try {
-      const metadata = fixture.metadataAt('VERIFY');
-      metadata.modules.confirmed = [{ module: 'MOD-001', outcome: 'OWNED', reason: 'workflow' }];
-      metadata.baseline.modules = { 'MOD-001': { outcome: 'OWNED', latest_change: null, requirement_ids: ['MOD-001-REQ-001'], spec_hash: 'a'.repeat(64), requirements: { 'MOD-001-REQ-001': 'b'.repeat(64) } } };
-      metadata.requirements.modified = [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }];
-      const dir = path.join(fixture.paths.changes, fixture.changeId);
-      await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(path.join(dir, 'metadata.yaml'), JSON.stringify(metadata));
-      await fs.mkdir(path.join(fixture.paths.currentSpecs, 'MOD-001'), { recursive: true });
-      await fs.writeFile(path.join(fixture.paths.currentSpecs, 'MOD-001', 'spec.md'), 'changed');
-      const stale = await detectStaleChanges(fixture.workspace, ['MOD-001-REQ-001']);
-      expect(stale).toContain(fixture.changeId);
-      expect(path.basename(dir)).toMatch(/^CHG-/);
-    } finally {
-      fixture.cleanup();
-    }
-  });
-
   it('rejects a nonexistent canonical Change during JSON preflight even when --yes is supplied', async () => {
     const fixture = await createWorkflowFixture();
     try {
@@ -79,7 +58,7 @@ describe('canonical CodeSpec workflow journeys', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toContain('archive_preflight_failed');
-      await expect(fs.access(fixture.paths.archivedChanges)).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.codespecDir, 'archive'))).rejects.toThrow();
     } finally {
       fixture.cleanup();
     }
@@ -121,13 +100,11 @@ describe('canonical CodeSpec workflow journeys', () => {
         requirements: [{ id: 'MOD-002-REQ-001', action: 'MODIFIED' }],
         engineeringFiles: [{ path: 'src/one.ts', change: '修改' }],
       });
-      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
-      await expect(fs.access(path.join(fixture.paths.archive, 'history.yaml'))).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.codespecDir, 'archive'))).rejects.toThrow();
 
       await archiveChange(await loadWorkspace(fixture.codespecDir), created.changeId);
       await expect(fs.access(created.changeDir)).rejects.toThrow();
-      await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId, 'analysis.yaml'))).rejects.toThrow();
-      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.codespecDir, 'archive'))).rejects.toThrow();
       await expect(fs.readFile(fixture.paths.business, 'utf8')).resolves.toContain('version: 1');
       await expect(buildUiIndex(fixture.tempDir)).resolves.toMatchObject({ currentSpecGraph: expect.any(Object) });
     } finally {

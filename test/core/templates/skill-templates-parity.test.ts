@@ -14,9 +14,9 @@ import { STORE_SELECTION_GUIDANCE } from '../../../src/core/templates/workflows/
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const EXPECTED_GENERATED_SKILL_CONTENT_HASHES: Record<string, string> = {
-  'codespec-workflow': '0ed5bf06fca7fd404504b770dee0515138c3e7ee874c8be01d7564cca67fc7ef',
-  'codespec-rebase-change': '60fbb09c759e1c18f190b41027b96375a04111a6573ab4ea85fbc8914fb31f9c',
-  'codespec-archive-change': '7f898c808d46ad998dc9a204eaa231aa942e03db7d707d1dcc6765c72ec62d09',
+  'codespec-workflow': '6b29d34ad2862191961bad28386048faf7306035eab44d02d03859d792642d65',
+  'codespec-rebase-change': '3352b632ed88c559aa5ac3a3a491a7c0cb3e980eaad363cb9461d9452019f687',
+  'codespec-archive-change': '2a35e6c8662db1426207e99572859d4eea9ccc6233706b4b4f481c9bbc8b2657',
 };
 
 function stripGeneratedVersion(content: string): string {
@@ -36,7 +36,7 @@ describe('public skill template parity', () => {
       const generated = generateSkillContent(template, 'PARITY-BASELINE');
       for (const token of ['analysis.yaml', 'metadata.yaml', 'design.md', 'spec.md', 'tasks.yaml', 'verification.yaml',
         'codespec approve --change "<CHG-ID>" --stage analyze', 'Previous', 'New', 'Reason', 'MUST', 'SHOULD', 'COULD',
-        'codespec rebase --change "<CHG-ID>"', 'codespec migrate --change "<CHG-ID>"']) {
+        'codespec rebase --change "<CHG-ID>"']) {
         expect(generated, `${template.name}: ${token}`).toContain(token);
       }
     }

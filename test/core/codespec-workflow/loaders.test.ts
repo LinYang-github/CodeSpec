@@ -52,7 +52,16 @@ describe('codespec workflow loaders', () => {
     afterEach(fixture.cleanup);
     await fs.rm(path.join(fixture.paths.currentSpecs, 'MOD-001', 'interface.yaml'));
 
-    await expect(loadCurrentSpecGraph(fixture.paths)).rejects.toThrow(/Missing interface\.yaml.*MOD-001/i);
+    await expect(loadCurrentSpecGraph(fixture.paths)).rejects.toThrow('当前模块 MOD-001 缺少 interface.yaml，无法读取 Current');
+  });
+  it('keeps a registered module without Current files in the business graph', async () => {
+    const fixture = await createWorkflowFixture({ v1: true });
+    afterEach(fixture.cleanup);
+    await fs.rm(path.join(fixture.paths.currentSpecs, 'MOD-001'), { recursive: true });
+
+    const graph = await loadCurrentSpecGraph(fixture.paths);
+    expect(graph.business.modules.map((module) => module.id)).toContain('MOD-001');
+    expect(graph.apis.get('MOD-001')).toMatchObject({ module: 'MOD-001', routes: [] });
   });
   it('loads the generated current business.yaml registry without Markdown-only fields', async () => {
     const fixture = await createWorkflowFixture({ configOverrides: {
@@ -164,12 +173,12 @@ describe('codespec workflow loaders', () => {
     await writeChangeArtifacts(fixture, {
       metadata: {
         artifacts: {
+          analysis: 'active-changes/CHG-20260901-001/analysis.yaml',
           metadata: 'active-changes/CHG-20260901-001/metadata.yaml',
-          proposal: 'active-changes/CHG-20260901-001/proposal.md',
           design: 'active-changes/CHG-20260901-001/design.md',
           spec: 'active-changes/CHG-20260901-001/spec.md',
-          tasks: 'active-changes/CHG-20260901-001/tasks.md',
-          verification: 'active-changes/CHG-20260901-001/verification.md',
+          tasks: 'active-changes/CHG-20260901-001/tasks.yaml',
+          verification: 'active-changes/CHG-20260901-001/verification.yaml',
         },
       },
     });
@@ -256,12 +265,11 @@ describe('codespec workflow loaders', () => {
     const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
 
     expect(artifacts.metadata.change.id).toBe(fixture.changeId);
-    expect(artifacts.analysis).toBeNull();
-    expect(artifacts.proposal).toContain('# Proposal');
+    expect(artifacts.analysis).toContain('version: 1');
     expect(artifacts.design).toContain('# Design');
     expect(artifacts.spec).toContain('# Spec');
-    expect(artifacts.tasks).toContain('# Tasks');
-    expect(artifacts.verification).toContain('# Verification');
+    expect(artifacts.tasks).toContain('version: 1');
+    expect(artifacts.verification).toContain('version: 1');
   });
 
   it('loads a non-empty analysis from a newly scaffolded six-artifact Change', async () => {
@@ -279,18 +287,6 @@ describe('codespec workflow loaders', () => {
     expect(artifacts.analysis).toContain('problem: Recover a declined payment without losing the order');
   });
 
-  it('does not resolve a Change from archive history', async () => {
-    const fixture = await createWorkflowFixture();
-    afterEach(fixture.cleanup);
-    await writeChangeArtifacts(fixture);
-    const activeDir = path.join(fixture.paths.changes, fixture.changeId);
-    const archivedDir = path.join(fixture.paths.archivedChanges, fixture.changeId);
-    await fs.mkdir(path.dirname(archivedDir), { recursive: true });
-    await fs.rename(activeDir, archivedDir);
-
-    await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toThrow(/活动 Change 不存在/);
-  });
-
   it('does not downgrade a declared but missing analysis artifact to null', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
@@ -299,6 +295,7 @@ describe('codespec workflow loaders', () => {
     const metadata = parseYaml(await fs.readFile(metadataPath, 'utf8')) as { artifacts: Record<string, string> };
     metadata.artifacts.analysis = path.join('changes', fixture.changeId, 'analysis.yaml');
     await fs.writeFile(metadataPath, stringifyYaml(metadata));
+    await fs.unlink(path.join(fixture.paths.changes, fixture.changeId, 'analysis.yaml'));
 
     await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toMatchObject({ code: 'ENOENT' });
   });
@@ -324,19 +321,6 @@ describe('codespec workflow loaders', () => {
     });
     const artifacts = await loadChangeArtifacts(fixture.paths, fixture.changeId);
     expect(artifacts.design).toBe('# Design\nHuman-authored independent design');
-  });
-
-  it('rejects legacy module-only change directories as unsupported for canonical loading', async () => {
-    const fixture = await createWorkflowFixture();
-    afterEach(fixture.cleanup);
-
-    const legacyChangeDir = path.join(fixture.paths.changes, fixture.changeId);
-    await fs.mkdir(legacyChangeDir, { recursive: true });
-    await fs.writeFile(path.join(legacyChangeDir, '.openspec.yaml'), 'schema: code-spec\n');
-
-    await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toThrow(
-      /legacy|unsupported|\.openspec\.yaml/i
-    );
   });
 
   it('rejects a Change ID that could escape the active changes directory', async () => {
@@ -366,16 +350,16 @@ describe('codespec workflow loaders', () => {
     await writeChangeArtifacts(fixture, {
       metadata: {
         artifacts: {
-          proposal: 'changes/CHG-20260901-002/proposal.md',
+          design: 'changes/CHG-20260901-002/design.md',
         },
       },
     });
     const otherDir = path.join(fixture.paths.changes, 'CHG-20260901-002');
     await fs.mkdir(otherDir, { recursive: true });
-    await fs.writeFile(path.join(otherDir, 'proposal.md'), 'must not be loaded\n');
+    await fs.writeFile(path.join(otherDir, 'design.md'), 'must not be loaded\n');
 
     await expect(loadChangeArtifacts(fixture.paths, fixture.changeId)).rejects.toThrow(
-      /artifact.*proposal.*canonical|exact.*path|selected Change/i
+      /artifact.*design.*canonical|exact.*path|selected Change/i
     );
   });
 
@@ -394,8 +378,8 @@ describe('codespec workflow loaders', () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
     await writeChangeArtifacts(fixture);
-    const proposalPath = path.join(fixture.paths.changes, fixture.changeId, 'proposal.md');
-    const outsidePath = path.join(fixture.tempDir, 'outside-proposal.md');
+    const proposalPath = path.join(fixture.paths.changes, fixture.changeId, 'analysis.yaml');
+    const outsidePath = path.join(fixture.tempDir, 'outside-analysis.yaml');
     await fs.writeFile(outsidePath, 'outside\n');
     await fs.unlink(proposalPath);
     await fs.symlink(outsidePath, proposalPath);
@@ -408,7 +392,7 @@ describe('codespec workflow loaders', () => {
   it('returns only canonical active states and fails closed on malformed active metadata', async () => {
     const fixture = await createWorkflowFixture();
     afterEach(fixture.cleanup);
-    await writeChangeArtifacts(fixture, { metadata: { change: { status: 'ARCHIVED' } } });
+    await writeChangeArtifacts(fixture, { metadata: { change: { status: 'ABANDONED' } } });
     const workspace = await loadWorkspace(fixture.codespecDir);
 
     await expect(listActiveChanges(workspace)).resolves.toEqual([]);

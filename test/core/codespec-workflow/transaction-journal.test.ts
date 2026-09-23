@@ -33,10 +33,8 @@ function pathsFor(root: string): WorkspacePaths {
     configuration: path.join(codespecDir, 'configuration.yaml'),
     changes: path.join(codespecDir, 'changes'),
     changeIndex: path.join(codespecDir, 'changes', 'index.yaml'),
-    archive: path.join(codespecDir, 'archive'),
     currentSpecs: path.join(codespecDir, 'specs'),
     transactions: path.join(codespecDir, '.transactions'),
-    archivedChanges: path.join(codespecDir, 'archive', 'changes'),
   };
 }
 
@@ -61,7 +59,7 @@ describe('archive transaction journal', () => {
     await ensureCliBuilt();
     await fs.mkdir(paths.changes, { recursive: true });
     await fs.mkdir(paths.transactions, { recursive: true });
-    const transactionId = `migrate-snapshot-race-${committed ? 'committed' : 'pending'}`;
+    const transactionId = `archive-snapshot-race-${committed ? 'committed' : 'pending'}`;
     const directory = path.join(paths.transactions, transactionId);
     const lock = `${paths.changeIndex}.lock`;
     const child = spawn(process.execPath, ['--input-type=module', '-e', `
@@ -93,7 +91,7 @@ describe('archive transaction journal', () => {
         const entries = await readdir(...args);
         if (String(args[0]) === paths.transactions && !snapshotTaken) {
           snapshotTaken = true;
-          expect(entries).toEqual([]);
+          expect(entries.filter((entry) => !entry.name.startsWith('.'))).toEqual([]);
           child.send('publish-and-crash');
           expect((await exited)[0], stderr).toBe(77);
           expect(await fs.readFile(target, 'utf8')).toBe('after\n');

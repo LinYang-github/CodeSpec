@@ -5,7 +5,7 @@ import { STORE_SELECTION_GUIDANCE } from './store-selection.js';
 function renderFastForwardWorkflow(input: string): string {
   return `快速完成规划工件创建：一次性生成开始实现所需的全部工件。
 
-默认使用 \`code-spec\` schema。活动 Change 的工件和依赖顺序必须以 \`codespec status --change "<name>" --json\` 的实际输出为准；五个 canonical 工件为 \`metadata.yaml\`、\`design.md\`、\`spec.md\`、\`tasks.yaml\` 和 \`verification.yaml\`。PLAN 仅作为兼容旧 Change 的内部状态。
+默认使用 \`code-spec\` schema。活动 Change 的工件和依赖顺序必须以 \`codespec status --change "<name>" --json\` 的实际输出为准；六个 canonical 工件为 \`metadata.yaml\`、\`analysis.yaml\`、\`design.md\`、\`spec.md\`、\`tasks.yaml\` 和 \`verification.yaml\`。PLAN 是计划审批阶段，不创建额外文件。
 
 ${STORE_SELECTION_GUIDANCE}
 

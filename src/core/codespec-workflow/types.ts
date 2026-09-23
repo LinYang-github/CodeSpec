@@ -14,7 +14,6 @@ export type ChangeStatus =
   | 'IMPLEMENT'
   | 'VERIFY'
   | 'ARCHIVE'
-  | 'ARCHIVED'
   | 'ABANDONED';
 
 export interface WorkspaceConfig {
@@ -34,7 +33,7 @@ export interface WorkspaceConfig {
     change_index: string;
     specs: string;
     transactions?: string;
-    /** Legacy archive paths remain readable for migration only. */
+    /** Generic spec-driven workspaces may declare their own archive paths. */
     archive?: string;
     archived_changes?: string;
   };
@@ -127,12 +126,6 @@ export interface ChangeMetadata {
       }
     >;
   };
-  relations: {
-    depends_on: ChangeId[];
-    related_to: ChangeId[];
-    conflicts_with: ChangeId[];
-    supersedes: ChangeId[];
-  };
   gates: {
     analyze: {
       required: boolean;
@@ -188,11 +181,9 @@ export interface ChangeMetadata {
     removed: RequirementRef[];
   };
   artifacts: {
-    /** Optional only so historical five-artifact Changes remain readable. */
-    analysis?: string;
+    analysis: string;
     metadata: string;
-    proposal?: string;
-    design?: string;
+    design: string;
     spec: string;
     tasks: string;
     verification: string;
@@ -220,7 +211,6 @@ export interface ChangeMetadata {
   archive: {
     ready: boolean;
     conflict: boolean;
-    archived_at: string | null;
   };
 }
 

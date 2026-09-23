@@ -109,6 +109,25 @@ describe('archive projection builder', () => {
     });
   });
 
+  it('does not materialize registered modules that have not been archived', () => {
+    const result = buildArchiveProjection({
+      specs: new Map([['MOD-002', '# 用户管理\n']]),
+      business: parseBusinessRegistry({
+        version: 1,
+        modules: [
+          { id: 'MOD-001', name: '尚未归档', status: 'ACTIVE', inputs: [], outputs: [], relatedModules: [] },
+          { id: 'MOD-002', name: '用户管理', status: 'ACTIVE', inputs: [], outputs: [], relatedModules: [] },
+        ],
+      }),
+      interfaces: new Map([
+        ['MOD-002', parseModuleInterface({ version: 1, module: 'MOD-002', relations: [] })],
+      ]),
+      configuration: parseConfiguration({ version: 1, profiles: [] }),
+    });
+
+    expect([...result.modules.keys()]).toEqual(['MOD-002']);
+  });
+
   it('rejects an existing module with no interface document', () => {
     expect(() => buildArchiveProjection({
       specs: new Map([['MOD-003', '# 通知\n']]),

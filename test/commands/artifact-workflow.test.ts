@@ -2,13 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { runCLI } from '../helpers/run-cli.js';
 import { FileSystemUtils } from '../../src/utils/file-system.js';
 import { approveStage } from '../../src/core/codespec-workflow/approvals.js';
 import { loadChangeArtifacts } from '../../src/core/codespec-workflow/artifacts.js';
 import { loadWorkspace } from '../../src/core/codespec-workflow/loaders.js';
-import { createMigrationFixture } from '../helpers/change-migration.js';
 import { createCurrentArchiveFixture, requirement, modification } from '../helpers/current-archive.js';
 import { createCanonicalChange as newCanonicalChange } from '../../src/core/codespec-workflow/change-manager.js';
 import { approveChangeStage, isApprovalCurrent } from '../../src/core/codespec-workflow/approvals.js';
@@ -21,6 +22,8 @@ import { archiveChange } from '../../src/core/codespec-workflow/archive-transact
 import { ShowCommand } from '../../src/commands/show.js';
 import { snapshotDirectory } from '../helpers/fs-snapshot.js';
 import { canonicalGuidance } from '../../src/commands/workflow/canonical-guidance.js';
+
+const execFileAsync = promisify(execFile);
 
 describe('canonical clarification closed loop in one process', () => {
   it('archives two independently approved Changes to the same Requirement without carrying history or replacing its module', async () => {
@@ -120,7 +123,6 @@ describe('canonical clarification closed loop in one process', () => {
         const archived = await archiveChange(workspace, created.changeId);
         expect(archived.requirementIds).toEqual(['MOD-002-REQ-001']);
         expect(archived.archivedPath).toBe(path.join(fixture.paths.currentSpecs, 'MOD-002'));
-        await expect(fs.access(path.join(fixture.paths.archivedChanges, created.changeId))).rejects.toThrow();
         await expect(fs.access(created.changeDir)).rejects.toThrow();
         expect(parseYaml(await fs.readFile(fixture.paths.changeIndex, 'utf8')).changes).toEqual([]);
         const currentBytes = await fs.readFile(currentPath, 'utf8');
@@ -135,7 +137,7 @@ describe('canonical clarification closed loop in one process', () => {
         expect(snapshotDirectory(path.join(fixture.paths.currentSpecs, 'MOD-001'))).toEqual(untouchedModule);
         previous = current.requirements[0];
       }
-      await expect(fs.access(fixture.paths.archive)).rejects.toThrow();
+      await expect(fs.access(path.join(fixture.codespecDir, 'archive'))).rejects.toThrow();
     } finally { process.chdir(originalCwd); fixture.cleanup(); }
   }, 30_000);
 });
@@ -180,20 +182,6 @@ describe('artifact-workflow CLI commands', () => {
 
     expect(result.exitCode).toBe(1);
     expect(getOutput(result)).toMatch(/analyze.*design.*plan/i);
-  });
-
-  it('migrates an explicitly selected five-artifact Change and explains manual delta authoring', async () => {
-    const fixture = await createMigrationFixture();
-    try {
-      const result = await runCLI(['migrate', '--change', fixture.changeId, '--json'], { cwd: fixture.tempDir });
-      expect(result.exitCode).toBe(0);
-      expect(JSON.parse(result.stdout)).toMatchObject({ changeId: fixture.changeId, route: 'ANALYZE', unresolvedQuestionId: 'Q-MIGRATION-001' });
-      expect(JSON.parse(result.stdout).message).toMatch(/rich Requirement delta/);
-      const workspace = await loadWorkspace(fixture.codespecDir);
-      expect((await loadChangeArtifacts(workspace.paths, fixture.changeId)).metadata.change.revision).toBe(2);
-      const repeated = await runCLI(['migrate', '--change', fixture.changeId], { cwd: fixture.tempDir });
-      expect(repeated.exitCode).toBe(1);
-    } finally { fixture.cleanup(); }
   });
 
   it('revises an approved changed authority and prints the revision result as JSON', async () => {
@@ -262,8 +250,7 @@ describe('artifact-workflow CLI commands', () => {
   }
 
   async function createCanonicalCodeSpecWorkspace(): Promise<void> {
-    await fs.mkdir(path.join(tempDir, 'codespec', 'archive', 'specs'), { recursive: true });
-    await fs.mkdir(path.join(tempDir, 'codespec', 'archive', 'changes'), { recursive: true });
+    await fs.mkdir(path.join(tempDir, 'codespec', 'specs'), { recursive: true });
     await fs.writeFile(
       path.join(tempDir, 'codespec', 'config.yaml'),
       [
@@ -272,12 +259,12 @@ describe('artifact-workflow CLI commands', () => {
         'project:',
         '  name: demo',
         'paths:',
-        '  business: business.md',
+        '  business: business.yaml',
+        '  configuration: configuration.yaml',
         '  changes: changes',
         '  change_index: changes/index.yaml',
-        '  archive: archive',
-        '  specs: archive/specs',
-        '  archived_changes: archive/changes',
+        '  specs: specs',
+        '  transactions: .transactions',
         'workflow:',
         '  multiple_active_changes: true',
         'requirements:',
@@ -292,16 +279,31 @@ describe('artifact-workflow CLI commands', () => {
       ].join('\n')
     );
     await fs.writeFile(
-      path.join(tempDir, 'codespec', 'business.md'),
+      path.join(tempDir, 'codespec', 'business.yaml'),
       [
-        '# Business',
-        '',
-        '| Module ID | Module Name | Description | Responsibilities | Keywords |',
-        '| --- | --- | --- | --- | --- |',
-        '| MOD-001 | Order Management | Owns orders | Continue orders | orders, checkout |',
+        'version: 1',
+        'modules:',
+        '  - id: MOD-001',
+        '    name: Order Management',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
+        '  - id: MOD-002',
+        '    name: User Management',
+        '    status: ACTIVE',
+        '    inputs: []',
+        '    outputs: []',
+        '    relatedModules: []',
       ].join('\n')
     );
+    await fs.writeFile(path.join(tempDir, 'codespec', 'configuration.yaml'), 'version: 1\nprofiles: []\n');
     await fs.writeFile(path.join(changesDir, 'index.yaml'), 'version: 1\nchanges: []\n');
+    await execFileAsync('git', ['init', '--quiet'], { cwd: tempDir });
+    await execFileAsync('git', ['config', 'user.email', 'codespec-tests@example.com'], { cwd: tempDir });
+    await execFileAsync('git', ['config', 'user.name', 'CodeSpec Tests'], { cwd: tempDir });
+    await execFileAsync('git', ['add', '.'], { cwd: tempDir });
+    await execFileAsync('git', ['commit', '--quiet', '-m', 'Initialize fixture'], { cwd: tempDir });
   }
 
   async function createCanonicalChange(
@@ -322,6 +324,7 @@ describe('artifact-workflow CLI commands', () => {
           revision: 2,
           title: 'Continue orders',
           mode: 'feature',
+          sdd_level: 2,
           status,
           created_at: timestamp,
           updated_at: timestamp,
@@ -330,17 +333,15 @@ describe('artifact-workflow CLI commands', () => {
           summary: 'Continue order submission',
           mode: 'feature',
           scope: 'single-module',
+          affected_areas: [],
         },
         baseline: {
           created_at: timestamp,
+          commit: null,
+          working_tree_fingerprint: `sha256:${'0'.repeat(64)}`,
+          current_fingerprint: '0'.repeat(64),
           stale: false,
           modules: {},
-        },
-        relations: {
-          depends_on: [],
-          related_to: [],
-          conflicts_with: [],
-          supersedes: [],
         },
         gates: {
           analyze: { required: true, satisfied: true },
@@ -350,23 +351,29 @@ describe('artifact-workflow CLI commands', () => {
           verify: { required: true, satisfied: status === 'ARCHIVE' },
           archive: { required: true, satisfied: false },
         },
+        approvals: {
+          schema_version: 1,
+          analyze: { status: 'pending', revision: 2, content_hash: '', approved_at: null },
+          design: { status: 'pending', revision: 2, content_hash: '', approved_at: null },
+          plan: { status: 'pending', revision: 2, content_hash: '', approved_at: null },
+        },
         modules: {
-          candidates: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Owns orders' }],
-          confirmed: [{ module: 'MOD-001', outcome: 'OWNED', reason: 'Owns orders' }],
+          candidates: [{ module: 'MOD-002', outcome: 'OWNED', reason: 'Owns users' }],
+          confirmed: [{ module: 'MOD-002', outcome: 'OWNED', reason: 'Owns users' }],
           dependencies: [],
         },
         requirements: {
-          added: [{ id: 'MOD-001-REQ-001', module: 'MOD-001' }],
-          modified: [],
+          added: [],
+          modified: [{ id: 'MOD-002-REQ-001', module: 'MOD-002' }],
           removed: [],
         },
         artifacts: {
+          analysis: `changes/${changeId}/analysis.yaml`,
           metadata: `changes/${changeId}/metadata.yaml`,
-          proposal: `changes/${changeId}/proposal.md`,
           design: `changes/${changeId}/design.md`,
           spec: `changes/${changeId}/spec.md`,
-          tasks: `changes/${changeId}/tasks.md`,
-          verification: `changes/${changeId}/verification.md`,
+          tasks: `changes/${changeId}/tasks.yaml`,
+          verification: `changes/${changeId}/verification.yaml`,
         },
         tasks: {
           total: 1,
@@ -388,19 +395,25 @@ describe('artifact-workflow CLI commands', () => {
         archive: {
           ready: status === 'ARCHIVE',
           conflict: false,
-          archived_at: null,
         },
         ...metadataOverrides,
       })
     );
     await fs.writeFile(
-      path.join(changeDir, 'proposal.md'),
-      ['# Proposal', '', '## Summary', 'Continue order submission.', '', '## Goals', '- Resume checkout', '', '## Scope', '- Order Management', '', '## Modules', '- MOD-001'].join('\n')
+      path.join(changeDir, 'analysis.yaml'),
+      stringifyYaml({
+        version: 1, change: changeId, revision: 2, problem: 'Continue order submission',
+        goals: [{ id: 'GOAL-001', statement: 'Continue checkout' }], nonGoals: [], scope: { in: ['Checkout'], out: ['Other flows'] },
+        actors: ['User'], constraints: [], assumptions: [], openQuestions: [],
+        acceptanceCriteria: [{ id: 'AC-001', statement: 'Checkout continues', priority: 'MUST', requirements: ['MOD-002-REQ-001'] }],
+        modules: [{ module: 'MOD-002', outcome: 'OWNED', reason: 'Owns users' }],
+        requirements: [{ id: 'MOD-002-REQ-001', action: 'MODIFIED', reason: 'Continue checkout' }],
+      })
     );
-    await fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n\n## Requirements\n- MOD-001-REQ-001\n');
-    await fs.writeFile(path.join(changeDir, 'spec.md'), '# Spec\n\n## ADDED\n### MOD-001-REQ-001 Continue orders\n**New**\nOrders continue.\n');
-    await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [ ] Implement order continuation\n');
-    await fs.writeFile(path.join(changeDir, 'verification.md'), '# Verification\n');
+    await fs.writeFile(path.join(changeDir, 'design.md'), '# Design\n\n## SDD 分级依据\n\nSingle module.\n\n## 归档影响分析\n\n```yaml\noutcome: none\nreferences: []\nverification: []\n```\n');
+    await fs.writeFile(path.join(changeDir, 'spec.md'), renderCurrentSpecDelta(modification()));
+    await fs.writeFile(path.join(changeDir, 'tasks.yaml'), 'version: 1\nchangeRevision: 2\ntasks: []\nmoduleDeltas: []\nmoduleRegistrations: { upsert: [], retire: [] }\n');
+    await fs.writeFile(path.join(changeDir, 'verification.yaml'), 'version: 1\nchangeRevision: 2\ntestCases: []\n');
 
     await fs.writeFile(
       path.join(changesDir, 'index.yaml'),
@@ -422,8 +435,7 @@ describe('artifact-workflow CLI commands', () => {
   }
 
   async function createBrokenCanonicalWorkspace(): Promise<void> {
-    await fs.mkdir(path.join(tempDir, 'codespec', 'archive', 'specs'), { recursive: true });
-    await fs.mkdir(path.join(tempDir, 'codespec', 'archive', 'changes'), { recursive: true });
+    await fs.mkdir(path.join(tempDir, 'codespec', 'specs'), { recursive: true });
     await fs.writeFile(
       path.join(tempDir, 'codespec', 'config.yaml'),
       [
@@ -432,12 +444,12 @@ describe('artifact-workflow CLI commands', () => {
         'project:',
         '  name: demo',
         'paths:',
-        '  business: business.md',
+        '  business: business.yaml',
+        '  configuration: configuration.yaml',
         '  changes: changes',
         '  change_index: changes/index.yaml',
-        '  archive: archive',
-        '  specs: archive/specs',
-        '  archived_changes: archive/changes',
+        '  specs: specs',
+        '  transactions: .transactions',
         'workflow:',
         '  multiple_active_changes: true',
         'requirements:',
@@ -473,7 +485,7 @@ describe('artifact-workflow CLI commands', () => {
 
       const result = await runCLI(['status', '--change', 'legacy-slug'], { cwd: tempDir });
       expect(result.exitCode).toBe(1);
-      expect(getOutput(result)).toContain('business.md');
+      expect(getOutput(result)).toContain('business.yaml');
     });
 
     it('includes canonical lifecycle fields and gate diagnostics in JSON status output', async () => {
@@ -501,7 +513,7 @@ describe('artifact-workflow CLI commands', () => {
       expect(json.baseline).toBeDefined();
       expect(json.requirements).toBeDefined();
       expect(json.verification).toBeDefined();
-      expect(json.gateErrors).toEqual(expect.arrayContaining([expect.stringMatching(/analyze/i)]));
+      expect(json.gateErrors).toEqual(expect.arrayContaining([expect.stringMatching(/Requirement|MOD-002-REQ-001/i)]));
     });
 
     it('shows status for scaffolded change without proposal.md', async () => {
@@ -748,7 +760,7 @@ describe('artifact-workflow CLI commands', () => {
       expect(result.stdout).toContain('## Analyze：CHG-20260901-001');
       expect(result.stdout).toContain('当前状态：ANALYZE');
       expect(result.stdout).toContain('design.md');
-      expect(result.stdout).toContain('tasks.md');
+      expect(result.stdout).toContain('tasks.yaml');
       expect(result.stdout).not.toContain('proposal.md');
       expect(result.stdout).not.toContain('<artifact id="analyze"');
     });
@@ -957,7 +969,7 @@ describe('artifact-workflow CLI commands', () => {
 
       const result = await runCLI(['new', 'change', 'fallback-slug'], { cwd: tempDir });
       expect(result.exitCode).toBe(1);
-      expect(getOutput(result)).toContain('business.md');
+      expect(getOutput(result)).toContain('business.yaml');
       await expect(fs.stat(path.join(changesDir, 'fallback-slug'))).rejects.toMatchObject({
         code: 'ENOENT',
       });
