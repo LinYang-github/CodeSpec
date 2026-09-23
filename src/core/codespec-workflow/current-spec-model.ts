@@ -219,7 +219,16 @@ function readCodeList(value: string, label: string): string[] {
 
 export function parseCurrentSpecification(content: string): CurrentSpecification {
   content = content.replace(/\r\n?/gu, '\n');
-  const tokens = markdown.parse(content, {});
+  const documentTokens = markdown.parse(content, {});
+  const sectionIndex = (title: string) => documentTokens.findIndex((token, index) =>
+    token.level === 0 && headingContent(documentTokens, index, 'h3') === title);
+  const summaryIndex = sectionIndex('最近验证摘要');
+  if (summaryIndex >= 0) {
+    const filesIndex = sectionIndex('当前模块工程文件');
+    if (filesIndex < 0 || filesIndex > summaryIndex) throw new Error('最近验证摘要必须位于当前模块工程文件之后');
+    content = content.split('\n').slice(0, documentTokens[summaryIndex]!.map![0]).join('\n');
+  }
+  const tokens = summaryIndex >= 0 ? markdown.parse(content, {}) : documentTokens;
   const title = headingContent(tokens, 0, 'h1');
   if (!title) throw new Error('Current specification must start with an H1 module title');
 

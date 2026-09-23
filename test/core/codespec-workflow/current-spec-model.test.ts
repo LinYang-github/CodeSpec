@@ -103,6 +103,18 @@ describe('shared rich Requirement snapshots', () => {
 });
 
 describe('current specification Markdown model', () => {
+  it('keeps archived verification logs outside the requirement grammar', () => {
+    const archived = `${currentMarkdown.trimEnd()}\n\n### 最近验证摘要\n\n- \`MOD-002-REQ-006-SCN-001-TC-UI-01\`：PASS；TAP version 13
+# Subtest: 用户创建
+ok 1 - 用户创建
+  ---
+  duration_ms: 10
+  ...
+1..1\n`;
+
+    expect(parseCurrentSpecification(archived)).toEqual(parseCurrentSpecification(currentMarkdown));
+  });
+
   it('allows design IDs but rejects duplicated scenario bodies', () => {
     const specification = parseCurrentSpecification(`# 用户管理
 
