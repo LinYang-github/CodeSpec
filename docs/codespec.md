@@ -49,7 +49,7 @@ These names describe Core operations. They are not AI Skill entries:
 - `captureBaseline()`, `detectStale()`
 - `validateRequirementDelta()`, `validateTraceability()`, `validateCanonicalSpec()`
 - `syncSpecs()`, `applyDelta()`
-- `detectArchiveConflict()`, `archiveTransaction()`
+- archive conflict detection and the recoverable archive transaction
 - `assessSddLevel()`, `resolveSddProfile()`, `escalateSddLevel()`
 
 Use [AI entries](commands.md) for the public reference and [CLI Reference](cli.md) for terminal commands.

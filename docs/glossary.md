@@ -12,7 +12,7 @@ Terms are grouped by topic, then alphabetized within each group.
 
 **Change.** One unit of work, packaged as a folder under `codespec/changes/<CHG-ID>/`. A canonical Change holds metadata, design, readable spec content, a typed task plan, and structured verification evidence. One Change, one feature or fix.
 
-**Artifact.** A document inside a Change. The canonical artifacts are `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. Legacy `proposal.md`/Markdown task files belong to migration or generic `spec-driven` schemas.
+**Artifact.** A document inside a Change. The canonical artifacts are `analysis.yaml`, `metadata.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`. `proposal.md` and Markdown task files belong to generic `spec-driven` schemas.
 
 **Delta spec.** In a legacy `spec-driven` Change, a spec describes only what's changing with `ADDED`, `MODIFIED`, and `REMOVED`. Canonical `code-spec` Changes instead carry a v1 readable `spec.md` plus typed YAML module deltas, and the archive transaction merges them into Current Specification.
 
@@ -30,9 +30,9 @@ Terms are grouped by topic, then alphabetized within each group.
 
 **Proposal (`proposal.md`).** A legacy `spec-driven` artifact containing the *why* and *what*. Canonical `code-spec` Changes use `design.md` and `metadata.yaml` instead.
 
-**Design (`design.md`).** The *how*: technical approach, architecture decisions, and the files you expect to touch. Optional for simple changes.
+**Design (`design.md`).** The *how*: technical approach, architecture decisions, and the files you expect to touch. It is required in every canonical Change.
 
-**Tasks (`tasks.yaml`).** The canonical implementation plan: task IDs, Requirement/Scenario/Test Case links, planned files, verification plans, and typed module deltas. A legacy `tasks.md` is accepted only for migration or generic schemas.
+**Tasks (`tasks.yaml`).** The canonical implementation plan: task IDs, Requirement/Scenario/Test Case links, planned files, verification plans, and typed module deltas. A `tasks.md` file belongs only to generic schemas.
 
 ## The lifecycle
 

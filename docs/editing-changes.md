@@ -39,23 +39,6 @@ codespec status --change CHG-20260915-001 --json
 
 Both routes increment the Change revision, append the decision to `design.md` and invalidate downstream verification. Rebase reads Current as the only baseline; it does not import prior Change text.
 
-## Migrate an active five-artifact Change
-
-Run the exact command returned by status:
-
-```bash
-codespec migrate --change CHG-20260915-001
-codespec instructions analyze --change CHG-20260915-001 --json
-```
-
-**Created artifact:** `analysis.yaml`, containing deterministic facts from metadata and an OPEN `Q-MIGRATION-001` question.
-
-**Required edit:** confirm goals, non-goals, scope, assumptions and ACs. Migration does not infer them from design, code or history.
-
-**State:** revision increases and the Change returns to ANALYZE. Reconcile `spec.md` with the [rich delta contract](writing-specs.md#canonical-requirement-delta), then obtain new approvals.
-
-Archived Changes and legacy proposal-bearing Changes are not rewritten by this command.
-
 ## Code and spec disagree
 
 - If the user intent changed, edit the owning artifact and run revise before continuing implementation.

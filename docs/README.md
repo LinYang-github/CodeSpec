@@ -43,7 +43,7 @@ CodeSpec 有两个入口：在终端运行的 CLI，以及在 AI 对话中使用
 - [Concepts](concepts.md#canonical-artifacts)：六件套职责、Current 和证据链。
 - [Workflows](workflows.md#2-分析需求superpowers-brainstorming)：ANALYZE、三次审批和归档流程。
 - [Writing Good Specs](writing-specs.md#canonical-requirement-delta)：rich Requirement delta 的编写边界。
-- [Editing & Iterating](editing-changes.md)：revise、rebase 和活动五件套迁移。
+- [Editing & Iterating](editing-changes.md)：revise 和 rebase。
 - [CLI](cli.md#canonical-lifecycle-commands)：可执行命令和结构化输出。
 
 每项协议事实在上述页面保留一份完整说明，其他页面通过链接引用。`spec-driven` 示例须标明兼容范围，不代表 canonical `code-spec` 的文件协议。

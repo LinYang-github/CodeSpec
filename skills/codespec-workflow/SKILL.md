@@ -32,9 +32,9 @@ Current Specification 是唯一行为 baseline。已有 Requirement 使用精确
 
 保持 Goal → AC → Requirement → Scenario → Task → Test → Evidence 链。`tasks.yaml` 与 `verification.yaml` 使用同一 changeRevision，并声明 acceptanceCriteria。PLAN 检查到 Test，VERIFY 和 archive 检查 passing Evidence；MUST AC 缺少完整证据会阻塞，SHOULD 和 COULD 缺证据给出 warning。记录实际命令、结果和代码引用。
 
-### revise、rebase、migrate 与 archive
+### revise、rebase 与 archive
 
-已批准产物发生语义改变后运行 `codespec revise --change "<CHG-ID>" --reason "intent changed"`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 `codespec rebase --change "<CHG-ID>"`，在 `design.md` 的 Rebase decision 查看路由：意图仍成立回 DESIGN，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；assumption、ownership、disposition 或 AC 冲突回 ANALYZE，保留旧 analysis revision、baseline 和 Previous，先人工修订 `analysis.yaml`，不要重复 rebase。五件套活动 Change 运行 `codespec migrate --change "<CHG-ID>"`，补齐 OPEN 的 Q-MIGRATION-001 后重新审批。
+已批准产物发生语义改变后运行 `codespec revise --change "<CHG-ID>" --reason "intent changed"`，按 Core 的 ANALYZE、DESIGN 或 PLAN route 重做失效结论。Current 漂移时运行 `codespec rebase --change "<CHG-ID>"`，在 `design.md` 的 Rebase decision 查看路由：意图仍成立回 DESIGN，只刷新 affected Requirement 的 Previous，保留 New/Reason/action；assumption、ownership、disposition 或 AC 冲突回 ANALYZE，保留旧 analysis revision、baseline 和 Previous，先人工修订 `analysis.yaml`，不要重复 rebase。
 
 archive 通过 Requirement-level merge 应用明确的 ADDED/MODIFIED/REMOVED，保留未列出的 Current Requirements，并按工程文件 path 合并。事务提交后移除活动 Change；变更历史由 Git 提交记录保存。
 
@@ -84,4 +84,4 @@ PLAN 完成后必须停止：展示任务、验证范围和实施影响；不得
 
 确认设计不等于确认计划或确认实现。用户补充内容如影响目标、范围、模块、Requirement、Scenario、验收条件、SDD 等级或 Current Specification 影响，必须停止并重新解析 Change；旧确认可能已经失效，不得直接修改 `metadata.yaml` 的 `approvals` 字段绕过 `codespec approve`。
 
-**Store 选择：** 如果用户指定了 store（store 是本机注册的独立 CodeSpec 仓库），或当前工作位于 store 中，请运行 `codespec store list --json` 查找已注册的 store ID，然后在读写 Spec 和 Change 的命令中传入 `--store <id>`（包括 `new change`、`change new`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`、`schemas`、`view`、`rebase`、`revise`、`migrate`、`transition`、`approve`、`abandon`、`allocate-requirements`）。选择后，在本次工作流的后续步骤中持续使用 `--store <id>`。下面未带范围的命令示例都只是简写：执行前要追加该选项。例如运行 `codespec status --change "<name>" --json --store "<id>"`，不要直接运行未带选项的形式。其他命令不接受该选项。命令打印的后续提示已经带有该选项，继续使用即可。没有 store 时，命令作用于最近的本地 `codespec/` 根目录。
+**Store 选择：** 如果用户指定了 store（store 是本机注册的独立 CodeSpec 仓库），或当前工作位于 store 中，请运行 `codespec store list --json` 查找已注册的 store ID，然后在读写 Spec 和 Change 的命令中传入 `--store <id>`（包括 `new change`、`change new`、`status`、`instructions`、`list`、`show`、`validate`、`archive`、`doctor`、`context`、`schemas`、`view`、`rebase`、`revise`、`transition`、`approve`、`abandon`、`allocate-requirements`）。选择后，在本次工作流的后续步骤中持续使用 `--store <id>`。下面未带范围的命令示例都只是简写：执行前要追加该选项。例如运行 `codespec status --change "<name>" --json --store "<id>"`，不要直接运行未带选项的形式。其他命令不接受该选项。命令打印的后续提示已经带有该选项，继续使用即可。没有 store 时，命令作用于最近的本地 `codespec/` 根目录。

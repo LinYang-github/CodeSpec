@@ -22,7 +22,7 @@ codespec/configuration.yaml
 
 1. An active Change contains exactly `metadata.yaml`, `analysis.yaml`, `design.md`, `spec.md`, `tasks.yaml`, and `verification.yaml`.
 2. Archive accepts only this six-artifact Change shape. A proposal-bearing or five-artifact Change fails immediately. It is not migrated or archived through a compatibility path.
-3. Archive projects the complete Current state, updates it in one transaction, removes the active Change, and removes any pre-existing `codespec/archive/` directory in the same transaction.
+3. Archive projects the complete Current state, updates it in one transaction, and removes the active Change. A pre-existing `codespec/archive/` path blocks archive until it is explicitly inspected and removed; archive never recursively deletes unrelated bytes.
 4. Existing registered modules must contain `spec.md` and `interface.yaml`. Missing files fail before archive writes. `api.yaml` is derived and is rebuilt when absent.
 5. A newly registered module is created with all three module files.
 6. No command, loader, configuration field, UI response, document, or generated workflow may refer to archived Change history.
@@ -50,7 +50,7 @@ Rebase reads and validates the same Current inputs as archive. It must fail when
 - Missing Current source file: fail before any write.
 - Current changes after preview or before commit: fail and require a fresh preview.
 - Transaction failure: restore all Current files and retain the active Change.
-- Existing archive directories: remove them only as part of a successful archive transaction or an explicit cleanup command.
+- Existing archive directories: fail before any write and require explicit cleanup.
 
 ## 6. Verification
 

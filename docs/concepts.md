@@ -586,7 +586,7 @@ See [Customization](customization.md) for full details on creating and using cus
 
 ## Archive
 
-Archiving completes a Change by applying its delta to Current Specification and preserving the Change for history.
+The canonical archive applies a Change to Current Specification and deletes the active Change. The remainder of this section describes only the separate `spec-driven` schema, which preserves its Change in its own archive layout.
 
 ### What Happens When You Archive
 

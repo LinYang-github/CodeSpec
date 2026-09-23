@@ -691,20 +691,6 @@ codespec rebase --change CHG-20260915-001
 
 **Route:** ANALYZE or DESIGN. See [Rebase against Current](editing-changes.md#rebase-against-current).
 
-### `codespec migrate`
-
-```bash
-codespec migrate --change CHG-20260915-001 --json
-```
-
-**`--change`:** selects one active five-artifact canonical Change. The result reports `fromArtifacts: 5`, `toArtifacts: 6` and `route: ANALYZE`.
-
-**`--json`:** emits structured output. Without it, the command prints migration guidance.
-
-**Without `--change`:** invokes the separate legacy workspace migration. It is not a substitute for confirming analysis.
-
-See [Migrate an active five-artifact Change](editing-changes.md#migrate-an-active-five-artifact-change) for the required follow-up.
-
 ### Canonical `codespec archive`
 
 Run and confirm in the user's interactive terminal:
@@ -826,7 +812,7 @@ codespec status --all --json
 
 | Field | Contract |
 |---|---|
-| `analysisSummary` | Analysis path, problem, goals, ACs, completeness and current approval; null before migration |
+| `analysisSummary` | Analysis path, problem, goals, ACs, completeness and current approval |
 | `openQuestions` | Question records with status OPEN |
 | `assumptions` | Assumption records and their statuses |
 | `gateErrors` | Current stage blockers |
@@ -841,7 +827,7 @@ codespec status --all --json
 
 **Completed ANALYZE:** next is `approve --stage analyze`. After valid approval, next is `transition --to DESIGN`.
 
-**STALE:** next is `rebase`. An active five-artifact Change instead reports the required `migrate --change` command.
+**STALE:** next is `rebase`. A canonical Change that does not contain the required six artifacts fails immediately.
 
 **`--all`:** returns a `changes` array. It cannot be combined with `--change`.
 

@@ -283,7 +283,6 @@ codespec rebase --change CHG-20260906-001
 | 校验全部内容 | `codespec validate --all` |
 | 启动 UI | `codespec ui` |
 | 归档 Change | `codespec archive <id>` |
-| 迁移旧工作区 | `codespec migrate --json` |
 | 查看版本 | `codespec --version` |
 
 需要脚本或 AI 读取结构化结果时，优先使用支持 `--json` 的命令。

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 980" width="1600" height="980"
+     data-diagram-type="concept-map" data-quality-profile="standard">
+  <defs>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#15803d"/></marker>
+    <linearGradient id="codespec-fill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eff6ff"/><stop offset="0.52" stop-color="#faf5ff"/><stop offset="1" stop-color="#ecfdf5"/></linearGradient>
+  </defs>
+  <style>
+    text { font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    .title { font-size: 34px; font-weight: 700; fill: #111827; }
+    .subtitle { font-size: 15px; fill: #64748b; }
+    .set-title { font-size: 24px; font-weight: 700; }
+    .set-sub { font-size: 13px; fill: #64748b; }
+    .item-title { font-size: 15px; font-weight: 700; fill: #111827; }
+    .item-sub { font-size: 12px; fill: #64748b; }
+    .center-title { font-size: 30px; font-weight: 800; fill: #111827; }
+    .center-sub { font-size: 14px; fill: #475569; }
+    .formula { font-size: 18px; font-weight: 700; fill: #334155; }
+    .flow { font-size: 13px; font-weight: 700; fill: #334155; }
+    .note { font-size: 12px; fill: #64748b; }
+  </style>
+
+  <rect data-graph-role="background" width="1600" height="980" fill="#ffffff"/>
+  <text x="800" y="58" text-anchor="middle" class="title">CodeSpec：OpenSpec × Superpowers 的能力集合</text>
+  <text x="800" y="88" text-anchor="middle" class="subtitle">不是三个并列工具：CodeSpec 将“可持久化的规范与变更治理”和“可执行的软件工程方法”统一编排</text>
+
+  <!-- Two source sets -->
+  <g id="openspec-set" data-graph-role="decoration">
+    <rect data-graph-role="decoration" x="76" y="132" width="774" height="564" rx="96" fill="#eff6ff" fill-opacity="0.9" stroke="#60a5fa" stroke-width="2.5"/>
+    <text x="170" y="184" class="set-title" fill="#1d4ed8">OpenSpec 能力集合</text>
+    <text x="170" y="210" class="set-sub">轻量规格驱动：先达成一致，再编写代码</text>
+  </g>
+  <g id="superpowers-set" data-graph-role="decoration">
+    <rect data-graph-role="decoration" x="750" y="132" width="774" height="564" rx="96" fill="#faf5ff" fill-opacity="0.88" stroke="#a78bfa" stroke-width="2.5"/>
+    <text x="1430" y="184" text-anchor="end" class="set-title" fill="#6d28d9">Superpowers 能力集合</text>
+    <text x="1430" y="210" text-anchor="end" class="set-sub">面向编码 Agent 的组合式工程方法与强制执行纪律</text>
+  </g>
+
+  <!-- OpenSpec capability cards -->
+  <g data-graph-role="node" data-node-id="spec-truth" data-graph-bounds="124,258,384,334">
+    <rect x="124" y="258" width="260" height="76" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="254" y="286" text-anchor="middle" class="item-title">Specs 是当前事实</text><text x="254" y="310" text-anchor="middle" class="item-sub">按业务域组织 Requirement / Scenario</text>
+  </g>
+  <g data-graph-role="node" data-node-id="change-unit" data-graph-bounds="124,366,384,442">
+    <rect x="124" y="366" width="260" height="76" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="254" y="394" text-anchor="middle" class="item-title">Change 是工作单元</text><text x="254" y="418" text-anchor="middle" class="item-sub">独立保存意图、规格、设计与任务</text>
+  </g>
+  <g data-graph-role="node" data-node-id="artifact-flow" data-graph-bounds="124,474,384,550">
+    <rect x="124" y="474" width="260" height="76" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="254" y="502" text-anchor="middle" class="item-title">产物驱动工作流</text><text x="254" y="526" text-anchor="middle" class="item-sub">spec / design / tasks 可审阅、可迭代</text>
+  </g>
+  <g data-graph-role="node" data-node-id="archive-concept" data-graph-bounds="124,582,384,658">
+    <rect x="124" y="582" width="260" height="76" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="254" y="610" text-anchor="middle" class="item-title">Delta 与归档概念</text><text x="254" y="634" text-anchor="middle" class="item-sub">将完成的变更折叠回当前规格</text>
+  </g>
+
+  <!-- Superpowers capability cards -->
+  <g data-graph-role="node" data-node-id="brainstorm" data-graph-bounds="1216,258,1476,334">
+    <rect x="1216" y="258" width="260" height="76" rx="10" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="1346" y="286" text-anchor="middle" class="item-title">Brainstorming</text><text x="1346" y="310" text-anchor="middle" class="item-sub">澄清目标、约束与方案取舍</text>
+  </g>
+  <g data-graph-role="node" data-node-id="planning" data-graph-bounds="1216,366,1476,442">
+    <rect x="1216" y="366" width="260" height="76" rx="10" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="1346" y="394" text-anchor="middle" class="item-title">Writing Plans</text><text x="1346" y="418" text-anchor="middle" class="item-sub">拆分可执行步骤与验证方式</text>
+  </g>
+  <g data-graph-role="node" data-node-id="tdd-debug" data-graph-bounds="1216,474,1476,550">
+    <rect x="1216" y="474" width="260" height="76" rx="10" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="1346" y="502" text-anchor="middle" class="item-title">TDD + 系统化调试</text><text x="1346" y="526" text-anchor="middle" class="item-sub">RED / GREEN / REFACTOR，定位根因</text>
+  </g>
+  <g data-graph-role="node" data-node-id="review-finish" data-graph-bounds="1216,582,1476,658">
+    <rect x="1216" y="582" width="260" height="76" rx="10" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.5"/>
+    <text x="1346" y="610" text-anchor="middle" class="item-title">Fresh 验证与收尾</text><text x="1346" y="634" text-anchor="middle" class="item-sub">证据优先、代码审查、分支完成</text>
+  </g>
+
+  <!-- CodeSpec integration at the overlap -->
+  <g id="codespec" data-graph-role="node" data-node-id="codespec" data-graph-bounds="534,242,1066,654">
+    <rect x="534" y="242" width="532" height="412" rx="34" fill="url(#codespec-fill)" stroke="#334155" stroke-width="3"/>
+    <rect x="546" y="254" width="508" height="388" rx="26" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9"/>
+    <text x="800" y="300" text-anchor="middle" class="center-title">CodeSpec</text>
+    <text x="800" y="328" text-anchor="middle" class="center-sub">统一入口 + 统一状态 + 统一追踪 + 统一归档</text>
+    <line x1="590" y1="352" x2="1010" y2="352" stroke="#cbd5e1"/>
+
+    <rect x="582" y="382" width="436" height="58" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4"/>
+    <text x="800" y="406" text-anchor="middle" class="item-title">稳定身份与状态机</text><text x="800" y="428" text-anchor="middle" class="item-sub">CHG / MOD / REQ / TASK ID · 生命周期门禁</text>
+    <rect x="582" y="458" width="436" height="58" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4"/>
+    <text x="800" y="482" text-anchor="middle" class="item-title">Baseline、STALE 与语义 Rebase</text><text x="800" y="504" text-anchor="middle" class="item-sub">检测漂移和冲突，不安全时停止并请求裁决</text>
+    <rect x="582" y="534" width="436" height="58" rx="10" fill="#ffffff" stroke="#94a3b8" stroke-width="1.4"/>
+    <text x="800" y="558" text-anchor="middle" class="item-title">端到端 Traceability 与验证证据</text><text x="800" y="580" text-anchor="middle" class="item-sub">Requirement → Scenario → Task → Test → Verification</text>
+    <text x="800" y="622" text-anchor="middle" class="center-sub">事务归档：仅在人工确认后更新 Current Specification</text>
+  </g>
+
+  <!-- Integration arrows -->
+  <path data-graph-role="edge" data-source="openspec-set" data-target="codespec" d="M414 222 H520 V324 H534" fill="none" stroke="#2563eb" stroke-width="2.6" marker-end="url(#arrow-blue)"/>
+  <path data-graph-role="edge" data-source="superpowers-set" data-target="codespec" d="M1186 222 H1080 V324 H1066" fill="none" stroke="#7c3aed" stroke-width="2.6" marker-end="url(#arrow-purple)"/>
+
+  <!-- Unified workflow strip -->
+  <g id="unified-flow" data-graph-role="container" data-graph-bounds="76,748,1524,900">
+    <rect data-graph-role="decoration" x="76" y="748" width="1448" height="152" rx="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+    <text x="106" y="780" class="item-title">CodeSpec 统一后的执行链</text>
+  </g>
+  <path data-graph-role="edge" data-source="f1" data-target="f2" d="M286 838 H344" fill="none" stroke="#15803d" stroke-width="2.4" marker-end="url(#arrow-green)"/>
+  <path data-graph-role="edge" data-source="f2" data-target="f3" d="M536 838 H594" fill="none" stroke="#15803d" stroke-width="2.4" marker-end="url(#arrow-green)"/>
+  <path data-graph-role="edge" data-source="f3" data-target="f4" d="M786 838 H844" fill="none" stroke="#15803d" stroke-width="2.4" marker-end="url(#arrow-green)"/>
+  <path data-graph-role="edge" data-source="f4" data-target="f5" d="M1036 838 H1094" fill="none" stroke="#15803d" stroke-width="2.4" marker-end="url(#arrow-green)"/>
+  <path data-graph-role="edge" data-source="f5" data-target="f6" d="M1286 838 H1344" fill="none" stroke="#15803d" stroke-width="2.4" marker-end="url(#arrow-green)"/>
+
+  <g data-graph-role="node" data-node-id="f1" data-graph-bounds="106,810,286,866"><rect x="106" y="810" width="180" height="56" rx="10" fill="#eff6ff" stroke="#60a5fa"/><text x="196" y="843" text-anchor="middle" class="flow">分析 / 设计</text></g>
+  <g data-graph-role="node" data-node-id="f2" data-graph-bounds="344,810,536,866"><rect x="344" y="810" width="192" height="56" rx="10" fill="#fff7ed" stroke="#fb923c"/><text x="440" y="843" text-anchor="middle" class="flow">Spec / Plan</text></g>
+  <g data-graph-role="node" data-node-id="f3" data-graph-bounds="594,810,786,866"><rect x="594" y="810" width="192" height="56" rx="10" fill="#f0fdf4" stroke="#4ade80"/><text x="690" y="843" text-anchor="middle" class="flow">TDD 实现</text></g>
+  <g data-graph-role="node" data-node-id="f4" data-graph-bounds="844,810,1036,866"><rect x="844" y="810" width="192" height="56" rx="10" fill="#f0fdfa" stroke="#2dd4bf"/><text x="940" y="843" text-anchor="middle" class="flow">Fresh 验证</text></g>
+  <g data-graph-role="node" data-node-id="f5" data-graph-bounds="1094,810,1286,866"><rect x="1094" y="810" width="192" height="56" rx="10" fill="#faf5ff" stroke="#a78bfa"/><text x="1190" y="843" text-anchor="middle" class="flow">人工确认</text></g>
+  <g data-graph-role="node" data-node-id="f6" data-graph-bounds="1344,810,1494,866"><rect x="1344" y="810" width="150" height="56" rx="10" fill="#ecfdf5" stroke="#22c55e"/><text x="1419" y="843" text-anchor="middle" class="flow">事务归档</text></g>
+
+  <text x="800" y="944" text-anchor="middle" class="formula">CodeSpec = OpenSpec 的规范化能力集合 ∪ Superpowers 的工程方法集合 ＋ CodeSpec Core 治理强化</text>
+  <text x="800" y="968" text-anchor="middle" class="note">“集合”表示能力整合与编排；不表示三个同层级竞品，也不表示 CodeSpec 只是简单拼接。</text>
+</svg>

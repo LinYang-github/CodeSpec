@@ -38,7 +38,7 @@ metadata.yaml
     └── 状态、基线、Requirement、Task 和验证证据
 ```
 
-旧版 `proposal.md`、`tasks.md`、`verification.md` 只在迁移或 `spec-driven` 工作流中出现，不属于新的 canonical `code-spec` Change。
+`proposal.md`、`tasks.md`、`verification.md` 只属于 `spec-driven` 工作流，不属于 canonical `code-spec` Change。
 
 ## 一次正常开发如何运行
 
@@ -169,7 +169,7 @@ Change 类型和门禁由 Core 读取和管理。Superpowers 只负责按类型�
 - 系统化定位测试和运行时失败。
 - 进行 fresh verification、代码审查和分支收尾。
 
-Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `archiveTransaction()`。这些是 Core 的内部能力，不是额外的公开 Skill。
+Superpowers 不实现 Change 创建、STALE 检测、Requirement 合并或归档事务。这些是 Core 的内部能力，不是额外的公开 Skill。
 
 ## STALE 和冲突恢复
 
@@ -187,7 +187,7 @@ Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `a
 
 1. Core 执行 `preflightArchive()`，检查任务、验证证据、Delta、Traceability、canonical Spec 和冲突。
 2. Core 执行 `prepareArchive()`，准备 Delta 和可恢复写入集，并确认 Delta 与 Current Specification 的每个 Scenario 都有非空 `ERROR`。
-3. 只有用户在交互式终端中明确确认后，Core 才执行 `commitArchive()` 和 `archiveTransaction()`。
+3. 只有用户在交互式终端中明确确认后，Core 才执行 `commitConfirmedArchive()`。UI Change 会在提交前刷新 UI 验证；确认后的输入发生变化时，本次确认立即失效。
 4. 事务按 [Requirement merge](concepts.md#current-specification) 更新 Current，然后移除活动 Change；变更历史由 Git 提交记录保存。
 
 归档规则：
@@ -196,6 +196,6 @@ Superpowers 不实现 `createChange()`、`detectStale()`、`applyDelta()` 或 `a
 - `--yes` 不能绕过首次人工确认，只能影响后续警告确认。
 - `--json`、无 TTY 和其他自动化方式不能归档。
 - 任一 Scenario 的 `ERROR` 缺失或为空时，必须人工补写，Verification 不得通过，也不得归档。
-- 用户取消确认后，不写入 Current Specification，也不移动 Change。
+- 用户取消确认后，不写入 Current Specification，也不删除 Change。
 
 只有归档事务可以写入 Current Specification。Superpowers 可以分析和验证结果，但不能直接提交 Current Specification。

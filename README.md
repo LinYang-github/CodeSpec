@@ -39,7 +39,7 @@
 > 在 AI 对话中运行 `/codespec:workflow "你的想法"` 开始。→ [了解工作流](docs/codespec.md)
 
 > [!WARNING]
-> **`code-spec` 迁移边界：**规范目录为 `codespec/business.md`、`codespec/changes/CHG-YYYYMMDD-NNN/`、`codespec/specs/` 和 `codespec/archive/changes/`。使用 `codespec new change` 创建 Change，使用 `codespec archive CHG-...` 显式归档。旧 Change 标识、slug 目录和 `.codespec.yaml` 不再兼容。旧文件可以保留，但不会被新的 canonical 工作流读取。只有显式指定时才使用通用 Schema 工作流。
+> **`code-spec` 当前边界：**Current 只保存在 `codespec/business.yaml`、`codespec/configuration.yaml` 和 `codespec/specs/`。活动 Change 位于 `codespec/changes/CHG-YYYYMMDD-NNN/`，固定包含六件套。显式归档会更新 Current 并删除活动 Change，不创建 `codespec/archive/` 或 Change 副本。旧 Change 结构和已有 `codespec/archive/` 会直接报错，必须先明确清理。
 
 <p align="center">
   Follow <a href="https://x.com/0xTab">@0xTab on X</a> for updates · Join the <a href="https://discord.gg/YctCnvvshC">CodeSpec Discord</a> for help and questions.
@@ -52,10 +52,12 @@
 ```text
 You: /codespec:workflow add-dark-mode
 AI:  Created codespec/changes/CHG-YYYYMMDD-NNN/
-     ✓ proposal.md — why we're doing this, what's changing
-     ✓ spec.md      — requirement deltas and scenarios
-     ✓ design.md    — technical approach
-     ✓ tasks.md     — implementation checklist
+     ✓ analysis.yaml     — goals, scope, assumptions, and acceptance criteria
+     ✓ metadata.yaml     — lifecycle, baseline, and approval receipts
+     ✓ design.md         — technical approach
+     ✓ spec.md           — requirement deltas and scenarios
+     ✓ tasks.yaml        — implementation and verification plan
+     ✓ verification.yaml — structured execution evidence
      Ready for implementation!
 
 AI:  Implementing tasks with TDD...
@@ -68,8 +70,8 @@ AI:  Implementing tasks with TDD...
 You: /codespec:archive
 AI:  Current Specification updated and Change archived.
 
-AI:  Archived explicitly to codespec/archive/changes/CHG-YYYYMMDD-NNN/
-     Specs updated. Ready for the next feature.
+AI:  Current files updated under codespec/specs/.
+     Active Change removed. Ready for the next feature.
 ```
 
 <details>
