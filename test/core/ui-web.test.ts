@@ -117,12 +117,11 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain("element('button', 'tree-node', '变更管理')");
     expect(script).toContain('renderAllChangesWorkspace');
     expect(script).toContain('renderChangeRow');
-    expect(script).toContain("for (const label of ['序号', '变更ID', '变更标题', '关联模块/需求', '创建时间', '状态', '操作'])");
+    expect(script).toContain("for (const label of ['序号', '变更标题', '关联模块/需求', '创建时间', '状态', '操作'])");
     expect(script).toContain('moduleLastModifiedAt');
     expect(script).toContain('changeCreatedAt');
     expect(script).toContain('index.businessModules');
     expect(script).toContain('index.allChanges');
-    expect(script).toContain('变更ID');
     expect(script).toContain('序号');
     expect(script).toContain('变更标题');
     expect(script).toContain('关联模块/需求');
@@ -133,7 +132,6 @@ describe('CodeSpec UI web shell', () => {
     expect(script).toContain("design.md");
     expect(script).not.toContain("kicker: 'CHANGE MANAGEMENT'");
     expect(script).not.toContain('change-filters');
-    expect(script).toContain('disabled-reason');
     expect(script).not.toContain('已归档 Change 不可再次归档');
     expect(script).toContain('openArchiveConfirmation');
     expect(script).toContain('Change 信息');
@@ -162,7 +160,7 @@ describe('CodeSpec UI web shell', () => {
     const emptyTableRow = script.indexOf("element('tr', 'change-table-empty-row')");
     expect(tableDeclaration).toBeGreaterThanOrEqual(0);
     expect(emptyTableRow).toBeGreaterThan(tableDeclaration);
-    expect(script).toContain('emptyCell.colSpan = 7');
+    expect(script).toContain('emptyCell.colSpan = 6');
     expect(script).not.toContain("label: '归档历史'");
     expect(script).not.toContain('active-change-card');
     expect(script).not.toContain('CHANGE_TABS');
@@ -223,7 +221,6 @@ describe('CodeSpec UI web shell', () => {
     expect(styles).toContain('.change-table-wrap');
     expect(styles).toContain('position: sticky;');
     expect(styles).toContain('text-align: center;');
-    expect(styles).toContain('.disabled-reason');
     expect(styles).toContain('overflow-x: auto');
   });
 
@@ -267,7 +264,7 @@ describe('CodeSpec UI web shell', () => {
     expect(tabsRule).toContain('overflow-y: hidden;');
   });
 
-  it('exposes read-only document reader controls in the simplified Change detail', async () => {
+  it('shows Change content by stage while keeping module document controls', async () => {
     const script = await fs.readFile(path.join(webRoot, 'app.js'), 'utf8');
 
     expect(script).toContain('renderDocumentReaderControls');
@@ -286,9 +283,17 @@ describe('CodeSpec UI web shell', () => {
     expect(detailFlow).not.toContain('归档路径：');
     expect(detailFlow).not.toContain('归档时间：');
     expect(detailFlow).not.toContain('Verification Receipt：');
-    expect(detailFlow).toContain('lifecycleStepper(change)');
+    expect(detailFlow).toContain('statusLabel(change.status)');
+    expect(detailFlow).not.toContain('lifecycleStepper(change)');
     expect(detailFlow).toContain('levelLabel(change.sddLevel)');
-    expect(script).toContain('return [...(change.documents ?? [])]');
+    expect(detailFlow).toContain('change-stage-tabs');
+    expect(detailFlow).toContain('stageDocumentNames[stage]');
+    expect(detailFlow).not.toContain("element('nav', 'document-tabs')");
+    expect(detailFlow).not.toContain("name === 'metadata.yaml'");
+    expect(script).toContain("DESIGN: ['design.md', 'spec.md']");
+    expect(script).toContain("TASKS: ['tasks.yaml']");
+    expect(script).toContain('任务与执行（PLAN / IMPLEMENT）');
+    expect(script).toContain("VERIFY: ['verification.yaml']");
     expect(script).not.toContain('/api/edit');
     expect(script).not.toContain('/api/exec');
   });

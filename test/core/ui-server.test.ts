@@ -1,8 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { stringify } from 'yaml';
+import { parse, stringify } from 'yaml';
 
 import { startUiServer } from '../../src/core/ui-server.js';
 import { recordFreshVerification } from '../../src/core/codespec-workflow/verification.js';
@@ -190,14 +190,21 @@ describe('startUiServer', () => {
     expect(typeof preview.verificationReceipt).toBe('string');
   });
 
-  it('returns current-spec archive preview without legacy Verification markdown', async () => {
+  it('runs the UI archive gate after confirmation and commits its fresh verification', async () => {
     const fixture = await createCurrentArchiveFixture();
     const assetsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-assets-'));
     tempRoots.push(fixture.tempDir, assetsDir);
     await fs.writeFile(path.join(assetsDir, 'index.html'), '<!doctype html>');
-    await writeCanonicalChange(fixture, modification());
+    const artifacts = await writeCanonicalChange(fixture, modification());
+    artifacts.metadata.impact.affected_areas = ['ui'];
+    await fs.writeFile(path.join(artifacts.changeDir, 'metadata.yaml'), stringify(artifacts.metadata));
+    const uiArchiveGate = vi.fn(async () => ({
+      passed: true as const,
+      verification: parse(artifacts.verification),
+      outputSummary: 'UI verification passed',
+    }));
 
-    const server = await startUiServer({ projectRoot: fixture.tempDir, assetsDir, port: 0 });
+    const server = await startUiServer({ projectRoot: fixture.tempDir, assetsDir, port: 0, uiArchiveGate });
     servers.push(server);
     const response = await fetch(`${server.url}/api/archive/${fixture.changeId}`);
     const preview = await response.json() as Record<string, unknown>;
@@ -223,6 +230,7 @@ describe('startUiServer', () => {
       body: JSON.stringify({ confirmationToken: preview.confirmationToken }),
     });
     expect(committed.status).toBe(200);
+    expect(uiArchiveGate).toHaveBeenCalledOnce();
 
     const reused = await fetch(`${server.url}/api/archive/${fixture.changeId}`, {
       method: 'POST',
@@ -261,6 +269,6 @@ describe('startUiServer', () => {
     expect(preview.status, JSON.stringify(await preview.clone().json())).toBe(409);
     expect(commit.status).toBe(409);
     await expect(fs.access(changeDir)).resolves.toBeUndefined();
-    await expect(fs.access(path.join(fixture.paths.archivedChanges, fixture.changeId))).rejects.toThrow();
+    await expect(fs.access(path.join(fixture.codespecDir, 'archive'))).rejects.toThrow();
   });
 });

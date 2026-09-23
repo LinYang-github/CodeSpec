@@ -5,6 +5,9 @@ import path from 'node:path';
 
 import { buildUiIndex, findUiDocument, searchUiIndex } from '../../src/core/ui-content-index.js';
 import { parseBusinessModules } from '../../src/core/ui-content-index.js';
+import { renderInitialAnalysis } from '../../src/core/codespec-workflow/analysis.js';
+import { renderInitialCurrentTasks, renderInitialCurrentVerification } from '../../src/core/codespec-workflow/current-change-layout.js';
+import { richDelta } from '../helpers/rich-requirement.js';
 
 describe('buildUiIndex', () => {
   const tempRoots: string[] = [];
@@ -68,7 +71,7 @@ describe('buildUiIndex', () => {
     await fs.mkdir(path.join(codespec, 'specs', 'MOD-002'), { recursive: true });
     await fs.writeFile(path.join(codespec, 'config.yaml'), [
       'version: 1', 'schema: code-spec', 'project:', '  name: graph-ui', 'paths:',
-      '  business: business.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  specs: specs',
+      '  business: business.yaml', '  configuration: configuration.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  specs: specs', '  transactions: .transactions',
       'workflow:', '  multiple_active_changes: true', 'requirements:', "  id_format: '{module}-REQ-{sequence:03d}'", 'changes:', "  id_format: 'CHG-{date}-{sequence:03d}'", 'archive:', '  update_index: true', '  require_verification: true', '  conflict_strategy: optimistic', '',
     ].join('\n'));
     await fs.writeFile(path.join(codespec, 'business.yaml'), [
@@ -76,14 +79,24 @@ describe('buildUiIndex', () => {
       '  - id: MOD-001', '    name: 认证', '    status: ACTIVE', '    inputs: []', '    outputs: []', '    relatedModules: []',
       '  - id: MOD-002', '    name: 用户管理', '    status: ACTIVE', '    inputs: []', '    outputs: []', '    relatedModules: []', '',
     ].join('\n'));
+    await fs.mkdir(path.join(codespec, 'changes'), { recursive: true });
+    await fs.writeFile(path.join(codespec, 'changes', 'index.yaml'), 'version: 1\nchanges: []\n');
+    await fs.writeFile(path.join(codespec, 'configuration.yaml'), 'version: 1\nprofiles: []\n');
     const relation = [
       '  - id: REL-CHG-20260907-001-01', '    kind: http', '    fromModule: MOD-001', '    toModule: MOD-002', '    path: /api/users', '    method: POST', '    input: 新增用户请求', '    output: 用户资料', '    errors: 用户已存在', '    requirements: [MOD-002-REQ-001]', '    scenarios: [MOD-002-REQ-001-SCN-001]',
     ].join('\n');
-    await Promise.all(['MOD-001', 'MOD-002'].map((moduleId) => fs.writeFile(path.join(codespec, 'specs', moduleId, 'interface.yaml'), `version: 1\nmodule: ${moduleId}\nrelations:\n${relation}\n`)));
+    await Promise.all(['MOD-001', 'MOD-002'].flatMap((moduleId) => [
+      fs.writeFile(path.join(codespec, 'specs', moduleId, 'spec.md'), `# ${moduleId}\n\n- **模块编号：** ${moduleId}\n- **规格版本：** 1\n\n### 当前模块工程文件\n\n| 文件 | 作用 | 关联需求 / 场景 / 测试用例 |\n| --- | --- | --- |\n`),
+      fs.writeFile(path.join(codespec, 'specs', moduleId, 'interface.yaml'), `version: 1\nmodule: ${moduleId}\nrelations:\n${relation}\n`),
+      fs.writeFile(path.join(codespec, 'specs', moduleId, 'api.yaml'), `version: 1\nmodule: ${moduleId}\nroutes: []\n`),
+    ]));
+    await fs.mkdir(path.join(codespec, 'archive', 'changes', 'CHG-20250101-001'), { recursive: true });
+    await fs.writeFile(path.join(codespec, 'archive', 'changes', 'CHG-20250101-001', 'spec.md'), '# retired history');
 
     const index = await buildUiIndex(root);
     expect(index.currentSpecGraph?.modules).toContainEqual(expect.objectContaining({ id: 'MOD-001', outputs: ['新增用户请求'] }));
     expect(index.currentSpecGraph?.relations).toContainEqual(expect.objectContaining({ id: 'REL-CHG-20260907-001-01', path: '/api/users' }));
+    expect(index.documents.some((document) => document.relativePath.startsWith('codespec/archive/'))).toBe(false);
   });
 
   it('indexes v1 business.yaml modules with their generated projections', async () => {
@@ -92,7 +105,7 @@ describe('buildUiIndex', () => {
     const codespec = path.join(root, 'codespec');
     await fs.mkdir(path.join(codespec, 'specs', 'MOD-001'), { recursive: true });
     await fs.writeFile(path.join(codespec, 'config.yaml'), [
-      'version: 1', 'schema: code-spec', 'project:', '  name: yaml-ui', 'paths:',
+      'version: 1', 'schema: spec-driven', 'project:', '  name: yaml-ui', 'paths:',
       '  business: business.yaml', '  configuration: configuration.yaml', '  changes: changes', '  change_index: changes/index.yaml', '  specs: specs', '  transactions: .transactions',
       'workflow:', '  multiple_active_changes: true', 'requirements:', "  id_format: '{module}-REQ-{sequence:03d}'", 'changes:', "  id_format: 'CHG-{date}-{sequence:03d}'", 'archive:', '  update_index: true', '  require_verification: true', '  conflict_strategy: optimistic', '',
     ].join('\n'));
@@ -162,23 +175,67 @@ describe('buildUiIndex', () => {
     );
   });
 
-  it('does not project old archive directories into the canonical UI', async () => {
+  it('reads analysis.yaml as structured content while preserving the source document', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
     tempRoots.push(root);
-
-    await fs.mkdir(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init'), { recursive: true });
-    await fs.mkdir(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init'), { recursive: true });
-    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'proposal.md'), '# 初始化命令');
-    await fs.writeFile(path.join(root, 'codespec', 'archive', 'changes', '2025-08-06-add-init-command', 'specs', 'cli-init', 'spec.md'), '# 历史规格');
-    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'proposal.md'), '# 当前变更');
-    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'tasks.md'), '# 任务');
-    await fs.writeFile(path.join(root, 'codespec', 'changes', 'CHG-20260903-001', 'specs', 'cli-init', 'spec.md'), '# 当前规格');
-    await fs.writeFile(path.join(root, 'codespec', 'changes', 'index.yaml'), 'changes: []\n');
+    const changeDir = path.join(root, 'codespec', 'changes', 'CHG-20260923-001');
+    await fs.mkdir(changeDir, { recursive: true });
+    const source = renderInitialAnalysis({
+      changeId: 'CHG-20260923-001',
+      revision: 1,
+      problem: '用户难以理解变更内容',
+    });
+    await fs.writeFile(path.join(changeDir, 'analysis.yaml'), source);
+    await fs.writeFile(path.join(changeDir, 'tasks.yaml'), renderInitialCurrentTasks());
+    await fs.writeFile(path.join(changeDir, 'verification.yaml'), renderInitialCurrentVerification());
 
     const index = await buildUiIndex(root);
-    expect(index.archive.currentSpecs).toEqual([]);
-    expect(index.changes.map((change) => change.id)).toEqual(['CHG-20260903-001']);
-    expect(index.allChanges).toEqual(index.changes);
+    const document = index.documents.find((item) => item.relativePath.endsWith('/analysis.yaml'));
+    expect(document?.content).toBe(source);
+    expect(document?.structuredContent).toMatchObject({
+      change: 'CHG-20260923-001',
+      problem: '用户难以理解变更内容',
+    });
+    expect(index.documents.find((item) => item.relativePath.endsWith('/tasks.yaml'))?.structuredContent)
+      .toMatchObject({ changeRevision: 1, tasks: [] });
+    expect(index.documents.find((item) => item.relativePath.endsWith('/verification.yaml'))?.structuredContent)
+      .toMatchObject({ changeRevision: 1, testCases: [] });
+  });
+
+  it('exposes requirement and scenario steps from a Change spec.md', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codespec-ui-index-'));
+    tempRoots.push(root);
+    const changeDir = path.join(root, 'codespec', 'changes', 'CHG-20260923-001');
+    await fs.mkdir(changeDir, { recursive: true });
+    const source = richDelta();
+    await fs.writeFile(path.join(changeDir, 'spec.md'), source);
+
+    const index = await buildUiIndex(root);
+    const document = index.documents.find((item) => item.relativePath.endsWith('/spec.md'));
+    expect(document?.content).toBe(source);
+    expect(document?.structuredContent).toMatchObject({
+      requirements: [{
+        action: 'ADDED',
+        next: {
+          title: '新增用户',
+          scenarios: [{
+            title: '有效提交',
+            given: ['已登录'],
+            when: ['提交用户'],
+            then: ['用户出现在列表'],
+            error: ['重复用户时拒绝创建'],
+            testCases: [{
+              title: '提交用户',
+              type: 'UI',
+              steps: [
+                { number: '1', action: '点击新增用户', expected: '打开表单' },
+                { number: '2', action: '提交有效信息', expected: '用户出现在列表' },
+              ],
+            }],
+          }],
+        },
+      }],
+    });
   });
 
   it('exposes SDD level for active Change groups', async () => {
@@ -347,7 +404,7 @@ describe('buildUiIndex', () => {
       path.join(root, 'codespec', 'config.yaml'),
       [
         'version: 1',
-        'schema: code-spec',
+        'schema: spec-driven',
         'project:',
         '  name: ui-test',
         'paths:',

@@ -28,7 +28,6 @@ describe('CodeSpec UI web assets', () => {
     expect(app).toContain('archiveCandidateFor');
     expect(app).toContain('archive-action');
     expect(app).toContain('change-table');
-    expect(app).toContain('变更ID');
     expect(app).toContain('序号');
     expect(app).toContain('变更标题');
     expect(app).toContain('关联模块/需求');

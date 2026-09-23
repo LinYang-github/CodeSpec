@@ -112,7 +112,7 @@ export class ShowCommand {
     }
     if (!/^CHG-\d{8}-\d{3}$/u.test(selected)) {
       const message = `canonical code-spec show 要求 Change ID 匹配 CHG-YYYYMMDD-NNN；'${selected}' 不受支持。`;
-      if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'legacy_change_unsupported', message }] }, null, 2));
+      if (options.json) console.log(JSON.stringify({ status: [{ severity: 'error', code: 'invalid_change_id', message }] }, null, 2));
       else console.error(message);
       process.exitCode = 1;
       return;

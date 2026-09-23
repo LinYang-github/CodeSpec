@@ -4,7 +4,7 @@ import { formatDiagnosticMessage, formatStatusLabel } from '../../src/ui/user-fa
 describe('user-facing messages', () => {
   it('formats lifecycle statuses with Chinese labels and stable protocol values', () => {
     expect(formatStatusLabel('ANALYZE')).toBe('分析（ANALYZE）');
-    expect(formatStatusLabel('ARCHIVED')).toBe('已归档（ARCHIVED）');
+    expect(formatStatusLabel('ARCHIVED')).toBe('ARCHIVED');
   });
 
   it('localizes known diagnostic categories without changing their codes', () => {

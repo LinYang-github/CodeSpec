@@ -6,11 +6,15 @@ import path from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
 import { getWorkspacePaths } from './codespec-workflow/paths.js';
+import { parseAnalysisDocument } from './codespec-workflow/analysis.js';
+import { parseCurrentTasks, parseCurrentVerification } from './codespec-workflow/current-change-yaml.js';
+import { parseCurrentSpecDelta } from './codespec-workflow/current-spec-delta.js';
 import { loadCurrentSpecGraph } from './codespec-workflow/current-spec-graph-loader.js';
 import { parseBusinessRegistry } from './codespec-workflow/current-spec-yaml.js';
 import { parseWorkspaceConfig } from './codespec-workflow/schemas.js';
 import type { CurrentSpecGraph } from './codespec-workflow/current-spec-graph.js';
 import type { ChangeMode, ChangeStatus, SddLevel } from './codespec-workflow/types.js';
+import type { WorkspacePaths } from './codespec-workflow/paths.js';
 
 export type UiSource = 'codespec' | 'superpowers-plans';
 export type UiContentType = 'markdown' | 'yaml' | 'text';
@@ -160,6 +164,8 @@ interface UiWorkspacePaths {
   business: string;
   changes: string;
   specs: string;
+  canonicalPaths?: WorkspacePaths;
+  retiredArchive?: string;
 }
 
 const DEFAULT_UI_PATHS: UiWorkspacePaths = {
@@ -201,10 +207,21 @@ function getYamlLabels(content: string): string[] {
   }
 }
 
-function getStructuredContent(content: string, contentType: UiContentType, filePath: string): unknown {
-  if (contentType !== 'yaml' || !new Set(['api.yaml', 'interface.yaml', 'metadata.yaml', 'tasks.yaml', 'verification.yaml']).has(path.basename(filePath))) return undefined;
+function getStructuredContent(content: string, contentType: UiContentType, filePath: string, isChangeDocument: boolean): unknown {
+  const name = path.basename(filePath);
+  if (isChangeDocument && contentType === 'markdown' && name === 'spec.md') {
+    try {
+      return parseCurrentSpecDelta(content);
+    } catch {
+      return undefined;
+    }
+  }
+  if (contentType !== 'yaml' || !new Set(['analysis.yaml', 'api.yaml', 'interface.yaml', 'metadata.yaml', 'tasks.yaml', 'verification.yaml']).has(name)) return undefined;
   try {
     const value = parseYaml(content);
+    if (name === 'analysis.yaml') return parseAnalysisDocument(value);
+    if (name === 'tasks.yaml') return parseCurrentTasks(value);
+    if (name === 'verification.yaml') return parseCurrentVerification(value);
     JSON.stringify(value);
     return value;
   } catch {
@@ -406,35 +423,33 @@ function relativePrefix(projectRoot: string, directory: string): string {
 }
 
 async function loadUiWorkspacePaths(projectRoot: string): Promise<UiWorkspacePaths> {
+  const codespecDir = path.join(projectRoot, 'codespec');
+  let source: string;
   try {
-    const codespecDir = path.join(projectRoot, 'codespec');
-    const config = parseWorkspaceConfig(parseYaml(await fs.readFile(path.join(codespecDir, 'config.yaml'), 'utf8')));
-    const paths = getWorkspacePaths(codespecDir, config);
-    return {
-      projectName: config.project.name,
-      business: toPosixPath(path.relative(projectRoot, paths.business)),
-      changes: relativePrefix(projectRoot, paths.changes),
-      specs: relativePrefix(projectRoot, paths.currentSpecs),
-    };
-  } catch {
+    source = await fs.readFile(path.join(codespecDir, 'config.yaml'), 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     return DEFAULT_UI_PATHS;
   }
+  const config = parseWorkspaceConfig(parseYaml(source));
+  const paths = getWorkspacePaths(codespecDir, config);
+  return {
+    projectName: config.project.name,
+    business: toPosixPath(path.relative(projectRoot, paths.business)),
+    changes: relativePrefix(projectRoot, paths.changes),
+    specs: relativePrefix(projectRoot, paths.currentSpecs),
+    ...(config.schema === 'code-spec' ? { canonicalPaths: paths, retiredArchive: 'codespec/archive/' } : {}),
+  };
 }
 
-async function loadUiCurrentSpecGraph(projectRoot: string): Promise<UiCurrentSpecGraph | null> {
-  try {
-    const codespecDir = path.join(projectRoot, 'codespec');
-    const config = parseWorkspaceConfig(parseYaml(await fs.readFile(path.join(codespecDir, 'config.yaml'), 'utf8')));
-    const graph = await loadCurrentSpecGraph(getWorkspacePaths(codespecDir, config));
-    return {
-      modules: graph.business.modules,
-      relations: graph.relations,
-      apis: [...graph.apis.values()],
-    };
-  } catch {
-    // The document browser remains usable for legacy and incomplete workspaces.
-    return null;
-  }
+async function loadUiCurrentSpecGraph(uiPaths: UiWorkspacePaths): Promise<UiCurrentSpecGraph | null> {
+  if (!uiPaths.canonicalPaths) return null;
+  const graph = await loadCurrentSpecGraph(uiPaths.canonicalPaths);
+  return {
+    modules: graph.business.modules,
+    relations: graph.relations,
+    apis: [...graph.apis.values()],
+  };
 }
 
 async function collectFiles(
@@ -462,6 +477,7 @@ async function collectFiles(
       continue;
     }
     if (entry.isDirectory()) {
+      if (source === 'codespec' && uiPaths.retiredArchive && `${relativePath}/`.startsWith(uiPaths.retiredArchive)) continue;
       await collectFiles(filePath, projectRoot, source, uiPaths, documents, skipped);
       continue;
     }
@@ -490,7 +506,7 @@ async function collectFiles(
         title: getTitle(content, filePath, contentType),
         labels: contentType === 'yaml' ? getYamlLabels(content) : [],
         content,
-        structuredContent: getStructuredContent(content, contentType, filePath),
+        structuredContent: getStructuredContent(content, contentType, filePath, source === 'codespec' && relativePath.startsWith(uiPaths.changes)),
         modifiedAt: stats.mtime.toISOString(),
       });
     } catch {
@@ -501,7 +517,8 @@ async function collectFiles(
 
 export async function buildUiIndex(projectRoot: string): Promise<UiIndex> {
   const root = await fs.realpath(projectRoot);
-  const [uiPaths, currentSpecGraph] = await Promise.all([loadUiWorkspacePaths(root), loadUiCurrentSpecGraph(root)]);
+  const uiPaths = await loadUiWorkspacePaths(root);
+  const currentSpecGraph = await loadUiCurrentSpecGraph(uiPaths);
   const documents: UiDocument[] = [];
   const skipped: UiIndex['skipped'] = [];
 

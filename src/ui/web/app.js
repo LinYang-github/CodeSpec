@@ -9,7 +9,24 @@ const rebuild = document.querySelector('#rebuild');
 const projectName = document.querySelector('#project-name');
 const sidebar = document.querySelector('#sidebar');
 const sidebarToggle = document.querySelector('#sidebar-toggle');
-const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY', 'ARCHIVE'];
+const lifecycleStatuses = ['ANALYZE', 'DESIGN', 'PLAN', 'IMPLEMENT', 'VERIFY'];
+const changeViewStages = ['ANALYZE', 'DESIGN', 'TASKS', 'VERIFY'];
+const stageDocumentNames = {
+  ANALYZE: ['analysis.yaml'],
+  DESIGN: ['design.md', 'spec.md'],
+  TASKS: ['tasks.yaml'],
+  VERIFY: ['verification.yaml'],
+};
+const lifecycleDescriptions = {
+  ANALYZE: '需求澄清',
+  DESIGN: '方案设计',
+  PLAN: '任务计划',
+  IMPLEMENT: '开发实现',
+  VERIFY: '结果验证',
+  ARCHIVE: '待归档',
+  ABANDONED: '已终止',
+};
+const requirementActionLabels = { ADDED: '新增', MODIFIED: '修改', REMOVED: '删除' };
 let index;
 let currentScreen = { type: 'overview' };
 let commandHelperOpen = false;
@@ -189,8 +206,8 @@ function renderCommandHelper() {
 }
 
 function statusLabel(status) {
-  if (status === 'ABANDONED') return '生命周期失败';
-  return text(status, '状态未知');
+  const description = lifecycleDescriptions[status];
+  return description ? `${description}（${status}）` : text(status, '状态未知');
 }
 
 function levelLabel(level) {
@@ -259,23 +276,17 @@ function openBusinessChangesModal(module, changes) {
   const changeList = element('div', 'business-change-modal-list');
   for (const change of changes) {
     const changeButton = button('', 'business-change-modal-item', () => {
-      const firstDocument = firstChangeDocument(change);
       close();
-      navigateTo({
-        type: 'change',
-        changeId: change.id,
-        ...(firstDocument ? { activeDocumentId: firstDocument.id } : {}),
-      });
+      navigateTo({ type: 'change', changeId: change.id });
     });
     const itemHeading = element('div', 'business-change-modal-item-heading');
     itemHeading.append(
-      element('strong', '', change.id),
+      element('strong', '', text(change.title, '未命名 Change')),
       element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)),
     );
     const requirements = (change.requirements ?? []).join('、') || '未关联需求';
     changeButton.append(
       itemHeading,
-      element('span', 'business-change-modal-item-title', text(change.title, '未命名 Change')),
       element('small', '', requirements),
     );
     changeList.append(changeButton);
@@ -324,6 +335,17 @@ async function copyDocumentPath(document, control) {
   }, 1200);
 }
 
+async function copyChangeId(changeId, control) {
+  const label = `编号 ${changeId} · 复制`;
+  try {
+    await navigator.clipboard.writeText(changeId);
+    control.textContent = '已复制编号';
+  } catch {
+    control.textContent = '复制失败';
+  }
+  setTimeout(() => { control.textContent = label; }, 1200);
+}
+
 function createDocumentTab(document, label, activate) {
   const item = element('div', 'document-tab-item');
   const tab = button(label, 'document-tab', () => activate(document, tab));
@@ -364,7 +386,7 @@ function renderModuleDocumentPanel(moduleId) {
   };
   const tabButtons = [];
   documents.forEach((doc, position) => {
-    const { item, tab } = createDocumentTab(doc, doc.relativePath.split('/').at(-1) ?? documentTabLabel(doc), activate);
+    const { item, tab } = createDocumentTab(doc, doc.relativePath.split('/').at(-1) ?? doc.title, activate);
     tab.classList.add('module-document-tab');
     if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
     if (tab.classList.contains('active')) item.classList.add('active');
@@ -682,7 +704,6 @@ function archiveReasonFor(change) {
 function renderChangeRow(change, position) {
   const row = element('tr', 'change-table-row');
   row.append(element('td', 'change-table-sequence', String(position + 1)));
-  row.append(element('td', 'change-table-id', text(change.id)));
   row.append(element('td', 'change-table-title', text(change.title, '未命名 Change')));
   const associations = element('td', 'change-table-associations');
   associations.append(associationTags(change));
@@ -691,14 +712,11 @@ function renderChangeRow(change, position) {
   const status = element('td', 'change-table-status');
   status.append(element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)));
   const reason = archiveReasonFor(change);
-  status.append(element('span', reason ? 'disabled-reason' : 'gate-success', reason ?? '可归档'));
   row.append(status);
   const actions = element('td', 'change-table-actions');
-  const firstDocument = firstChangeDocument(change);
   actions.append(button('查看', 'table-action view-action', () => navigateTo({
     type: 'change',
     changeId: change.id,
-    ...(firstDocument ? { activeDocumentId: firstDocument.id } : {}),
   })));
   const archiveButton = button('归档', 'table-action archive-action', () => openArchiveConfirmation(archiveCandidateFor(change)));
   archiveButton.setAttribute('aria-label', `归档 ${text(change.title, change.id)}`);
@@ -717,14 +735,14 @@ function renderAllChangesWorkspace() {
   const table = element('table', 'change-table');
   const head = element('thead');
   const heading = element('tr');
-  for (const label of ['序号', '变更ID', '变更标题', '关联模块/需求', '创建时间', '状态', '操作']) heading.append(element('th', '', label));
+  for (const label of ['序号', '变更标题', '关联模块/需求', '创建时间', '状态', '操作']) heading.append(element('th', '', label));
   head.append(heading);
   const body = element('tbody');
   const changes = index.allChanges ?? [];
   if (!changes.length) {
     const emptyRow = element('tr', 'change-table-empty-row');
     const emptyCell = element('td', 'change-table-empty-cell', '暂无 Change');
-    emptyCell.colSpan = 7;
+    emptyCell.colSpan = 6;
     emptyRow.append(emptyCell);
     body.append(emptyRow);
   } else {
@@ -736,28 +754,33 @@ function renderAllChangesWorkspace() {
   return view;
 }
 
-function lifecycleStepper(change) {
-  const stepper = element('ol', 'lifecycle-stepper');
+function changeStageForDocument(doc) {
+  return changeViewStages.find((stage) => stageDocumentNames[stage].includes(documentName(doc))) ?? null;
+}
+
+function stageStatusIndex(stage) {
+  return lifecycleStatuses.indexOf(stage === 'TASKS' ? 'PLAN' : stage);
+}
+
+function viewStageForStatus(status) {
+  return status === 'PLAN' || status === 'IMPLEMENT' ? 'TASKS' : status;
+}
+
+function availableStageIndex(change) {
+  if (change.status === 'ARCHIVE' || change.status === 'ABANDONED') return lifecycleStatuses.length - 1;
+  return lifecycleStatuses.indexOf(change.status);
+}
+
+function stageViewStatus(change, stage) {
+  if (change.status === 'ABANDONED') return '可回看';
+  if (change.status === 'ARCHIVE') return '已完成';
   const currentIndex = lifecycleStatuses.indexOf(change.status);
-  lifecycleStatuses.forEach((status, position) => {
-    const item = element('li', position < currentIndex ? 'complete' : position === currentIndex ? 'current' : 'future', status);
-    stepper.append(item);
-  });
-  if (change.status === 'ABANDONED') stepper.append(element('li', 'abandoned current', 'ABANDONED'));
-  return stepper;
-}
-
-function documentTabLabel(doc) {
-  const name = doc.relativePath.split('/').at(-1) ?? doc.title;
-  return name.replace(/\.md$/u, '');
-}
-
-function orderedChangeDocuments(change) {
-  return [...(change.documents ?? [])];
-}
-
-function firstChangeDocument(change) {
-  return orderedChangeDocuments(change)[0] ?? null;
+  if (stage === 'TASKS' && (change.status === 'PLAN' || change.status === 'IMPLEMENT')) {
+    return `当前：${statusLabel(change.status)}`;
+  }
+  if (stageStatusIndex(stage) < currentIndex) return '已完成';
+  if (stage === change.status) return '当前阶段';
+  return '待开始';
 }
 
 function renderChangeDetail(change, returnScreen = currentChangeReturnScreen) {
@@ -768,9 +791,25 @@ function renderChangeDetail(change, returnScreen = currentChangeReturnScreen) {
     ? copyScreen(currentScreen)
     : { type: 'overview' };
   const detailReturnScreen = returnScreen ?? fallbackReturnScreen;
-  const activeDocumentId = currentScreen.type === 'change' && currentScreen.changeId === change.id
-    ? currentScreen.activeDocumentId
+  if (availableStageIndex(change) < 0) {
+    const unavailable = element('div', 'detail-view');
+    unavailable.append(backButton(`返回${screenLabel(detailReturnScreen)}`, goBackFromScreen));
+    unavailable.append(emptyState('变更状态未读取，无法按阶段查看。'));
+    page.replaceChildren(unavailable);
+    return;
+  }
+  const requestedDocument = (change.documents ?? []).find((doc) => doc.id === currentScreen.activeDocumentId);
+  const requestedStage = currentScreen.type === 'change' && currentScreen.changeId === change.id
+    ? currentScreen.stage ?? (requestedDocument ? changeStageForDocument(requestedDocument) : null)
     : null;
+  const currentStage = lifecycleStatuses.includes(change.status)
+    ? viewStageForStatus(change.status)
+    : change.status === 'ARCHIVE' ? 'VERIFY' : 'ANALYZE';
+  const requestedViewStage = viewStageForStatus(requestedStage);
+  const selectedStage = changeViewStages.includes(requestedViewStage)
+    && stageStatusIndex(requestedViewStage) <= availableStageIndex(change)
+    ? requestedViewStage
+    : currentStage;
   const view = document.createElement('div');
   view.classList.add('detail-view');
   const header = element('div', 'section-header detail-section-header');
@@ -781,38 +820,62 @@ function renderChangeDetail(change, returnScreen = currentChangeReturnScreen) {
   );
   header.append(summaryRow);
   view.append(header);
-  const documents = orderedChangeDocuments(change);
   const docs = element('section', 'document-panel');
   const documentHeader = element('div', 'document-panel-header');
-  documentHeader.append(
-    element('h3', '', `${change.id} · ${text(change.title, '未命名 Change')}`),
-    lifecycleStepper(change),
+  const titleBlock = element('div', 'change-detail-title');
+  const titleRow = element('div', 'change-detail-title-row');
+  titleRow.append(
+    element('h3', '', text(change.title, '未命名 Change')),
+    element('span', `status-pill ${statusClass(change.status)}`, statusLabel(change.status)),
   );
+  const copyId = button(`编号 ${change.id} · 复制`, 'change-id-copy', () => copyChangeId(change.id, copyId));
+  copyId.setAttribute('aria-label', `复制变更 ID ${change.id}`);
+  titleBlock.append(titleRow, copyId);
+  documentHeader.append(titleBlock);
   docs.append(documentHeader);
-  const tabs = element('nav', 'document-tabs');
-  const content = element('div', 'document-content');
-  const activate = async (doc, activeButton) => {
-    currentScreen.activeDocumentId = doc.id;
-    activateDocumentTab(tabs, activeButton);
-    const detail = await api(`/api/documents/${doc.id}`);
+  const tabs = element('nav', 'change-stage-tabs');
+  tabs.setAttribute('aria-label', '按阶段查看变更内容');
+  tabs.setAttribute('role', 'tablist');
+  const content = element('div', 'document-content change-stage-content');
+  content.id = 'change-stage-content';
+  content.setAttribute('role', 'tabpanel');
+  const stageButtons = new Map();
+  let requestNumber = 0;
+  const activate = async (stage) => {
+    currentScreen.stage = stage;
+    currentScreen.activeDocumentId = undefined;
+    for (const [name, control] of stageButtons) {
+      control.classList.toggle('active', name === stage);
+      control.setAttribute('aria-selected', String(name === stage));
+    }
+    const ownRequest = ++requestNumber;
+    const names = stageDocumentNames[stage];
+    const documents = names.map((name) => (change.documents ?? []).find((doc) => documentName(doc) === name));
+    if (documents.some((doc) => !doc)) {
+      content.replaceChildren(element('p', 'analysis-error', '阶段文件缺失，无法显示。'));
+      return;
+    }
+    const details = await Promise.all(documents.map((doc) => api(`/api/documents/${doc.id}`)));
+    if (ownRequest !== requestNumber) return;
     content.replaceChildren();
-    renderDocument(detail, content);
+    renderChangeStage(stage, details, content, change);
   };
-  if (!documents.length) docs.append(emptyState('暂无 Change 文档'));
-  else {
-    const tabButtons = [];
-    documents.forEach((doc, position) => {
-      const { item, tab } = createDocumentTab(doc, documentTabLabel(doc), activate);
-      if (doc.id === activeDocumentId || (!activeDocumentId && position === 0)) tab.classList.add('active');
-      if (tab.classList.contains('active')) item.classList.add('active');
-      tabButtons.push(tab);
-      tabs.append(item);
-    });
-    docs.append(tabs, content);
-    const activeDocument = documents.find((doc) => doc.id === activeDocumentId) ?? documents[0];
-    const activeTab = tabButtons[documents.indexOf(activeDocument)];
-    activate(activeDocument, activeTab).catch(showError);
-  }
+  changeViewStages.forEach((stage) => {
+    const control = button('', 'change-stage-tab', () => activate(stage));
+    control.setAttribute('role', 'tab');
+    control.setAttribute('aria-controls', content.id);
+    control.disabled = stageStatusIndex(stage) > availableStageIndex(change);
+    control.append(
+      element('span', 'change-stage-tab-title', stage === 'TASKS'
+        ? '任务与执行（PLAN / IMPLEMENT）'
+        : `${lifecycleDescriptions[stage]}（${stage}）`),
+      element('span', 'change-stage-tab-status', stageViewStatus(change, stage)),
+    );
+    stageButtons.set(stage, control);
+    tabs.append(control);
+  });
+  docs.append(tabs, content);
+  activate(selectedStage).catch(showError);
   view.append(docs);
   page.replaceChildren(view);
 }
@@ -911,6 +974,253 @@ function documentCollectionSection(title, items, columns) {
   return documentSection(title, wrapper);
 }
 
+function analysisTextSection(title, lines) {
+  if (!lines.length) return null;
+  const content = lines.length === 1
+    ? element('p', 'analysis-text', lines[0])
+    : element('ul', 'analysis-text-list');
+  if (lines.length > 1) {
+    for (const line of lines) content.append(element('li', '', line));
+  }
+  return documentSection(title, content);
+}
+
+function renderAnalysisDocument(data, target) {
+  target.classList.add('structured-document', 'analysis-document');
+  const confirmed = [
+    ...data.assumptions.filter((item) => item.status === 'CONFIRMED').map((item) => item.statement),
+    ...data.openQuestions.filter((item) => item.status === 'RESOLVED').map((item) => `${item.question}：${item.resolution}`),
+  ];
+  const pending = [
+    ...data.assumptions.filter((item) => item.status === 'PROPOSED').map((item) => item.statement),
+    ...data.openQuestions.filter((item) => item.status === 'OPEN').map((item) => item.question),
+  ];
+  const sections = [
+    ['要解决的问题', data.problem.trim() ? [data.problem] : []],
+    ['期望结果', data.goals.map((item) => item.statement)],
+    ['影响对象', data.actors],
+    ['本次范围', data.scope.in],
+    ['范围之外', data.scope.out],
+    ['明确不做', data.nonGoals.map((item) => item.statement)],
+    ['怎样算完成', data.acceptanceCriteria.map((item) => item.statement)],
+    ['需要遵守的约束', data.constraints.map((item) => item.statement)],
+    ['已确认的处理方式', confirmed],
+    ['待确认事项', pending],
+  ];
+  for (const [title, lines] of sections) {
+    const section = analysisTextSection(title, lines);
+    if (section) target.append(section);
+  }
+  if (!target.children.length) target.append(emptyState('需求澄清尚未填写。'));
+}
+
+function readableMarkdown(detail) {
+  const parser = markdownit({ html: false });
+  const tokens = parser.parse(detail.content, {});
+  const visibleTokens = [];
+  for (let position = 0; position < tokens.length; position += 1) {
+    const isComment = tokens[position].type === 'paragraph_open'
+      && tokens[position + 1]?.type === 'inline'
+      && /^<!--[\s\S]*-->$/u.test(tokens[position + 1].content.trim())
+      && tokens[position + 2]?.type === 'paragraph_close';
+    if (isComment) position += 2;
+    else visibleTokens.push(tokens[position]);
+  }
+  return { parser, tokens: visibleTokens };
+}
+
+function renderedMarkdown(parser, tokens) {
+  return parser.renderer.render(tokens, parser.options, {}).trim();
+}
+
+function markdownBody(content, emptyMessage) {
+  const body = element('div', 'document-markdown-body');
+  if (content) body.insertAdjacentHTML('beforeend', content);
+  else body.append(emptyState(emptyMessage));
+  return body;
+}
+
+function renderDesignStage(detail) {
+  const { parser, tokens } = readableMarkdown(detail);
+  const sections = [];
+  let section = null;
+  for (let position = 0; position < tokens.length; position += 1) {
+    const token = tokens[position];
+    if (token.type === 'heading_open' && token.tag === 'h2') {
+      const title = tokens[position + 1].content.trim();
+      section = title === '决策' || title === '方案与取舍' ? [] : null;
+      if (section) sections.push(section);
+      position += 2;
+    } else if (section) section.push(token);
+  }
+  const content = element('div', 'design-summary');
+  for (const item of sections) {
+    const rendered = renderedMarkdown(parser, item);
+    if (rendered) content.append(markdownBody(rendered, ''));
+  }
+  if (!content.children.length) content.append(emptyState('方案说明尚未填写。'));
+  return documentSection('方案说明', content);
+}
+
+function renderSpecStage(detail) {
+  const requirements = detail.structuredContent?.requirements;
+  if (!requirements?.length) {
+    return documentSection('需求、场景与测试用例', element('p', 'analysis-error', '需求文件尚未形成有效的需求条目，无法显示。'));
+  }
+  const content = element('div', 'spec-requirements');
+  for (const change of requirements) {
+    const requirement = change.next ?? change.previous;
+    const testCount = requirement.scenarios.reduce((count, scenario) => count + scenario.testCases.length, 0);
+    const disclosure = element('details', 'spec-requirement');
+    const summary = element('summary', 'spec-requirement-summary');
+    summary.append(
+      element('span', 'spec-change-badge', requirementActionLabels[change.action]),
+      element('strong', '', requirement.title),
+      element('small', '', `${requirement.scenarios.length} 个场景 · ${testCount} 个测试用例`),
+    );
+    const body = element('div', 'spec-requirement-body');
+    if (change.reason) body.append(element('p', 'spec-requirement-reason', `原因：${change.reason}`));
+    const scenarios = element('div', 'spec-scenario-list');
+    for (const scenario of requirement.scenarios) scenarios.append(renderSpecScenario(scenario));
+    body.append(scenarios);
+    disclosure.append(summary, body);
+    content.append(disclosure);
+  }
+  return documentSection('需求、场景与测试用例', content);
+}
+
+function renderSpecScenario(scenario) {
+  const card = element('section', 'spec-scenario');
+  card.append(element('h4', '', scenario.title));
+  const steps = element('dl', 'spec-scenario-steps');
+  for (const [label, items] of [
+    ['前提', scenario.given],
+    ['操作', scenario.when],
+    ['结果', scenario.then],
+    ['异常', scenario.error],
+  ]) {
+    const value = element('dd');
+    if (items.length === 1) value.textContent = items[0];
+    else {
+      const list = element('ol', 'spec-inline-list');
+      for (const item of items) list.append(element('li', '', item));
+      value.append(list);
+    }
+    steps.append(element('dt', '', label), value);
+  }
+  card.append(steps);
+  if (scenario.testCases.length) {
+    const tests = element('div', 'spec-test-cases');
+    tests.append(element('h5', '', `测试用例（${scenario.testCases.length}）`));
+    for (const testCase of scenario.testCases) {
+      const test = element('section', 'spec-test-case');
+      const heading = element('div', 'spec-test-case-heading');
+      heading.append(element('strong', '', testCase.title), element('span', '', testCase.type));
+      const body = element('div', 'spec-test-case-body');
+      if (!testCase.steps.length) body.append(element('p', '', '尚未填写测试步骤。'));
+      else {
+        const list = element('ol', 'spec-test-steps');
+        for (const step of testCase.steps) {
+          const item = element('li');
+          item.append(
+            element('span', 'spec-test-step-number', `${step.number}.`),
+            element('span', '', step.action),
+            element('span', 'spec-test-step-arrow', '→'),
+            element('span', '', step.expected),
+          );
+          list.append(item);
+        }
+        body.append(list);
+      }
+      test.append(heading, body);
+      tests.append(test);
+    }
+    card.append(tests);
+  }
+  return card;
+}
+
+function renderTaskStage(data, changeStatus, target) {
+  if (!data) {
+    target.append(element('p', 'analysis-error', '任务内容格式有误，无法显示。'));
+    return;
+  }
+  if (!data.tasks.length) {
+    target.append(emptyState('尚无任务。'));
+    return;
+  }
+  const completed = data.tasks.filter((task) => task.status === 'DONE').length;
+  const summary = changeStatus === 'PLAN' || changeStatus === 'IMPLEMENT'
+    ? `当前：${statusLabel(changeStatus)} · 已完成 ${completed} / ${data.tasks.length} 项任务`
+    : `已完成 ${completed} / ${data.tasks.length} 项任务`;
+  const content = element('div', 'stage-task-view');
+  content.append(element('p', 'stage-summary', summary));
+  const table = element('table', 'document-data-table stage-task-table');
+  const head = element('thead');
+  const headerRow = element('tr');
+  for (const label of ['任务', '状态', '计划涉及文件', '验证方式']) headerRow.append(element('th', '', label));
+  head.append(headerRow);
+  const body = element('tbody');
+  const statusLabels = { PENDING: '待开始', IN_PROGRESS: '进行中', DONE: '已完成' };
+  for (const task of data.tasks) {
+    const row = element('tr');
+    const status = element('td');
+    status.append(element('span', `stage-task-status stage-task-${task.status.toLowerCase()}`, statusLabels[task.status]));
+    const runners = [...new Set(task.verificationPlan.map((plan) => plan.runner))];
+    row.append(
+      element('td', '', task.title),
+      status,
+      element('td', '', task.plannedFiles.join('、')),
+      element('td', '', runners.join('、')),
+    );
+    body.append(row);
+  }
+  table.append(head, body);
+  const scroll = element('div', 'document-table-scroll');
+  scroll.append(table);
+  content.append(scroll);
+  target.append(documentSection('任务清单', content));
+}
+
+function renderVerificationStage(data, target) {
+  if (!data) {
+    target.append(element('p', 'analysis-error', '验证内容格式有误，无法显示。'));
+    return;
+  }
+  if (!data.testCases.length) {
+    target.append(emptyState('尚无验证结果。'));
+    return;
+  }
+  const counts = { PASS: 0, FAIL: 0, BLOCKED: 0, SKIPPED: 0 };
+  for (const record of data.testCases) counts[record.result] += 1;
+  target.append(documentSection('验证概况', element('p', 'stage-summary',
+    `通过 ${counts.PASS} 项 · 失败 ${counts.FAIL} 项 · 阻塞 ${counts.BLOCKED} 项 · 跳过 ${counts.SKIPPED} 项`)));
+  const resultLabels = { PASS: '通过', FAIL: '失败', BLOCKED: '阻塞', SKIPPED: '跳过' };
+  data.testCases.forEach((record, position) => {
+    const details = element('div', 'stage-verification-details');
+    details.append(
+      element('span', `stage-task-status stage-result-${record.result.toLowerCase()}`, resultLabels[record.result]),
+      element('p', '', record.summary),
+      element('small', 'muted', `验证时间：${formatDateTime(record.executedAt)}`),
+    );
+    target.append(documentSection(`验证记录 ${position + 1}`, details));
+  });
+}
+
+function renderChangeStage(stage, details, target, change) {
+  const view = element('div', 'stage-reading-view');
+  if (stage === 'ANALYZE') renderDocument(details[0], view);
+  if (stage === 'DESIGN') {
+    view.append(
+      renderDesignStage(details[0]),
+      renderSpecStage(details[1]),
+    );
+  }
+  if (stage === 'TASKS') renderTaskStage(details[0].structuredContent, change.status, view);
+  if (stage === 'VERIFY') renderVerificationStage(details[0].structuredContent, view);
+  target.append(view);
+}
+
 function renderMetadataDocument(data, target) {
   target.classList.add('structured-document', 'metadata-document');
   target.append(
@@ -1004,6 +1314,16 @@ function renderDocumentReaderControls(detail, getMode, setMode) {
 }
 
 function renderDocument(detail, target) {
+  if (documentName(detail) === 'analysis.yaml') {
+    const body = element('div', 'document-reader-body');
+    if (detail.structuredContent === undefined) {
+      body.append(element('p', 'analysis-error', '需求澄清内容格式有误，无法显示。'));
+    } else {
+      renderAnalysisDocument(detail.structuredContent, body);
+    }
+    target.append(body);
+    return;
+  }
   let mode = supportsStructuredDocument(detail) ? 'structured' : 'source';
   const body = element('div', 'document-reader-body');
   const controls = renderDocumentReaderControls(detail, () => mode, (nextMode) => {
@@ -1047,7 +1367,10 @@ async function openDocument(doc, returnScreen = currentScreen) {
   const detail = await api(`/api/documents/${doc.id}`);
   const view = document.createElement('div');
   view.classList.add('document-view');
-  const header = sectionHeader('DOCUMENT', doc.title, '只读文档内容');
+  const isAnalysis = documentName(doc) === 'analysis.yaml';
+  const header = isAnalysis
+    ? sectionHeader('变更内容', '需求澄清', '只读查看')
+    : sectionHeader('DOCUMENT', doc.title, '只读文档内容');
   header.prepend(backButton(`返回${screenLabel(returnScreen)}`, goBackFromScreen));
   view.append(header);
   const content = element('div', 'document-content standalone-document');
@@ -1180,19 +1503,49 @@ function renderSearchSuggestions(documents, query) {
   searchSuggestions.replaceChildren();
   searchSuggestions.hidden = false;
   search.setAttribute('aria-expanded', 'true');
-  if (!documents.length) {
-    searchSuggestions.append(element('p', 'search-suggestion-empty', '没有匹配的文件'));
+  const normalizedQuery = query.toLocaleLowerCase();
+  const matchingChanges = (index?.allChanges ?? []).filter((change) =>
+    change.id.toLocaleLowerCase().includes(normalizedQuery)
+    || change.title?.toLocaleLowerCase().includes(normalizedQuery));
+  const changeByDocumentId = new Map((index?.allChanges ?? []).flatMap((change) =>
+    (change.documents ?? []).map((document) => [document.id, change])));
+  const matchedDocumentIds = new Set(matchingChanges.flatMap((change) =>
+    (change.documents ?? []).map((document) => document.id)));
+  const visibleDocuments = documents.filter((document) => {
+    if (matchedDocumentIds.has(document.id)) return false;
+    const change = changeByDocumentId.get(document.id);
+    if (!change) return true;
+    const stage = changeStageForDocument(document);
+    return stage && stageStatusIndex(stage) <= availableStageIndex(change);
+  });
+  if (!matchingChanges.length && !visibleDocuments.length) {
+    searchSuggestions.append(element('p', 'search-suggestion-empty', '没有匹配的内容'));
     return;
   }
-  for (const doc of documents) {
-    const option = button('', 'search-suggestion', async () => {
+  for (const change of matchingChanges) {
+    const option = button('', 'search-suggestion', () => {
       closeSearchSuggestions();
-      await openDocument(doc, copyScreen(currentScreen));
+      navigateTo({ type: 'change', changeId: change.id });
     });
     option.setAttribute('role', 'option');
     option.append(
-      element('strong', '', text(doc.title, doc.relativePath.split('/').at(-1))),
-      element('small', '', doc.relativePath),
+      element('strong', '', text(change.title, '未命名 Change')),
+      element('small', '', `变更编号 ${change.id}`),
+    );
+    searchSuggestions.append(option);
+  }
+  for (const doc of visibleDocuments) {
+    const change = changeByDocumentId.get(doc.id);
+    const stage = change ? changeStageForDocument(doc) : null;
+    const option = button('', 'search-suggestion', async () => {
+      closeSearchSuggestions();
+      if (change && stage) navigateTo({ type: 'change', changeId: change.id, stage });
+      else await openDocument(doc, copyScreen(currentScreen));
+    });
+    option.setAttribute('role', 'option');
+    option.append(
+      element('strong', '', change ? `${text(change.title, '未命名 Change')} · ${lifecycleDescriptions[stage]}` : text(doc.title, doc.relativePath.split('/').at(-1))),
+      element('small', '', change ? '变更内容' : doc.relativePath),
     );
     searchSuggestions.append(option);
   }
@@ -1248,8 +1601,8 @@ function navigateTo(screen) {
   if (nextScreen.type === 'change'
     && currentScreen.type === 'change'
     && currentScreen.changeId === nextScreen.changeId
-    && nextScreen.activeDocumentId === undefined) {
-    nextScreen.activeDocumentId = currentScreen.activeDocumentId;
+    && nextScreen.stage === undefined) {
+    nextScreen.stage = currentScreen.stage;
   }
   if (nextScreen.type === 'change') {
     currentChangeReturnScreen = currentChangeReturnScreen ?? (currentScreen.type === 'change'

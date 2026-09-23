@@ -7,7 +7,6 @@ const STATUS_LABELS: Record<ChangeStatus, string> = {
   IMPLEMENT: '实现（IMPLEMENT）',
   VERIFY: '验证（VERIFY）',
   ARCHIVE: '归档（ARCHIVE）',
-  ARCHIVED: '已归档（ARCHIVED）',
   ABANDONED: '已放弃（ABANDONED）',
 };
 
@@ -24,7 +23,7 @@ export function formatDiagnosticMessage(code: string, message: string): string {
     command_error: '命令执行失败',
     change_error: 'Change 处理失败',
     change_required: '必须指定 Change',
-    legacy_change_unsupported: '当前 canonical workspace 不支持旧 Change 标识',
+    invalid_change_id: 'Change ID 格式无效',
     no_codespec_root: '当前目录及其父目录中未找到 CodeSpec 根目录',
     no_root_with_registered_stores: '当前目录及其父目录中未找到 CodeSpec 根目录',
     unknown_store: '未找到指定的 store',
